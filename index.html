@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Photo Weather Pro - Fixed</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        :root {
+            --glass: rgba(255, 255, 255, 0.12);
+            --glass-heavy: rgba(0, 0, 0, 0.75);
+        }
+
+        body {
+            margin: 0;
+            font-family: 'Hiragino Kaku Gothic ProN', sans-serif;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            background-color: #1a1a2e;
+        }
+
+        #bg-image {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -2;
+            background-size: cover;
+            background-position: center;
+            transition: background-image 1.5s ease-in-out;
+            background-image: url('https://images.unsplash.com/photo-1470252649358-96753a782901?auto=format&fit=crop&w=1920&q=80');
+        }
+
+        .overlay {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.2), rgba(0,0,0,0.7));
+            z-index: -1;
+        }
+
+        .main-card {
+            background: var(--glass-heavy);
+            width: 90%;
+            max-width: 460px;
+            padding: 30px;
+            border-radius: 40px;
+            backdrop-filter: blur(25px);
+            border: 1px solid rgba(255,255,255,0.15);
+            box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+        }
+
+        .header { text-align: center; }
+        #loc { color: #38bdf8; font-weight: bold; font-size: 1rem; margin-bottom: 5px; }
+        .temp-main { font-size: 7rem; font-weight: bold; margin: 0; line-height: 1; letter-spacing: -3px; }
+        .weather-status { font-size: 1.8rem; margin: 15px 0 25px 0; display: block; }
+
+        .details-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;
+        }
+        .detail-item {
+            background: var(--glass); padding: 15px; border-radius: 20px; text-align: center;
+        }
+        .wind-icon { display: inline-block; font-size: 2rem; margin-bottom: 5px; transition: transform 0.8s ease; }
+
+        .tab-container {
+            display: flex; background: rgba(255,255,255,0.1); border-radius: 50px; margin-bottom: 20px; padding: 4px;
+        }
+        .tab-btn {
+            flex: 1; padding: 12px; border: none; background: none; color: white; cursor: pointer; border-radius: 50px; font-weight: bold;
+        }
+        .tab-btn.active { background: #38bdf8; }
+
+        .scroll-area { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; }
+        .scroll-area::-webkit-scrollbar { height: 4px; }
+        .scroll-area::-webkit-scrollbar-thumb { background: rgba(56, 189, 248, 0.5); border-radius: 10px; }
+
+        .list-item { min-width: 85px; background: var(--glass); padding: 18px 10px; border-radius: 22px; text-align: center; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div id="bg-image"></div>
+<div class="overlay"></div>
+
+<div class="main-card">
+    <div class="header">
+        <div id="loc">位置情報を取得中...</div>
+        <div class="temp-main" id="temp">--°</div>
+        <span class="weather-status" id="status">...</span>
+    </div>
+
+    <div class="details-grid">
+        <div class="detail-item">
+            <div style="font-size: 0.85rem; opacity: 0.7;">湿度</div>
+            <div style="font-size: 1.6rem; font-weight: bold;" id="humidity">--%</div>
+        </div>
+        <div class="detail-item">
+            <div style="font-size: 0.85rem; opacity: 0.7;">風向き・風速</div>
+            <div id="wind-dir" class="wind-icon">➤</div>
+            <div style="font-size: 1.3rem; font-weight: bold;" id="wind-speed">--m/s</div>
+        </div>
+    </div>
+
+    <div class="tab-container">
+        <button class="tab-btn active" onclick="switchTab('hourly')">24時間</button>
+        <button class="tab-btn" onclick="switchTab('daily')">1週間</button>
+    </div>
+
+    <div id="hourly-view" class="scroll-area"></div>
+    <div id="daily-view" class="scroll-area hidden"></div>
+</div>
+
+<script>
+    // WMO Weather interpretation codes (WW) に基づく完全なマップ
+    const weatherMap = {
+        0: "☀️ 快晴",
+        1: "🌤 晴れ", 2: "⛅ 晴れ時々曇", 3: "☁️ くもり",
+        45: "🌫 霧", 48: "🌫 霧",
+        51: "🌦 霧雨", 53: "🌦 霧雨", 55: "🌦 霧雨",
+        56: "❄️ 凍る霧雨", 57: "❄️ 凍る霧雨",
+        61: "🌧 小雨", 63: "🌧 雨", 65: "🌧 強い雨",
+        66: "❄️ 凍る雨", 67: "❄️ 強い凍る雨",
+        71: "❄️ 軽い降雪", 73: "❄️ 降雪", 75: "❄️ 強い降雪",
+        77: "❄️ 粒雪",
+        80: "🌧 にわか雨", 81: "🌧 強いにわか雨", 82: "🌧 激しいにわか雨",
+        85: "❄️ にわか雪", 86: "❄️ 強いにわか雪",
+        95: "⚡ 雷雨", 96: "⚡ 雷雨(雹)", 99: "⚡ 雷雨(激しい雹)"
+    };
+
+    const photoSources = {
+        sunny: 'https://images.unsplash.com/photo-1504386106331-3e4e71712b38?auto=format&fit=crop&w=1920&q=80',
+        cloudy: 'https://images.unsplash.com/photo-1483977399921-6cf349694811?auto=format&fit=crop&w=1920&q=80',
+        rainy: 'https://images.unsplash.com/photo-1515694346937-94d85e41e6f0?auto=format&fit=crop&w=1920&q=80',
+        snowy: 'https://images.unsplash.com/photo-1483664852095-d6cc6870702d?auto=format&fit=crop&w=1920&q=80'
+    };
+
+    function switchTab(type) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        event.currentTarget.classList.add('active');
+        document.getElementById('hourly-view').classList.toggle('hidden', type !== 'hourly');
+        document.getElementById('daily-view').classList.toggle('hidden', type !== 'daily');
+    }
+
+    async function init() {
+        navigator.geolocation.getCurrentPosition(async (pos) => {
+            const { latitude: lat, longitude: lon } = pos.coords;
+            try {
+                const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m,relativehumidity_2m,precipitation_probability,weathercode&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto`);
+                const data = await res.json();
+                updateUI(data);
+            } catch (e) { document.getElementById('loc').textContent = "取得エラー"; }
+        });
+    }
+
+    function updateUI(data) {
+        const cur = data.current_weather;
+        document.getElementById('loc').textContent = "📍 現在地付近";
+        document.getElementById('temp').textContent = `${Math.round(cur.temperature)}°`;
+        document.getElementById('status').textContent = weatherMap[cur.weathercode] || "☁️ 曇り";
+        
+        const nowIdx = new Date().getHours();
+        document.getElementById('humidity').textContent = `${data.hourly.relativehumidity_2m[nowIdx]}%`;
+        document.getElementById('wind-speed').textContent = `${cur.windspeed}m/s`;
+        document.getElementById('wind-dir').style.transform = `rotate(${cur.winddirection}deg)`;
+
+        const bg = document.getElementById('bg-image');
+        let photo = photoSources.cloudy;
+        if (cur.weathercode <= 1) photo = photoSources.sunny;
+        else if (cur.weathercode >= 71 && cur.weathercode <= 86) photo = photoSources.snowy;
+        else if (cur.weathercode >= 51) photo = photoSources.rainy;
+        bg.style.backgroundImage = `url('${photo}')`;
+
+        const hView = document.getElementById('hourly-view');
+        hView.innerHTML = "";
+        for(let i=nowIdx; i<nowIdx+24; i++) {
+            hView.innerHTML += createItem(new Date(data.hourly.time[i]).getHours()+"時", data.hourly.weathercode[i], Math.round(data.hourly.temperature_2m[i])+"°", data.hourly.precipitation_probability[i]);
+        }
+
+        const dView = document.getElementById('daily-view');
+        dView.innerHTML = "";
+        for(let i=0; i<7; i++) {
+            const date = new Date(data.daily.time[i]);
+            const label = i===0 ? "今日" : (date.getMonth()+1)+"/"+date.getDate();
+            dView.innerHTML += createItem(label, data.daily.weathercode[i], Math.round(data.daily.temperature_2m_max[i])+"°", data.daily.precipitation_probability_max[i]);
+        }
+    }
+
+    function createItem(time, code, temp, pop) {
+        // アイコンとテキストを分離してバグを防ぐ
+        const fullStatus = weatherMap[code] || "☁️ 曇り";
+        const icon = fullStatus.split(' ')[0];
+        return `<div class="list-item">
+            <div style="font-size:0.8rem; opacity:0.6; margin-bottom:8px;">${time}</div>
+            <div style="font-size:2rem;">${icon}</div>
+            <div style="font-weight:bold; font-size:1.2rem; margin:8px 0;">${temp}</div>
+            <div style="color:#38bdf8; font-size:0.8rem; font-weight:bold;">☔${pop}%</div>
+        </div>`;
+    }
+
+    init();
+</script>
+</body>
+</html>
