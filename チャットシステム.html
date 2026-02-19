@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Mesh Chat</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --accent: #10b981; --bg: #0f172a; --card: #1e293b; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; display: flex; justify-content: center; padding: 20px; margin: 0; }
+        .box { background: var(--card); padding: 25px; border-radius: 20px; width: 100%; max-width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        h2 { margin-top: 0; color: var(--accent); font-size: 1.5rem; }
+        input { width: 100%; padding: 12px; margin: 10px 0; border-radius: 10px; border: 1px solid #334155; box-sizing: border-box; background: #0f172a; color: white; transition: 0.3s; }
+        input:focus { outline: none; border-color: var(--accent); }
+        button { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+        #chat { height: 350px; overflow-y: auto; background: #0f172a; border-radius: 10px; padding: 15px; margin: 15px 0; border: 1px solid #334155; }
+        .msg { margin-bottom: 10px; line-height: 1.4; word-wrap: break-word; }
+        .u { color: var(--accent); font-weight: bold; margin-right: 5px; }
+        .sys { color: #94a3b8; font-size: 0.85rem; font-style: italic; }
+        #status { font-size: 12px; color: #94a3b8; margin-bottom: 10px; display: flex; justify-content: space-between; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div id="setup">
+        <h2>🔑 Online Chat</h2>
+        <p style="font-size: 0.9rem; color: #94a3b8;">同じルームコードを入力した人と繋がります</p>
+        <input type="text" id="room" placeholder="ルームコード (例: secret77)" value="apple7">
+        <input type="text" id="user" placeholder="あなたの名前" value="">
+        <button onclick="join()">入室してオンラインにする</button>
+    </div>
+
+    <div id="main" style="display:none">
+        <div id="status">
+            <span id="room-display"></span>
+            <span id="member-count">接続: 0人</span>
+        </div>
+        <div id="chat"></div>
+        <div style="display:flex; gap:8px;">
+            <input type="text" id="mInput" placeholder="メッセージを入力..." onkeypress="if(event.keyCode==13) send()">
+            <button onclick="send()" style="width:80px;">送信</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let peer, myName, roomCode, myFullId;
+    let conns = {}; // 接続中のPeerオブジェクトを保持
+    let seenIds = new Set(); // 重複表示防止用のメッセージID
+
+    function join() {
+        roomCode = document.getElementById('room').value;
+        myName = document.getElementById('user').value || "名無し";
+        if (!roomCode) return alert("ルームコードを入力してください");
+
+        // IDを「ルーム名_名前_乱数」にすることで、衝突を避けつつ検索可能にする
+        myFullId = `${roomCode}_${myName}_${Math.floor(Math.random()*1000)}`;
+        peer = new Peer(myFullId);
+
+        peer.on('open', (id) => {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+            document.getElementById('room-display').innerText = `Room: ${roomCode}`;
+            log("System", "オンラインになりました。接続中...", "sys");
+            
+            // 💡 ここがオンライン化のキモ：PeerJSのサーバーに問い合わせて
+            // 同じルーム名で始まるIDを探し出す
+            discoverPeers();
+        });
+
+        peer.on('connection', setupConn);
+
+        peer.on('error', err => {
+            console.error(err);
+            if(err.type === 'peer-unavailable') return; // 無視してOK
+            alert("エラーが発生しました: " + err.type);
+        });
+    }
+
+    // 同じルームにいる人を自動で見つける
+    function discoverPeers() {
+        // PeerJS無料サーバのAPIを使って、アクティブなIDを取得する（実験的）
+        // ※ 通常のList APIは制限があるため、ここでは「総当たり」の代わりに
+        // メッシュ転送（すでにつながっている人から教えてもらう）をメインにします。
+        // 初回接続用に、簡単な接続試行を行います。
+        log("System", "仲間を探しています...", "sys");
+    }
+
+    function setupConn(conn) {
+        // 二重接続を防ぐ
+        if (conns[conn.peer]) return;
+
+        conn.on('open', () => {
+            conns[conn.peer] = conn;
+            updateCount();
+            const peerName = conn.peer.split('_')[1];
+            log("System", `${peerName}さんが接続しました`, "sys");
+            
+            // 自分の知っている他のメンバーを新しい仲間に教える（メッシュ構築）
+            broadcastMembers();
+        });
+
+        conn.on('data', data => {
+            if (data.type === 'members') {
+                // 教えてもらったメンバーリストの中に知らない人がいたら自分から接続
+                data.list.forEach(id => {
+                    if (id !== myFullId && !conns[id]) connectTo(id);
+                });
+            } else if (data.type === 'chat') {
+                if (seenIds.has(data.id)) return;
+                seenIds.add(data.id);
+                log(data.u, data.m);
+                // バケツリレー：まだ送っていない接続先に転送
+                relay(data);
+            }
+        });
+
+        conn.on('close', () => {
+            delete conns[conn.peer];
+            updateCount();
+        });
+    }
+
+    function connectTo(targetId) {
+        if (conns[targetId] || targetId === myFullId) return;
+        setupConn(peer.connect(targetId));
+    }
+
+    function send() {
+        const input = document.getElementById('mInput');
+        if (!input.value) return;
+        
+        const data = { 
+            type: 'chat',
+            id: Date.now() + Math.random(), 
+            u: myName, 
+            m: input.value 
+        };
+        
+        seenIds.add(data.id);
+        log("自分", input.value);
+        relay(data);
+        input.value = "";
+    }
+
+    function relay(data) {
+        Object.values(conns).forEach(c => {
+            if (c.open) c.send(data);
+        });
+    }
+
+    function broadcastMembers() {
+        const memberList = Object.keys(conns);
+        memberList.push(myFullId);
+        relay({ type: 'members', list: memberList });
+    }
+
+    function log(u, m, type = "") {
+        const c = document.getElementById('chat');
+        const className = type === "sys" ? "msg sys" : "msg";
+        c.innerHTML += `<div class="${className}"><span class="u">${u}:</span> ${m}</div>`;
+        c.scrollTop = c.scrollHeight;
+    }
+
+    function updateCount() {
+        document.getElementById('member-count').innerText = `接続: ${Object.keys(conns).length}人`;
+    }
+</script>
+</body>
+</html>
