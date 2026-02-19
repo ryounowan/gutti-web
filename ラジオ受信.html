@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Radio Listener</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #1e293b; padding: 30px; border-radius: 24px; width: 300px; text-align: center; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; text-align: center; box-sizing: border-box; }
+        button { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+        .btn-reset { background: #64748b; margin-top: 15px; display: none; }
+        #status { margin-top: 20px; color: #94a3b8; font-weight: bold; }
+        .status-off { color: #f87171 !important; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>📻 Listener</h2>
+    <div id="setup-ui">
+        <input type="text" id="room" value="apple7">
+        <button id="listenBtn" onclick="listen()">受信開始</button>
+    </div>
+    <div id="status">待機中</div>
+    <button id="resetBtn" class="btn-reset" onclick="location.reload()">配信を切替 / リセット</button>
+    <audio id="audio" autoplay></audio>
+</div>
+
+<script>
+    let peer = null;
+
+    function listen() {
+        const room = document.getElementById('room').value;
+        const status = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
+        document.getElementById('listenBtn').disabled = true;
+
+        peer = new Peer(`${room}-listener-${Math.floor(Math.random(, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    })*999)}`);
+
+        peer.on('open', () => {
+            status.innerText = "📡 接続を試みています...";
+            const conn = peer.connect(`${room}-host`);
+            
+            // 配信者がOFFボタン等で接続を閉じたとき
+            conn.on('close', () => { showEnd(); });
+        });
+
+        peer.on('call', call => {
+            status.innerText = "🔴 受信中...";
+            resetBtn.style.display = "block";
+            call.answer();
+            call.on('stream', s => {
+                const a = document.getElementById('audio');
+                a.srcObject = s;
+                a.play();
+            });
+            call.on('close', () => { showEnd(); });
+        });
+
+        peer.on('error', (err) => {
+            status.innerText = "❌ 配信に接続できません";
+            resetBtn.style.display = "block";
+        });
+    }
+
+    function showEnd() {
+        const status = document.getElementById('status');
+        status.innerText = "📴 放送は終了しました";
+        status.classList.add('status-off');
+        document.getElementById('resetBtn').style.display = "block";
+        const a = document.getElementById('audio');
+        a.srcObject = null;
+    }
+</script>
+</body>
+</html>
