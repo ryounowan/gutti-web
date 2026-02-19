@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Share Tool</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; display: flex; justify-content: center; padding: 20px; }
+        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        h2 { color: #007bff; text-align: center; margin-top: 0; }
+        .section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 12px; }
+        .id-display { font-size: 24px; font-weight: bold; color: #333; text-align: center; letter-spacing: 2px; }
+        input[type="text"] { width: 100%; padding: 10px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-send { background: #007bff; color: white; }
+        .btn-send:hover { background: #0056b3; }
+        #qrcode { display: flex; justify-content: center; margin-top: 10px; }
+        .progress-container { display: none; margin-top: 15px; }
+        .progress-bar { width: 100%; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: #00c853; transition: width 0.3s; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>ShareMe Lite</h2>
+
+    <div class="section">
+        <label>あなたの受信ID</label>
+        <div id="my-id" class="id-display">...接続中...</div>
+        <div id="qrcode"></div>
+    </div>
+
+    <div class="section">
+        <input type="text" id="peer-id" placeholder="相手のIDを入力">
+        <input type="file" id="file-input">
+        <button class="btn-send" onclick="sendFile()">ファイルを送信</button>
+    </div>
+
+    <div id="status" style="text-align: center; font-size: 14px; color: #666;"></div>
+    <div class="progress-container" id="prog-box">
+        <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
+    </div>
+</div>
+
+<script>
+    const peer = new Peer(undefined, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    }); // Peerオブジェクトの作成
+    let conn;
+
+    // 1. 自分のIDを取得してQRコードを表示
+    peer.on('open', (id) => {
+        document.getElementById('my-id').innerText = id;
+        new QRCode(document.getElementById("qrcode"), { text: id, width: 128, height: 128 });
+    });
+
+    // 2. 受信側の処理
+    peer.on('connection', (c) => {
+        conn = c;
+        setupConn();
+        document.getElementById('status').innerText = "接続されました。受信を待機中...";
+    });
+
+    function setupConn() {
+        conn.on('data', (data) => {
+            if (data.file) {
+                // ファイルを受信してダウンロード
+                const blob = new Blob([data.file], { type: data.type });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = data.name;
+                a.click();
+                document.getElementById('status').innerText = "受信完了: " + data.name;
+            }
+        });
+    }
+
+    // 3. 送信側の処理
+    function sendFile() {
+        const peerId = document.getElementById('peer-id').value;
+        const file = document.getElementById('file-input').files[0];
+        
+        if (!peerId || !file) return alert("IDとファイルを選択してください");
+
+        document.getElementById('status').innerText = "接続中...";
+        conn = peer.connect(peerId);
+
+        conn.on('open', () => {
+            document.getElementById('status').innerText = "送信中...";
+            document.getElementById('prog-box').style.display = 'block';
+            document.getElementById('prog-fill').style.width = '100%'; // 簡易表示
+
+            // ファイルをバイナリとして送信
+            conn.send({
+                file: file,
+                name: file.name,
+                type: file.type
+            });
+
+            setTimeout(() => {
+                document.getElementById('status').innerText = "送信完了！";
+            }, 1000);
+        });
+    }
+</script>
+</body>
+</html>
