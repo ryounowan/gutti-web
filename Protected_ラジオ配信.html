@@ -1,0 +1,394 @@
+<style>html { display: none !important; }</style>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script>
+(function() {
+    const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+    const appState = gun.get('gutti-app-portal-universal-lock');
+    const style = document.querySelector('style');
+
+    const injectOverlay = () => {
+        if (document.getElementById('p2p-lock-overlay')) return;
+        const div = document.createElement('div');
+        div.id = 'p2p-lock-overlay';
+        div.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:white;z-index:2147483647;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-family:sans-serif;';
+        div.innerHTML = '<div style="font-size:70px;">🚧</div><h1 id="p2p-t"></h1><div id="p2p-b" style="padding:4px 12px;border-radius:15px;font-size:12px;font-weight:bold;color:#fff;"></div><p id="p2p-d" style="color:#666;margin:20px;line-height:1.6;"></p>';
+        document.body.prepend(div);
+    };
+
+    appState.on((data) => {
+        if (document.body) injectOverlay();
+        const overlay = document.getElementById('p2p-lock-overlay');
+        if (data && data.active === true) {
+            document.documentElement.style.setProperty('display', 'block', 'important');
+            if(overlay) {
+                overlay.style.display = 'flex';
+                document.getElementById('p2p-t').innerText = data.title || "点検中";
+                document.getElementById('p2p-d').innerText = data.detail || "";
+                const b = document.getElementById('p2p-b');
+                b.innerText = data.type === 'maintenance' ? '定期点検中' : 'システム障害';
+                b.style.background = data.type === 'maintenance' ? '#007aff' : '#ff3b30';
+            }
+        } else {
+            document.documentElement.style.display = 'block';
+            if(overlay) overlay.style.display = 'none';
+        }
+    });
+    setTimeout(() => { document.documentElement.style.display = 'block'; }, 4000);
+})();
+</script>
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Radio Host - Ultimate Pro Mixer</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --accent: #ef4444; --bg: #020617; --panel: #1e293b; --active: #10b981; --seek: #3b82f6; --echo: #a855f7; --record: #f87171; --se: #facc15; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: white; display: flex; justify-content: center; padding: 20px; }
+        .box { background: var(--panel); padding: 25px; border-radius: 24px; width: 100%; max-width: 480px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); }
+        .header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .timer-display { font-family: 'Courier New', monospace; font-size: 13px; color: #94a3b8; }
+        .listener-badge { background: #334155; padding: 4px 12px; border-radius: 20px; font-size: 12px; display: inline-flex; align-items: center; gap: 6px; }
+        .dot { width: 8px; height: 8px; background: var(--active); border-radius: 50%; display: inline-block; animation: blink 2s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+        .main-controls { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .ctrl-btn { padding: 12px; border: none; border-radius: 12px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; opacity: 0.9; text-align: center; }
+        .ctrl-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .btn-start { background: #3b82f6; } .btn-stop { background: #ef4444; } .btn-restart { background: #8b5cf6; } .btn-rec { background: var(--record); }
+        .mixer { background: #0f172a; padding: 15px; border-radius: 20px; border: 1px solid #334155; }
+        .fader-header { display: flex; justify-content: space-between; font-size: 11px; color: #94a3b8; margin: 10px 0 5px; font-weight: bold; }
+        input[type="range"] { -webkit-appearance: none; width: 100%; height: 6px; background: #334155; border-radius: 5px; outline: none; }
+        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 18px; height: 18px; background: #fff; border-radius: 50%; cursor: pointer; }
+        .meter-container { background: #000; height: 12px; border-radius: 6px; margin-bottom: 15px; overflow: hidden; border: 1px solid #475569; }
+        #level-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #10b981 70%, #facc15 85%, #ef4444 100%); transition: width 0.05s; }
+        .option-row { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; font-size: 12px; }
+        
+        /* Effect Buttons Grid */
+        .se-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
+        .se-btn { background: #334155; color: white; border: 1px solid #475569; padding: 10px; border-radius: 12px; cursor: pointer; font-size: 11px; display: flex; flex-direction: column; align-items: center; transition: 0.1s; }
+        .se-btn:active { background: var(--se); color: #000; transform: scale(0.95); }
+        .se-btn.ready { border-color: var(--se); }
+
+        .bgm-slot { background: #1e293b; padding: 15px; border-radius: 12px; margin-top: 15px; border-left: 4px solid #475569; }
+        .bgm-slot.playing { border-left-color: var(--active); }
+        .seek-container { width: 100%; height: 6px; background: #000; border-radius: 3px; margin: 10px 0; cursor: pointer; }
+        .seek-bar { width: 0%; height: 100%; background: var(--seek); pointer-events: none; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <div class="header-row">
+        <div>
+            <h2 style="margin:0;">🎙 Radio Elite</h2>
+            <div id="air-timer" class="timer-display">STREAM 00:00:00</div>
+        </div>
+        <div class="listener-badge" id="listener-count-container" style="display:none">
+            <span class="dot"></span>
+            <span id="listener-count">0</span>
+        </div>
+    </div>
+    
+    <div id="setup">
+        <input type="text" id="room" style="width:100%; padding:15px; margin-bottom:10px; border-radius:12px; border:none; background:#334155; color:white; box-sizing:border-box;" value="apple7">
+        <button class="ctrl-btn btn-start" style="width:100%" onclick="openStation()">放送開始</button>
+    </div>
+
+    <div id="main" style="display:none">
+        <div class="meter-container"><div id="level-bar"></div></div>
+
+        <div class="main-controls">
+            <button id="btnOnAir" class="ctrl-btn btn-start" onclick="toggleAir(true)">ON AIR</button>
+            <button id="btnOffAir" class="ctrl-btn btn-stop" onclick="toggleAir(false)" disabled>OFF</button>
+            <button class="ctrl-btn btn-restart" onclick="location.reload()">REBOOT</button>
+        </div>
+
+        <div class="option-row">
+            <span>🎧 モニター / 🦆 Duck(5%)</span>
+            <div>
+                <input type="checkbox" id="monitorOn" onchange="toggleMonitor()"> 🎧
+                <input type="checkbox" id="duckingOn" checked style="margin-left:10px;"> 🦆
+            </div>
+        </div>
+
+        <div class="option-row" style="border: 1px solid var(--record);">
+            <span id="rec-timer" style="color:var(--record); font-weight:bold;">REC 00:00:00</span>
+            <div>
+                <button id="btnRecStart" class="ctrl-btn btn-rec" style="padding:4px 10px; font-size:10px;" onclick="startRecording()">REC</button>
+                <button id="btnRecStop" class="ctrl-btn btn-stop" style="padding:4px 10px; font-size:10px;" onclick="stopRecording()" disabled>STOP</button>
+            </div>
+        </div>
+
+        <div class="mixer">
+            <div class="fader-header"><span>🎙 MIC</span><span id="v-mic">100%</span></div>
+            <input type="range" id="micVol" min="0" max="1.5" step="0.01" value="1" oninput="updateVol('mic', this.value)">
+            
+            <div class="option-row" style="margin-top:10px; border: 1px solid var(--echo);">
+                <label style="color:var(--echo)">✨ ECHO</label>
+                <input type="checkbox" id="echoOn" onchange="toggleEcho()">
+                <input type="range" id="echoLevel" min="0" max="0.8" step="0.01" value="0.3" style="width:50%" oninput="updateEcho()">
+            </div>
+
+            <div class="fader-header"><span>📣 EFFECT PADS (SE)</span></div>
+            <div class="se-grid" id="se-pads"></div>
+            
+            <div id="slots"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let peer, audioCtx, destination, micGain, limiter, analyser, conns = {};
+    let echoDelay, echoGain, micSource, monitorNode, duckingNode;
+    let mediaRecorder, recordedChunks = [];
+    let airStartTime, recStartTime, timerInterval;
+    let bgmStates = Array.from({length: 3}, (_, i) => ({ id: i, buffer: null, source: null, gainNode: null, isPlaying: false, startTime: 0, offset: 0, loop: false }));
+    let seBuffers = Array.from({length: 4}, () => null);
+
+    function openStation() {
+        const room = document.getElementById('room').value;
+        peer = new Peer(`${room}-host`);
+        peer.on('open', () => {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+            document.getElementById('listener-count-container').style.display = 'inline-flex';
+            initUI();
+            startGlobalTimer();
+        });
+        peer.on('connection', c => {
+            conns[c.peer] = c;
+            updateListenerCount();
+            c.on('close', () => { delete conns[c.peer]; updateListenerCount(); });
+            if(audioCtx && destination) peer.call(c.peer, destination.stream);
+        });
+    }
+
+    function initAudio() {
+        if(audioCtx) return;
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        destination = audioCtx.createMediaStreamDestination();
+        limiter = audioCtx.createDynamicsCompressor();
+        limiter.threshold.value = -1.0; 
+        limiter.connect(destination);
+        analyser = audioCtx.createAnalyser();
+        limiter.connect(analyser);
+        
+        duckingNode = audioCtx.createGain();
+        duckingNode.connect(limiter);
+
+        monitorNode = audioCtx.createGain();
+        monitorNode.gain.value = 0; 
+        limiter.connect(monitorNode);
+        monitorNode.connect(audioCtx.destination);
+        
+        micGain = audioCtx.createGain();
+        echoDelay = audioCtx.createDelay();
+        echoDelay.delayTime.value = 0.3;
+        echoGain = audioCtx.createGain();
+        echoGain.gain.value = 0; 
+        micGain.connect(limiter);
+        micGain.connect(echoDelay);
+        echoDelay.connect(echoGain);
+        echoGain.connect(echoDelay);
+        echoGain.connect(limiter);
+        
+        bgmStates.forEach(s => {
+            s.gainNode = audioCtx.createGain();
+            s.gainNode.gain.value = 0.5;
+            s.gainNode.connect(duckingNode);
+        });
+        
+        startLevelMeter();
+        startDuckingLogic();
+    }
+
+    function startDuckingLogic() {
+        const micAnalyser = audioCtx.createAnalyser();
+        micGain.connect(micAnalyser);
+        const data = new Uint8Array(micAnalyser.frequencyBinCount);
+        const process = () => {
+            if (document.getElementById('duckingOn').checked) {
+                micAnalyser.getByteFrequencyData(data);
+                let sum = data.reduce((a, b) => a + b);
+                let volume = sum / data.length;
+                let targetGain = volume > 15 ? 0.05 : 1.0;
+                duckingNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+            } else {
+                duckingNode.gain.setTargetAtTime(1.0, audioCtx.currentTime, 0.1);
+            }
+            requestAnimationFrame(process);
+        };
+        process();
+    }
+
+    function playSE(i) {
+        if (!seBuffers[i] || !audioCtx) return;
+        const source = audioCtx.createBufferSource();
+        source.buffer = seBuffers[i];
+        // SEはダッキングの影響を受けないように直接リミッターへ接続
+        source.connect(limiter);
+        source.start(0);
+    }
+
+    async function loadSE(i, input) {
+        initAudio();
+        const file = input.files[0]; if(!file) return;
+        const btn = document.getElementById(`se-btn-${i}`);
+        btn.innerText = "Loading...";
+        const buf = await file.arrayBuffer();
+        seBuffers[i] = await audioCtx.decodeAudioData(buf);
+        btn.innerText = file.name.substring(0, 10);
+        btn.classList.add('ready');
+    }
+
+    function initUI() {
+        // SE Pads
+        const pads = document.getElementById('se-pads');
+        pads.innerHTML = "";
+        for(let i=0; i<4; i++) {
+            pads.innerHTML += `
+                <div>
+                    <button class="se-btn" id="se-btn-${i}" onclick="playSE(${i})">EMPTY (Click to Select)</button>
+                    <input type="file" id="se-f-${i}" hidden onchange="loadSE(${i}, this)">
+                    <div style="text-align:center; font-size:8px; margin-top:2px; cursor:pointer; color:#94a3b8;" onclick="document.getElementById('se-f-${i}').click()">SET FILE</div>
+                </div>`;
+        }
+
+        // BGM Slots
+        const slots = document.getElementById('slots');
+        slots.innerHTML = "";
+        bgmStates.forEach(s => {
+            slots.innerHTML += `
+                <div class="bgm-slot" id="slot-${s.id}">
+                    <div style="display:flex; justify-content:space-between; font-size:11px; margin-bottom:5px;">
+                        <span id="title-${s.id}">BGM ${s.id+1}</span>
+                        <div>
+                            <span style="font-size:9px; color:#aaa;">LOOP</span>
+                            <input type="checkbox" id="loop-${s.id}" onchange="bgmStates[${s.id}].loop = this.checked">
+                            <span style="color:var(--seek); cursor:pointer; margin-left:10px;" onclick="document.getElementById('f${s.id}').click()">SELECT</span>
+                        </div>
+                    </div>
+                    <div class="seek-container" onclick="seekBGM(${s.id}, event)"><div class="seek-bar" id="seek-${s.id}"></div></div>
+                    <div class="fader-header"><span>VOL</span><span id="v-bgm${s.id}">50%</span></div>
+                    <input type="range" min="0" max="1" step="0.01" value="0.5" oninput="updateVol('bgm${s.id}', this.value)">
+                    <div style="display:flex; gap:5px; margin-top:10px;">
+                        <button class="ctrl-btn btn-start" style="flex:1; font-size:10px;" onclick="playBGM(${s.id})">PLAY</button>
+                        <button class="ctrl-btn btn-stop" style="flex:1; font-size:10px;" onclick="stopBGM(${s.id})">STOP</button>
+                    </div>
+                    <input type="file" id="f${s.id}" hidden onchange="loadAudio(${s.id}, this)">
+                </div>`;
+        });
+        setInterval(updateSeek, 100);
+    }
+
+    /* --- 以下、共通ロジック --- */
+    function startGlobalTimer() {
+        timerInterval = setInterval(() => {
+            if (airStartTime) document.getElementById('air-timer').innerText = "STREAM " + formatTime(Date.now() - airStartTime);
+            if (recStartTime) document.getElementById('rec-timer').innerText = "REC " + formatTime(Date.now() - recStartTime);
+        }, 1000);
+    }
+    function formatTime(ms) {
+        let s = Math.floor(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+        return [h, m, s % 60].map(v => v.toString().padStart(2, '0')).join(':');
+    }
+    async function toggleAir(on) {
+        initAudio(); if(audioCtx.state === 'suspended') audioCtx.resume();
+        document.getElementById('btnOnAir').disabled = on;
+        document.getElementById('btnOffAir').disabled = !on;
+        if(on) {
+            airStartTime = Date.now();
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                micSource = audioCtx.createMediaStreamSource(stream);
+                micSource.connect(micGain);
+                Object.keys(conns).forEach(id => peer.call(id, destination.stream));
+            } catch(e) { alert("Mic required"); }
+        } else {
+            airStartTime = null; document.getElementById('air-timer').innerText = "STREAM 00:00:00";
+            if(micSource) micSource.disconnect();
+        }
+    }
+    function startRecording() {
+        if(!destination) return;
+        recordedChunks = []; recStartTime = Date.now();
+        mediaRecorder = new MediaRecorder(destination.stream);
+        mediaRecorder.ondataavailable = e => { if(e.data.size > 0) recordedChunks.push(e.data); };
+        mediaRecorder.onstop = exportRecording;
+        mediaRecorder.start();
+        document.getElementById('btnRecStart').disabled = true;
+        document.getElementById('btnRecStop').disabled = false;
+    }
+    function stopRecording() {
+        mediaRecorder.stop(); recStartTime = null;
+        document.getElementById('rec-timer').innerText = "REC 00:00:00";
+        document.getElementById('btnRecStart').disabled = false;
+        document.getElementById('btnRecStop').disabled = true;
+    }
+    function exportRecording() {
+        const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = `radio_rec_${Date.now()}.webm`; a.click();
+    }
+    function updateListenerCount() { document.getElementById('listener-count').innerText = Object.keys(conns).length; }
+    function toggleMonitor() { if(monitorNode) monitorNode.gain.value = document.getElementById('monitorOn').checked ? 1 : 0; }
+    function toggleEcho() { echoGain.gain.value = document.getElementById('echoOn').checked ? document.getElementById('echoLevel').value : 0; }
+    function updateEcho() { if(document.getElementById('echoOn').checked) echoGain.gain.value = document.getElementById('echoLevel').value; }
+    function updateVol(type, val) {
+        document.getElementById(`v-${type}`).innerText = Math.round(val * 100) + "%";
+        if(type === 'mic') micGain.gain.value = val;
+        else bgmStates[type.replace('bgm','')].gainNode.gain.value = val;
+    }
+    function startLevelMeter() {
+        const data = new Uint8Array(analyser.frequencyBinCount);
+        const update = () => {
+            analyser.getByteFrequencyData(data);
+            let avg = data.reduce((a, b) => a + b) / data.length;
+            document.getElementById('level-bar').style.width = Math.min(avg * 2.8, 100) + "%";
+            requestAnimationFrame(update);
+        };
+        update();
+    }
+    async function loadAudio(i, input) {
+        initAudio(); const file = input.files[0]; if(!file) return;
+        document.getElementById(`title-${i}`).innerText = "Loading...";
+        const buf = await file.arrayBuffer();
+        bgmStates[i].buffer = await audioCtx.decodeAudioData(buf);
+        document.getElementById(`title-${i}`).innerText = file.name;
+    }
+    function playBGM(i) {
+        const s = bgmStates[i]; if(!s.buffer) return;
+        if(s.isPlaying) stopBGM(i);
+        s.source = audioCtx.createBufferSource();
+        s.source.buffer = s.buffer;
+        s.source.connect(s.gainNode);
+        s.source.onended = () => { if(s.isPlaying) { if(s.loop) { s.offset = 0; playBGM(i); } else { s.isPlaying = false; s.offset = 0; document.getElementById(`slot-${i}`).classList.remove('playing'); playBGM((i + 1) % 3); } } };
+        s.source.start(0, s.offset);
+        s.startTime = audioCtx.currentTime - s.offset;
+        s.isPlaying = true;
+        document.getElementById(`slot-${i}`).classList.add('playing');
+    }
+    function stopBGM(i) {
+        const s = bgmStates[i]; if(s.source) { s.source.onended = null; s.source.stop(); s.source = null; }
+        s.isPlaying = false; s.offset = 0;
+        document.getElementById(`slot-${i}`).classList.remove('playing');
+        document.getElementById(`seek-${i}`).style.width = "0%";
+    }
+    function seekBGM(i, event) {
+        const s = bgmStates[i]; if(!s.buffer) return;
+        const rect = event.currentTarget.getBoundingClientRect();
+        s.offset = ((event.clientX - rect.left) / rect.width) * s.buffer.duration;
+        if(s.isPlaying) playBGM(i);
+    }
+    function updateSeek() {
+        bgmStates.forEach(s => {
+            if(s.isPlaying && s.buffer) {
+                const prog = ((audioCtx.currentTime - s.startTime) / s.buffer.duration) * 100;
+                document.getElementById(`seek-${s.id}`).style.width = Math.min(prog, 100) + "%";
+            }
+        });
+    }
+</script>
+</body>
+</html>
