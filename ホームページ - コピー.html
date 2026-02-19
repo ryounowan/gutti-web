@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ドット絵メーカー</title>
+    <style>
+        :root { --primary: #6200ee; --bg: #f5f5f5; }
+        body { font-family: sans-serif; background: var(--bg); display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); max-width: 500px; width: 100%; }
+        .controls { display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; }
+        label { font-size: 14px; font-weight: bold; }
+        input[type="range"] { width: 100%; }
+        .preview-area { text-align: center; border: 2px dashed #ccc; padding: 10px; border-radius: 8px; min-height: 200px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        canvas { max-width: 100%; height: auto; image-rendering: pixelated; /* ドットをくっきりさせる */ border-radius: 4px; }
+        .btn-save { background: var(--primary); color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 10px; }
+        .radio-group { display: flex; gap: 15px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>👾 ドット絵メーカー</h2>
+    
+    <div class="controls">
+        <label>1. 画像を選択</label>
+        <input type="file" id="upload" accept="image/*">
+
+        <label>2. 切り抜き設定</label>
+        <div class="radio-group">
+            <label><input type="radio" name="crop" value="none" checked onchange="processImage()"> そのまま</label>
+            <label><input type="radio" name="crop" value="square" onchange="processImage()"> 正方形</label>
+        </div>
+
+        <label>3. ドットの大きさ: <span id="dot-size-val">10</span>px</label>
+        <input type="range" id="dot-size" min="2" max="50" value="10" oninput="updateSize(this.value)">
+    </div>
+
+    <div class="preview-area">
+        <canvas id="canvas"></canvas>
+    </div>
+
+    <button class="btn-save" onclick="saveImage()">画像を保存する</button>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const upload = document.getElementById('upload');
+    const dotSizeInput = document.getElementById('dot-size');
+    const dotSizeVal = document.getElementById('dot-size-val');
+    let originalImage = null;
+
+    // ファイル読み込み
+    upload.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            originalImage = new Image();
+            originalImage.onload = () => processImage();
+            originalImage.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    });
+
+    function updateSize(val) {
+        dotSizeVal.innerText = val;
+        processImage();
+    }
+
+    function processImage() {
+        if (!originalImage) return;
+
+        const dotSize = parseInt(dotSizeInput.value);
+        const cropMode = document.querySelector('input[name="crop"]:checked').value;
+
+        let sourceX = 0, sourceY = 0;
+        let sourceW = originalImage.width;
+        let sourceH = originalImage.height;
+
+        // 正方形切り抜きロジック
+        if (cropMode === 'square') {
+            const size = Math.min(sourceW, sourceH);
+            sourceX = (sourceW - size) / 2;
+            sourceY = (sourceH - size) / 2;
+            sourceW = size;
+            sourceH = size;
+        }
+
+        // キャンバスサイズの設定（処理を軽くするため少し縮小して描画）
+        const targetW = sourceW;
+        const targetH = sourceH;
+        canvas.width = targetW;
+        canvas.height = targetH;
+
+        // 1. 一旦普通に描画
+        ctx.drawImage(originalImage, sourceX, sourceY, sourceW, sourceH, 0, 0, targetW, targetH);
+
+        // 2. ピクセル化処理
+        // 小さなキャンバスに描いてから引き伸ばす手法
+        const smallW = Math.ceil(targetW / dotSize);
+        const smallH = Math.ceil(targetH / dotSize);
+
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = smallW;
+        tempCanvas.height = smallH;
+
+        // 小さく描く（これで色が平均化される）
+        tempCtx.drawImage(canvas, 0, 0, targetW, targetH, 0, 0, smallW, smallH);
+
+        // メインキャンバスをクリアして、引き伸ばして描く
+        ctx.clearRect(0, 0, targetW, targetH);
+        ctx.imageSmoothingEnabled = false; // ぼかしを無効化
+        ctx.drawImage(tempCanvas, 0, 0, smallW, smallH, 0, 0, targetW, targetH);
+    }
+
+    function saveImage() {
+        const link = document.createElement('a');
+        link.download = 'pixel_art.png';
+        link.href = canvas.toDataURL();
+        link.click();
+    }
+</script>
+
+</body>
+</html>
+
