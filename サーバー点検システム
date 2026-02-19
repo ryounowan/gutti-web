@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>緊急障害告知パネル</title>
+    <style>
+        body { font-family: sans-serif; background: #f0f2f5; padding: 20px; display: flex; justify-content: center; }
+        .card { background: white; padding: 30px; border-radius: 12px; shadow: 0 4px 10px rgba(0,0,0,0.1); width: 100%; max-width: 500px; text-align: center; }
+        h1 { color: #d32f2f; font-size: 20px; }
+        input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        .btn { width: 100%; padding: 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; margin-top: 10px; font-size: 16px; }
+        .btn-on { background: #d32f2f; } /* 障害モード */
+        .btn-off { background: #2e7d32; } /* 通常モード */
+        #status { margin-top: 15px; font-weight: bold; padding: 10px; border-radius: 6px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>🚨 障害告知コントロール</h1>
+    <p style="font-size: 13px; color: #666;">ボタンを押すと全ページの上部に警告が出ます</p>
+    
+    <input type="password" id="token" placeholder="GitHubトークン">
+    <input type="text" id="repo" placeholder="リポジトリ名" value="gutti-web">
+
+    <button class="btn btn-on" onclick="toggleEmergency('fail')">🔴 障害発生を全ページに通知</button>
+    <button class="btn btn-off" onclick="toggleEmergency('normal')">🟢 復旧（通知を消す）</button>
+
+    <div id="status"></div>
+</div>
+
+<script>
+    async function toggleEmergency(mode) {
+        const token = document.getElementById('token').value.trim();
+        const repo = document.getElementById('repo').value.trim();
+        const statusDiv = document.getElementById('status');
+        
+        // 障害時に全ページの上部に出現するコード
+        const failCode = `
+            (function() {
+                const bar = document.createElement('div');
+                bar.id = 'emergency-bar';
+                bar.style = 'position:fixed;top:0;left:0;width:100%;background:#ff4d4f;color:white;text-align:center;padding:10px 0;font-weight:bold;z-index:999999;box-shadow:0 2px 5px rgba(0,0,0,0.2);font-family:sans-serif;';
+                bar.innerHTML = '⚠️ 現在、システム障害が発生しています。一部の機能が利用できない可能性があります。';
+                document.body.style.paddingTop = '40px'; 
+                document.body.prepend(bar);
+            })();
+        `;
+
+        // 通常時は何も表示しない（または既存のバーを消す）
+        const normalCode = `console.log("System Online");`;
+
+        const content = (mode === 'fail') ? failCode : normalCode;
+        const base64 = btoa(unescape(encodeURIComponent(content)));
+
+        statusDiv.style.display = 'block';
+        statusDiv.innerText = "更新中...";
+        statusDiv.style.background = "#fffbe6";
+
+        try {
+            const userRes = await fetch('https://api.github.com/user', { headers: { 'Authorization': \`Bearer \${token}\` } });
+            const username = (await userRes.json()).login;
+            const apiUrl = \`https://api.github.com/repos/\${username}/\${repo}/contents/common.js\`;
+            
+            const fileRes = await fetch(apiUrl, { headers: { 'Authorization': \`Bearer \${token}\` } });
+            const sha = fileRes.ok ? (await fileRes.json()).sha : undefined;
+
+            const res = await fetch(apiUrl, {
+                method: 'PUT',
+                headers: { 'Authorization': \`Bearer \${token}\`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: "Update system status", content: base64, sha: sha })
+            });
+
+            if (res.ok) {
+                statusDiv.innerText = mode === 'fail' ? "🔴 障害告知を配信しました" : "🟢 告知を解除しました";
+                statusDiv.style.background = mode === 'fail' ? "#fff1f0" : "#f6ffed";
+            }
+        } catch (e) {
+            statusDiv.innerText = "❌ エラー：トークンや設定を確認してください";
+        }
+    }
+</script>
+</body>
+</html>
