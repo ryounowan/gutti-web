@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>ヨット・カスタム決定版</title>
+    <style>
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
+        .screen { display: none; max-width: 850px; margin: auto; }
+        .active { display: block; }
+        
+        /* 設定画面 */
+        .setup-card { background: #333; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .btn-mode { background: #555; color: white; padding: 12px 20px; border: 2px solid transparent; margin: 5px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .btn-mode.active { background: #f1c40f; color: black; border-color: #fff; }
+        input { padding: 10px; border-radius: 5px; border: none; width: 200px; margin-bottom: 10px; }
+
+        /* ゲーム画面 */
+        .p-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+        .tab { padding: 10px 15px; background: #444; border-radius: 5px; opacity: 0.6; }
+        .tab.current { opacity: 1; background: #27ae60; font-weight: bold; border: 2px solid white; }
+
+        .game-layout { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .dice-box { background: #2c3e50; padding: 25px; border-radius: 15px; flex: 1; min-width: 320px; }
+        .dice-row { display: flex; justify-content: center; gap: 10px; margin: 25px 0; height: 60px; }
+        
+        /* 🌀アニメーション設定 */
+        .dice { width: 55px; height: 55px; background: white; color: #333; font-size: 38px; 
+                line-height: 55px; border-radius: 10px; cursor: pointer; border: 4px solid transparent; transition: 0.2s;
+                display: flex; justify-content: center; align-items: center; }
+        .dice.keep { border-color: #e74c3c; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(231,76,60,0.4); }
+        .dice.rolling { animation: spin 0.5s infinite linear; font-size: 25px; opacity: 0.8; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* スコア表 */
+        .score-box { background: white; color: #333; padding: 20px; border-radius: 10px; flex: 1; min-width: 320px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .selectable { cursor: pointer; background: #fdfdfd; }
+        .selectable:hover { background: #e3f2fd; }
+        .filled { background: #eee; color: #aaa; font-weight: bold; }
+        .preview { color: #2980b9; font-style: italic; }
+
+        button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-main { background: #27ae60; color: white; width: 100%; font-size: 20px; margin-top: 15px; }
+        .btn-main:disabled { background: #7f8c8d; opacity: 0.5; }
+        .btn-danger { background: #c0392b; color: white; font-size: 12px; margin-top: 30px; }
+    </style>
+</head>
+<body>
+
+<div id="setup-screen" class="screen active">
+    <h1>Yacht Dice</h1>
+    <div class="setup-card">
+        <h3>1. モードを選択</h3>
+        <button id="normal-btn" class="btn-mode active" onclick="setSpeed(false)">通常モード (12役)</button>
+        <button id="speed-btn" class="btn-mode" onclick="setSpeed(true)">スピードモード (厳選6役)</button>
+        
+        <h3>2. プレイヤー名入力</h3>
+        <div id="name-inputs">
+            <input type="text" id="p0-name" value="Player 1"><br>
+            <input type="text" id="p1-name" value="Player 2">
+        </div>
+        <button onclick="addPlayer()" style="background:#555; color:white; margin:10px;">＋ プレイヤーを追加</button>
+        <br>
+        <button class="btn-main" onclick="initGame()" style="width:250px; height:60px;">ゲーム開始</button>
+    </div>
+</div>
+
+<div id="game-screen" class="screen">
+    <div id="tabs" class="p-tabs"></div>
+    <div class="game-layout">
+        <div class="dice-box">
+            <h2 id="turn-label"></h2>
+            <p>残り振り直し: <span id="rolls-left">3</span></p>
+            <div class="dice-row" id="dice-container"></div>
+            <button id="roll-btn" class="btn-main" onclick="handleRoll()">サイコロを振る</button>
+            <br>
+            <button class="btn-danger" onclick="forceQuit()">強制終了 (現スコアで結果発表)</button>
+        </div>
+        <div class="score-box">
+            <table>
+                <thead><tr><th>役名</th><th>得点</th></tr></thead>
+                <tbody id="score-tbody"></tbody>
+            </table>
+            <h3>合計スコア: <span id="total-val">0</span></h3>
+        </div>
+    </div>
+</div>
+
+<script>
+    let isSpeedMode = false;
+    let players = [];
+    let currentPlayerIdx = 0;
+    let rolls = 3;
+    let dice = [0,0,0,0,0];
+    let keeps = [false, false, false, false, false];
+
+    const allCategories = [
+        { id: 'ones', name: '1 (Ones)', speed: true, calc: d => count(d, 1) * 1 },
+        { id: 'twos', name: '2 (Twos)', speed: false, calc: d => count(d, 2) * 2 },
+        { id: 'threes', name: '3 (Threes)', speed: false, calc: d => count(d, 3) * 3 },
+        { id: 'fours', name: '4 (Fours)', speed: false, calc: d => count(d, 4) * 4 },
+        { id: 'fives', name: '5 (Fives)', speed: false, calc: d => count(d, 5) * 5 },
+        { id: 'sixes', name: '6 (Sixes)', speed: true, calc: d => count(d, 6) * 6 },
+        { id: 'choice', name: 'チョイス', speed: true, calc: d => sum(d) },
+        { id: '4card', name: '4ダイス', speed: false, calc: d => hasN(d, 4) ? sum(d) : 0 },
+        { id: 'fullhouse', name: 'フルハウス', speed: true, calc: d => isFullHouse(d) ? sum(d) : 0 },
+        { id: 's_straight', name: 'Sストレート', speed: false, calc: d => isStr(d, 4) ? 15 : 0 },
+        { id: 'b_straight', name: 'Bストレート', speed: true, calc: d => isStr(d, 5) ? 30 : 0 },
+        { id: 'yacht', name: 'ヨット', speed: true, calc: d => hasN(d, 5) ? 50 : 0 }
+    ];
+    let activeCategories = [];
+
+    function setSpeed(v) {
+        isSpeedMode = v;
+        document.getElementById('speed-btn').classList.toggle('active', v);
+        document.getElementById('normal-btn').classList.toggle('active', !v);
+    }
+
+    function addPlayer() {
+        const div = document.getElementById('name-inputs');
+        const id = div.querySelectorAll('input').length;
+        if (id >= 4) return;
+        div.innerHTML += `<input type="text" id="p${id}-name" value="Player ${id+1}"><br>`;
+    }
+
+    function initGame() {
+        const inputs = document.querySelectorAll('#name-inputs input');
+        players = Array.from(inputs).map(inp => ({ name: inp.value, scores: {} }));
+        activeCategories = isSpeedMode ? allCategories.filter(c => c.speed) : allCategories;
+        
+        document.getElementById('setup-screen').classList.remove('active');
+        document.getElementById('game-screen').classList.add('active');
+        startTurn();
+    }
+
+    function startTurn() {
+        rolls = 3;
+        keeps = [false, false, false, false, false];
+        dice = [0,0,0,0,0];
+        updateUI();
+    }
+
+    function handleRoll() {
+        if (rolls <= 0) return;
+        const btn = document.getElementById('roll-btn');
+        btn.disabled = true;
+        
+        const diceDivs = document.querySelectorAll('.dice');
+        diceDivs.forEach((d, i) => { 
+            if(!keeps[i]) {
+                d.classList.add('rolling'); 
+                d.innerText = '🌀';
+            }
+        });
+
+        setTimeout(() => {
+            rolls--;
+            dice = dice.map((v, i) => keeps[i] ? v : Math.floor(Math.random()*6)+1);
+            updateUI();
+            btn.disabled = rolls === 0;
+        }, 600);
+    }
+
+    function updateUI() {
+        document.getElementById('rolls-left').innerText = rolls;
+        document.getElementById('turn-label').innerText = `${players[currentPlayerIdx].name}の番`;
+        const tabs = document.getElementById('tabs');
+        tabs.innerHTML = players.map((p, i) => `<div class="tab ${i===currentPlayerIdx?'current':''}">${p.name}</div>`).join('');
+
+        const cont = document.getElementById('dice-container');
+        cont.innerHTML = dice.map((v, i) => `
+            <div class="dice ${keeps[i]?'keep':''}" onclick="toggleKeep(${i})">
+                ${v === 0 ? '🎲' : ["","⚀","⚁","⚂","⚃","⚄","⚅"][v]}
+            </div>
+        `).join('');
+
+        const tbody = document.getElementById('score-tbody');
+        let currentTotal = 0;
+        tbody.innerHTML = activeCategories.map(cat => {
+            const val = players[currentPlayerIdx].scores[cat.id];
+            const isFilled = val !== undefined;
+            if(isFilled) currentTotal += val;
+            return `
+                <tr class="${isFilled?'filled':'selectable'}" onclick="selectScore('${cat.id}')">
+                    <td>${cat.name}</td>
+                    <td class="${!isFilled && dice[0]!==0 ? 'preview' : ''}">${isFilled ? val : (dice[0]===0 ? '-' : cat.calc(dice))}</td>
+                </tr>
+            `;
+        }).join('');
+        document.getElementById('total-val').innerText = currentTotal;
+    }
+
+    function toggleKeep(i) {
+        if (dice[0] === 0 || rolls === 0 || rolls === 3) return;
+        keeps[i] = !keeps[i];
+        updateUI();
+    }
+
+    function selectScore(id) {
+        if (dice[0] === 0 || players[currentPlayerIdx].scores[id] !== undefined) return;
+        const cat = activeCategories.find(c => c.id === id);
+        players[currentPlayerIdx].scores[id] = cat.calc(dice);
+        currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+        const finished = players.every(p => Object.keys(p.scores).length === activeCategories.length);
+        if (finished) showResult(); else startTurn();
+    }
+
+    function forceQuit() {
+        if(confirm("強制終了して順位を出しますか？")) showResult();
+    }
+
+    function showResult() {
+        const ranking = players.map(p => ({ name: p.name, score: Object.values(p.scores).reduce((a,b)=>a+b, 0) }))
+                               .sort((a,b) => b.score - a.score);
+        alert("🏆 最終結果 🏆\n" + ranking.map((r, i) => `${i+1}位: ${r.name} (${r.score}点)`).join("\n"));
+        location.reload();
+    }
+
+    const count = (d, v) => d.filter(x => x === v).length;
+    const sum = d => d.reduce((a, b) => a + b, 0);
+    const hasN = (d, n) => {
+        const c = d.reduce((a, b) => (a[b]=(a[b]||0)+1, a), {});
+        return Object.values(c).some(v => v >= n);
+    };
+    const isFullHouse = d => {
+        const c = Object.values(d.reduce((a, b) => (a[b]=(a[b]||0)+1, a), {})).sort();
+        return (c.length===2 && c[0]===2 && c[1]===3) || c[0]===5;
+    };
+    const isStr = (d, len) => {
+        const s = [...new Set(d)].sort().join("");
+        return len === 5 ? (s==="12345"||s==="23456") : (s.includes("1234")||s.includes("2345")||s.includes("3456"));
+    };
+</script>
+</body>
+</html>
