@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>秘密のメッセージ埋め込み器</title>
+    <style>
+        body { font-family: sans-serif; background: #121212; color: #e0e0e0; padding: 20px; text-align: center; }
+        .container { max-width: 600px; margin: 0 auto; background: #1e1e1e; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        canvas { display: none; }
+        img { max-width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid #333; }
+        textarea { width: 90%; height: 80px; margin: 10px 0; background: #2c2c2c; color: white; border: 1px solid #444; border-radius: 5px; padding: 10px; }
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        button { padding: 12px 24px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        .encode { background: #6200ee; color: white; }
+        .decode { background: #03dac6; color: black; }
+        button:hover { opacity: 0.8; }
+        #output-area { margin-top: 20px; padding: 10px; border-top: 1px solid #333; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>Secret Image Encoder</h2>
+    <p style="font-size: 0.8em; color: #888;">画像の中に文字を隠します</p>
+    
+    <input type="file" id="imageInput" accept="image/*"><br>
+    <img id="preview" style="display:none">
+    
+    <textarea id="messageInput" placeholder="隠したいメッセージを入力..."></textarea>
+    
+    <div class="btn-group">
+        <button class="encode" onclick="encodeMessage()">メッセージを埋め込む</button>
+        <button class="decode" onclick="decodeMessage()">メッセージを抽出する</button>
+    </div>
+
+    <div id="output-area">
+        <p id="resultText" style="color:#03dac6; font-weight:bold;"></p>
+    </div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const imgInput = document.getElementById('imageInput');
+    const preview = document.getElementById('preview');
+
+    imgInput.onchange = function(e) {
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                preview.src = event.target.result;
+                preview.style.display = 'inline-block';
+            }
+            img.src = event.target.result;
+        }
+        reader.readAsDataURL(e.target.files[0]);
+    };
+
+    // メッセージを2進数に変換して、画像のRGB値の末尾1ビットを書き換える
+    function encodeMessage() {
+        const text = document.getElementById('messageInput').value;
+        if (!text) return alert("メッセージを入力してください");
+        
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        
+        // 終了フラグ(NULL)を追加した2進数文字列
+        let binaryMessage = "";
+        for (let i = 0; i < text.length; i++) {
+            let bin = text.charCodeAt(i).toString(2).padStart(16, '0');
+            binaryMessage += bin;
+        }
+        binaryMessage += "0000000000000000"; // 終了マーカー
+
+        if (binaryMessage.length > data.length / 4 * 3) {
+            return alert("画像が小さすぎてメッセージが入り切りません。");
+        }
+
+        for (let i = 0; i < binaryMessage.length; i++) {
+            // ピクセルのRGB値の最下位ビットを書き換え
+            data[i * 4 / 3 | 0] = (data[i * 4 / 3 | 0] & 0xFE) | parseInt(binaryMessage[i]);
+        }
+
+        ctx.putImageData(imgData, 0, 0);
+        const link = document.createElement('a');
+        link.download = 'secret_image.png';
+        link.href = canvas.toDataURL();
+        link.click();
+        alert("メッセージを埋め込んだ画像を保存しました。");
+    }
+
+    function decodeMessage() {
+        const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const data = imgData.data;
+        let binaryMessage = "";
+        let result = "";
+
+        for (let i = 0; i < data.length; i += 4) {
+            for (let j = 0; j < 3; j++) {
+                binaryMessage += (data[i + j] & 1).toString();
+                if (binaryMessage.length === 16) {
+                    let charCode = parseInt(binaryMessage, 2);
+                    if (charCode === 0) {
+                        document.getElementById('resultText').innerText = "抽出されたメッセージ: " + result;
+                        return;
+                    }
+                    result += String.fromCharCode(charCode);
+                    binaryMessage = "";
+                }
+            }
+        }
+    }
+</script>
+</body>
+</html>
