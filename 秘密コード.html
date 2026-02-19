@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>最強暗号化メモ帳</title>
+    <style>
+        body { font-family: 'Courier New', Courier, monospace; background: #0a0a0a; color: #00ff41; padding: 20px; }
+        .box { max-width: 800px; margin: 0 auto; border: 1px solid #00ff41; padding: 20px; box-shadow: 0 0 15px #00ff4155; }
+        h2 { text-align: center; border-bottom: 1px solid #00ff41; padding-bottom: 10px; }
+        textarea { width: 100%; height: 200px; background: #000; color: #00ff41; border: 1px solid #00ff41; padding: 10px; box-sizing: border-box; margin-bottom: 10px; resize: none; }
+        input { width: 100%; padding: 10px; background: #000; color: #00ff41; border: 1px solid #333; margin-bottom: 15px; box-sizing: border-box; }
+        .btns { display: flex; gap: 10px; }
+        button { flex: 1; padding: 15px; background: #00ff41; color: #000; border: none; cursor: pointer; font-weight: bold; }
+        button:hover { background: #00cc33; }
+        .status { margin-top: 10px; font-size: 0.8em; color: #888; text-align: center; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <h2>CRYPTO NOTEPAD</h2>
+    
+    <p>▼ メッセージ（平文 or 暗号文）</p>
+    <textarea id="mainText" placeholder="ここに秘密のメモを記入..."></textarea>
+    
+    <p>▼ 秘密のパスワード</p>
+    <input type="password" id="pass" placeholder="Passwordを入力してください...">
+    
+    <div class="btns">
+        <button onclick="process('encrypt')">暗号化する</button>
+        <button onclick="process('decrypt')">復号する</button>
+    </div>
+    
+    <div class="status" id="status">Ready. 全ての処理はオフラインで実行されます。</div>
+</div>
+
+<script>
+    // Web Crypto APIを使用した高度な処理
+    async function getDerivedKey(password, salt) {
+        const encoder = new TextEncoder();
+        const baseKey = await crypto.subtle.importKey("raw", encoder.encode(password), "PBKDF2", false, ["deriveKey"]);
+        return crypto.subtle.deriveKey(
+            { name: "PBKDF2", salt: salt, iterations: 100000, hash: "SHA-256" },
+            baseKey,
+            { name: "AES-GCM", length: 256 },
+            false,
+            ["encrypt", "decrypt"]
+        );
+    }
+
+    async function process(mode) {
+        const text = document.getElementById('mainText').value;
+        const password = document.getElementById('pass').value;
+        const status = document.getElementById('status');
+        if (!text || !password) return alert("テキストとパスワードを入力してください");
+
+        try {
+            const encoder = new TextEncoder();
+            const decoder = new TextDecoder();
+
+            if (mode === 'encrypt') {
+                const salt = crypto.getRandomValues(new Uint8Array(16));
+                const iv = crypto.getRandomValues(new Uint8Array(12));
+                const key = await getDerivedKey(password, salt);
+                
+                const encrypted = await crypto.subtle.encrypt({ name: "AES-GCM", iv: iv }, key, encoder.encode(text));
+                
+                // Salt + IV + DataをまとめてBase64化
+                const combined = new Uint8Array(salt.length + iv.length + encrypted.byteLength);
+                combined.set(salt);
+                combined.set(iv, salt.length);
+                combined.set(new Uint8Array(encrypted), salt.length + iv.length);
+                
+                document.getElementById('mainText').value = btoa(String.fromCharCode(...combined));
+                status.innerText = "暗号化完了。この文字列を保存してください。";
+            } else {
+                const combined = new Uint8Array(atob(text).split("").map(c => c.charCodeAt(0)));
+                const salt = combined.slice(0, 16);
+                const iv = combined.slice(16, 28);
+                const data = combined.slice(28);
+                
+                const key = await getDerivedKey(password, salt);
+                const decrypted = await crypto.subtle.decrypt({ name: "AES-GCM", iv: iv }, key, data);
+                
+                document.getElementById('mainText').value = decoder.decode(decrypted);
+                status.innerText = "復号完了。メッセージを表示しました。";
+            }
+        } catch (e) {
+            alert("エラー: パスワードが違うか、データが壊れています。");
+        }
+    }
+</script>
+</body>
+</html>
