@@ -14,6 +14,7 @@
         .st-info { background: rgba(59,130,246,0.2); color: var(--info); }
         .st-warn { background: rgba(245,158,11,0.2); color: var(--warn); }
         .st-error { background: rgba(239,68,68,0.2); color: var(--error); }
+        .last-update { text-align: right; font-size: 0.8rem; color: var(--sub); margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -23,18 +24,16 @@
         <p id="overall-msg"></p>
     </div>
     <div id="server-list"></div>
+    <div id="update-time" class="last-update"></div>
 </div>
-
 <script>
     function loadStatus() {
         const data = JSON.parse(localStorage.getItem('serverStatus'));
-        if (!data) { document.body.innerHTML = "データがありません。先に管理パネルで設定してください。"; return; }
-
-        const overBox = document.getElementById('overall-box');
+        if (!data) return;
         document.getElementById('overall-title').innerText = data.overall.title;
         document.getElementById('overall-msg').innerText = data.overall.msg;
-        overBox.style.borderColor = `var(--${data.overall.status})`;
-
+        document.getElementById('overall-box').style.borderColor = `var(--${data.overall.status})`;
+        document.getElementById('update-time').innerText = "最終更新: " + (data.updatedAt || "不明");
         document.getElementById('server-list').innerHTML = data.servers.map(s => `
             <div class="card">
                 <div><strong>${s.name}</strong><br><small style="color:var(--sub)">${s.desc}</small></div>
@@ -43,9 +42,7 @@
         `).join('');
     }
     window.onload = loadStatus;
-    // 5秒ごとに自動更新（別タブでの変更を反映するため）
     setInterval(loadStatus, 5000);
 </script>
 </body>
 </html>
-
