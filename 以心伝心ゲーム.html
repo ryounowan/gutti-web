@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>以心伝心ゲーム (スタンドアロン版)</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f9;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+        .game-container {
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 900px;
+        }
+        h2 {
+            color: #4a90e2;
+            border-bottom: 2px solid #e0e0e0;
+            padding-bottom: 10px;
+            margin-top: 0;
+        }
+        h3 {
+            color: #333;
+        }
+        #playerList {
+            list-style: none;
+            padding: 0;
+        }
+        #playerList li {
+            background-color: #e6f0ff;
+            padding: 10px;
+            margin-bottom: 5px;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], button {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+        button {
+            cursor: pointer;
+            background-color: #5cb85c;
+            color: white;
+            border: none;
+            transition: background-color 0.3s;
+        }
+        button:hover:not(:disabled) {
+            background-color: #449d44;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        canvas {
+            border: 1px solid #333;
+            display: block;
+            margin: 15px 0;
+            max-width: 100%;
+            height: auto;
+        }
+        #drawingToolbar {
+            margin-bottom: 10px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .reveal-book {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .reveal-step {
+            padding: 10px 0;
+            border-top: 1px dashed #e0e0e0;
+        }
+        .reveal-step:first-child {
+            border-top: none;
+        }
+        .reveal-step img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            margin-top: 5px;
+        }
+        #promptInput {
+            width: 70%;
+        }
+        #timerDisplay {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #e74c3c;
+            margin-bottom: 15px;
+            text-align: right;
+        }
+        .task-input {
+            margin-top: 15px;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    
+    <div class="game-container">
+        <div id="setupContainer">
+            <h2>参加プレイヤー登録と設定</h2>
+            
+            <form id="addPlayerForm">
+                <input type="text" id="newPlayerName" placeholder="プレイヤー名を入力" required>
+                <button type="submit">プレイヤーを追加</button>
+            </form>
+            
+            <h3>現在の参加者 (<span id="playerCount">0</span>人)</h3>
+            <ul id="playerList"></ul>
+
+            <div style="margin-top: 20px; padding: 10px; border: 1px solid #ddd; border-radius: 5px;">
+                <h3>制限時間設定 (各タスク)</h3>
+                <label for="timeLimit">時間 (秒): </label>
+                <input type="number" id="timeLimit" min="10" max="300" value="60" style="width: 80px;">
+                <p style="font-size: 0.8em; color: #777;">時間になると自動で次の人へスキップされます。</p>
+            </div>
+
+            <button id="startGameButton" disabled style="margin-top: 20px;">ゲーム開始 (最低3人)</button>
+        </div>
+        
+        <div id="gameContainer" style="display: none;">
+            <div id="timerDisplay">残り時間: --秒</div>
+            <h2 id="currentTaskHeader"></h2>
+            
+            <div id="passDeviceMessage" style="text-align: center; padding: 20px; background-color: #ffe0b2; border-radius: 8px; margin-bottom: 20px; display: none;">
+                <h3>📱 デバイスを次の人へ渡してください 📱</h3>
+                <p id="nextPlayerName"></p>
+                <button id="readyButton">準備OK！</button>
+            </div>
+
+            <div id="textInput" class="task-input" style="display: none;">
+                 <div id="prevContentArea" style="margin-bottom: 15px;"></div>
+                <form id="textForm">
+                    <input type="text" id="promptInput" placeholder="文章を入力してください" required style="width: 70%;">
+                    <button type="submit" id="submitTextButton">確定</button>
+                </form>
+            </div>
+
+            <div id="drawingInput" class="task-input" style="display: none;">
+                <div id="drawingPrevContentArea" style="margin-bottom: 15px;"></div>
+                
+                <div id="drawingToolbar">
+                    <label>ブラシサイズ:</label>
+                    <input type="range" id="brushSize" min="1" max="50" value="5">
+                    <span id="brushSizeValue">5px</span>
+
+                    <label>色:</label>
+                    <input type="color" id="colorPicker" value="#000000">
+                    
+                    <button id="clearCanvasButton">全消し</button>
+                </div>
+                <canvas id="drawingCanvas" width="800" height="600"></canvas>
+                <button id="finishDrawingButton">描画完了！</button>
+            </div>
+        </div>
+
+        <div id="revealContainer" style="display: none;">
+            <h2>🎉 結果発表！ 🎉</h2>
+            <div id="revealOutput">
+                </div>
+            <button id="restartButton" style="margin-top: 20px;">もう一度最初から</button>
+        </div>
+    </div>
+
+    <script>
+        // --- DOM要素の取得 ---
+        const setupContainer = document.getElementById('setupContainer');
+        const gameContainer = document.getElementById('gameContainer');
+        const revealContainer = document.getElementById('revealContainer');
+        
+        const newPlayerNameInput = document.getElementById('newPlayerName');
+        const addPlayerForm = document.getElementById('addPlayerForm');
+        const playerListElement = document.getElementById('playerList');
+        const playerCountSpan = document.getElementById('playerCount');
+        const startGameButton = document.getElementById('startGameButton');
+        const timeLimitInput = document.getElementById('timeLimit');
+        
+        const currentTaskHeader = document.getElementById('currentTaskHeader');
+        const passDeviceMessage = document.getElementById('passDeviceMessage');
+        const nextPlayerNameDisplay = document.getElementById('nextPlayerName');
+        const readyButton = document.getElementById('readyButton');
+        
+        const textInput = document.getElementById('textInput');
+        const prevContentArea = document.getElementById('prevContentArea');
+        const textForm = document.getElementById('textForm');
+        const promptInput = document.getElementById('promptInput');
+        const submitTextButton = document.getElementById('submitTextButton');
+        
+        const drawingInput = document.getElementById('drawingInput');
+        const drawingPrevContentArea = document.getElementById('drawingPrevContentArea');
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const finishDrawingButton = document.getElementById('finishDrawingButton');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushSizeValueSpan = document.getElementById('brushSizeValue');
+        const colorPicker = document.getElementById('colorPicker');
+        const clearCanvasButton = document.getElementById('clearCanvasButton');
+
+        const revealOutput = document.getElementById('revealOutput');
+        const restartButton = document.getElementById('restartButton');
+        
+        const timerDisplay = document.getElementById('timerDisplay');
+
+        // --- 状態管理変数 ---
+        let playerNames = [];
+        let currentBook = []; // お題と推測、絵の連鎖を格納
+        let currentPlayerIndex = 0;
+        let currentStep = 0; // 0:P1, 1:P2, 2:P3...
+        const MIN_PLAYERS = 3; 
+        let gameTimer = null;
+        let timeRemaining = 0;
+
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+        let currentScale = 1; 
+
+        // 描画設定の初期化
+        ctx.lineWidth = brushSizeInput.value;
+        ctx.lineCap = 'round'; 
+        ctx.strokeStyle = colorPicker.value;
+
+        // --- UI表示制御 ---
+        function hideAll() {
+            setupContainer.style.display = 'none';
+            gameContainer.style.display = 'none';
+            revealContainer.style.display = 'none';
+            passDeviceMessage.style.display = 'none';
+            textInput.style.display = 'none';
+            drawingInput.style.display = 'none';
+            
+            // 前の作品表示エリアをクリア
+            prevContentArea.innerHTML = '';
+            drawingPrevContentArea.innerHTML = '';
+            stopTimer();
+        }
+
+        function resizeCanvas() {
+            const containerWidth = gameContainer.clientWidth - 40;
+            const maxDrawAreaWidth = 800;
+            const originalWidth = 800;
+            const originalHeight = 600;
+            
+            let newWidth = Math.min(containerWidth, maxDrawAreaWidth);
+            
+            currentScale = newWidth / originalWidth;
+            let newHeight = originalHeight * currentScale;
+
+            canvas.width = newWidth;
+            canvas.height = newHeight;
+            
+            ctx.lineWidth = brushSizeInput.value;
+            ctx.lineCap = 'round';
+            ctx.strokeStyle = colorPicker.value;
+        }
+        
+        // --- タイマー処理 ---
+        function startTimer() {
+            stopTimer();
+            timeRemaining = parseInt(timeLimitInput.value) || 60;
+            
+            timerDisplay.textContent = `残り時間: ${timeRemaining}秒`;
+            timerDisplay.style.color = '#333';
+
+            gameTimer = setInterval(() => {
+                timeRemaining--;
+                timerDisplay.textContent = `残り時間: ${timeRemaining}秒`;
+                
+                if (timeRemaining <= 0) {
+                    stopTimer();
+                    handleTimeUp();
+                } else if (timeRemaining <= 10) {
+                     timerDisplay.style.color = '#e74c3c'; // 赤
+                } else {
+                    timerDisplay.style.color = '#333'; // 黒
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (gameTimer) {
+                clearInterval(gameTimer);
+                gameTimer = null;
+            }
+        }
+        
+        function handleTimeUp() {
+            let content;
+            let type;
+            
+            const isTextTask = (currentStep === 0 || currentStep === playerNames.length - 1);
+
+            if (isTextTask) {
+                // 文章入力フェーズ (P1 または Pn)
+                content = "（タイムアップによる文章スキップ）";
+                type = 'prompt';
+            } else {
+                // 描画フェーズ (P2 〜 Pn-1)
+                content = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII="; 
+                type = 'drawing';
+            }
+
+             currentBook.push({
+                type: type,
+                content: content,
+                author: playerNames[currentPlayerIndex],
+                step: currentStep
+            });
+            
+            nextStep(true); 
+        }
+
+        // --- プレイヤー登録ロジック (変更なし) ---
+        addPlayerForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const name = newPlayerNameInput.value.trim();
+            if (name && !playerNames.includes(name)) {
+                playerNames.push(name);
+                newPlayerNameInput.value = '';
+                updatePlayerList();
+            }
+        });
+
+        function updatePlayerList() {
+            playerListElement.innerHTML = '';
+            playerCountSpan.textContent = playerNames.length;
+            playerNames.forEach(name => {
+                const li = document.createElement('li');
+                li.textContent = name;
+                playerListElement.appendChild(li);
+            });
+            
+            if (playerNames.length >= MIN_PLAYERS) {
+                startGameButton.disabled = false;
+                startGameButton.textContent = `ゲーム開始 (${playerNames.length}人)`;
+            } else {
+                startGameButton.disabled = true;
+                startGameButton.textContent = `ゲーム開始 (あと${MIN_PLAYERS - playerNames.length}人)`;
+            }
+        }
+
+        // --- ゲーム開始ロジック (変更なし) ---
+        startGameButton.addEventListener('click', () => {
+            startGame();
+        });
+
+        function startGame() {
+            if (playerNames.length < MIN_PLAYERS) return; 
+
+            hideAll();
+            gameContainer.style.display = 'block';
+            currentBook = [];
+            currentPlayerIndex = 0; 
+            currentStep = 0; 
+            
+            showPassDeviceMessage(playerNames[currentPlayerIndex]);
+        }
+        
+        // --- デバイス交代メッセージ表示 ---
+        function showPassDeviceMessage(playerName) {
+            hideAll();
+            gameContainer.style.display = 'block';
+            passDeviceMessage.style.display = 'block';
+            
+            let taskName;
+            if (currentStep === 0) {
+                taskName = '最初のお題入力';
+            } else if (currentStep === playerNames.length - 1) {
+                taskName = '最終推測 (お題当て)';
+            } else {
+                taskName = '描画'; // P2からPn-1までは全員描画
+            }
+            
+            nextPlayerNameDisplay.innerHTML = `<span style="color: #d35400;">${playerName}</span> さんが担当します。<br>(${taskName})` ;
+        }
+
+        readyButton.addEventListener('click', () => {
+            passDeviceMessage.style.display = 'none';
+            startTask();
+        });
+
+        // --- タスク開始 ---
+        function startTask() {
+            const currentName = playerNames[currentPlayerIndex];
+            startTimer(); // タイマー開始
+
+            // P1 (currentStep == 0) のみ「お題入力」
+            if (currentStep === 0) {
+                currentTaskHeader.textContent = `${currentName} さん: 最初のお題を入力してください`;
+                textInput.style.display = 'block';
+                promptInput.value = '';
+                promptInput.placeholder = '例: 鼻からスパゲッティを食べる猫';
+                submitTextButton.textContent = 'お題を確定';
+                return;
+            }
+            
+            // Pn (currentStep == playerNames.length - 1) のみ「最終推測」
+            if (currentStep === playerNames.length - 1) {
+                const lastStep = currentBook[currentBook.length - 1]; // Pn-1の絵
+                
+                currentTaskHeader.textContent = `${currentName} さん: この絵を見て、最初の「お題」を当ててください！`;
+                textInput.style.display = 'block';
+                promptInput.value = '';
+                promptInput.placeholder = '最初の「お題」は何だと思いますか？';
+                submitTextButton.textContent = '最終推測を確定';
+                
+                // Pn-1の絵を表示
+                const img = document.createElement('img');
+                img.src = lastStep.content;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.border = '2px solid #333';
+                prevContentArea.appendChild(img);
+                return;
+            }
+            
+            // P2 から Pn-1 は全員「描画」タスク
+            
+            const lastStep = currentBook[currentBook.length - 1];
+            
+            // 描画フェーズの準備
+            resizeCanvas();
+            drawingInput.style.display = 'block';
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            finishDrawingButton.disabled = false;
+            
+            // P2 (currentStep == 1) は P1 の文章を見て描く
+            if (currentStep === 1) {
+                currentTaskHeader.textContent = `${currentName} さん: このお題を描いてください → 「${lastStep.content}」`;
+            } else {
+                // P3 以降は Pn-1 の絵を見て描く
+                currentTaskHeader.textContent = `${currentName} さん: この絵を次の人に伝わるように描いてください`;
+                
+                // Pn-1の絵を表示
+                const img = document.createElement('img');
+                img.src = lastStep.content;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.border = '2px solid #333';
+                drawingPrevContentArea.appendChild(img);
+            }
+        }
+        
+        // --- 提出ロジック ---
+        textForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            stopTimer(); // 提出したらタイマー停止
+            const content = promptInput.value.trim();
+            if (content) {
+                currentBook.push({
+                    type: 'prompt',
+                    content: content,
+                    author: playerNames[currentPlayerIndex],
+                    step: currentStep
+                });
+                nextStep();
+            }
+        });
+
+        finishDrawingButton.addEventListener('click', () => {
+            stopTimer(); // 提出したらタイマー停止
+            const imageDataURL = canvas.toDataURL('image/png'); 
+            currentBook.push({
+                type: 'drawing',
+                content: imageDataURL,
+                author: playerNames[currentPlayerIndex],
+                step: currentStep
+            });
+            finishDrawingButton.disabled = true;
+            nextStep();
+        });
+
+        function nextStep() {
+            
+            // 全てのステップが完了したら結果発表
+            if (currentStep >= playerNames.length - 1) {
+                 showReveal();
+                 return;
+            }
+            
+            // ステップ数をインクリメント
+            currentStep++;
+
+            // プレイヤーインデックスを更新
+            currentPlayerIndex = (currentPlayerIndex + 1) % playerNames.length;
+            
+            // 交代メッセージを表示
+            showPassDeviceMessage(playerNames[currentPlayerIndex]);
+        }
+
+        // --- 描画ロジック (変更なし) ---
+        function drawLine(x0, y0, x1, y1) {
+            ctx.beginPath();
+            ctx.moveTo(x0, y0);
+            ctx.lineTo(x1, y1);
+            ctx.stroke();
+        }
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDrawing = true; 
+            ctx.lineWidth = brushSizeInput.value;
+            ctx.strokeStyle = colorPicker.value;
+            lastX = e.offsetX; 
+            lastY = e.offsetY;
+        });
+        
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDrawing) return;
+            drawLine(lastX, lastY, e.offsetX, e.offsetY); 
+            lastX = e.offsetX; 
+            lastY = e.offsetY;
+        });
+
+        canvas.addEventListener('mouseup', () => { isDrawing = false; });
+        canvas.addEventListener('mouseout', () => { isDrawing = false; });
+        
+        brushSizeInput.addEventListener('input', (e) => {
+            ctx.lineWidth = e.target.value;
+            brushSizeValueSpan.textContent = `${e.target.value}px`;
+        });
+
+        colorPicker.addEventListener('input', (e) => {
+            ctx.strokeStyle = e.target.value;
+        });
+
+        clearCanvasButton.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // --- 結果発表 (変更なし) ---
+        function showReveal() {
+            hideAll();
+            revealContainer.style.display = 'block';
+            revealOutput.innerHTML = '';
+
+            const bookDiv = document.createElement('div');
+            bookDiv.classList.add('reveal-book');
+            
+            const h3 = document.createElement('h3');
+            h3.textContent = `伝言チェーン (${playerNames.join(' → ')})`;
+            bookDiv.appendChild(h3);
+
+            currentBook.forEach((step, index) => {
+                const stepDiv = document.createElement('div');
+                stepDiv.classList.add('reveal-step');
+                
+                if (step.type === 'prompt') {
+                    let typeText;
+                    if (index === 0) {
+                        typeText = '最初のお題';
+                    } else if (index === currentBook.length - 1) {
+                         typeText = '最終推測 (お題当て)';
+                    } else {
+                        // 今回のルールではここには来ないが、念のため
+                        typeText = '推測 (絵を見て)'; 
+                    }
+                    
+                    stepDiv.innerHTML = `<p><strong>Step ${index + 1} (${typeText}):</strong> 「${step.content}」</p><small>担当者: ${step.author}</small>`;
+                } else if (step.type === 'drawing') {
+                    const img = document.createElement('img');
+                    img.src = step.content; 
+                    img.style.maxWidth = '400px'; // 結果発表の絵は小さめにする
+                    img.style.height = 'auto';
+                    stepDiv.innerHTML = `<p><strong>Step ${index + 1} (描画):</strong></p><small>担当者: ${step.author}</small>`;
+                    stepDiv.appendChild(img);
+                }
+                bookDiv.appendChild(stepDiv);
+            });
+
+            revealOutput.appendChild(bookDiv);
+        }
+        
+        // --- リスタート (変更なし) ---
+        restartButton.addEventListener('click', () => {
+            playerNames = [];
+            currentBook = [];
+            hideAll();
+            setupContainer.style.display = 'block';
+            updatePlayerList();
+        });
+
+        // 初期化
+        hideAll();
+        setupContainer.style.display = 'block';
+        updatePlayerList();
+        
+    </script>
+</body>
+</html>
