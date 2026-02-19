@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Connect Tool</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
+        video { width: 100%; border-radius: 8px; background: #000; margin-top: 15px; }
+        .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
+        input, select, button { padding: 12px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
+        button { cursor: pointer; background: #007bff; color: white; border: none; font-weight: bold; }
+        button:disabled { background: #ccc; }
+        .status { font-size: 0.9em; color: #666; text-align: center; }
+        .options { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>P2P 共有ツール</h2>
+    
+    <div class="controls">
+        <input type="text" id="room-id" placeholder="合言葉（例: my-secret-room）">
+        
+        <div class="options">
+            <select id="media-type">
+                <option value="camera">📷 カメラを使用 (スマホ向き)</option>
+                <option value="screen">💻 画面共有 (PC向き)</option>
+            </select>
+            <label><input type="checkbox" id="mic-on" checked> 🎤 マイクON</label>
+        </div>
+
+        <button id="start-broadcast">配信を開始する</button>
+        <hr style="width:100%">
+        <button id="join-stream" style="background: #28a745;">視聴する（合言葉を入力）</button>
+    </div>
+
+    <p id="status" class="status">待機中...</p>
+    <video id="main-video" autoplay playsinline controls></video>
+</div>
+
+<script>
+    const roomIdInput = document.getElementById('room-id');
+    const mediaTypeSelect = document.getElementById('media-type');
+    const micCheckbox = document.getElementById('mic-on');
+    const statusText = document.getElementById('status');
+    const videoElement = document.getElementById('main-video');
+    
+    let peer = null;
+    let localStream = null;
+
+    // メディアストリームを取得する関数
+    async function getMedia() {
+        const useMic = micCheckbox.checked;
+        const type = mediaTypeSelect.value;
+
+        try {
+            if (type === 'screen') {
+                // 画面共有（PCのみ）
+                return await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: useMic
+                });
+            } else {
+                // カメラ（スマホ・PC両方）
+                return await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "user" },
+                    audio: useMic
+                });
+            }
+        } catch (e) {
+            console.error(e);
+            alert("メディアの取得に失敗しました。設定や権限を確認してください。");
+            return null;
+        }
+    }
+
+    // --- 配信者 (送信) ---
+    document.getElementById('start-broadcast').onclick = async () => {
+        const id = roomIdInput.value;
+        if (!id) return alert("合言葉を入力してください");
+
+        localStream = await getMedia();
+        if (!localStream) return;
+
+        videoElement.srcObject = localStream; // 自分の映像を確認用に出す
+        peer = new Peer(id, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    });
+
+        peer.on('open', () => {
+            statusText.innerText = `配信中... 合言葉「${id}」を相手に伝えてください`;
+        });
+
+        peer.on('call', (call) => {
+            call.answer(localStream);
+            statusText.innerText = "接続されました！配信中です。";
+        });
+
+        peer.on('error', (err) => {
+            if(err.type === 'unavailable-id') alert("その合言葉は既に使用されています。");
+            console.error(err);
+        });
+    };
+
+    // --- 視聴者 (受信) ---
+    document.getElementById('join-stream').onclick = () => {
+        const id = roomIdInput.value;
+        if (!id) return alert("合言葉を入力してください");
+
+        peer = new Peer(undefined, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    }); // 受信側はランダムIDでOK
+        
+        peer.on('open', () => {
+            statusText.innerText = `接続中: ${id}`;
+            // 受信側も空のストリームを投げて接続を開始する
+            const call = peer.call(id, new MediaStream());
+
+            call.on('stream', (remoteStream) => {
+                videoElement.srcObject = remoteStream;
+                statusText.innerText = "受信中...";
+            });
+        });
+
+        peer.on('error', (err) => {
+            alert("接続に失敗しました。合言葉が正しいか、配信が始まっているか確認してください。");
+        });
+    };
+</script>
+
+</body>
+</html>
+
