@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Player App</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; text-align: center; }
+        .box { padding: 20px; }
+        #v-wrap { width: 100%; aspect-ratio: 1.3; background: #000; position: relative; overflow: hidden; }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .stamp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 10px; }
+        .stamp { background: #1e293b; padding: 15px; border-radius: 12px; border: 2px solid transparent; }
+        .active { border-color: #10b981; background: #064e3b; }
+        input { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; margin-bottom: 10px; }
+        button { width: 100%; padding: 15px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 1rem; }
+        #ann-bar { position: fixed; top: 0; width: 100%; background: #facc15; color: #000; padding: 10px; display: none; z-index: 100; font-weight: bold; }
+        #goal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
+    </style>
+</head>
+<body>
+
+<div id="ann-bar"></div>
+
+<div id="reg" class="box" style="height: 100vh; display: flex; flex-direction: column; justify-content: center;">
+    <h2>🏃 参加登録</h2>
+    <input type="text" id="room" value="rally2026">
+    <input type="text" id="uname" placeholder="あなたの名前">
+    <button onclick="join()">ラリースタート！</button>
+</div>
+
+<div id="main" style="display:none;">
+    <div id="v-wrap">
+        <video id="video" playsinline></video>
+        <div id="lock" class="overlay">ホストの開始をお待ちください</div>
+    </div>
+    <div id="timer" style="padding:10px; color:#3b82f6; font-weight:bold;">TIME: 0:00</div>
+    <div id="list" class="stamp-grid"></div>
+</div>
+
+<div id="goal">
+    <h1 style="color:#facc15; font-size: 3rem;">🏆 GOAL!</h1>
+    <p id="goal-msg" style="padding: 20px;"></p>
+    <button onclick="location.reload()" style="width: auto; padding: 10px 30px;">トップに戻る</button>
+</div>
+
+<script>
+    let peer, cn, cfg={s:[]}, gameStatus='waiting', startTime=0, accTime=0;
+    const v=document.getElementById('video'), canvas=document.createElement('canvas');
+
+    function join() {
+        const r=document.getElementById('room').value, n=document.getElementById('uname').value;
+        if(!n) return alert("名前を入れてね");
+        peer = new Peer(undefined, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    });
+        peer.on('open', () => {
+            document.getElementById('reg').style.display='none';
+            document.getElementById('main').style.display='block';
+            cn = peer.connect(`${r}-host`, { metadata: { uname: n } });
+            
+            const fail = setTimeout(() => { if(!cn.open){ alert("ホストが見つかりません"); location.reload(); } }, 5000);
+
+            cn.on('open', () => { clearTimeout(fail); cn.send({ type:'IAM_PLAYER', uname:n }); });
+            cn.on('data', d => {
+                if(d.type==='ANNOUNCE') showAnn(d.msg);
+                if(d.type==='GAME_STATUS') { 
+                    gameStatus=d.status; document.getElementById('lock').style.display = d.status==='playing'?'none':'flex';
+                    if(d.status==='playing') startTime=Date.now(); else if(startTime>0) accTime += (Date.now()-startTime);
+                }
+                if(d.type==='SYNC') { cfg=d.cfg; render(); }
+                if(d.type==='FORCE_STAMP') applyRescue();
+                if(d.type==='FORCE_RESET') { localStorage.clear(); accTime=0; render(); }
+            });
+            cn.on('close', () => { alert("通信が切れました"); location.reload(); });
+
+            navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
+                .then(s => { v.srcObject=s; v.play(); requestAnimationFrame(tick); })
+                .catch(() => alert("カメラの使用を許可してください"));
+        });
+    }
+
+    function applyRescue() {
+        const next = cfg.s.find(x => !localStorage.getItem('st_'+x.n));
+        if(next) { localStorage.setItem('st_'+next.n, 1); sendReport(); render(); alert(next.n + "を獲得！"); }
+    }
+
+    function sendReport() {
+        const cur = accTime + (startTime>0 ? (Date.now()-startTime) : 0);
+        cn.send({ type:'REPORT', user:document.getElementById('uname').value, score:cfg.s.filter(x=>localStorage.getItem('st_'+x.n)).length, time:cur });
+    }
+
+    function tick() {
+        if(gameStatus==='playing' && v.readyState===v.HAVE_ENOUGH_DATA) {
+            canvas.height=v.videoHeight; canvas.width=v.videoWidth;
+            const ctx=canvas.getContext("2d"); ctx.drawImage(v,0,0,canvas.width,canvas.height);
+            const code=jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
+            if(code) {
+                try {
+                    const [n,c] = decodeURIComponent(atob(code.data)).split("::");
+                    const s = cfg.s.find(x=>x.n===n && x.c===c);
+                    if(s && !localStorage.getItem('st_'+s.n)) { localStorage.setItem('st_'+s.n, 1); sendReport(); render(); }
+                } catch(e){}
+            }
+        }
+        if(gameStatus==='playing') {
+            const cur = accTime + (Date.now()-startTime);
+            document.getElementById('timer').innerText = `TIME: ${Math.floor(cur/60000)}:${String(Math.floor((cur%60000)/1000)).padStart(2,'0')}`;
+        }
+        requestAnimationFrame(tick);
+    }
+
+    function render() {
+        document.getElementById('list').innerHTML = cfg.s.map(x => `<div class="stamp ${localStorage.getItem('st_'+x.n)?'active':''}"><b>${localStorage.getItem('st_'+x.n)?'✅':'⚪'}</b><br>${x.n}</div>`).join('');
+        if(cfg.s.length>0 && cfg.s.every(x=>localStorage.getItem('st_'+x.n))) {
+            document.getElementById('goal').style.display='flex';
+            document.getElementById('goal-msg').innerText = cfg.goalMsg;
+        }
+    }
+
+    function showAnn(m) { const b=document.getElementById('ann-bar'); b.innerText="📢 "+m; b.style.display='block'; setTimeout(()=>b.style.display='none', 5000); }
+</script>
+</body>
+</html>
+
