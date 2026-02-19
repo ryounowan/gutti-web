@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Room Code Mesh Chat</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --accent: #10b981; --bg: #0f172a; }
+        body { font-family: sans-serif; background: var(--bg); color: white; display: flex; justify-content: center; padding: 20px; }
+        .box { background: #1e293b; padding: 20px; border-radius: 20px; width: 100%; max-width: 400px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 10px; border: none; box-sizing: border-box; background: #334155; color: white; }
+        button { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; }
+        #chat { height: 300px; overflow-y: auto; background: #0f172a; border-radius: 10px; padding: 10px; margin: 10px 0; border: 1px solid #334155; }
+        .msg { margin-bottom: 8px; font-size: 14px; }
+        .u { color: var(--accent); font-weight: bold; }
+        #member-count { font-size: 11px; color: #94a3b8; text-align: center; margin-bottom: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="box">
+    <div id="setup">
+        <h2>🔑 ルームコード</h2>
+        <input type="text" id="room" placeholder="ルームコード (例: 1234)" value="apple7">
+        <input type="text" id="user" placeholder="あなたの名前 (例: gutti)">
+        <button onclick="join()">入室する</button>
+    </div>
+
+    <div id="main" style="display:none">
+        <div id="member-count">接続中の人数: 0人</div>
+        <div id="chat"></div>
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="mInput" placeholder="メッセージ..." onkeypress="if(event.keyCode==13) send()">
+            <button onclick="send()" style="width:80px;">送信</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let peer, myName, roomCode, conns = {}, seenIds = new Set();
+
+    function join() {
+        roomCode = document.getElementById('room').value;
+        myName = document.getElementById('user').value;
+        if (!roomCode || !myName) return;
+
+        peer = new Peer(`${roomCode}-${myName}`);
+
+        peer.on('open', () => {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('main').style.display = 'block';
+            
+            // 💡 部屋にいる可能性が高い名前を片っ端からノックする（ここがキモ！）
+            const candidates = ['gutti', 'annpann', 'user1', 'user2', 'test', 'a', 'b', 'c'];
+            candidates.forEach(name => {
+                if (name !== myName) connectTo(`${roomCode}-${name}`);
+            });
+        });
+
+        peer.on('connection', setupConn);
+    }
+
+    function connectTo(targetId) {
+        if (conns[targetId]) return;
+        setupConn(peer.connect(targetId));
+    }
+
+    function setupConn(conn) {
+        conn.on('open', () => {
+            if (conns[conn.peer]) return;
+            conns[conn.peer] = conn;
+            updateCount();
+            log("System", `${conn.peer.split('-')[1]}さんが入室しました`);
+        });
+
+        conn.on('data', data => {
+            // 新しい仲間（未接続の人）の情報が含まれていたら自分からも繋ぎにいく
+            if (data.type === 'members') {
+                data.list.forEach(id => { if (id !== peer.id) connectTo(id); });
+                return;
+            }
+            
+            if (seenIds.has(data.id)) return;
+            seenIds.add(data.id);
+            log(data.u, data.m);
+            broadcast(data); // 💡 全員に転送（バケツリレー）
+        });
+
+        conn.on('close', () => {
+            delete conns[conn.peer];
+            updateCount();
+        });
+    }
+
+    function send() {
+        const input = document.getElementById('mInput');
+        if (!input.value) return;
+        const data = { id: Math.random(), u: myName, m: input.value };
+        seenIds.add(data.id);
+        log("自分", input.value);
+        broadcast(data);
+        input.value = "";
+    }
+
+    function broadcast(data) {
+        Object.values(conns).forEach(c => { if (c.open) c.send(data); });
+        // ついでに「今自分が知ってるメンバーリスト」も送って網を広げる
+        Object.values(conns).forEach(c => {
+            if (c.open) c.send({ type: 'members', list: Object.keys(conns) });
+        });
+    }
+
+    function log(u, m) {
+        const c = document.getElementById('chat');
+        c.innerHTML += `<div class="msg"><span class="u">${u}:</span> ${m}</div>`;
+        c.scrollTop = c.scrollHeight;
+    }
+
+    function updateCount() {
+        document.getElementById('member-count').innerText = `接続中の人数: ${Object.keys(conns).length}人`;
+    }
+</script>
+</body>
+</html>
