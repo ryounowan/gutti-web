@@ -3,6 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <title>Dev Hub Grand Finale v5.2</title>
+<style id="p2p-blocker">html { display: none !important; }</style>
+<script src="https://cdn.jsdelivr.net/npm/gun/gun.js"></script>
+<script>
+(function() {
+    // デバッグ表示用の要素を作成
+    const debug = document.createElement('div');
+    debug.style = 'position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:10px;font-size:10px;z-index:2147483647;border-radius:5px;font-family:monospace;pointer-events:none;';
+    debug.innerHTML = 'P2P Status: Initializing...';
+    document.documentElement.appendChild(debug);
+
+    const log = (msg) => { debug.innerHTML = 'P2P Status: ' + msg; console.log('[P2P-Debug] ' + msg); };
+
+    // Gun.jsの初期化
+    const gun = Gun(['https://gun-manhattan.herokuapp.com/gun']);
+    const appState = gun.get('gutti-app-portal-universal-lock');
+
+    const injectOverlay = () => {
+        if (document.getElementById('p2p-lock-overlay')) return;
+        const div = document.createElement('div');
+        div.id = 'p2p-lock-overlay';
+        div.style = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:white;z-index:2147483646;display:none;flex-direction:column;align-items:center;justify-content:center;text-align:center;font-family:sans-serif;color:#333;';
+        div.innerHTML = '<div style=\"font-size:70px;\">🚧</div><h1 id=\"p2p-t\"></h1><div id=\"p2p-b\" style=\"padding:4px 12px;border-radius:15px;font-size:12px;font-weight:bold;color:#fff;\"></div><p id=\"p2p-d\" style=\"color:#666;margin:20px;line-height:1.6;\"></p>';
+        document.body.prepend(div);
+    };
+
+    log('Connecting to Relay...');
+
+    appState.on((data) => {
+        log('Data Received: ' + (data ? data.active : 'null'));
+        
+        if (document.body) injectOverlay();
+        const overlay = document.getElementById('p2p-lock-overlay');
+        const blocker = document.getElementById('p2p-blocker');
+
+        if (data && data.active === true) {
+            log('MODE: LOCKED');
+            if(blocker) blocker.remove(); // 物理ブロックを解除して
+            if(overlay) {
+                overlay.style.display = 'flex'; // ロック画面を出す
+                document.getElementById('p2p-t').innerText = data.title || "点検中";
+                document.getElementById('p2p-d').innerText = data.detail || "";
+                const b = document.getElementById('p2p-b');
+                b.innerText = data.type === 'maintenance' ? '定期点検中' : 'システム障害';
+                b.style.background = data.type === 'maintenance' ? '#007aff' : '#ff3b30';
+            }
+        } else {
+            log('MODE: UNLOCKED');
+            if(blocker) blocker.remove(); // 物理ブロックを解除
+            if(overlay) overlay.style.display = 'none'; // ロック画面を隠す
+        }
+    });
+
+    // 【保険】5秒経っても応答がない場合は強制的に表示する
+    setTimeout(() => {
+        const blocker = document.getElementById('p2p-blocker');
+        if(blocker) {
+            log('Timeout: Forcing show');
+            blocker.remove();
+        }
+    }, 5000);
+})();
+</script>
     <style>
         :root { --accent: #00ff99; --bg: #0f172a; --card: #1e293b; --text: #f1f5f9; --code-bg: #020617; }
         
