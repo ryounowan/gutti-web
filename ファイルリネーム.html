@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>メディア連番くんPRO + 履歴管理</title>
+    <style>
+        :root { --primary: #34c759; --bg: #f2f2f7; --card: #ffffff; --text: #1c1c1e; --accent: #007aff; --danger: #ff3b30; }
+        @media (prefers-color-scheme: dark) { :root { --bg: #000000; --card: #1c1c1e; --text: #ffffff; } }
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); padding: 20px; margin: 0; }
+        .container { max-width: 550px; margin: auto; }
+        .card { background: var(--card); padding: 20px; border-radius: 12px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        label { display: block; font-size: 0.8rem; margin-bottom: 5px; opacity: 0.8; }
+        input { width: 100%; padding: 12px; margin-bottom: 15px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1rem; background: var(--card); color: var(--text); }
+        .history-info { font-size: 0.85rem; color: var(--primary); margin-top: -10px; margin-bottom: 15px; font-weight: bold; }
+        .drop-zone { border: 2px dashed #ccc; border-radius: 12px; padding: 30px; text-align: center; cursor: pointer; background: var(--bg); margin-bottom: 15px; }
+        .btn { width: 100%; padding: 15px; background: var(--accent); color: white; border: none; border-radius: 8px; font-size: 1rem; font-weight: bold; cursor: pointer; }
+        .btn-save { background: var(--primary); }
+        .btn-save:disabled { background: #888; cursor: not-allowed; }
+        
+        /* 履歴テーブルのスタイル */
+        .history-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        .history-table th, .history-table td { padding: 10px; border-bottom: 1px solid #ccc; text-align: left; }
+        .delete-icon { color: var(--danger); cursor: pointer; font-weight: bold; text-align: center; width: 30px; }
+        .clear-all { color: var(--danger); font-size: 0.8rem; cursor: pointer; text-decoration: underline; display: block; text-align: right; margin-top: 10px; }
+        
+        #progress { margin-top: 15px; font-size: 0.9rem; color: var(--accent); display: none; text-align: center; }
+        #fileStatus { font-size: 0.85rem; margin-bottom: 10px; text-align: center; opacity: 0.7; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🎬 メディア一括リネーム</h2>
+    
+    <div class="card">
+        <label>ファイル名の名前部分</label>
+        <input type="text" id="prefix" placeholder="例：現場、キャンプ" oninput="checkHistory()">
+        <div id="historyMsg" class="history-info">新規の名前です</div>
+
+        <label>開始番号</label>
+        <input type="number" id="start" value="1">
+
+        <div class="drop-zone" onclick="document.getElementById('fileInput').click()">
+            動画・画像をドロップまたは選択
+            <input type="file" id="fileInput" multiple accept="video/*,image/*" style="display:none">
+        </div>
+        <div id="fileStatus">未選択</div>
+        
+        <button class="btn btn-save" id="execBtn" onclick="generateAndDownload()" disabled>リネームしてZIP保存</button>
+        <div id="progress">処理中... 0%</div>
+    </div>
+
+    <div class="card">
+        <label>💾 履歴一覧</label>
+        <table class="history-table" id="historyTable">
+            <thead>
+                <tr>
+                    <th>名前</th>
+                    <th>最終番号</th>
+                    <th>削除</th>
+                </tr>
+            </thead>
+            <tbody id="historyList">
+                </tbody>
+        </table>
+        <span class="clear-all" onclick="clearAllHistory()">すべての履歴を消去</span>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+    let selectedFiles = [];
+    const HISTORY_PREFIX = 'rename_history_';
+
+    // 起動時に履歴を表示
+    window.onload = updateHistoryTable;
+
+    function checkHistory() {
+        const name = document.getElementById('prefix').value;
+        const historyMsg = document.getElementById('historyMsg');
+        const startInput = document.getElementById('start');
+        if (!name) return;
+
+        const lastNum = localStorage.getItem(HISTORY_PREFIX + name);
+        if (lastNum) {
+            historyMsg.innerText = `続き：前回 ${lastNum} まで`;
+            startInput.value = parseInt(lastNum) + 1;
+        } else {
+            historyMsg.innerText = "新規の名前です";
+            startInput.value = 1;
+        }
+    }
+
+    // 履歴テーブルの表示更新
+    function updateHistoryTable() {
+        const list = document.getElementById('historyList');
+        list.innerHTML = "";
+        
+        // LocalStorage内を走査
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.startsWith(HISTORY_PREFIX)) {
+                const name = key.replace(HISTORY_PREFIX, "");
+                const lastNum = localStorage.getItem(key);
+                
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td style="cursor:pointer; color:var(--accent);" onclick="loadToInput('${name}')">${name}</td>
+                    <td>${lastNum}</td>
+                    <td class="delete-icon" onclick="deleteSingleHistory('${name}')">×</td>
+                `;
+                list.appendChild(tr);
+            }
+        }
+    }
+
+    // 履歴をクリックしたら入力欄にセットする
+    function loadToInput(name) {
+        document.getElementById('prefix').value = name;
+        checkHistory();
+    }
+
+    // 個別削除
+    function deleteSingleHistory(name) {
+        if (confirm(`「${name}」の履歴を消去しますか？`)) {
+            localStorage.removeItem(HISTORY_PREFIX + name);
+            updateHistoryTable();
+            checkHistory();
+        }
+    }
+
+    // 全削除
+    function clearAllHistory() {
+        if (confirm("すべての履歴を完全に消去しますか？")) {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                if (localStorage.key(i).startsWith(HISTORY_PREFIX)) {
+                    keysToRemove.push(localStorage.key(i));
+                }
+            }
+            keysToRemove.forEach(k => localStorage.removeItem(k));
+            updateHistoryTable();
+            checkHistory();
+        }
+    }
+
+    document.getElementById('fileInput').onchange = (e) => {
+        selectedFiles = Array.from(e.target.files);
+        if(selectedFiles.length > 0) {
+            document.getElementById('execBtn').disabled = false;
+            document.getElementById('fileStatus').innerText = `${selectedFiles.length}個のメディアを選択中`;
+        }
+    };
+
+    async function generateAndDownload() {
+        const prefix = document.getElementById('prefix').value;
+        const start = parseInt(document.getElementById('start').value) || 1;
+        const progressDiv = document.getElementById('progress');
+        const btn = document.getElementById('execBtn');
+        
+        if (!prefix) return alert("名前を入力してください");
+
+        const zip = new JSZip();
+        progressDiv.style.display = 'block';
+        btn.disabled = true;
+
+        let lastNum = start;
+
+        for (let i = 0; i < selectedFiles.length; i++) {
+            const file = selectedFiles[i];
+            lastNum = start + i;
+            const ext = file.name.split('.').pop();
+            const newName = `${prefix}_${lastNum.toString().padStart(3, '0')}.${ext}`;
+            zip.file(newName, file);
+            const percent = Math.round(((i + 1) / selectedFiles.length) * 100);
+            progressDiv.innerText = `ZIP作成中... ${percent}%`;
+        }
+
+        progressDiv.innerText = `ZIP圧縮中...`;
+        const content = await zip.generateAsync({type: "blob"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(content);
+        a.download = `${prefix}_${start}-${lastNum}.zip`;
+        a.click();
+
+        localStorage.setItem(HISTORY_PREFIX + prefix, lastNum);
+        
+        btn.disabled = false;
+        progressDiv.innerText = "完了しました！";
+        updateHistoryTable();
+        checkHistory();
+    }
+</script>
+
+</body>
+</html>
+
