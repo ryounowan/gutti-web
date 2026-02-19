@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P Multi-File Transformer</title>
+    <style>
+        :root { --primary: #3b82f6; --bg: #0f172a; --panel: #1e293b; --error: #ef4444; --success: #10b981; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: #f8fafc; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .container { width: 90%; max-width: 800px; background: var(--panel); padding: 40px; border-radius: 24px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); text-align: center; }
+        h1 { margin-top: 0; color: var(--primary); font-size: 1.8rem; }
+        #drop-zone { border: 3px dashed #334155; border-radius: 20px; padding: 60px 20px; transition: 0.3s; cursor: pointer; position: relative; margin-bottom: 20px; }
+        #drop-zone.dragover { border-color: var(--primary); background: rgba(59, 130, 246, 0.1); }
+        .file-list { text-align: left; background: #020617; border-radius: 12px; padding: 10px; max-height: 300px; overflow-y: auto; }
+        .file-item { display: flex; justify-content: space-between; padding: 8px 15px; border-bottom: 1px solid #1e293b; align-items: center; }
+        .status-err { color: var(--error); font-weight: bold; }
+        .status-ok { color: var(--success); font-weight: bold; }
+        button { background: var(--primary); color: white; border: none; padding: 12px 30px; border-radius: 10px; font-weight: bold; cursor: pointer; font-size: 1rem; margin-top: 20px; transition: 0.2s; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        .desc { color: #94a3b8; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🚀 P2P 遠隔対応・一括コンバーター</h1>
+    <p class="desc">HTMLファイルをドラッグ＆ドロップしてください。<br>自動でSTUN設定を注入し、遠隔地で繋がるように改造します。</p>
+
+    <div id="drop-zone">
+        ファイルをここにドロップするか、クリックして選択<br>
+        <span style="font-size: 0.8rem; color: #64748b;">(複数ファイル対応)</span>
+        <input type="file" id="file-input" multiple accept=".html" style="display:none">
+    </div>
+
+    <div id="file-list" class="file-list" style="display:none"></div>
+    
+    <button id="download-all" style="display:none">変換済みファイルをすべて保存 (.zip)</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<script>
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const fileList = document.getElementById('file-list');
+    const downloadBtn = document.getElementById('download-all');
+
+    let processedFiles = [];
+
+    // STUNサーバー設定
+    const iceConfig = `, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    }`;
+
+    dropZone.onclick = () => fileInput.click();
+
+    dropZone.ondragover = (e) => { e.preventDefault(); dropZone.classList.add('dragover'); };
+    dropZone.ondragleave = () => dropZone.classList.remove('dragover');
+    dropZone.ondrop = (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('dragover');
+        handleFiles(e.dataTransfer.files);
+    };
+
+    fileInput.onchange = (e) => handleFiles(e.target.files);
+
+    async function handleFiles(files) {
+        fileList.innerHTML = '';
+        fileList.style.display = 'block';
+        processedFiles = [];
+        const zip = new JSZip();
+        let hasValidFile = false;
+
+        for (let file of files) {
+            const content = await file.text();
+            const item = document.createElement('div');
+            item.className = 'file-item';
+            
+            // P2Pコードが含まれているかチェック
+            if (!content.includes('new Peer')) {
+                item.innerHTML = `<span>${file.name}</span><span class="status-err">エラー: P2Pコード未検出</span>`;
+            } else {
+                // 変換処理
+                let transformed = content.replace(/new Peer\(([^)]+)\)/g, (match, p1) => {
+                    return p1.includes('iceServers') ? match : `new Peer(${p1}${iceConfig})`;
+                });
+                transformed = transformed.replace(/new Peer\(\)/g, () => `new Peer(undefined${iceConfig})`);
+                
+                zip.file(`[Remote]_${file.name}`, transformed);
+                item.innerHTML = `<span>${file.name}</span><span class="status-ok">変換成功</span>`;
+                hasValidFile = true;
+            }
+            fileList.appendChild(item);
+        }
+
+        if (hasValidFile) {
+            downloadBtn.style.display = 'inline-block';
+            downloadBtn.onclick = async () => {
+                const blob = await zip.generateAsync({type:"blob"});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = "remote_p2p_files.zip";
+                a.click();
+            };
+        }
+    }
+</script>
+</body>
+</html>
+
