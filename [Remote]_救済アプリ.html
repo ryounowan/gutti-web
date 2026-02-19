@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Staff Control</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        .tab-bar { display: flex; background: #1e293b; padding: 10px; gap: 10px; }
+        .tab-btn { flex: 1; padding: 12px; border: none; border-radius: 8px; background: #334155; color: white; font-weight: bold; }
+        .tab-btn.active { background: #10b981; }
+        .content { flex: 1; overflow-y: auto; padding: 15px; }
+        .player-card { background: #1e293b; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border: 1px solid #334155; }
+        input { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #334155; color: white; margin-bottom: 10px; font-size: 16px; box-sizing: border-box; }
+        #chat-win { height: 70%; background: #020617; border-radius: 10px; padding: 10px; overflow-y: auto; margin-bottom: 10px; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+<div id="setup" style="padding:40px; text-align:center;">
+    <h2>🚑 スタッフログイン</h2>
+    <input type="text" id="room" value="rally2026">
+    <input type="text" id="user" placeholder="名前 (例: スタッフA)">
+    <input type="password" id="staff-key" placeholder="認証キー">
+    <button onclick="join()" style="width:100%; padding:15px; background:#10b981; border:none; border-radius:10px; color:white; font-weight:bold;">接続</button>
+</div>
+
+<div id="main" style="display:none; flex-direction:column; height:100vh;">
+    <div class="tab-bar">
+        <button class="tab-btn active" id="b-res" onclick="show('res')">救済</button>
+        <button class="tab-btn" id="b-chat" onclick="show('chat')">チャット</button>
+    </div>
+    <div id="tab-res" class="content">
+        <input type="text" id="q" placeholder="名前で検索..." oninput="render()">
+        <div id="list"></div>
+    </div>
+    <div id="tab-chat" class="content" style="display:none;">
+        <div id="chat-win"></div>
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="m" style="margin:0;">
+            <button onclick="send()" style="width:80px; background:#3b82f6; border:none; border-radius:8px; color:white;">送信</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let peer, host, myName, scores={}, seen=new Set();
+
+    function join() {
+        const r=document.getElementById('room').value, u=document.getElementById('user').value, k=document.getElementById('staff-key').value;
+        if(!u) return; myName=u;
+        peer = new Peer(`${r}-STAFF-${u}`, {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { urls: 'stun:stun2.l.google.com:19302' }
+            ]
+        }
+    });
+        peer.on('open', () => {
+            host = peer.connect(`${r}-host`);
+            host.on('open', () => {
+                document.getElementById('setup').style.display='none';
+                document.getElementById('main').style.display='flex';
+                host.send({ type:'IAM_STAFF', authKey:k });
+            });
+            host.on('data', d => {
+                if(d.type==='REPORT'){ scores[d.user]=d; render(); }
+                if(d.type==='STAFF_CHAT' && !seen.has(d.id)){ seen.add(d.id); logChat(d.u, d.m); }
+                if(d.type==='RESCUE_DONE') alert(d.user+"さんの救済完了");
+            });
+            host.on('close', () => location.reload());
+        });
+    }
+
+    function render() {
+        const query = document.getElementById('q').value.toLowerCase();
+        const players = Object.entries(scores).filter(([n])=>n.toLowerCase().includes(query));
+        document.getElementById('list').innerHTML = players.map(([n, d])=>`<div class="player-card"><span><b>${n}</b> (${d.score}個)</span><button onclick="req('${n}')" style="background:#f59e0b; border:none; padding:8px 12px; border-radius:6px; color:black; font-weight:bold;">救済申請</button></div>`).join('');
+    }
+
+    function req(n) { if(confirm(n+"さんを救済しますか？")) host.send({ type:'STAFF_RESCUE_REQ', targetUser:n }); }
+    function send() { const i=document.getElementById('m'); if(!i.value)return; const d={type:'STAFF_CHAT',id:Math.random(),u:myName,m:i.value}; host.send(d); logChat("自分", i.value); i.value=""; }
+    function logChat(u,m) { const w=document.getElementById('chat-win'); w.innerHTML+=`<div><b>${u}:</b> ${m}</div>`; w.scrollTop=w.scrollHeight; }
+    function show(t) {
+        document.getElementById('tab-res').style.display=t==='res'?'block':'none';
+        document.getElementById('tab-chat').style.display=t==='chat'?'block':'none';
+        document.getElementById('b-res').className='tab-btn '+(t==='res'?'active':'');
+        document.getElementById('b-chat').className='tab-btn '+(t==='chat'?'active':'');
+    }
+</script>
+</body>
+</html>
