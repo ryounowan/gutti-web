@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gutti App Portal</title>
+    <style id="custom-theme">
+        :root { --accent: #0969da; --text: #1f2328; --card-bg: rgba(255, 255, 255, 0.9); }
+        body { 
+            font-family: -apple-system, sans-serif; 
+            margin: 0; padding: 0; min-height: 100vh;
+            background: #f6f8fa; /* 初期背景 */
+            background-size: cover;
+            background-attachment: fixed;
+            color: var(--text); 
+        }
+    </style>
+    <style>
+        header { background: rgba(36, 41, 46, 0.9); color: white; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; backdrop-filter: blur(5px); }
+        .user-icon { width: 35px; height: 35px; border-radius: 50%; background: #555; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 2px solid #fff; transition: 0.3s; }
+        .user-icon:hover { transform: scale(1.1); }
+        
+        #admin-panel { display: none; background: white; border-bottom: 3px solid var(--accent); padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); position: sticky; top: 0; z-index: 1000; }
+        .admin-box { max-width: 900px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; font-size: 13px; color: #333; }
+        .admin-box input, .admin-box select { padding: 6px; border: 1px solid #ddd; border-radius: 4px; }
+        
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .folder-section { background: rgba(255, 255, 255, 0.5); border-radius: 15px; padding: 20px; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(10px); }
+        .folder-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; gap: 8px; text-shadow: 0 1px 2px rgba(255,255,255,0.8); }
+        
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 20px; }
+        .app-card { background: var(--card-bg); border-radius: 20px; border: 1px solid rgba(0,0,0,0.05); padding: 15px; text-align: center; text-decoration: none; color: inherit; transition: 0.3s; display: flex; flex-direction: column; align-items: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .app-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.15); background: #fff; }
+        
+        .icon-box { width: 75px; height: 75px; border-radius: 18px; background: #fff; margin-bottom: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; }
+        .icon-box img { width: 100%; height: 100%; object-fit: cover; }
+        .app-name { font-size: 12px; font-weight: bold; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; width: 100%; }
+        
+        .btn { padding: 8px 14px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; background: var(--accent); color: white; }
+        .btn-save { background: #2da44e; }
+        #status { text-align: center; padding: 50px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="font-weight: bold; letter-spacing: 1px;">GUTTI PORTAL</div>
+    <div class="user-icon" onclick="checkPassword()">👤</div>
+</header>
+
+<div id="admin-panel">
+    <div class="admin-box">
+        <strong>📂 フォルダ:</strong>
+        <input type="text" id="new-folder-name" placeholder="名前">
+        <button class="btn" onclick="addFolder()">作成</button>
+        
+        <strong style="margin-left:15px;">📱 配置:</strong>
+        <select id="app-select"></select> → <select id="folder-select"></select>
+        <button class="btn" onclick="moveApp()">移動</button>
+        
+        <strong style="margin-left:15px;">🖼️ 背景:</strong>
+        <select id="bg-type" onchange="updateBgPreview()">
+            <option value="color">単色/グラデーション</option>
+            <option value="url">画像URL</option>
+        </select>
+        <input type="text" id="bg-value" placeholder="linear-gradient(45deg, #f3f4f6, #e5e7eb)" style="width:180px;">
+
+        <button class="btn btn-save" style="margin-left:auto;" onclick="saveConfig()">💾 設定保存</button>
+        <button class="btn" style="background:#666;" onclick="changePassword()">🔑 鍵変更</button>
+        <button class="btn" style="background:#444;" onclick="location.reload()">閉じる</button>
+    </div>
+</div>
+
+<div class="container" id="main-container">
+    <div id="status">Syncing with GitHub...</div>
+</div>
+
+<script>
+    const TOKEN = "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";
+    const REPO_NAME = "gutti-web";
+    const CONFIG_FILE = "portal_config.json";
+
+    let config = { folders: ["未分類"], mapping: {}, password: "", bgType: "color", bgValue: "#f6f8fa" };
+    let fetchedFiles = [];
+    let username = "";
+
+    async function init() {
+        try {
+            const headers = { 'Authorization': `token ${TOKEN}` };
+            const userRes = await fetch('https://api.github.com/user', { headers });
+            username = (await userRes.json()).login;
+            
+            const configRes = await fetch(`https://api.github.com/repos/${username}/${REPO_NAME}/contents/${CONFIG_FILE}`, { headers });
+            if (configRes.ok) {
+                const data = await configRes.json();
+                config = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+                applyTheme();
+            }
+
+            const filesRes = await fetch(`https://api.github.com/repos/${username}/${REPO_NAME}/contents/`, { headers });
+            fetchedFiles = (await filesRes.json()).filter(f => f.name.endsWith('.html') && f.name !== 'index.html');
+            
+            render();
+        } catch (e) { document.getElementById('status').innerText = "Load Failed"; }
+    }
+
+    function applyTheme() {
+        const body = document.body;
+        if (config.bgType === 'url') {
+            body.style.background = `url('${config.bgValue}')`;
+            body.style.backgroundSize = "cover";
+            body.style.backgroundAttachment = "fixed";
+        } else {
+            body.style.background = config.bgValue;
+        }
+        // 管理パネルの入力欄にも反映
+        document.getElementById('bg-type').value = config.bgType || "color";
+        document.getElementById('bg-value').value = config.bgValue || "#f6f8fa";
+    }
+
+    function updateBgPreview() {
+        config.bgType = document.getElementById('bg-type').value;
+        config.bgValue = document.getElementById('bg-value').value;
+        applyTheme();
+    }
+
+    function checkPassword() {
+        const input = prompt("PASSWORD?");
+        if (!config.password || input === config.password) {
+            document.getElementById('admin-panel').style.display = 'block';
+            updateAdminOptions();
+        } else { alert("ACCESS DENIED"); }
+    }
+
+    function changePassword() {
+        const newPw = prompt("NEW PASSWORD?");
+        if (newPw) { config.password = newPw; alert("Changed! (Don't forget to SAVE)"); }
+    }
+
+    function addFolder() {
+        const name = document.getElementById('new-folder-name').value;
+        if (name && !config.folders.includes(name)) {
+            config.folders.push(name);
+            render();
+            updateAdminOptions();
+        }
+    }
+
+    function moveApp() {
+        const app = document.getElementById('app-select').value;
+        const folder = document.getElementById('folder-select').value;
+        config.mapping[app] = folder;
+        render();
+    }
+
+    async function saveConfig() {
+        config.bgType = document.getElementById('bg-type').value;
+        config.bgValue = document.getElementById('bg-value').value;
+
+        const headers = { 'Authorization': `token ${TOKEN}`, 'Content-Type': 'application/json' };
+        const apiUrl = `https://api.github.com/repos/${username}/${REPO_NAME}/contents/${CONFIG_FILE}`;
+        const getRes = await fetch(apiUrl, { headers });
+        let sha = getRes.ok ? (await getRes.json()).sha : undefined;
+
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+        const res = await fetch(apiUrl, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify({ message: "Update portal settings", content, sha })
+        });
+
+        if (res.ok) alert("SETTINGS SAVED TO GITHUB!");
+        else alert("SAVE FAILED");
+    }
+
+    function updateAdminOptions() {
+        document.getElementById('app-select').innerHTML = fetchedFiles.map(f => `<option value="${f.name}">${f.name}</option>`).join('');
+        document.getElementById('folder-select').innerHTML = config.folders.map(f => `<option value="${f}">${f}</option>`).join('');
+    }
+
+    function render() {
+        const container = document.getElementById('main-container');
+        container.innerHTML = "";
+        const sections = {};
+        config.folders.forEach(f => sections[f] = []);
+        
+        fetchedFiles.forEach(f => {
+            const folder = config.mapping[f.name] || "未分類";
+            if (!sections[folder]) sections[folder] = [];
+            sections[folder].push(f);
+        });
+
+        for (const folder in sections) {
+            if (sections[folder].length === 0 && folder === "未分類") continue;
+            const sec = document.createElement('div');
+            sec.className = 'folder-section';
+            sec.innerHTML = `<div class="folder-title">📁 ${folder}</div><div class="gallery" id="gal-${folder}"></div>`;
+            container.appendChild(sec);
+            
+            sections[folder].forEach(f => {
+                const card = document.createElement('a');
+                card.className = 'app-card';
+                card.href = `https://${username}.github.io/${REPO_NAME}/${f.name}`;
+                card.target = "_blank";
+                card.innerHTML = `<div class="icon-box" id="icon-${f.sha}">...</div><div class="app-name">${f.name.replace('.html','')}</div>`;
+                document.getElementById(`gal-${folder}`).appendChild(card);
+                
+                fetch(f.download_url).then(r => r.text()).then(html => {
+                    const match = html.match(/<link rel=["']apple-touch-icon["'] href=["']([^"']+)["']/);
+                    document.getElementById(`icon-${f.sha}`).innerHTML = match ? `<img src="${match[1]}">` : 'NO ICON';
+                });
+            });
+        }
+    }
+    init();
+</script>
+</body>
+</html>
+
