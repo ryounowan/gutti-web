@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Genesis OS - v5.9.4 Optimized AI Suite</title>
+    <style>
+        /* テーマ変数 */
+        :root { 
+            --accent: #4cc2ff; 
+            --taskbar: rgba(10, 10, 10, 0.96); 
+            --win-bg: rgba(25, 25, 30, 0.98); 
+            --text: #ffffff; 
+            --blur: blur(45px); 
+            --input-bg: rgba(255,255,255,0.1);
+        }
+
+        /* ライトモード定義 */
+        body.light-mode {
+            --taskbar: rgba(240, 240, 245, 0.96);
+            --win-bg: rgba(255, 255, 255, 0.95);
+            --text: #1a1a1a;
+            --input-bg: rgba(0,0,0,0.05);
+        }
+
+        body, html { margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: transparent; color: var(--text); transition: background 0.3s, color 0.3s; }
+        
+        #boot-screen { position: fixed; inset: 0; background: #000; z-index: 100000; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: 0.6s; }
+        .p-bar { width: 0%; height: 2px; background: var(--accent); box-shadow: 0 0 15px var(--accent); transition: width 0.1s; }
+
+        #desktop-bg { position: fixed; inset: 0; background-size: cover; background-position: center; z-index: -2; transition: background-image 0.5s ease-in-out; background-color: #000; }
+        #desktop { height: calc(100vh - 48px); display: none; padding: 25px; grid-template-columns: repeat(auto-fill, 100px); grid-template-rows: repeat(auto-fill, 110px); grid-auto-flow: column; gap: 15px; }
+        
+        .icon { width: 90px; height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border-radius: 12px; transition: 0.2s; }
+        .icon:hover { background: rgba(255,255,255,0.1); backdrop-filter: blur(5px); }
+        .icon span { font-size: 11px; margin-top: 5px; text-shadow: 0 1px 4px #000; text-align: center; color: #fff !important; }
+
+        .win { position: absolute; background: var(--win-bg); border-radius: 12px; box-shadow: 0 30px 70px rgba(0,0,0,0.6); backdrop-filter: var(--blur); border: 1px solid rgba(128,128,128,0.2); overflow: hidden; display: flex; flex-direction: column; }
+        .win-h { height: 40px; display: flex; justify-content: space-between; align-items: center; padding: 0 15px; cursor: move; background: rgba(128,128,128,0.1); user-select: none; }
+        .win-b { flex: 1; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .win.maximized { inset: 0 !important; width: 100vw !important; height: calc(100vh - 48px) !important; border-radius: 0; }
+        
+        .ctrl-btn { width: 45px; height: 40px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
+        .btn-close:hover { background: #e81123; color: #fff; }
+
+        .taskbar { position: fixed; bottom: 0; width: 100%; height: 48px; background: var(--taskbar); backdrop-filter: blur(30px); display: none; align-items: center; justify-content: flex-start; z-index: 99999; border-top: 1px solid rgba(128,128,128,0.2); }
+        .tb-app { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; font-size: 24px; cursor: pointer; border-radius: 8px; position: relative; margin: 0 4px; }
+        .tb-app.pinned { background: rgba(128,128,128,0.1); border-bottom: 2px solid var(--accent); }
+        .tb-app.active::after { content: ''; position: absolute; bottom: 4px; width: 16px; height: 3px; background: var(--accent); border-radius: 2px; }
+
+        #start-menu { position: fixed; bottom: 55px; left: 10px; width: 280px; background: var(--win-bg); backdrop-filter: var(--blur); border-radius: 12px; display: none; z-index: 100000; border: 1px solid rgba(128,128,128,0.2); padding: 10px; box-shadow: 0 20px 50px rgba(0,0,0,0.3); }
+        #ctx { position: fixed; background: var(--win-bg); border: 1px solid rgba(128,128,128,0.3); border-radius: 10px; padding: 6px 0; width: 180px; z-index: 1000001; display: none; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .ctx-item { padding: 10px 18px; font-size: 13px; cursor: pointer; }
+        .ctx-item:hover { background: var(--accent); color: #000; }
+
+        .bg-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 15px; }
+        .bg-opt { width: 100%; aspect-ratio: 16/9; border-radius: 4px; cursor: pointer; border: 2px solid transparent; background-size: cover; background-position: center; transition: 0.2s; }
+        .bg-opt:hover { transform: scale(1.05); border-color: var(--accent); }
+
+        .sys-btn { background: var(--input-bg); color: var(--text); border: 1px solid rgba(128,128,128,0.4); padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 12px; margin-right: 5px; }
+        .sys-btn:hover { background: var(--accent); color: #000; border-color: var(--accent); }
+        
+        input[type="text"] { background: var(--input-bg); color: var(--text); border: 1px solid rgba(128,128,128,0.4); padding: 5px; border-radius: 4px; }
+        #canv { background: #fff; flex: 1; cursor: crosshair; touch-action: none; }
+        
+        .v-container { display: flex; flex-direction: column; height: 100%; background: #000; }
+        .v-video-wrapper { flex: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000; }
+        .v-video-wrapper video { max-width: 100%; max-height: 100%; object-fit: contain; }
+        .v-controls { height: 85px; background: rgba(15,15,15,0.9); border-top: 1px solid #333; padding: 10px 20px; color: #fff; }
+        .v-seek { width: 100%; height: 6px; cursor: pointer; accent-color: var(--accent); margin-bottom: 10px; }
+
+        .sys-graph { width: 100%; height: 100px; background: #000; position: relative; border: 1px solid var(--accent); overflow: hidden; }
+        .sys-bar { width: 4px; background: var(--accent); position: absolute; bottom: 0; transition: height 0.5s; }
+
+        .sandbox-container { display: flex; height: 100%; flex-direction: column; }
+        .sandbox-editors { display: flex; flex: 1; gap: 2px; background: #333; }
+        .sandbox-code { flex: 1; background: #1e1e1e; color: #d4d4d4; border: none; padding: 10px; font-family: monospace; font-size: 12px; outline: none; resize: none; }
+        .sandbox-preview { flex: 1; background: #fff; border: none; }
+
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+</head>
+<body oncontextmenu="return false;" onclick="hideMenus()">
+
+<div id="boot-screen">
+    <div style="font-size:40px; letter-spacing:12px; margin-bottom:20px; color:#fff;">GENESIS</div>
+    <div style="width:220px; height:2px; background:#222;"><div class="p-bar" id="p-bar"></div></div>
+</div>
+
+<div id="desktop-bg"></div>
+<div id="desktop"></div>
+
+<div id="start-menu" onclick="event.stopPropagation()">
+    <div style="padding:10px; border-bottom:1px solid rgba(128,128,128,0.3); margin-bottom:5px; font-weight:bold; color:var(--accent);">Genesis OS v5.9.4</div>
+    <div class="ctx-item" onclick="location.reload()">🔄 再起動 (Restart)</div>
+</div>
+
+<div id="ctx">
+    <div class="ctx-item" id="ctx-name" style="font-weight:bold; color:var(--accent); border-bottom:1px solid rgba(128,128,128,0.3);">App</div>
+    <div class="ctx-item" id="ctx-pin-btn" onclick="togglePin()">📌 ピン留めの切替</div>
+</div>
+
+<div class="taskbar" id="taskbar">
+    <div style="font-size:24px; cursor:pointer; margin:0 10px 0 15px;" onclick="event.stopPropagation(); toggleStart()">💠</div>
+    <div id="task-icons" style="display:flex;"></div>
+    <div id="clk" style="position:absolute; right:20px; font-size:11px; text-align:right; pointer-events:none;"></div>
+</div>
+
+<script>
+    const bgTemplates = [
+        'https://images.unsplash.com/photo-1614850523296-d8c1af93d400?q=80&w=1000',
+        'https://images.unsplash.com/photo-1477346611705-65d1883cee1e?q=80&w=1000',
+        'https://images.unsplash.com/photo-1550684848-fac1c5b4e853?q=80&w=1000',
+        'https://images.unsplash.com/photo-1557683316-973673baf926?q=80&w=1000',
+        'https://images.unsplash.com/photo-1504333638930-c8787321eee0?q=80&w=1000',
+        'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?q=80&w=1000'
+    ];
+
+    const apps = {
+        ai: { n: 'Genesis AI', i: '🤖', w: 450, h: 600 },
+        browser: { n: 'Browser', i: '🌐', w: 950, h: 650 },
+        video: { n: 'Media Player', i: '🎬', w: 800, h: 600 },
+        paint: { n: 'Paint Pro', i: '🎨', w: 850, h: 650 },
+        memo: { n: 'Notepad', i: '📝', w: 550, h: 450 },
+        calc: { n: 'Calculator', i: '🧮', w: 320, h: 480 },
+        cmd: { n: 'Command Prompt', i: '💻', w: 600, h: 400 },
+        explorer: { n: 'File Explorer', i: '📂', w: 700, h: 500 },
+        sysmon: { n: 'System Monitor', i: '📈', w: 400, h: 450 },
+        weather: { n: 'Weather', i: '🌤️', w: 350, h: 400 },
+        clock: { n: 'Global Clock', i: '🕒', w: 400, h: 500 },
+        qr: { n: 'QR Explorer', i: '🔳', w: 400, h: 550 },
+        sandbox: { n: 'Code Sandbox', i: '🧪', w: 900, h: 600 },
+        settings: { n: 'Settings', i: '⚙️', w: 400, h: 520 }
+    };
+
+    let wins = {}, zIdx = 100, activeWin = null, pinnedApps = [], ctxTarget = null, isEraser = false, calcVal = "0";
+
+    window.onload = () => {
+        const savedBG = localStorage.getItem('genesis_bg') || bgTemplates[0];
+        setBG(savedBG);
+        if(localStorage.getItem('genesis_theme') === 'light') document.body.classList.add('light-mode');
+
+        let p = 0; const pb = document.getElementById('p-bar');
+        const itv = setInterval(() => {
+            p += 5; pb.style.width = p + "%";
+            if (p >= 100) { clearInterval(itv); setTimeout(startOS, 400); }
+        }, 50);
+    };
+
+    window.addEventListener('keydown', (e) => {
+        if (e.key === "Meta") { e.preventDefault(); toggleStart(); }
+        if (e.key === "Escape") { if(activeWin) toggleMin(activeWin); hideMenus(); }
+        if (activeWin === 'calc') {
+            if (!isNaN(e.key) || ['+', '-', '*', '/', '.'].includes(e.key)) { cK('calc', e.key); }
+            else if (e.key === 'Enter') { e.preventDefault(); cK('calc', '='); }
+            else if (e.key === 'Backspace') { calcVal = calcVal.length > 1 ? calcVal.slice(0, -1) : "0"; document.getElementById('cd-calc').innerText = calcVal; }
+            else if (e.key.toLowerCase() === 'c') cK('calc', 'C');
+        }
+    });
+
+    function startOS() {
+        document.getElementById('boot-screen').style.opacity = "0";
+        setTimeout(() => {
+            document.getElementById('boot-screen').style.display = "none";
+            document.getElementById('desktop').style.display = "grid";
+            document.getElementById('taskbar').style.display = "flex";
+            initDesktop();
+        }, 600);
+    }
+
+    function initDesktop() {
+        const d = document.getElementById('desktop'); d.innerHTML = "";
+        Object.keys(apps).forEach(k => {
+            const di = document.createElement('div'); di.className = 'icon';
+            di.innerHTML = `<div style="font-size:45px">${apps[k].i}</div><span>${apps[k].n}</span>`;
+            di.ondblclick = () => openApp(k);
+            di.oncontextmenu = (e) => showCtx(e, k);
+            d.appendChild(di);
+        });
+        updateTime(); setInterval(updateTime, 1000);
+        updateTasks();
+    }
+
+    function openApp(k) {
+        if(wins[k]) { wins[k].style.display = 'flex'; return focusWin(k); }
+        const cfg = apps[k], w = document.createElement('div');
+        w.className = 'win'; w.id = `win-${k}`;
+        w.style.width = cfg.w+'px'; w.style.height = cfg.h+'px';
+        w.style.top = (60 + Object.keys(wins).length*25)+'px';
+        w.style.left = (100 + Object.keys(wins).length*25)+'px';
+
+        let body = `<div class="win-b">`;
+        if(k === 'browser') body += `<div style="background:#222;padding:5px;display:flex;"><input type="text" id="ub-${k}" style="flex:1" value="https://www.google.com/search?igu=1" onkeydown="if(event.key==='Enter')lU('${k}')"><button onclick="lU('${k}')">Go</button></div><iframe id="wf-${k}" src="https://www.google.com/search?igu=1" style="width:100%;height:100%;border:none;background:#fff;"></iframe>`;
+        else if(k === 'video') body += `<div class="v-container"><div class="v-video-wrapper"><video id="v-el-${k}"></video></div><div class="v-controls"><input type="range" class="v-seek" id="v-sk-${k}" value="0" step="0.1" oninput="skV('${k}', this.value)"><div style="display:flex;align-items:center;"><button class="sys-btn" onclick="document.getElementById('vf-${k}').click()">📁 開く</button><input type="file" id="vf-${k}" hidden onchange="ldV(event,'${k}')"><button class="sys-btn" onclick="pV('${k}')">⏯️</button><span id="v-time-${k}" style="font-size:11px;font-family:monospace;margin-left:10px;">00:00 / 00:00</span></div></div></div>`;
+        else if(k === 'paint') body += `<div style="padding:10px;background:#1a1a1a;display:flex;gap:10px;"><input type="color" id="pc-${k}" value="#4cc2ff"><input type="range" id="ps-${k}" min="1" max="50" value="5"><button class="sys-btn" onclick="isEraser=false">🖌️</button><button class="sys-btn" onclick="isEraser=true">🧽</button><button class="sys-btn" onclick="cC('${k}')">消去</button></div><canvas id="canv"></canvas>`;
+        else if(k === 'memo') body += `<div style="padding:5px;background:rgba(128,128,128,0.1);"><button class="sys-btn" onclick="saveTxt('${k}')">💾 保存</button></div><textarea id="mt-${k}" style="flex:1;background:transparent;color:var(--text);border:none;padding:15px;outline:none;resize:none;font-size:14px;">${localStorage.getItem('g_memo')||''}</textarea>`;
+        else if(k === 'calc') body += `<div id="cd-${k}" style="padding:20px;font-size:32px;text-align:right;background:rgba(0,0,0,0.1);">0</div><div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;padding:10px;flex:1;">${['7','8','9','/','4','5','6','*','1','2','3','-','0','C','=','+'].map(v=>`<button style="background:var(--input-bg);color:var(--text);border:none;cursor:pointer;border-radius:4px;" onclick="cK('${k}','${v}')">${v}</button>`).join('')}</div>`;
+        else if(k === 'qr') body += `<div style="padding:20px;text-align:center;"><h4>QR Generator</h4><input type="text" id="qt-${k}" style="width:80%"><br><br><button class="sys-btn" onclick="gQ('${k}')">生成</button><div id="qo-${k}" style="background:#fff;padding:10px;margin:20px auto;display:inline-block"></div></div>`;
+        else if(k === 'settings') body += `<div style="padding:20px;overflow-y:auto;"><h3>Settings</h3><div style="margin-bottom:20px;"><h4>🌓 テーマ設定</h4><button class="sys-btn" onclick="toggleTheme(false)">🌑 ダーク</button><button class="sys-btn" onclick="toggleTheme(true)">☀️ ライト</button></div><div><h4>🖼️ 壁紙設定</h4><div class="bg-grid">${bgTemplates.map(url=>`<div class="bg-opt" style="background-image:url('${url}')" onclick="setBG('${url}')"></div>`).join('')}</div><p>URLで指定:</p><input type="text" id="wp-url" style="width:70%;"><button class="sys-btn" onclick="setBG(document.getElementById('wp-url').value)">適用</button></div></div>`;
+        else if(k === 'cmd') body += `<div id="cmd-out-${k}" style="flex:1;padding:10px;font-family:monospace;font-size:13px;overflow-y:auto;background:#000;color:#0f0;white-space:pre-wrap;">Genesis OS [Version 5.9.4]\n(C) Genesis Corp. All rights reserved.\n\nType 'help' for commands.\n</div><div style="display:flex;background:#000;padding:5px 10px;border-top:1px solid #333;"><span style="color:#0f0;font-family:monospace;margin-right:5px;">></span><input type="text" id="cmd-in-${k}" style="flex:1;background:transparent;border:none;color:#0f0;font-family:monospace;outline:none;" autofocus onkeydown="if(event.key==='Enter')exC('${k}')"></div>`;
+        else if(k === 'clock') body += `<div style="padding:20px;"><h3>Global Clock</h3><div id="clock-list"></div><hr><h3>Timer</h3><div style="font-size:30px; margin-bottom:10px;" id="timer-disp">00:00</div><input type="number" id="timer-input" placeholder="Sec" style="width:60px"> <button class="sys-btn" onclick="startTimer()">Start</button></div>`;
+        else if(k === 'weather') body += `<div id="weather-app-body" style="padding:20px; text-align:center; display:flex; flex-direction:column; justify-content:center; height:100%;"><h3>Current Weather</h3><div id="w-icon" style="font-size:60px;">⌛</div><div id="w-temp" style="font-size:28px; font-weight:bold;">Loading...</div><p id="w-desc">Fetching data...</p><p id="w-loc" style="font-size:12px; opacity:0.6;"></p></div>`;
+        else if(k === 'sysmon') body += `<div style="padding:20px;"><h3>System Monitor</h3><p>CPU Usage</p><div class="sys-graph" id="cpu-graph"></div><p>Memory Usage</p><div class="sys-graph" id="mem-graph"></div><p style="margin-top:15px; font-size:12px;">Active Windows: <span id="win-count">0</span></p></div>`;
+        else if(k === 'explorer') body += `<div style="padding:10px; background:rgba(0,0,0,0.2); display:flex; gap:10px;"><span>C:\\Genesis\\User\\</span></div><div id="file-list" style="padding:20px; display:grid; grid-template-columns:repeat(auto-fill, 80px); gap:20px;"></div>`;
+        else if(k === 'sandbox') body += `<div class="sandbox-container"><div style="padding:5px; background:#222;"><button class="sys-btn" onclick="runSandbox()">▶ 実行 (Run)</button></div><div class="sandbox-editors"><textarea id="sb-code" class="sandbox-code" spellcheck="false"><h1>Genesis UI</h1>\n<p>Edit here!</p>\n<style>\n body { background: #111; color: cyan; font-family: sans-serif; text-align: center; }\n</style>\n<script>\n console.log('Hello from Sandbox');\n<\/script></textarea><iframe id="sb-preview" class="sandbox-preview"></iframe></div></div>`;
+        else if(k === 'ai') body += `
+            <div style="display:flex; flex-direction:column; height:100%; background:rgba(15,15,20,0.85); backdrop-filter:blur(10px);">
+                <div id="ai-chat-log" style="flex:1; padding:20px; overflow-y:auto; font-size:13px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth;">
+                    <div style="background:var(--accent); color:#000; padding:10px 14px; border-radius:18px 18px 18px 4px; align-self:flex-start; max-width:85%; box-shadow:0 4px 15px rgba(76,194,255,0.3);">
+                        Genesis OSへようこそ。私はシステムアシスタントです。アプリの起動やウェブ検索、設定変更のお手伝いをします。
+                    </div>
+                </div>
+                <div style="padding:15px; background:rgba(255,255,255,0.05); border-top:1px solid rgba(128,128,128,0.2); display:flex; gap:10px;">
+                    <input type="text" id="ai-input" style="flex:1; border:none; outline:none; background:rgba(255,255,255,0.1); color:#fff; padding:10px 15px; border-radius:20px;" placeholder="システムに質問..." onkeydown="if(event.key==='Enter') sendAIChat()">
+                    <button class="sys-btn" onclick="sendAIChat()" style="margin:0; border-radius:20px; width:60px;">送信</button>
+                </div>
+            </div>`;
+        
+        body += `</div>`;
+
+        w.innerHTML = `<div class="win-h"><span>${cfg.i} ${cfg.n}</span><div style="display:flex;"><div class="ctrl-btn" onclick="toggleMin('${k}')">－</div><div class="ctrl-btn" onclick="toggleMax('${k}')">▢</div><div class="ctrl-btn btn-close" onclick="closeApp('${k}')">×</div></div></div>${body}`;
+        wins[k] = w; document.body.appendChild(w);
+        
+        if(k === 'paint') setTimeout(()=>initPaint(k),100);
+        if(k === 'clock') updateGlobalClock();
+        if(k === 'sysmon') initSysMon();
+        if(k === 'explorer') updateExplorer();
+        if(k === 'weather') initWeather();
+        if(k === 'sandbox') setTimeout(runSandbox, 100);
+        
+        makeDrag(w, k); focusWin(k);
+    }
+
+    /* --- 強化版 Genesis AI Logic (システム連携完全版) --- */
+    function sendAIChat() {
+        const input = document.getElementById('ai-input');
+        const log = document.getElementById('ai-chat-log');
+        const val = input.value.trim();
+        if (!val) return;
+
+        // ユーザーのメッセージを表示
+        const uMsg = document.createElement('div');
+        uMsg.style.cssText = "background:rgba(255,255,255,0.15); color:#fff; padding:10px 14px; border-radius:18px 18px 4px 18px; align-self:flex-end; max-width:85%; margin-bottom:5px; animation: fadeUp 0.3s ease;";
+        uMsg.innerText = val;
+        log.appendChild(uMsg);
+        input.value = '';
+
+        setTimeout(async () => {
+            const aMsg = document.createElement('div');
+            aMsg.style.cssText = "background:var(--accent); color:#000; padding:10px 14px; border-radius:18px 18px 18px 4px; align-self:flex-start; max-width:85%; box-shadow:0 4px 15px rgba(76,194,255,0.3); margin-bottom:5px; animation: fadeUp 0.3s ease;";
+            
+            let reply = "";
+            const cmd = val.toLowerCase();
+
+            // 1. ウェブ検索連携
+            if (cmd.includes("調べて") || cmd.includes("検索") || cmd.includes("google")) {
+                const query = val.replace(/調べて|検索して|googleで|を/g, "").trim();
+                openApp('browser');
+                setTimeout(() => {
+                    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&igu=1`;
+                    if(document.getElementById('ub-browser')) document.getElementById('ub-browser').value = url;
+                    if(document.getElementById('wf-browser')) document.getElementById('wf-browser').src = url;
+                }, 500);
+                reply = `承知しました。「${query}」についてブラウザで検索を開始します。`;
+            }
+            // 2. メモ連携
+            else if (cmd.includes("メモ") || cmd.includes("保存") || cmd.includes("記録")) {
+                const memoText = val.replace(/メモして|保存して|記録して|を/g, "").trim();
+                openApp('memo');
+                setTimeout(() => {
+                    const mt = document.getElementById('mt-memo');
+                    if(mt) {
+                        mt.value += (mt.value ? "\n" : "") + "[AI Log]: " + (memoText || "新しいメモ");
+                        localStorage.setItem('g_memo', mt.value);
+                    }
+                }, 500);
+                reply = "Notepadに内容を記録し、保存しました。";
+            }
+            // 3. コード生成・Sandbox連携
+            else if (cmd.includes("コード") || cmd.includes("プログラム") || cmd.includes("作って")) {
+                openApp('sandbox');
+                setTimeout(() => {
+                    const generatedCode = `<!DOCTYPE html>\n<html>\n<body style="background:#111; color:#0f0; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; flex-direction:column;">\n  <h1>AI Generated Interface</h1>\n  <p>Request: ${val}</p>\n  <button onclick="alert('Genesis System Active')" style="padding:10px; cursor:pointer;">Test Action</button>\n</body>\n</html>`;
+                    const sb = document.getElementById('sb-code');
+                    if(sb) {
+                        sb.value = generatedCode;
+                        runSandbox();
+                    }
+                }, 500);
+                reply = "指示に基づいたプロトタイプコードをSandboxに生成・展開しました。";
+            }
+            // 4. 計算連携
+            else if (cmd.includes("計算") || cmd.includes("電卓")) {
+                openApp('calc');
+                reply = "電卓を起動しました。数値を入力してください。";
+            }
+            // 5. 天気連携（位置情報活用）
+            else if (cmd.includes("天気")) {
+                reply = "現在地の気象データを確認します...";
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(async pos => {
+                        try {
+                            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`);
+                            const data = await res.json();
+                            const cw = data.current_weather;
+                            const desc = {0:"快晴",1:"晴れ",2:"時々曇り",3:"曇り",45:"霧",61:"雨",71:"雪",95:"雷雨"}[cw.weathercode] || "不明";
+                            aMsg.innerText = `現在の天気は「${desc}」、気温は ${cw.temperature}℃ です。`;
+                        } catch(e) { aMsg.innerText = "気象データの取得中にエラーが発生しました。"; }
+                    }, () => { aMsg.innerText = "位置情報の取得が許可されていません。"; });
+                }
+            }
+            // 6. システム操作（テーマ・壁紙・消去）
+            else if (cmd.includes("ダーク")) { toggleTheme(false); reply = "システムをダークモードに設定しました。"; }
+            else if (cmd.includes("ライト")) { toggleTheme(true); reply = "システムをライトモードに設定しました。"; }
+            else if (cmd.includes("壁紙") || cmd.includes("背景")) {
+                const newBG = "https://images.unsplash.com/photo-1506318137071-a8e063b4b477?q=80&w=1000";
+                setBG(newBG);
+                reply = "壁紙を宇宙のテーマに変更しました。";
+            }
+            else if (cmd.includes("消して") || cmd.includes("クリア")) {
+                if(wins['paint']) { cC('paint'); reply = "キャンバスをクリアしました。"; }
+                else { reply = "何を消去しますか？（ペイントが開いている場合はキャンバスをクリアできます）"; }
+            }
+            // 7. 汎用応答
+            else {
+                reply = "「" + val + "」について承知いたしました。Genesis OSの各アプリを操作できます。例：「富士山を検索」「メモして：明日は会議」「壁紙を変えて」";
+            }
+
+            if(reply) {
+                aMsg.innerText = reply;
+                log.appendChild(aMsg);
+                log.scrollTop = log.scrollHeight;
+            }
+        }, 600);
+    }
+
+    function runSandbox() {
+        const code = document.getElementById('sb-code').value;
+        const preview = document.getElementById('sb-preview').contentWindow.document;
+        preview.open();
+        preview.write(code);
+        preview.close();
+    }
+
+    function initWeather() {
+        const iconMap = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",61:"🌧️",71:"❄️",95:"⛈️"};
+        const descMap = {0:"Clear Sky",1:"Mainly Clear",2:"Partly Cloudy",3:"Overcast",45:"Foggy",51:"Light Drizzle",61:"Rain",71:"Snow",95:"Thunderstorm"};
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(pos => {
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
+                .then(res => res.json()).then(data => {
+                    const cw = data.current_weather;
+                    if(document.getElementById('w-icon')){
+                        document.getElementById('w-icon').innerText = iconMap[cw.weathercode] || "🌤️";
+                        document.getElementById('w-temp').innerText = `${cw.temperature}°C`;
+                        document.getElementById('w-desc').innerText = descMap[cw.weathercode] || "Unknown";
+                        document.getElementById('w-loc').innerText = `Lat: ${pos.coords.latitude.toFixed(2)}, Lon: ${pos.coords.longitude.toFixed(2)}`;
+                    }
+                });
+            }, () => { if(document.getElementById('w-desc')) document.getElementById('w-desc').innerText = "Access denied."; });
+        }
+    }
+
+    function updateGlobalClock() {
+        const list = document.getElementById('clock-list'); if(!list) return;
+        const zones = [{n:'Local',z:undefined},{n:'New York',z:'America/New_York'},{n:'London',z:'Europe/London'}];
+        list.innerHTML = zones.map(z=>`<div><b>${z.n}:</b> ${new Date().toLocaleTimeString('en-US',{timeZone:z.z})}</div>`).join('');
+        setTimeout(updateGlobalClock, 1000);
+    }
+    let timerInt;
+    function startTimer() {
+        let sec = parseInt(document.getElementById('timer-input').value) || 0;
+        clearInterval(timerInt);
+        timerInt = setInterval(() => {
+            if(sec <= 0) { clearInterval(timerInt); alert("Time's up!"); return; }
+            sec--; document.getElementById('timer-disp').innerText = fmtT(sec);
+        }, 1000);
+    }
+
+    function initSysMon() {
+        const draw = (id) => {
+            const g = document.getElementById(id); if(!g) return;
+            g.innerHTML = "";
+            for(let i=0; i<30; i++) {
+                const b = document.createElement('div'); b.className = 'sys-bar';
+                b.style.left = (i * 12) + "px"; b.style.height = (Math.random() * 80 + 10) + "px";
+                g.appendChild(b);
+            }
+        };
+        setInterval(() => { draw('cpu-graph'); draw('mem-graph'); if(document.getElementById('win-count')) document.getElementById('win-count').innerText = Object.keys(wins).length; }, 2000);
+    }
+
+    function updateExplorer() {
+        const list = document.getElementById('file-list'); if(!list) return;
+        const files = [{n:'Desktop',i:'📁'},{n:'Documents',i:'📁'},{n:'Pictures',i:'📁'},{n:'System32',i:'📁'},{n:'memo.txt',i:'📝'}];
+        list.innerHTML = files.map(f=>`<div style="text-align:center;cursor:pointer;"><div style="font-size:30px">${f.i}</div><div style="font-size:10px">${f.n}</div></div>`).join('');
+    }
+
+    function toggleTheme(isLight) {
+        if(isLight) document.body.classList.add('light-mode');
+        else document.body.classList.remove('light-mode');
+        localStorage.setItem('genesis_theme', isLight ? 'light' : 'dark');
+    }
+
+    function fmtT(s){ const m=Math.floor(s/60),sec=Math.floor(s%60); return `${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}`; }
+    function lU(k){ let v=document.getElementById(`ub-${k}`).value; if(!v.startsWith('http')) v='https://www.google.com/search?q='+encodeURIComponent(v)+'&igu=1'; document.getElementById(`wf-${k}`).src=v; }
+    function saveTxt(k){ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([document.getElementById(`mt-${k}`).value],{type:'text/plain'})); a.download='note.txt'; a.click(); }
+    function cK(k, v) { const d = document.getElementById(`cd-${k}`); if(v==='C') calcVal="0"; else if(v==='=') { try{calcVal=eval(calcVal).toString();}catch{calcVal="Error";} } else { calcVal==='0'?calcVal=v:calcVal+=v; } d.innerText=calcVal; }
+    function ldV(e,k){ const f=e.target.files[0]; if(f){ const v=document.getElementById(`v-el-${k}`); v.src=URL.createObjectURL(f); v.play(); }}
+    function pV(k){ const v=document.getElementById(`v-el-${k}`); v.paused?v.play():v.pause(); }
+    function skV(k, v){ const el=document.getElementById(`v-el-${k}`); if(el.duration) el.currentTime=(v/100)*el.duration; }
+    function gQ(k){ const t=document.getElementById(`qt-${k}`).value, o=document.getElementById(`qo-${k}`); o.innerHTML=""; if(t) new QRCode(o,{text:t,width:150,height:150}); }
+    function initPaint(k) { const c=document.getElementById('canv'),x=c.getContext('2d'); c.width=c.parentElement.clientWidth; c.height=c.parentElement.clientHeight; let dr=false; c.onmousedown=()=>dr=true; window.onmouseup=()=>{dr=false;x.beginPath();}; c.onmousemove=(e)=>{if(!dr)return; const r=c.getBoundingClientRect(); x.lineWidth=document.getElementById(`ps-${k}`).value; x.lineCap='round'; x.globalCompositeOperation=isEraser?'destination-out':'source-over'; x.strokeStyle=document.getElementById(`pc-${k}`).value; x.lineTo(e.clientX-r.left,e.clientY-r.top); x.stroke(); x.beginPath(); x.moveTo(e.clientX-r.left,e.clientY-r.top);}; }
+    function cC(k){ const c=document.getElementById('canv'); c.getContext('2d').clearRect(0,0,c.width,c.height); }
+
+    function exC(k) {
+        const i = document.getElementById(`cmd-in-${k}`); const o = document.getElementById(`cmd-out-${k}`); const cmd = i.value.trim().toLowerCase();
+        let res = `\n> ${i.value}\n`;
+        if (cmd === 'help') res += "Available commands: help, ver, time, cls, exit, color [code]";
+        else if (cmd === 'ver') res += "Genesis OS [Version 5.9.4]";
+        else if (cmd === 'time') res += new Date().toLocaleTimeString();
+        else if (cmd === 'cls') { o.innerHTML = ""; res = ""; }
+        else if (cmd.startsWith('color ')) { o.style.color = cmd.split(' ')[1]; i.style.color = cmd.split(' ')[1]; res += "Color changed."; }
+        else if (cmd === 'exit') { closeApp(k); return; }
+        else if (cmd !== "") res += `'${cmd}' not recognized.`;
+        o.innerHTML += res; i.value = ""; o.scrollTop = o.scrollHeight;
+    }
+
+    function toggleStart() { const s = document.getElementById('start-menu'); s.style.display = (s.style.display === 'block') ? 'none' : 'block'; }
+    function hideMenus() { document.getElementById('ctx').style.display='none'; document.getElementById('start-menu').style.display='none'; }
+    function showCtx(e, k) { e.preventDefault(); e.stopPropagation(); ctxTarget = k; const m=document.getElementById('ctx'); m.style.display='block'; m.style.left=e.clientX+'px'; m.style.top=e.clientY+'px'; document.getElementById('ctx-name').innerText=apps[k].n; }
+    function togglePin() { if(!ctxTarget)return; pinnedApps.includes(ctxTarget)?pinnedApps=pinnedApps.filter(a=>a!==ctxTarget):pinnedApps.push(ctxTarget); updateTasks(); hideMenus(); }
+    function focusWin(k) { activeWin = k; zIdx++; wins[k].style.zIndex = zIdx; wins[k].style.display='flex'; updateTasks(); }
+    function closeApp(k) { if(wins[k]){wins[k].remove(); delete wins[k]; updateTasks(); if(activeWin===k) activeWin=null;} }
+    function toggleMin(k) { wins[k].style.display = 'none'; activeWin = null; updateTasks(); }
+    function toggleMax(k) { wins[k].classList.toggle('maximized'); if(k==='paint') setTimeout(()=>initPaint(k),100); }
+    function updateTasks() { const c = document.getElementById('task-icons'); c.innerHTML = ''; const all = Array.from(new Set([...pinnedApps, ...Object.keys(wins)])); all.forEach(k => { const i = document.createElement('div'); i.className = `tb-app ${pinnedApps.includes(k)?'pinned':''} ${activeWin===k?'active':''}`; i.innerText = apps[k].i; i.oncontextmenu = (e) => showCtx(e, k); i.onclick = () => wins[k] && wins[k].style.display!=='none' ? (activeWin===k?toggleMin(k):focusWin(k)) : openApp(k); c.appendChild(i); }); }
+    function makeDrag(el,k){ const h=el.querySelector('.win-h'); h.onmousedown=(e)=>{ if(el.classList.contains('maximized'))return; focusWin(k); let ox=e.clientX-el.offsetLeft, oy=e.clientY-el.offsetTop; document.onmousemove=(m)=>{el.style.left=(m.clientX-ox)+'px'; el.style.top=(m.clientY-oy)+'px';}; document.onmouseup=()=>document.onmousemove=null;}}
+    function updateTime(){ const n=new Date(); document.getElementById('clk').innerHTML=n.getHours()+':'+String(n.getMinutes()).padStart(2,'0')+'<br>'+n.toLocaleDateString(); }
+    function setBG(u) { if(!u) return; document.getElementById('desktop-bg').style.backgroundImage = `url('${u}')`; localStorage.setItem('genesis_bg', u); }
+</script>
+</body>
+</html>
