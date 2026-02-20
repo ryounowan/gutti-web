@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Connect Tool</title>
+    <title>P2P Connect Tool - Fixed</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
@@ -13,21 +13,21 @@
         input, select, button { padding: 12px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
         button { cursor: pointer; background: #007bff; color: white; border: none; font-weight: bold; }
         button:disabled { background: #ccc; }
-        .status { font-size: 0.9em; color: #666; text-align: center; }
+        .status { font-size: 0.9em; color: #666; text-align: center; font-weight: bold; padding: 10px; }
         .options { display: flex; align-items: center; gap: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>P2P 共有ツール</h2>
+    <h2>P2P 共有ツール (修正版)</h2>
     
     <div class="controls">
         <input type="text" id="room-id" placeholder="合言葉（例: my-secret-room）">
         
         <div class="options">
             <select id="media-type">
-                <option value="camera">📷 カメラを使用 (スマホ向き)</option>
+                <option value="camera">📷 カメラを使用</option>
                 <option value="screen">💻 画面共有 (PC向き)</option>
             </select>
             <label><input type="checkbox" id="mic-on" checked> 🎤 マイクON</label>
@@ -52,33 +52,22 @@
     let peer = null;
     let localStream = null;
 
-    // メディアストリームを取得する関数
     async function getMedia() {
         const useMic = micCheckbox.checked;
         const type = mediaTypeSelect.value;
-
         try {
             if (type === 'screen') {
-                // 画面共有（PCのみ）
-                return await navigator.mediaDevices.getDisplayMedia({
-                    video: true,
-                    audio: useMic
-                });
+                return await navigator.mediaDevices.getDisplayMedia({ video: true, audio: useMic });
             } else {
-                // カメラ（スマホ・PC両方）
-                return await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: "user" },
-                    audio: useMic
-                });
+                return await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: useMic });
             }
         } catch (e) {
-            console.error(e);
-            alert("メディアの取得に失敗しました。設定や権限を確認してください。");
+            alert("カメラ/画面共有の取得に失敗しました。");
             return null;
         }
     }
 
-    // --- 配信者 (送信) ---
+    // --- 配信者 (送信側) ---
     document.getElementById('start-broadcast').onclick = async () => {
         const id = roomIdInput.value;
         if (!id) return alert("合言葉を入力してください");
@@ -86,24 +75,20 @@
         localStream = await getMedia();
         if (!localStream) return;
 
-        videoElement.srcObject = localStream; // 自分の映像を確認用に出す
-        peer = new Peer(id, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    });
+        videoElement.srcObject = localStream;
+        videoElement.muted = true; // 自分の声がループしないようにミュート
+
+        peer = new Peer(id);
 
         peer.on('open', () => {
-            statusText.innerText = `配信中... 合言葉「${id}」を相手に伝えてください`;
+            statusText.innerText = `配信準備完了！ 合言葉: ${id}`;
+            statusText.style.color = "#007bff";
         });
 
+        // 相手からの「通話」を待ち受ける
         peer.on('call', (call) => {
+            statusText.innerText = "接続されました！配信中...";
             call.answer(localStream);
-            statusText.innerText = "接続されました！配信中です。";
         });
 
         peer.on('error', (err) => {
@@ -112,29 +97,36 @@
         });
     };
 
-    // --- 視聴者 (受信) ---
+    // --- 視聴者 (受信側) ---
     document.getElementById('join-stream').onclick = () => {
         const id = roomIdInput.value;
         if (!id) return alert("合言葉を入力してください");
 
-        peer = new Peer(undefined, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    }); // 受信側はランダムIDでOK
+        // 受信側はランダムなIDで開始
+        peer = new Peer();
         
         peer.on('open', () => {
-            statusText.innerText = `接続中: ${id}`;
-            // 受信側も空のストリームを投げて接続を開始する
+            statusText.innerText = `配信者「${id}」に接続を試みています...`;
+            
+            // 修正ポイント: 受信側から「通話」を開始する。
+            // 相手に自分のメディアを送る必要はないが、PeerJSの仕様上、
+            // 空のメディアを投げるよりは、受信用として明示的にcallする。
             const call = peer.call(id, new MediaStream());
 
             call.on('stream', (remoteStream) => {
+                console.log("ストリームを受信しました");
                 videoElement.srcObject = remoteStream;
-                statusText.innerText = "受信中...";
+                statusText.innerText = "受信中！";
+                statusText.style.color = "#28a745";
+                
+                // ブラウザの自動再生制限対策
+                videoElement.play().catch(e => {
+                    statusText.innerText = "再生ボタンを押してください";
+                });
+            });
+
+            call.on('error', (err) => {
+                alert("通話エラーが発生しました。");
             });
         });
 
@@ -143,7 +135,5 @@
         });
     };
 </script>
-
 </body>
 </html>
-
