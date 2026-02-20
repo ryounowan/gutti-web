@@ -24,13 +24,10 @@
         .meter-container { background: #000; height: 12px; border-radius: 6px; margin-bottom: 15px; overflow: hidden; border: 1px solid #475569; }
         #level-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #10b981 70%, #facc15 85%, #ef4444 100%); transition: width 0.05s; }
         .option-row { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 10px; font-size: 12px; }
-        
-        /* Effect Buttons Grid */
         .se-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 15px; }
         .se-btn { background: #334155; color: white; border: 1px solid #475569; padding: 10px; border-radius: 12px; cursor: pointer; font-size: 11px; display: flex; flex-direction: column; align-items: center; transition: 0.1s; }
         .se-btn:active { background: var(--se); color: #000; transform: scale(0.95); }
         .se-btn.ready { border-color: var(--se); }
-
         .bgm-slot { background: #1e293b; padding: 15px; border-radius: 12px; margin-top: 15px; border-left: 4px solid #475569; }
         .bgm-slot.playing { border-left-color: var(--active); }
         .seek-container { width: 100%; height: 6px; background: #000; border-radius: 3px; margin: 10px 0; cursor: pointer; }
@@ -49,21 +46,17 @@
             <span id="listener-count">0</span>
         </div>
     </div>
-    
     <div id="setup">
         <input type="text" id="room" style="width:100%; padding:15px; margin-bottom:10px; border-radius:12px; border:none; background:#334155; color:white; box-sizing:border-box;" value="apple7">
         <button class="ctrl-btn btn-start" style="width:100%" onclick="openStation()">放送開始</button>
     </div>
-
     <div id="main" style="display:none">
         <div class="meter-container"><div id="level-bar"></div></div>
-
         <div class="main-controls">
             <button id="btnOnAir" class="ctrl-btn btn-start" onclick="toggleAir(true)">ON AIR</button>
             <button id="btnOffAir" class="ctrl-btn btn-stop" onclick="toggleAir(false)" disabled>OFF</button>
             <button class="ctrl-btn btn-restart" onclick="location.reload()">REBOOT</button>
         </div>
-
         <div class="option-row">
             <span>🎧 モニター / 🦆 Duck(5%)</span>
             <div>
@@ -71,7 +64,6 @@
                 <input type="checkbox" id="duckingOn" checked style="margin-left:10px;"> 🦆
             </div>
         </div>
-
         <div class="option-row" style="border: 1px solid var(--record);">
             <span id="rec-timer" style="color:var(--record); font-weight:bold;">REC 00:00:00</span>
             <div>
@@ -79,20 +71,16 @@
                 <button id="btnRecStop" class="ctrl-btn btn-stop" style="padding:4px 10px; font-size:10px;" onclick="stopRecording()" disabled>STOP</button>
             </div>
         </div>
-
         <div class="mixer">
             <div class="fader-header"><span>🎙 MIC</span><span id="v-mic">100%</span></div>
             <input type="range" id="micVol" min="0" max="1.5" step="0.01" value="1" oninput="updateVol('mic', this.value)">
-            
             <div class="option-row" style="margin-top:10px; border: 1px solid var(--echo);">
                 <label style="color:var(--echo)">✨ ECHO</label>
                 <input type="checkbox" id="echoOn" onchange="toggleEcho()">
                 <input type="range" id="echoLevel" min="0" max="0.8" step="0.01" value="0.3" style="width:50%" oninput="updateEcho()">
             </div>
-
             <div class="fader-header"><span>📣 EFFECT PADS (SE)</span></div>
             <div class="se-grid" id="se-pads"></div>
-            
             <div id="slots"></div>
         </div>
     </div>
@@ -106,17 +94,24 @@
     let bgmStates = Array.from({length: 3}, (_, i) => ({ id: i, buffer: null, source: null, gainNode: null, isPlaying: false, startTime: 0, offset: 0, loop: false }));
     let seBuffers = Array.from({length: 4}, () => null);
 
-    function openStation() {
-        const room = document.getElementById('room').value;
-        peer = new Peer(`${room}-host`, {
+    const PEER_CONFIG = {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
                 { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
+                { 
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
+            ],
+            'iceTransportPolicy': 'all'
         }
-    });
+    };
+
+    function openStation() {
+        const room = document.getElementById('room').value;
+        peer = new Peer(`${room}-host`, PEER_CONFIG);
         peer.on('open', () => {
             document.getElementById('setup').style.display = 'none';
             document.getElementById('main').style.display = 'block';
@@ -130,6 +125,7 @@
             c.on('close', () => { delete conns[c.peer]; updateListenerCount(); });
             if(audioCtx && destination) peer.call(c.peer, destination.stream);
         });
+        peer.on('error', err => console.error(err));
     }
 
     function initAudio() {
@@ -141,15 +137,12 @@
         limiter.connect(destination);
         analyser = audioCtx.createAnalyser();
         limiter.connect(analyser);
-        
         duckingNode = audioCtx.createGain();
         duckingNode.connect(limiter);
-
         monitorNode = audioCtx.createGain();
         monitorNode.gain.value = 0; 
         limiter.connect(monitorNode);
         monitorNode.connect(audioCtx.destination);
-        
         micGain = audioCtx.createGain();
         echoDelay = audioCtx.createDelay();
         echoDelay.delayTime.value = 0.3;
@@ -160,13 +153,11 @@
         echoDelay.connect(echoGain);
         echoGain.connect(echoDelay);
         echoGain.connect(limiter);
-        
         bgmStates.forEach(s => {
             s.gainNode = audioCtx.createGain();
             s.gainNode.gain.value = 0.5;
             s.gainNode.connect(duckingNode);
         });
-        
         startLevelMeter();
         startDuckingLogic();
     }
@@ -194,7 +185,6 @@
         if (!seBuffers[i] || !audioCtx) return;
         const source = audioCtx.createBufferSource();
         source.buffer = seBuffers[i];
-        // SEはダッキングの影響を受けないように直接リミッターへ接続
         source.connect(limiter);
         source.start(0);
     }
@@ -211,7 +201,6 @@
     }
 
     function initUI() {
-        // SE Pads
         const pads = document.getElementById('se-pads');
         pads.innerHTML = "";
         for(let i=0; i<4; i++) {
@@ -222,8 +211,6 @@
                     <div style="text-align:center; font-size:8px; margin-top:2px; cursor:pointer; color:#94a3b8;" onclick="document.getElementById('se-f-${i}').click()">SET FILE</div>
                 </div>`;
         }
-
-        // BGM Slots
         const slots = document.getElementById('slots');
         slots.innerHTML = "";
         bgmStates.forEach(s => {
@@ -250,7 +237,6 @@
         setInterval(updateSeek, 100);
     }
 
-    /* --- 以下、共通ロジック --- */
     function startGlobalTimer() {
         timerInterval = setInterval(() => {
             if (airStartTime) document.getElementById('air-timer').innerText = "STREAM " + formatTime(Date.now() - airStartTime);
@@ -302,7 +288,7 @@
     }
     function updateListenerCount() { document.getElementById('listener-count').innerText = Object.keys(conns).length; }
     function toggleMonitor() { if(monitorNode) monitorNode.gain.value = document.getElementById('monitorOn').checked ? 1 : 0; }
-    function toggleEcho() { echoGain.gain.value = document.getElementById('echoOn').checked ? document.getElementById('echoLevel').value : 0; }
+    function toggleEcho() { if(echoGain) echoGain.gain.value = document.getElementById('echoOn').checked ? document.getElementById('echoLevel').value : 0; }
     function updateEcho() { if(document.getElementById('echoOn').checked) echoGain.gain.value = document.getElementById('echoLevel').value; }
     function updateVol(type, val) {
         document.getElementById(`v-${type}`).innerText = Math.round(val * 100) + "%";
