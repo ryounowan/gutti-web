@@ -32,7 +32,7 @@
         <input type="text" id="room" value="rally2026" placeholder="合言葉">
         <input type="password" id="staff-key" value="staff123" placeholder="スタッフ認証キー">
         <button id="toggle-btn" onclick="toggleServer()" class="ctrl-btn" style="background:var(--accent);">サーバーを公開する</button>
-        <p style="margin: 10px 0 0;">接続プレイヤー: <span id="p-count" style="color:var(--accent); font-weight:bold;">0</span> 名</p>
+        <p style="margin: 10px 0 0;">接続中: <span id="p-count" style="color:var(--accent); font-weight:bold;">0</span> デバイス</p>
     </div>
 
     <div class="box">
@@ -77,15 +77,7 @@
     function toggleServer() {
         const btn=document.getElementById('toggle-btn'), badge=document.getElementById('server-badge'), r=document.getElementById('room').value;
         if (!peer || peer.destroyed) {
-            peer = new Peer(`${r}-host`, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    });
+            peer = new Peer(`${r}-host`);
             peer.on('open', () => {
                 btn.innerText="サーバーを閉じる"; btn.style.background="var(--red)";
                 badge.innerText="ONLINE (公開中)"; badge.className="server-status status-on";
@@ -110,16 +102,41 @@
             conn.send({ type: 'SYNC', cfg: cfg });
         });
         conn.on('data', d => {
-            if(d.type==='IAM_PLAYER'){ conn.isPlayer=true; conn.metadata={uname:d.uname}; updateCount(); }
+            // プレイヤー登録
+            if(d.type==='IAM_PLAYER'){ 
+                conn.isPlayer=true; 
+                conn.metadata={uname:d.uname}; 
+                updateCount(); 
+            }
+            
+            // スタッフ登録（認証成功時に既存スコアをすべて送る）
             if(d.type==='IAM_STAFF' && d.authKey===document.getElementById('staff-key').value){
-                conn.isStaff=true; Object.entries(scores).forEach(([u,v])=>conn.send({type:'REPORT',user:u,score:v.score,time:v.time}));
+                conn.isStaff=true; 
+                // 現在保持している全プレイヤーのスコアをスタッフへ送信
+                Object.entries(scores).forEach(([u,v]) => {
+                    conn.send({ type:'REPORT', user:u, score:v.score, time:v.time });
+                });
             }
+            
+            // スコア報告の受信と転送
             if(d.type==='REPORT'){
-                scores[d.user]={score:d.score, time:d.time}; updateRank();
-                conns.forEach(c => { if(c.open && (c.isStaff || c.isPlayer)) c.send(d); });
+                scores[d.user]={score:d.score, time:d.time}; 
+                updateRank();
+                // 修正ポイント：接続中の全員（ランキング・スタッフ含む）に即時転送
+                conns.forEach(c => { if(c.open) c.send(d); });
             }
-            if(d.type==='STAFF_CHAT'){ logChat(d.u, d.m); conns.forEach(c=>{if(c.open&&c.isStaff&&c!==conn)c.send(d);}); }
-            if(d.type==='STAFF_RESCUE_REQ' && conn.isStaff){ pendingReqs.push({user:d.targetUser, staff:conn}); updateReqUI(); }
+            
+            // チャット
+            if(d.type==='STAFF_CHAT'){ 
+                logChat(d.u, d.m); 
+                conns.forEach(c=>{if(c.open && c.isStaff && c!==conn) c.send(d);}); 
+            }
+            
+            // 救済リクエスト
+            if(d.type==='STAFF_RESCUE_REQ' && conn.isStaff){ 
+                pendingReqs.push({user:d.targetUser, staff:conn}); 
+                updateReqUI(); 
+            }
         });
         conn.on('close', () => { conns=conns.filter(c=>c!==conn); updateCount(); });
     }
@@ -129,20 +146,74 @@
         b.innerText = s==='playing'?'▶ 進行中':s==='paused'?'⏸ 一時停止中':'⏹ 待機中';
         b.style.color = s==='playing'?'var(--green)':s==='paused'?'var(--orange)':'var(--red)';
         conns.forEach(c=>{if(c.open) c.send({type:'GAME_STATUS',status:s});});
-        if(s==='waiting'){ scores={}; updateRank(); conns.forEach(c=>{if(c.open)c.send({type:'FORCE_RESET'});});}
+        if(s==='waiting'){ 
+            scores={}; 
+            updateRank(); 
+            conns.forEach(c=>{if(c.open)c.send({type:'FORCE_RESET'});});
+        }
     }
 
-    function sendAnn() { const m=document.getElementById('ann-text').value; conns.forEach(c=>{if(c.open&&c.isPlayer)c.send({type:'ANNOUNCE',msg:m});}); document.getElementById('ann-text').value=""; }
-    function addPoint() { cfg.s.push({ n:'地点'+(cfg.s.length+1), c:Math.floor(1000+Math.random()*8999), d:'' }); render(); }
-    function render() { document.getElementById('edit-list').innerHTML = cfg.s.map((x,i)=>`<div class="item">名前:<input value="${x.n}" onchange="cfg.s[${i}].n=this.value" style="width:70px"> Key:<input value="${x.c}" onchange="cfg.s[${i}].c=this.value" style="width:50px"></div>`).join(''); }
-    function sync() { cfg.goalMsg=document.getElementById('goal-msg').value; conns.forEach(c=>{if(c.open)c.send({type:'SYNC',cfg:cfg});}); alert("同期完了"); }
-    function updateReqUI() { const a=document.getElementById('rescue-area'); a.style.display=pendingReqs.length?'block':'none'; document.getElementById('req-list').innerHTML=pendingReqs.map((r,i)=>`<div style="display:flex; justify-content:space-between; margin:5px 0;"><span>${r.user}さんの救済</span><div><button onclick="approve(${i},true)" style="background:var(--green); color:white; border:none; border-radius:4px; padding:4px 8px;">OK</button><button onclick="approve(${i},false)" style="background:var(--red); color:white; border:none; border-radius:4px; padding:4px 8px; margin-left:5px;">NG</button></div></div>`).join(''); }
-    function approve(idx, ok) { const r=pendingReqs[idx]; if(ok){ const pc=conns.find(c=>c.isPlayer && c.metadata.uname===r.user); if(pc) pc.send({type:'FORCE_STAMP'}); } r.staff.send({type:'RESCUE_DONE',user:r.user,status:ok?'approved':'denied'}); pendingReqs.splice(idx,1); updateReqUI(); }
-    function sendChat() { const i=document.getElementById('h-msg'); if(!i.value)return; const d={type:'STAFF_CHAT',u:'本部(GM)',m:i.value,id:Math.random()}; logChat("自分",i.value); conns.forEach(c=>{if(c.open&&c.isStaff)c.send(d);}); i.value=""; }
-    function logChat(u,m) { const w=document.getElementById('chat-win'); w.innerHTML+=`<div><b>${u}:</b> ${m}</div>`; w.scrollTop=w.scrollHeight; }
-    function updateRank() { const s=Object.entries(scores).sort((a,b)=>b[1].score-a[1].score || a[1].time-b[1].time).slice(0,5); document.getElementById('rank-mini').innerHTML=s.map(([n,v])=>`<div>${n}: ${v.score}個</div>`).join(''); }
-    function updateCount() { document.getElementById('p-count').innerText=conns.filter(c=>c.isPlayer).length; }
+    function sendAnn() { 
+        const m=document.getElementById('ann-text').value; 
+        conns.forEach(c=>{if(c.open && c.isPlayer) c.send({type:'ANNOUNCE',msg:m});}); 
+        document.getElementById('ann-text').value=""; 
+    }
+    
+    function addPoint() { 
+        cfg.s.push({ n:'地点'+(cfg.s.length+1), c:Math.floor(1000+Math.random()*8999), d:'' }); 
+        render(); 
+    }
+    
+    function render() { 
+        document.getElementById('edit-list').innerHTML = cfg.s.map((x,i)=>`<div class="item">名前:<input value="${x.n}" onchange="cfg.s[${i}].n=this.value" style="width:70px"> Key:<input value="${x.c}" onchange="cfg.s[${i}].c=this.value" style="width:50px"></div>`).join(''); 
+    }
+    
+    function sync() { 
+        cfg.goalMsg=document.getElementById('goal-msg').value; 
+        conns.forEach(c=>{if(c.open)c.send({type:'SYNC',cfg:cfg});}); 
+        alert("同期完了"); 
+    }
+    
+    function updateReqUI() { 
+        const a=document.getElementById('rescue-area'); 
+        a.style.display=pendingReqs.length?'block':'none'; 
+        document.getElementById('req-list').innerHTML=pendingReqs.map((r,i)=>`<div style="display:flex; justify-content:space-between; margin:5px 0;"><span>${r.user}さんの救済</span><div><button onclick="approve(${i},true)" style="background:var(--green); color:white; border:none; border-radius:4px; padding:4px 8px;">OK</button><button onclick="approve(${i},false)" style="background:var(--red); color:white; border:none; border-radius:4px; padding:4px 8px; margin-left:5px;">NG</button></div></div>`).join(''); 
+    }
+    
+    function approve(idx, ok) { 
+        const r=pendingReqs[idx]; 
+        if(ok){ 
+            const pc=conns.find(c=>c.isPlayer && c.metadata.uname===r.user); 
+            if(pc) pc.send({type:'FORCE_STAMP'}); 
+        } 
+        r.staff.send({type:'RESCUE_DONE',user:r.user,status:ok?'approved':'denied'}); 
+        pendingReqs.splice(idx,1); 
+        updateReqUI(); 
+    }
+    
+    function sendChat() { 
+        const i=document.getElementById('h-msg'); 
+        if(!i.value)return; 
+        const d={type:'STAFF_CHAT',u:'本部(GM)',m:i.value,id:Math.random()}; 
+        logChat("自分",i.value); 
+        conns.forEach(c=>{if(c.open&&c.isStaff)c.send(d);}); 
+        i.value=""; 
+    }
+    
+    function logChat(u,m) { 
+        const w=document.getElementById('chat-win'); 
+        w.innerHTML+=`<div><b>${u}:</b> ${m}</div>`; 
+        w.scrollTop=w.scrollHeight; 
+    }
+    
+    function updateRank() { 
+        const sorted=Object.entries(scores).sort((a,b)=>b[1].score-a[1].score || a[1].time-b[1].time).slice(0,5); 
+        document.getElementById('rank-mini').innerHTML=sorted.map(([n,v])=>`<div>${n}: ${v.score}個</div>`).join(''); 
+    }
+    
+    function updateCount() { 
+        document.getElementById('p-count').innerText=conns.length; 
+    }
 </script>
 </body>
 </html>
-
