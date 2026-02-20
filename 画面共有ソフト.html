@@ -3,151 +3,119 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Video Live - Complete</title>
+    <title>P2P Live Share - Super Fixed</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --bg: #0f172a; --card: #1e293b; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; display: flex; justify-content: center; }
-        .card { background: var(--card); padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 500px; }
-        h2 { margin-top: 0; text-align: center; color: var(--primary); }
-        .controls { display: flex; flex-direction: column; gap: 12px; }
-        input, select, button { padding: 14px; border-radius: 8px; border: 1px solid #334155; font-size: 16px; outline: none; }
+        :root { --bg: #0f172a; --card: #1e293b; --accent: #3b82f6; --success: #10b981; }
+        body { font-family: sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: var(--card); padding: 20px; border-radius: 16px; width: 100%; max-width: 450px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .controls { display: flex; flex-direction: column; gap: 10px; }
+        input, select, button { padding: 12px; border-radius: 8px; border: 1px solid #334155; font-size: 16px; outline: none; }
         input { background: #0f172a; color: white; }
-        button { cursor: pointer; border: none; font-weight: bold; transition: 0.2s; }
-        #start-broadcast { background: var(--primary); color: white; }
-        #join-stream { background: var(--success); color: white; }
-        button:active { transform: scale(0.98); opacity: 0.9; }
-        .status-box { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 0.9em; min-height: 1.2em; text-align: center; border-left: 4px solid #64748b; }
-        video { width: 100%; border-radius: 12px; background: #000; margin-top: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
-        .options { display: flex; align-items: center; gap: 15px; font-size: 14px; padding: 5px; }
-        .hidden { display: none; }
+        button { cursor: pointer; border: none; font-weight: bold; background: var(--accent); color: white; }
+        #status { margin: 15px 0; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.2); text-align: center; font-size: 0.9em; border-left: 4px solid #475569; }
+        video { width: 100%; border-radius: 12px; background: #000; margin-top: 10px; }
+        /* 強制再生ボタンのスタイル */
+        #play-overlay { display: none; margin-top: 10px; width: 100%; padding: 15px; background: var(--success); color: white; border-radius: 8px; font-weight: bold; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>📡 P2P Live Share</h2>
-    
+    <h2 style="text-align:center; margin-top:0;">📡 P2P Live</h2>
     <div class="controls">
-        <input type="text" id="room-id" placeholder="合言葉を決めて入力 (例: rally2026)" value="rally2026">
-        
-        <div class="options">
-            <select id="media-type" style="flex: 1;">
-                <option value="camera">📷 カメラ</option>
-                <option value="screen">💻 画面共有</option>
-            </select>
-            <label style="cursor:pointer"><input type="checkbox" id="mic-on" checked> 🎤 マイク</label>
-        </div>
-
+        <input type="text" id="room-id" placeholder="合言葉" value="rally2026">
+        <select id="media-type">
+            <option value="camera">📷 カメラを使用</option>
+            <option value="screen">💻 画面を共有</option>
+        </select>
         <button id="start-broadcast">配信を開始する</button>
-        <button id="join-stream">視聴する</button>
+        <hr style="width:100%; border:0; border-top:1px solid #334155;">
+        <button id="join-stream" style="background:var(--success)">視聴を開始する</button>
     </div>
 
-    <div id="status" class="status-box">待機中...</div>
+    <div id="status">待機中...</div>
     
     <video id="main-video" autoplay playsinline controls muted></video>
-    <div id="tap-notice" class="hidden" style="text-align:center; color:var(--success); font-size:0.8em; margin-top:5px;">
-        ※映像が出たら、動画をタップしてミュート解除してください
-    </div>
+    
+    <button id="play-overlay" onclick="forcePlay()">⚠️ 映像を再生する</button>
 </div>
 
 <script>
-    const roomIdInput = document.getElementById('room-id');
-    const mediaTypeSelect = document.getElementById('media-type');
-    const micCheckbox = document.getElementById('mic-on');
     const statusText = document.getElementById('status');
-    const videoElement = document.getElementById('main-video');
-    const tapNotice = document.getElementById('tap-notice');
-    
+    const video = document.getElementById('main-video');
+    const playBtn = document.getElementById('play-overlay');
     let peer = null;
-    let localStream = null;
 
-    // ログ表示
-    function setStatus(msg, color = "#64748b") {
+    function setStatus(msg, color = "#475569") {
         statusText.innerText = msg;
         statusText.style.borderLeftColor = color;
     }
 
-    // カメラ・画面の取得
-    async function getMedia() {
-        const useMic = micCheckbox.checked;
-        const type = mediaTypeSelect.value;
-        try {
-            const constraints = { video: true, audio: useMic };
-            if (type === 'screen') {
-                return await navigator.mediaDevices.getDisplayMedia(constraints);
-            } else {
-                return await navigator.mediaDevices.getUserMedia(constraints);
-            }
-        } catch (e) {
-            alert("権限エラー: カメラまたは画面共有が許可されませんでした。");
-            return null;
-        }
-    }
-
-    // --- 配信側 (Sender) ---
+    // 1. 配信側
     document.getElementById('start-broadcast').onclick = async () => {
-        const id = roomIdInput.value;
-        if (!id) return alert("合言葉を入力してください");
+        const id = document.getElementById('room-id').value;
+        const type = document.getElementById('media-type').value;
+        try {
+            const stream = type === 'screen' ? 
+                await navigator.mediaDevices.getDisplayMedia({video:true, audio:true}) :
+                await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+            
+            video.srcObject = stream;
+            video.muted = true;
 
-        localStream = await getMedia();
-        if (!localStream) return;
-
-        videoElement.srcObject = localStream;
-        videoElement.muted = true; // 配信者は自分の音を聞かない
-
-        if(peer) peer.destroy();
-        peer = new Peer(id);
-
-        peer.on('open', () => {
-            setStatus(`配信中... \n相手に「${id}」と伝えてください`, "#3b82f6");
-        });
-
-        peer.on('call', (call) => {
-            setStatus("接続されました！配信中です", "#10b981");
-            call.answer(localStream);
-        });
-
-        peer.on('error', (err) => {
-            if(err.type === 'unavailable-id') alert("その合言葉は既に使用されています。");
-            console.error(err);
-        });
+            if(peer) peer.destroy();
+            peer = new Peer(id);
+            peer.on('open', () => setStatus(`配信中: ${id}`, "#3b82f6"));
+            peer.on('call', call => {
+                setStatus("受信側が接続しました", "#10b981");
+                call.answer(stream);
+            });
+        } catch (e) { alert("カメラ取得失敗"); }
     };
 
-    // --- 視聴側 (Receiver) ---
+    // 2. 受信側
     document.getElementById('join-stream').onclick = () => {
-        const id = roomIdInput.value;
-        if (!id) return alert("合言葉を入力してください");
-
+        const id = document.getElementById('room-id').value;
         if(peer) peer.destroy();
-        peer = new Peer(); // 受信側はランダムID
+        peer = new Peer();
         
         peer.on('open', () => {
-            setStatus(`配信者「${id}」に接続を試みています...`);
-            
-            // 相手を呼び出す
+            setStatus("配信者を探しています...", "#f59e0b");
+            // 受信側もダミーのストリームを送るのがPeerJSを安定させるコツ
             const call = peer.call(id, new MediaStream());
 
-            call.on('stream', (remoteStream) => {
-                console.log("映像を受信しました");
-                videoElement.srcObject = remoteStream;
-                videoElement.muted = false; // 音声を聞けるようにする
+            call.on('stream', remoteStream => {
+                console.log("ストリーム受信成功");
+                video.srcObject = remoteStream;
                 
-                tapNotice.classList.remove('hidden');
+                // ブラウザの制限を回避するため一旦ミュートで再生
+                video.muted = true;
+                const promise = video.play();
                 
-                // 自動再生を試みる
-                videoElement.play().then(() => {
-                    setStatus("受信成功！", "#10b981");
-                }).catch(() => {
-                    setStatus("タップして再生してください", "#ef4444");
-                });
+                if (promise !== undefined) {
+                    promise.then(() => {
+                        setStatus("受信中！(音声はミュート解除してください)", "#10b981");
+                    }).catch(e => {
+                        // 自動再生が拒否されたら巨大なボタンを出す
+                        setStatus("再生がブロックされました", "#ef4444");
+                        playBtn.style.display = "block";
+                    });
+                }
             });
         });
 
-        peer.on('error', (err) => {
-            setStatus("接続失敗。合言葉が違うか、配信がまだ始まっていません。", "#ef4444");
-        });
+        peer.on('error', e => setStatus("接続エラー: 合言葉を確認してください", "#ef4444"));
     };
+
+    // 強制再生関数
+    function forcePlay() {
+        video.muted = false; // ミュート解除
+        video.play();
+        playBtn.style.display = "none";
+        setStatus("受信中！", "#10b981");
+    }
 </script>
 </body>
 </html>
