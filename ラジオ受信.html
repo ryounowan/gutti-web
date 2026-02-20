@@ -1,62 +1,134 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radio Listener</title>
+    <title>Radio Listener - Mobile Ready</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; }
-        .box { background: #1e293b; padding: 40px 20px; border-radius: 24px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: none; background: #0f172a; color: white; text-align: center; font-size: 18px; box-sizing: border-box; }
-        button { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 18px; }
-        #status { margin-top: 20px; color: #94a3b8; font-size: 14px; min-height: 1.5em; }
-        .btn-reset { background: #64748b; margin-top: 20px; display: none; padding: 10px; font-size: 14px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .box { background: #1e293b; padding: 30px; border-radius: 24px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        h2 { margin-bottom: 20px; font-size: 24px; }
+        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.2s; }
+        button:active { transform: scale(0.95); background: #059669; }
+        button:disabled { background: #334155; cursor: not-allowed; }
+        .btn-reset { background: #64748b; margin-top: 20px; display: none; font-size: 14px; padding: 12px; }
+        #status { margin-top: 25px; color: #94a3b8; font-weight: bold; line-height: 1.6; }
+        .status-on { color: #10b981; animation: blink 2s infinite; }
+        .status-off { color: #f87171; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        
+        /* スマホ用通知バッジ */
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; background: #334155; margin-bottom: 10px; }
     </style>
 </head>
 <body>
 <div class="box">
-    <h2 style="margin-top:0">📻 Radio</h2>
-    <input type="text" id="room" value="apple7">
-    <button id="listenBtn" onclick="listen()">受信開始</button>
+    <div class="badge">LISTEN MODE</div>
+    <h2>📻 リスナー</h2>
+    
+    <div id="setup-ui">
+        <input type="text" id="room" value="apple7" placeholder="ルームIDを入力">
+        <button id="listenBtn" onclick="listen()">受信開始</button>
+    </div>
+
     <div id="status">待機中</div>
-    <button id="resetBtn" class="btn-reset" onclick="location.reload()">再接続する</button>
+    
+    <button id="resetBtn" class="btn-reset" onclick="location.reload()">再接続 / リセット</button>
+    
     <audio id="audio" playsinline></audio>
 </div>
 
 <script>
     let peer = null;
-    const CONFIG = { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }], 'iceTransportPolicy': 'all' } };
+
+    // 通信を中継するTURNサーバーの設定（違うWi-Fi同士でも繋がるようにする）
+    const PEER_CONFIG = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { 
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
+            ],
+            'iceTransportPolicy': 'all'
+        }
+    };
 
     function listen() {
         const room = document.getElementById('room').value;
         const status = document.getElementById('status');
+        const resetBtn = document.getElementById('resetBtn');
         const audio = document.getElementById('audio');
+
+        if(!room) { alert("IDを入力してください"); return; }
+
         document.getElementById('listenBtn').disabled = true;
+        status.innerText = "🔍 放送を探しています...";
 
-        // スマホ対策：空の音を再生させてロック解除
-        audio.play().catch(()=>{});
+        // スマホの「自動再生ブロック」を解除するために、ボタンを押した瞬間に空の音を再生させる
+        audio.play().catch(() => {});
 
-        peer = new Peer(`${room}-list-${Math.floor(Math.random()*9999)}`, CONFIG);
+        // リスナーIDをランダム生成
+        const myId = `${room}-listener-${Math.floor(Math.random() * 9999)}`;
+        peer = new Peer(myId, PEER_CONFIG);
+
         peer.on('open', () => {
-            status.innerText = "📡 接続中...";
-            peer.connect(`${room}-host`).on('close', () => { status.innerText = "📴 放送終了"; });
+            status.innerText = "📡 接続を確立中...";
+            // 配信者に接続
+            const conn = peer.connect(`${room}-host`);
+            
+            conn.on('open', () => {
+                status.innerText = "✅ 接続完了！配信を待機しています...";
+            });
+
+            conn.on('close', () => { showEnd(); });
         });
 
         peer.on('call', call => {
             status.innerText = "🔴 受信中...";
-            document.getElementById('resetBtn').style.display = "block";
+            status.classList.add('status-on');
+            resetBtn.style.display = "block";
+            
             call.answer();
+            
             call.on('stream', s => {
                 audio.srcObject = s;
-                audio.play().catch(() => {
-                    status.innerHTML = "⚠️ ここをタップして再生許可";
-                    status.onclick = () => { audio.play(); status.innerHTML = "🔴 受信中..."; };
+                // スマホ対策：ユーザー操作直後でないとplay()が失敗するためエラーハンドリング
+                audio.play().catch(e => {
+                    status.innerHTML = "⚠️ ブラウザが音をブロックしました<br>ここをタップして再生を許可してください";
+                    status.style.cursor = "pointer";
+                    status.onclick = () => {
+                        audio.play();
+                        status.innerHTML = "🔴 受信中...";
+                        status.onclick = null;
+                    };
                 });
             });
+
+            call.on('close', () => { showEnd(); });
         });
 
-        peer.on('error', () => { status.innerText = "❌ 配信が見つかりません"; document.getElementById('resetBtn').style.display = "block"; });
+        peer.on('error', (err) => {
+            console.error(err);
+            status.innerText = "❌ 配信が見つからないか、接続が切れました";
+            status.classList.add('status-off');
+            resetBtn.style.display = "block";
+        });
+    }
+
+    function showEnd() {
+        const status = document.getElementById('status');
+        status.innerText = "📴 放送は終了しました";
+        status.classList.remove('status-on');
+        status.classList.add('status-off');
+        document.getElementById('resetBtn').style.display = "block";
+        const a = document.getElementById('audio');
+        a.srcObject = null;
     }
 </script>
 </body>
