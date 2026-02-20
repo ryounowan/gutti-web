@@ -1,95 +1,62 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Radio Listener</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: #1e293b; padding: 30px; border-radius: 24px; width: 300px; text-align: center; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border-radius: 8px; border: none; text-align: center; box-sizing: border-box; }
-        button { width: 100%; padding: 15px; border-radius: 12px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
-        .btn-reset { background: #64748b; margin-top: 15px; display: none; }
-        #status { margin-top: 20px; color: #94a3b8; font-weight: bold; }
-        .status-off { color: #f87171 !important; }
+        body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; height: 100vh; display: flex; align-items: center; justify-content: center; }
+        .box { background: #1e293b; padding: 40px 20px; border-radius: 24px; width: 90%; max-width: 350px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: none; background: #0f172a; color: white; text-align: center; font-size: 18px; box-sizing: border-box; }
+        button { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 18px; }
+        #status { margin-top: 20px; color: #94a3b8; font-size: 14px; min-height: 1.5em; }
+        .btn-reset { background: #64748b; margin-top: 20px; display: none; padding: 10px; font-size: 14px; }
     </style>
 </head>
 <body>
 <div class="box">
-    <h2>📻 Listener</h2>
-    <div id="setup-ui">
-        <input type="text" id="room" value="apple7">
-        <button id="listenBtn" onclick="listen()">受信開始</button>
-    </div>
+    <h2 style="margin-top:0">📻 Radio</h2>
+    <input type="text" id="room" value="apple7">
+    <button id="listenBtn" onclick="listen()">受信開始</button>
     <div id="status">待機中</div>
-    <button id="resetBtn" class="btn-reset" onclick="location.reload()">配信を切替 / リセット</button>
-    <audio id="audio" autoplay></audio>
+    <button id="resetBtn" class="btn-reset" onclick="location.reload()">再接続する</button>
+    <audio id="audio" playsinline></audio>
 </div>
 
 <script>
     let peer = null;
-
-    const PEER_CONFIG = {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { 
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ],
-            'iceTransportPolicy': 'all'
-        }
-    };
+    const CONFIG = { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'turn:openrelay.metered.ca:443', username: 'openrelayproject', credential: 'openrelayproject' }], 'iceTransportPolicy': 'all' } };
 
     function listen() {
         const room = document.getElementById('room').value;
         const status = document.getElementById('status');
-        const resetBtn = document.getElementById('resetBtn');
+        const audio = document.getElementById('audio');
         document.getElementById('listenBtn').disabled = true;
 
-        // ID生成のバグを修正
-        const myId = `${room}-listener-${Math.floor(Math.random() * 9999)}`;
-        peer = new Peer(myId, PEER_CONFIG);
+        // スマホ対策：空の音を再生させてロック解除
+        audio.play().catch(()=>{});
 
+        peer = new Peer(`${room}-list-${Math.floor(Math.random()*9999)}`, CONFIG);
         peer.on('open', () => {
-            status.innerText = "📡 接続を試みています...";
-            const conn = peer.connect(`${room}-host`);
-            
-            conn.on('close', () => { showEnd(); });
+            status.innerText = "📡 接続中...";
+            peer.connect(`${room}-host`).on('close', () => { status.innerText = "📴 放送終了"; });
         });
 
         peer.on('call', call => {
             status.innerText = "🔴 受信中...";
-            resetBtn.style.display = "block";
+            document.getElementById('resetBtn').style.display = "block";
             call.answer();
             call.on('stream', s => {
-                const a = document.getElementById('audio');
-                a.srcObject = s;
-                a.play().catch(e => {
-                    status.innerText = "⚠️ クリックして再生を許可してください";
-                    window.addEventListener('click', () => a.play(), {once: true});
+                audio.srcObject = s;
+                audio.play().catch(() => {
+                    status.innerHTML = "⚠️ ここをタップして再生許可";
+                    status.onclick = () => { audio.play(); status.innerHTML = "🔴 受信中..."; };
                 });
             });
-            call.on('close', () => { showEnd(); });
         });
 
-        peer.on('error', (err) => {
-            console.error(err);
-            status.innerText = "❌ 配信に接続できません";
-            resetBtn.style.display = "block";
-        });
-    }
-
-    function showEnd() {
-        const status = document.getElementById('status');
-        status.innerText = "📴 放送は終了しました";
-        status.classList.add('status-off');
-        document.getElementById('resetBtn').style.display = "block";
-        const a = document.getElementById('audio');
-        a.srcObject = null;
+        peer.on('error', () => { status.innerText = "❌ 配信が見つかりません"; document.getElementById('resetBtn').style.display = "block"; });
     }
 </script>
 </body>
