@@ -26,15 +26,7 @@
 <script>
     function start() {
         const r=document.getElementById('room').value, p=document.getElementById('pos').value;
-        const peer = new Peer(undefined, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    });
+        const peer = new Peer();
         peer.on('open', () => {
             const cn = peer.connect(`${r}-host`);
             cn.on('open', () => document.getElementById('setup').style.display='none');
