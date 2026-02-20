@@ -3,43 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>P2P Connect Tool - Fixed</title>
+    <title>P2P Video Live - Complete</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 20px; background: #f0f2f5; }
-        .card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); max-width: 600px; margin: auto; }
-        video { width: 100%; border-radius: 8px; background: #000; margin-top: 15px; }
-        .controls { display: flex; flex-direction: column; gap: 10px; margin-bottom: 15px; }
-        input, select, button { padding: 12px; border-radius: 5px; border: 1px solid #ccc; font-size: 16px; }
-        button { cursor: pointer; background: #007bff; color: white; border: none; font-weight: bold; }
-        button:disabled { background: #ccc; }
-        .status { font-size: 0.9em; color: #666; text-align: center; font-weight: bold; padding: 10px; }
-        .options { display: flex; align-items: center; gap: 10px; font-size: 14px; }
+        :root { --primary: #3b82f6; --success: #10b981; --danger: #ef4444; --bg: #0f172a; --card: #1e293b; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: white; margin: 0; padding: 20px; display: flex; justify-content: center; }
+        .card { background: var(--card); padding: 24px; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 100%; max-width: 500px; }
+        h2 { margin-top: 0; text-align: center; color: var(--primary); }
+        .controls { display: flex; flex-direction: column; gap: 12px; }
+        input, select, button { padding: 14px; border-radius: 8px; border: 1px solid #334155; font-size: 16px; outline: none; }
+        input { background: #0f172a; color: white; }
+        button { cursor: pointer; border: none; font-weight: bold; transition: 0.2s; }
+        #start-broadcast { background: var(--primary); color: white; }
+        #join-stream { background: var(--success); color: white; }
+        button:active { transform: scale(0.98); opacity: 0.9; }
+        .status-box { background: rgba(0,0,0,0.3); padding: 12px; border-radius: 8px; margin: 15px 0; font-size: 0.9em; min-height: 1.2em; text-align: center; border-left: 4px solid #64748b; }
+        video { width: 100%; border-radius: 12px; background: #000; margin-top: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .options { display: flex; align-items: center; gap: 15px; font-size: 14px; padding: 5px; }
+        .hidden { display: none; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>P2P 共有ツール (修正版)</h2>
+    <h2>📡 P2P Live Share</h2>
     
     <div class="controls">
-        <input type="text" id="room-id" placeholder="合言葉（例: my-secret-room）">
+        <input type="text" id="room-id" placeholder="合言葉を決めて入力 (例: rally2026)" value="rally2026">
         
         <div class="options">
-            <select id="media-type">
-                <option value="camera">📷 カメラを使用</option>
-                <option value="screen">💻 画面共有 (PC向き)</option>
+            <select id="media-type" style="flex: 1;">
+                <option value="camera">📷 カメラ</option>
+                <option value="screen">💻 画面共有</option>
             </select>
-            <label><input type="checkbox" id="mic-on" checked> 🎤 マイクON</label>
+            <label style="cursor:pointer"><input type="checkbox" id="mic-on" checked> 🎤 マイク</label>
         </div>
 
         <button id="start-broadcast">配信を開始する</button>
-        <hr style="width:100%">
-        <button id="join-stream" style="background: #28a745;">視聴する（合言葉を入力）</button>
+        <button id="join-stream">視聴する</button>
     </div>
 
-    <p id="status" class="status">待機中...</p>
-    <video id="main-video" autoplay playsinline controls></video>
+    <div id="status" class="status-box">待機中...</div>
+    
+    <video id="main-video" autoplay playsinline controls muted></video>
+    <div id="tap-notice" class="hidden" style="text-align:center; color:var(--success); font-size:0.8em; margin-top:5px;">
+        ※映像が出たら、動画をタップしてミュート解除してください
+    </div>
 </div>
 
 <script>
@@ -48,26 +57,35 @@
     const micCheckbox = document.getElementById('mic-on');
     const statusText = document.getElementById('status');
     const videoElement = document.getElementById('main-video');
+    const tapNotice = document.getElementById('tap-notice');
     
     let peer = null;
     let localStream = null;
 
+    // ログ表示
+    function setStatus(msg, color = "#64748b") {
+        statusText.innerText = msg;
+        statusText.style.borderLeftColor = color;
+    }
+
+    // カメラ・画面の取得
     async function getMedia() {
         const useMic = micCheckbox.checked;
         const type = mediaTypeSelect.value;
         try {
+            const constraints = { video: true, audio: useMic };
             if (type === 'screen') {
-                return await navigator.mediaDevices.getDisplayMedia({ video: true, audio: useMic });
+                return await navigator.mediaDevices.getDisplayMedia(constraints);
             } else {
-                return await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" }, audio: useMic });
+                return await navigator.mediaDevices.getUserMedia(constraints);
             }
         } catch (e) {
-            alert("カメラ/画面共有の取得に失敗しました。");
+            alert("権限エラー: カメラまたは画面共有が許可されませんでした。");
             return null;
         }
     }
 
-    // --- 配信者 (送信側) ---
+    // --- 配信側 (Sender) ---
     document.getElementById('start-broadcast').onclick = async () => {
         const id = roomIdInput.value;
         if (!id) return alert("合言葉を入力してください");
@@ -76,18 +94,17 @@
         if (!localStream) return;
 
         videoElement.srcObject = localStream;
-        videoElement.muted = true; // 自分の声がループしないようにミュート
+        videoElement.muted = true; // 配信者は自分の音を聞かない
 
+        if(peer) peer.destroy();
         peer = new Peer(id);
 
         peer.on('open', () => {
-            statusText.innerText = `配信準備完了！ 合言葉: ${id}`;
-            statusText.style.color = "#007bff";
+            setStatus(`配信中... \n相手に「${id}」と伝えてください`, "#3b82f6");
         });
 
-        // 相手からの「通話」を待ち受ける
         peer.on('call', (call) => {
-            statusText.innerText = "接続されました！配信中...";
+            setStatus("接続されました！配信中です", "#10b981");
             call.answer(localStream);
         });
 
@@ -97,41 +114,38 @@
         });
     };
 
-    // --- 視聴者 (受信側) ---
+    // --- 視聴側 (Receiver) ---
     document.getElementById('join-stream').onclick = () => {
         const id = roomIdInput.value;
         if (!id) return alert("合言葉を入力してください");
 
-        // 受信側はランダムなIDで開始
-        peer = new Peer();
+        if(peer) peer.destroy();
+        peer = new Peer(); // 受信側はランダムID
         
         peer.on('open', () => {
-            statusText.innerText = `配信者「${id}」に接続を試みています...`;
+            setStatus(`配信者「${id}」に接続を試みています...`);
             
-            // 修正ポイント: 受信側から「通話」を開始する。
-            // 相手に自分のメディアを送る必要はないが、PeerJSの仕様上、
-            // 空のメディアを投げるよりは、受信用として明示的にcallする。
+            // 相手を呼び出す
             const call = peer.call(id, new MediaStream());
 
             call.on('stream', (remoteStream) => {
-                console.log("ストリームを受信しました");
+                console.log("映像を受信しました");
                 videoElement.srcObject = remoteStream;
-                statusText.innerText = "受信中！";
-                statusText.style.color = "#28a745";
+                videoElement.muted = false; // 音声を聞けるようにする
                 
-                // ブラウザの自動再生制限対策
-                videoElement.play().catch(e => {
-                    statusText.innerText = "再生ボタンを押してください";
+                tapNotice.classList.remove('hidden');
+                
+                // 自動再生を試みる
+                videoElement.play().then(() => {
+                    setStatus("受信成功！", "#10b981");
+                }).catch(() => {
+                    setStatus("タップして再生してください", "#ef4444");
                 });
-            });
-
-            call.on('error', (err) => {
-                alert("通話エラーが発生しました。");
             });
         });
 
         peer.on('error', (err) => {
-            alert("接続に失敗しました。合言葉が正しいか、配信が始まっているか確認してください。");
+            setStatus("接続失敗。合言葉が違うか、配信がまだ始まっていません。", "#ef4444");
         });
     };
 </script>
