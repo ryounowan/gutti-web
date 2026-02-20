@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Radio Host Pro - Auto Player</title>
+    <title>Radio Host Pro - Air-Linked</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #020617; --panel: #1e293b; --active: #10b981; --seek: #3b82f6; --record: #f87171; --se: #facc15; }
@@ -16,7 +16,7 @@
         .btn:active { transform: scale(0.95); opacity: 0.8; }
         .btn-start { background: #3b82f6; } .btn-stop { background: #ef4444; } .btn-re { background: #8b5cf6; }
         .mixer { background: #0f172a; padding: 15px; border-radius: 15px; border: 1px solid #334155; }
-        input[type="range"] { width: 100%; height: 12px; accent-color: var(--seek); cursor: pointer; margin: 10px 0; }
+        input[type="range"] { width: 100%; height: 15px; accent-color: var(--seek); cursor: pointer; margin: 5px 0; }
         .seek-container { width: 100%; height: 32px; background: #000; border-radius: 8px; margin: 10px 0; position: relative; overflow: hidden; border: 1px solid #334155; cursor: pointer; }
         .seek-bar { width: 0%; height: 100%; background: var(--seek); pointer-events: none; opacity: 0.6; }
         .seek-text { position: absolute; width: 100%; text-align: center; line-height: 32px; font-size: 11px; pointer-events: none; color: white; text-shadow: 1px 1px 2px #000; z-index: 2; }
@@ -26,7 +26,7 @@
         .se-btn { background: #334155; color: white; border: 1px solid #475569; padding: 10px; border-radius: 8px; font-size: 11px; cursor: pointer; }
         .meter { background: #000; height: 10px; border-radius: 5px; margin-bottom: 15px; overflow: hidden; }
         #level-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #10b981, #facc15, #ef4444); transition: width 0.1s; }
-        .status-badge { font-size: 9px; padding: 2px 6px; border-radius: 4px; background: #475569; margin-left: 5px; }
+        .vol-label { display: flex; justify-content: space-between; font-size: 10px; color: #94a3b8; margin-top: 5px; }
     </style>
 </head>
 <body>
@@ -50,7 +50,7 @@
         </div>
 
         <div class="mixer">
-            <div style="display:flex; justify-content:space-between; font-size:12px;"><span>🎙 マイク音量</span><span id="v-mic">100%</span></div>
+            <div class="vol-label"><span>🎙 マイク音量</span><span id="v-mic">100%</span></div>
             <input type="range" min="0" max="1.5" step="0.01" value="1" oninput="updateVol('mic', this.value)">
             
             <div id="slots"></div>
@@ -63,7 +63,8 @@
 <script>
     let peer, audioCtx, destination, micGain, analyser, conns = {};
     let micSource, airStartTime;
-    // BGMステートの初期化
+    let isAirOn = false; // ON AIR状態のフラグ
+    
     let bgmStates = Array.from({length: 3}, (_, i) => ({ 
         id: i, buffer: null, source: null, gainNode: null, 
         isPlaying: false, startTime: 0, offset: 0, loop: false 
@@ -97,6 +98,7 @@
             s.gainNode = audioCtx.createGain();
             s.gainNode.gain.value = 0.5;
             s.gainNode.connect(destination);
+            s.gainNode.connect(analyser); // メーターにも反映
         });
         const updateMeter = () => {
             const d = new Uint8Array(analyser.frequencyBinCount);
@@ -114,18 +116,18 @@
             slots.innerHTML += `
             <div class="bgm-slot" id="slot-${s.id}">
                 <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; margin-bottom:5px;">
-                    <span id="t-${s.id}" style="font-weight:bold; overflow:hidden; white-space:nowrap; max-width:140px;">BGM ${s.id+1} (空)</span>
-                    <label style="background:#334155; padding:2px 6px; border-radius:4px; cursor:pointer;">
-                        <input type="checkbox" id="loop-${s.id}" onchange="bgmStates[${s.id}].loop=this.checked"> 🔂リピート
-                    </label>
+                    <span id="t-${s.id}" style="font-weight:bold; overflow:hidden; white-space:nowrap; max-width:140px;">BGM ${s.id+1}</span>
+                    <label><input type="checkbox" id="loop-${s.id}" onchange="bgmStates[${s.id}].loop=this.checked"> 🔂リピート</label>
                 </div>
                 <div class="seek-container" onmousedown="handleSeek(${s.id}, event)" ontouchstart="handleSeek(${s.id}, event)">
                     <div class="seek-text" id="time-${s.id}">0:00 / 0:00</div>
                     <div class="seek-bar" id="seek-${s.id}"></div>
                 </div>
-                <div style="display:flex; gap:8px;">
+                <div class="vol-label"><span>🔊 個別音量</span><span id="v-bgm${s.id}">50%</span></div>
+                <input type="range" min="0" max="1" step="0.01" value="0.5" oninput="updateVol('bgm${s.id}', this.value)">
+                <div style="display:flex; gap:8px; margin-top:5px;">
                     <button id="playBtn-${s.id}" class="btn btn-start" style="flex:2; padding:8px;" onclick="playBGM(${s.id})">再生</button>
-                    <button class="btn btn-stop" style="flex:1; padding:8px;" onclick="pauseBGM(${s.id})">一時停止</button>
+                    <button class="btn btn-stop" style="flex:1; padding:8px;" onclick="pauseBGM(${s.id})">停止</button>
                     <button class="btn btn-re" style="flex:1; padding:8px; font-size:10px;" onclick="document.getElementById('f${s.id}').click()">選択</button>
                 </div>
                 <input type="file" id="f${s.id}" hidden onchange="loadAudio(${s.id}, this)">
@@ -135,12 +137,13 @@
         pads.innerHTML = "";
         for(let i=0; i<4; i++) {
             pads.innerHTML += `<div><button class="se-btn" id="se-${i}" onclick="playSE(${i})" style="width:100%">SE ${i+1}</button>
-            <input type="file" hidden id="sf${i}" onchange="loadSE(${i},this)"><div style="font-size:8px;text-align:center;cursor:pointer;margin-top:2px;" onclick="document.getElementById('sf${i}').click()">📁 SE読込</div></div>`;
+            <input type="file" hidden id="sf${i}" onchange="loadSE(${i},this)"><div style="font-size:8px;text-align:center;cursor:pointer;margin-top:2px;" onclick="document.getElementById('sf${i}').click()">📁 読込</div></div>`;
         }
         setInterval(updateSeekDisplay, 100);
     }
 
     function handleSeek(i, e) {
+        if(!isAirOn) return; // OFF AIRなら操作不可
         const s = bgmStates[i]; if(!s.buffer) return;
         const rect = e.currentTarget.getBoundingClientRect();
         const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
@@ -151,62 +154,41 @@
     }
 
     function playBGM(i) {
-        const s = bgmStates[i]; 
-        if(!s.buffer) return;
+        if(!isAirOn) { alert("ON AIRボタンを押してから再生してください"); return; }
+        const s = bgmStates[i]; if(!s.buffer) return;
 
-        // 他の曲をすべて止める
         bgmStates.forEach(other => { if(other.id !== i) stopInternal(other); });
-
         if(s.source) { s.source.onended = null; s.source.stop(); }
         
         s.source = audioCtx.createBufferSource();
         s.source.buffer = s.buffer;
         s.source.connect(s.gainNode);
-        
         s.source.onended = () => {
             if(!s.isPlaying) return;
-            
-            if(s.loop) {
-                // 単曲リピート
-                s.offset = 0;
-                playBGM(i);
-            } else {
-                // 次の曲を探す（ループ再生）
-                playNext(i);
-            }
+            if(s.loop) { s.offset = 0; playBGM(i); } 
+            else { playNext(i); }
         };
-
         s.source.start(0, s.offset);
         s.startTime = audioCtx.currentTime - s.offset;
         s.isPlaying = true;
         document.getElementById(`slot-${i}`).classList.add('playing');
-        document.getElementById(`playBtn-${i}`).innerText = "更新/再開";
     }
 
-    // 次に音源が入っているスロットを探して再生
     function playNext(currentIndex) {
         stopInternal(bgmStates[currentIndex]);
-        bgmStates[currentIndex].offset = 0; // 終わった曲は位置をリセット
-
+        bgmStates[currentIndex].offset = 0;
         for (let i = 1; i <= bgmStates.length; i++) {
             let nextIndex = (currentIndex + i) % bgmStates.length;
-            if (bgmStates[nextIndex].buffer) {
-                playBGM(nextIndex);
-                return;
-            }
+            if (bgmStates[nextIndex].buffer) { playBGM(nextIndex); return; }
         }
-        // 他に曲がなければ、今の曲を最初からリピート（単曲運用時）
         playBGM(currentIndex);
     }
 
     function pauseBGM(i) {
         const s = bgmStates[i];
         if(!s.isPlaying) return;
-        
-        // 現在の再生位置を保存
         s.offset = audioCtx.currentTime - s.startTime;
         stopInternal(s);
-        document.getElementById(`playBtn-${i}`).innerText = "再開";
     }
 
     function stopInternal(s) {
@@ -231,20 +213,17 @@
     async function loadAudio(i, input) {
         initAudio(); const f = input.files[0]; if(!f) return;
         document.getElementById(`t-${i}`).innerText = "読込中...";
-        try {
-            bgmStates[i].buffer = await audioCtx.decodeAudioData(await f.arrayBuffer());
-            document.getElementById(`t-${i}`).innerText = f.name.substring(0,15);
-            bgmStates[i].offset = 0;
-        } catch(e) { 
-            alert("音声ファイルの読み込みに失敗しました");
-            document.getElementById(`t-${i}`).innerText = "エラー";
-        }
+        bgmStates[i].buffer = await audioCtx.decodeAudioData(await f.arrayBuffer());
+        document.getElementById(`t-${i}`).innerText = f.name.substring(0,15);
+        bgmStates[i].offset = 0;
     }
 
     async function toggleAir(on) {
         initAudio(); if(audioCtx.state === 'suspended') audioCtx.resume();
+        isAirOn = on;
         document.getElementById('btnOnAir').disabled = on;
         document.getElementById('btnOffAir').disabled = !on;
+        
         if(on) {
             airStartTime = Date.now();
             try {
@@ -252,12 +231,10 @@
                 micSource = audioCtx.createMediaStreamSource(stream);
                 micSource.connect(micGain);
                 Object.keys(conns).forEach(id => peer.call(id, destination.stream));
-                const timerIdx = setInterval(() => { 
-                    if(airStartTime) document.getElementById('air-timer').innerText = "LIVE " + new Date(Date.now()-airStartTime).toISOString().substr(11,8);
-                    else clearInterval(timerIdx);
-                }, 1000);
             } catch(e) { alert("マイクを許可してください"); toggleAir(false); }
         } else {
+            // OFF AIRになったら全BGMを停止位置を保持してストップ
+            bgmStates.forEach((_, i) => pauseBGM(i));
             airStartTime = null; if(micSource) micSource.disconnect();
             document.getElementById('air-timer').innerText = "OFF AIR";
         }
@@ -265,10 +242,17 @@
 
     function updateVol(type, val) {
         if(type === 'mic') micGain.gain.value = val;
-        else bgmStates[type.replace('bgm','')].gainNode.gain.value = val;
+        else {
+            const idx = type.replace('bgm','');
+            bgmStates[idx].gainNode.gain.value = val;
+        }
+        document.getElementById(`v-${type}`).innerText = Math.round(val*100)+"%";
     }
 
-    function playSE(i) { if(seBuffers[i]) { const s = audioCtx.createBufferSource(); s.buffer = seBuffers[i]; s.connect(destination); s.start(0); } }
+    function playSE(i) { 
+        if(!isAirOn) return;
+        if(seBuffers[i]) { const s = audioCtx.createBufferSource(); s.buffer = seBuffers[i]; s.connect(destination); s.start(0); } 
+    }
     async function loadSE(i, input) { initAudio(); const f = input.files[0]; if(f) { seBuffers[i] = await audioCtx.decodeAudioData(await f.arrayBuffer()); document.getElementById(`se-${i}`).innerText = "OK"; } }
 </script>
 </body>
