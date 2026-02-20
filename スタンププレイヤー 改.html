@@ -8,126 +8,141 @@
     <style>
         body { font-family: sans-serif; background: #0f172a; color: white; margin: 0; text-align: center; }
         .box { padding: 20px; }
-        #v-wrap { width: 100%; aspect-ratio: 1.3; background: #000; position: relative; overflow: hidden; }
+        #v-wrap { width: 100%; aspect-ratio: 1.3; background: #000; position: relative; overflow: hidden; border-radius: 15px; }
         video { width: 100%; height: 100%; object-fit: cover; }
-        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .overlay { position: absolute; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; font-size: 1.2rem; font-weight: bold; }
         .stamp-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; padding: 10px; }
-        .stamp { background: #1e293b; padding: 15px; border-radius: 12px; border: 2px solid transparent; }
-        .active { border-color: #10b981; background: #064e3b; }
-        input { width: 100%; padding: 15px; border-radius: 8px; border: none; font-size: 16px; margin-bottom: 10px; }
-        button { width: 100%; padding: 15px; background: #3b82f6; color: white; border: none; border-radius: 10px; font-weight: bold; font-size: 1rem; }
-        #ann-bar { position: fixed; top: 0; width: 100%; background: #facc15; color: #000; padding: 10px; display: none; z-index: 100; font-weight: bold; }
-        #goal { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
+        .stamp { background: #1e293b; padding: 15px; border-radius: 12px; border: 2px solid transparent; transition: 0.3s; }
+        .stamp.active { border-color: #10b981; background: #064e3b; }
+        #goal { position: fixed; inset: 0; background: rgba(2, 6, 23, 0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; padding: 20px; }
+        .btn-start { background: #3b82f6; color: white; padding: 15px 40px; border-radius: 30px; border: none; font-size: 1.2rem; font-weight: bold; cursor: pointer; }
+        #timer { font-family: monospace; font-size: 1.5rem; margin: 10px 0; color: #facc15; }
     </style>
 </head>
 <body>
 
-<div id="ann-bar"></div>
-
-<div id="reg" class="box" style="height: 100vh; display: flex; flex-direction: column; justify-content: center;">
-    <h2>🏃 参加登録</h2>
-    <input type="text" id="room" value="rally2026">
-    <input type="text" id="uname" placeholder="あなたの名前">
-    <button onclick="join()">ラリースタート！</button>
+<div id="setup" class="box">
+    <h1>ENTRY</h1>
+    <input type="text" id="room" value="rally2026" placeholder="合言葉" style="padding:10px; border-radius:5px; border:none; width:80%; margin-bottom:10px;"><br>
+    <input type="text" id="uname" placeholder="名前を入力" style="padding:10px; border-radius:5px; border:none; width:80%; margin-bottom:10px;"><br>
+    <button class="btn-start" onclick="init()">参加する</button>
 </div>
 
-<div id="main" style="display:none;">
+<div id="main" style="display:none">
     <div id="v-wrap">
-        <video id="video" playsinline></video>
-        <div id="lock" class="overlay">ホストの開始をお待ちください</div>
+        <video id="v" playsinline></video>
+        <div id="mask" class="overlay">待機中...</div>
     </div>
-    <div id="timer" style="padding:10px; color:#3b82f6; font-weight:bold;">TIME: 0:00</div>
-    <div id="list" class="stamp-grid"></div>
+    <div id="timer">TIME: 00:00</div>
+    <div class="stamp-grid" id="list"></div>
 </div>
 
 <div id="goal">
-    <h1 style="color:#facc15; font-size: 3rem;">🏆 GOAL!</h1>
-    <p id="goal-msg" style="padding: 20px;"></p>
-    <button onclick="location.reload()" style="width: auto; padding: 10px 30px;">トップに戻る</button>
+    <h1 style="font-size: 3rem; color: #facc15;">GOAL!!</h1>
+    <p id="goal-timer" style="font-size: 2rem;"></p>
+    <div id="goal-msg" style="background:#1e293b; padding:20px; border-radius:15px; margin:20px 0;"></div>
+    <p style="color: #94a3b8;">この画面のまま受付へ提示してください</p>
 </div>
 
 <script>
-    let peer, cn, cfg={s:[]}, gameStatus='waiting', startTime=0, accTime=0;
-    const v=document.getElementById('video'), canvas=document.createElement('canvas');
+    let peer, host, cfg={s:[]}, myName="", startTime=0, accTime=0, gameStatus='waiting', isFinished=false;
 
-    function join() {
-        const r=document.getElementById('room').value, n=document.getElementById('uname').value;
-        if(!n) return alert("名前を入れてね");
-        peer = new Peer(undefined, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    });
+    async function init() {
+        myName = document.getElementById('uname').value;
+        if(!myName) return alert("名前を入力してください");
+        
+        // データの初期化（sessionStorageを使うことでブラウザを閉じれば消える）
+        sessionStorage.clear();
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        document.getElementById('v').srcObject = stream;
+        document.getElementById('v').play();
+        
+        peer = new Peer();
         peer.on('open', () => {
-            document.getElementById('reg').style.display='none';
-            document.getElementById('main').style.display='block';
-            cn = peer.connect(`${r}-host`, { metadata: { uname: n } });
-            
-            const fail = setTimeout(() => { if(!cn.open){ alert("ホストが見つかりません"); location.reload(); } }, 5000);
-
-            cn.on('open', () => { clearTimeout(fail); cn.send({ type:'IAM_PLAYER', uname:n }); });
-            cn.on('data', d => {
-                if(d.type==='ANNOUNCE') showAnn(d.msg);
-                if(d.type==='GAME_STATUS') { 
-                    gameStatus=d.status; document.getElementById('lock').style.display = d.status==='playing'?'none':'flex';
-                    if(d.status==='playing') startTime=Date.now(); else if(startTime>0) accTime += (Date.now()-startTime);
-                }
-                if(d.type==='SYNC') { cfg=d.cfg; render(); }
-                if(d.type==='FORCE_STAMP') applyRescue();
-                if(d.type==='FORCE_RESET') { localStorage.clear(); accTime=0; render(); }
+            host = peer.connect(`${document.getElementById('room').value}-host`);
+            host.on('open', () => {
+                host.send({ type: 'IAM_PLAYER', uname: myName });
+                document.getElementById('setup').style.display='none';
+                document.getElementById('main').style.display='block';
             });
-            cn.on('close', () => { alert("通信が切れました"); location.reload(); });
-
-            navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
-                .then(s => { v.srcObject=s; v.play(); requestAnimationFrame(tick); })
-                .catch(() => alert("カメラの使用を許可してください"));
+            host.on('data', d => {
+                if(d.type==='SYNC') { cfg = d.cfg; render(); }
+                if(d.type==='GAME_STATUS') {
+                    gameStatus = d.status;
+                    if(gameStatus==='playing' && !startTime) startTime = Date.now();
+                    document.getElementById('mask').style.display = (gameStatus==='playing') ? 'none' : 'flex';
+                    document.getElementById('mask').innerText = (gameStatus==='paused') ? '一時停止中' : '待機中';
+                }
+                if(d.type==='FORCE_STAMP') rescueStamp();
+                if(d.type==='FORCE_RESET') location.reload();
+            });
         });
-    }
-
-    function applyRescue() {
-        const next = cfg.s.find(x => !localStorage.getItem('st_'+x.n));
-        if(next) { localStorage.setItem('st_'+next.n, 1); sendReport(); render(); alert(next.n + "を獲得！"); }
-    }
-
-    function sendReport() {
-        const cur = accTime + (startTime>0 ? (Date.now()-startTime) : 0);
-        cn.send({ type:'REPORT', user:document.getElementById('uname').value, score:cfg.s.filter(x=>localStorage.getItem('st_'+x.n)).length, time:cur });
+        tick();
     }
 
     function tick() {
-        if(gameStatus==='playing' && v.readyState===v.HAVE_ENOUGH_DATA) {
-            canvas.height=v.videoHeight; canvas.width=v.videoWidth;
-            const ctx=canvas.getContext("2d"); ctx.drawImage(v,0,0,canvas.width,canvas.height);
-            const code=jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
+        if(isFinished) return; // ゴール後は解析を停止
+
+        const v = document.getElementById('v');
+        if(v.readyState === v.HAVE_ENOUGH_DATA) {
+            const canvas = document.createElement("canvas");
+            canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+            const code = jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
             if(code) {
                 try {
-                    const [n,c] = decodeURIComponent(atob(code.data)).split("::");
-                    const s = cfg.s.find(x=>x.n===n && x.c===c);
-                    if(s && !localStorage.getItem('st_'+s.n)) { localStorage.setItem('st_'+s.n, 1); sendReport(); render(); }
+                    const [n, c] = decodeURIComponent(atob(code.data)).split("::");
+                    const s = cfg.s.find(x => x.n === n && x.c === c);
+                    if(s && !sessionStorage.getItem('st_'+s.n)) {
+                        sessionStorage.setItem('st_'+s.n, '1');
+                        sendReport();
+                        render();
+                    }
                 } catch(e){}
             }
         }
         if(gameStatus==='playing') {
-            const cur = accTime + (Date.now()-startTime);
-            document.getElementById('timer').innerText = `TIME: ${Math.floor(cur/60000)}:${String(Math.floor((cur%60000)/1000)).padStart(2,'0')}`;
+            const cur = accTime + (Date.now() - startTime);
+            const timeStr = `${Math.floor(cur/60000)}:${String(Math.floor((cur%60000)/1000)).padStart(2,'0')}`;
+            document.getElementById('timer').innerText = `TIME: ${timeStr}`;
+            document.getElementById('goal-timer').innerText = timeStr;
         }
         requestAnimationFrame(tick);
     }
 
-    function render() {
-        document.getElementById('list').innerHTML = cfg.s.map(x => `<div class="stamp ${localStorage.getItem('st_'+x.n)?'active':''}"><b>${localStorage.getItem('st_'+x.n)?'✅':'⚪'}</b><br>${x.n}</div>`).join('');
-        if(cfg.s.length>0 && cfg.s.every(x=>localStorage.getItem('st_'+x.n))) {
-            document.getElementById('goal').style.display='flex';
-            document.getElementById('goal-msg').innerText = cfg.goalMsg;
+    function sendReport() {
+        const count = cfg.s.filter(x => sessionStorage.getItem('st_'+x.n)).length;
+        host.send({ type: 'REPORT', user: myName, score: count, time: Date.now() - startTime });
+    }
+
+    function rescueStamp() {
+        const next = cfg.s.find(x => !sessionStorage.getItem('st_'+x.n));
+        if(next) {
+            sessionStorage.setItem('st_'+next.n, '1');
+            sendReport();
+            render();
         }
     }
 
-    function showAnn(m) { const b=document.getElementById('ann-bar'); b.innerText="📢 "+m; b.style.display='block'; setTimeout(()=>b.style.display='none', 5000); }
+    function render() {
+        const count = cfg.s.filter(x => sessionStorage.getItem('st_'+x.n)).length;
+        document.getElementById('list').innerHTML = cfg.s.map(x => `
+            <div class="stamp ${sessionStorage.getItem('st_'+x.n)?'active':''}">
+                <b>${sessionStorage.getItem('st_'+x.n)?'✅':'⚪'}</b><br>${x.n}
+            </div>
+        `).join('');
+
+        if(cfg.s.length > 0 && count === cfg.s.length) {
+            isFinished = true;
+            document.getElementById('goal').style.display = 'flex';
+            document.getElementById('goal-msg').innerText = cfg.goalMsg;
+            // カメラを停止してバッテリー消費を抑える
+            const stream = document.getElementById('v').srcObject;
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
 </script>
 </body>
 </html>
-
