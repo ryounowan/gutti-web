@@ -11,83 +11,126 @@
         .tab-btn.active { background: #10b981; }
         .content { flex: 1; overflow-y: auto; padding: 15px; }
         .player-card { background: #1e293b; padding: 15px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border: 1px solid #334155; }
-        input { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #334155; color: white; margin-bottom: 10px; font-size: 16px; box-sizing: border-box; }
-        #chat-win { height: 70%; background: #020617; border-radius: 10px; padding: 10px; overflow-y: auto; margin-bottom: 10px; font-size: 0.9rem; }
+        input { width: 100%; padding: 15px; border-radius: 10px; border: none; background: #1e293b; color: white; margin-bottom: 10px; box-sizing: border-box; }
+        #setup { position: fixed; inset: 0; background: #0f172a; z-index: 100; display: flex; flex-direction: column; justify-content: center; padding: 40px; }
+        .btn-main { background: #3b82f6; color: white; padding: 15px; border: none; border-radius: 10px; font-weight: bold; font-size: 1.1rem; }
+        #chat-win { height: 70%; overflow-y: auto; background: #020617; padding: 10px; border-radius: 10px; margin-bottom: 10px; font-size: 0.9rem; }
     </style>
 </head>
 <body>
 
-<div id="setup" style="padding:40px; text-align:center;">
-    <h2>🚑 スタッフログイン</h2>
-    <input type="text" id="room" value="rally2026">
-    <input type="text" id="user" placeholder="名前 (例: スタッフA)">
-    <input type="password" id="staff-key" placeholder="認証キー">
-    <button onclick="join()" style="width:100%; padding:15px; background:#10b981; border:none; border-radius:10px; color:white; font-weight:bold;">接続</button>
+<div id="setup">
+    <h2 style="text-align:center">スタッフ・ログイン</h2>
+    <input type="text" id="room" value="rally2026" placeholder="合言葉 (Room ID)">
+    <input type="password" id="key" value="staff123" placeholder="スタッフ認証キー">
+    <input type="text" id="name" placeholder="あなたの名前">
+    <button class="btn-main" onclick="login()">ログイン</button>
 </div>
 
-<div id="main" style="display:none; flex-direction:column; height:100vh;">
-    <div class="tab-bar">
-        <button class="tab-btn active" id="b-res" onclick="show('res')">救済</button>
-        <button class="tab-btn" id="b-chat" onclick="show('chat')">チャット</button>
-    </div>
-    <div id="tab-res" class="content">
-        <input type="text" id="q" placeholder="名前で検索..." oninput="render()">
-        <div id="list"></div>
-    </div>
-    <div id="tab-chat" class="content" style="display:none;">
-        <div id="chat-win"></div>
-        <div style="display:flex; gap:5px;">
-            <input type="text" id="m" style="margin:0;">
-            <button onclick="send()" style="width:80px; background:#3b82f6; border:none; border-radius:8px; color:white;">送信</button>
-        </div>
+<div class="tab-bar">
+    <button id="b-res" class="tab-btn active" onclick="show('res')">救済</button>
+    <button id="b-chat" class="tab-btn" onclick="show('chat')">連絡</button>
+</div>
+
+<div id="tab-res" class="content">
+    <input type="text" id="q" placeholder="プレイヤー名で検索..." oninput="render()">
+    <div id="list"></div>
+</div>
+
+<div id="tab-chat" class="content" style="display:none">
+    <div id="chat-win"></div>
+    <div style="display:flex; gap:5px;">
+        <input type="text" id="m" placeholder="メッセージ..." style="margin:0">
+        <button onclick="send()" style="background:#3b82f6; border:none; border-radius:10px; padding:0 15px; color:white">送信</button>
     </div>
 </div>
 
 <script>
-    let peer, host, myName, scores={}, seen=new Set();
+    let peer=null, host=null, myName="", scores={};
 
-    function join() {
-        const r=document.getElementById('room').value, u=document.getElementById('user').value, k=document.getElementById('staff-key').value;
-        if(!u) return; myName=u;
-        peer = new Peer(`${r}-STAFF-${u}`, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    });
-        peer.on('open', () => {
+    function login() {
+        const r = document.getElementById('room').value;
+        const key = document.getElementById('key').value;
+        myName = document.getElementById('name').value;
+        if(!myName) return alert("名前を入力してください");
+
+        peer = new Peer(); 
+        
+        peer.on('open', (id) => {
+            // ホストに接続
             host = peer.connect(`${r}-host`);
+            
             host.on('open', () => {
                 document.getElementById('setup').style.display='none';
-                document.getElementById('main').style.display='flex';
-                host.send({ type:'IAM_STAFF', authKey:k });
+                // ホストに「私はスタッフです」と認証キーを送る
+                host.send({ type: 'IAM_STAFF', authKey: key, u: myName });
             });
+
             host.on('data', d => {
-                if(d.type==='REPORT'){ scores[d.user]=d; render(); }
-                if(d.type==='STAFF_CHAT' && !seen.has(d.id)){ seen.add(d.id); logChat(d.u, d.m); }
-                if(d.type==='RESCUE_DONE') alert(d.user+"さんの救済完了");
+                if(d.type==='REPORT') { 
+                    scores[d.user] = { score: d.score, time: d.time }; 
+                    render(); 
+                }
+                if(d.type==='STAFF_CHAT') logChat(d.u, d.m);
+                if(d.type==='RESCUE_DONE') alert(d.user + " さんの救済が完了しました");
             });
-            host.on('close', () => location.reload());
+
+            host.on('close', () => {
+                alert("ホストとの接続が切れました");
+                location.reload();
+            });
+        });
+
+        peer.on('error', (err) => {
+            console.error(err);
+            alert("通信エラー: " + err.type + "\nホストが起動しているか確認してください。");
         });
     }
 
     function render() {
         const query = document.getElementById('q').value.toLowerCase();
-        const players = Object.entries(scores).filter(([n])=>n.toLowerCase().includes(query));
-        document.getElementById('list').innerHTML = players.map(([n, d])=>`<div class="player-card"><span><b>${n}</b> (${d.score}個)</span><button onclick="req('${n}')" style="background:#f59e0b; border:none; padding:8px 12px; border-radius:6px; color:black; font-weight:bold;">救済申請</button></div>`).join('');
+        const listDiv = document.getElementById('list');
+        const players = Object.entries(scores).filter(([n]) => n.toLowerCase().includes(query));
+        
+        if (players.length === 0) {
+            listDiv.innerHTML = '<p style="text-align:center; color:#64748b;">表示できるプレイヤーがいません。<br>(スタンプを1つ以上押すと表示されます)</p>';
+            return;
+        }
+
+        listDiv.innerHTML = players.map(([n, d]) => `
+            <div class="player-card">
+                <span><b>${n}</b> (${d.score}個)</span>
+                <button onclick="req('${n}')" style="background:#f59e0b; border:none; padding:8px 12px; border-radius:6px; color:black; font-weight:bold;">救済申請</button>
+            </div>
+        `).join('');
     }
 
-    function req(n) { if(confirm(n+"さんを救済しますか？")) host.send({ type:'STAFF_RESCUE_REQ', targetUser:n }); }
-    function send() { const i=document.getElementById('m'); if(!i.value)return; const d={type:'STAFF_CHAT',id:Math.random(),u:myName,m:i.value}; host.send(d); logChat("自分", i.value); i.value=""; }
-    function logChat(u,m) { const w=document.getElementById('chat-win'); w.innerHTML+=`<div><b>${u}:</b> ${m}</div>`; w.scrollTop=w.scrollHeight; }
+    function req(n) { 
+        if(confirm(n + " さんを強制的に次のスタンプへ進めますか？")) {
+            host.send({ type: 'STAFF_RESCUE_REQ', targetUser: n }); 
+        }
+    }
+
+    function send() { 
+        const i = document.getElementById('m'); 
+        if(!i.value) return; 
+        const d = { type: 'STAFF_CHAT', id: Math.random(), u: myName, m: i.value }; 
+        host.send(d); 
+        logChat("自分", i.value); 
+        i.value = ""; 
+    }
+
+    function logChat(u, m) { 
+        const w = document.getElementById('chat-win'); 
+        w.innerHTML += `<div><b>${u}:</b> ${m}</div>`; 
+        w.scrollTop = w.scrollHeight; 
+    }
+
     function show(t) {
-        document.getElementById('tab-res').style.display=t==='res'?'block':'none';
-        document.getElementById('tab-chat').style.display=t==='chat'?'block':'none';
-        document.getElementById('b-res').className='tab-btn '+(t==='res'?'active':'');
-        document.getElementById('b-chat').className='tab-btn '+(t==='chat'?'active':'');
+        document.getElementById('tab-res').style.display = t==='res'?'block':'none';
+        document.getElementById('tab-chat').style.display = t==='chat'?'block':'none';
+        document.getElementById('b-res').className = t==='res'?'tab-btn active':'tab-btn';
+        document.getElementById('b-chat').className = t==='chat'?'tab-btn active':'tab-btn';
     }
 </script>
 </body>
