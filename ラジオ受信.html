@@ -29,27 +29,35 @@
 <script>
     let peer = null;
 
+    const PEER_CONFIG = {
+        config: {
+            'iceServers': [
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'stun:stun1.l.google.com:19302' },
+                { 
+                    urls: 'turn:openrelay.metered.ca:443',
+                    username: 'openrelayproject',
+                    credential: 'openrelayproject'
+                }
+            ],
+            'iceTransportPolicy': 'all'
+        }
+    };
+
     function listen() {
         const room = document.getElementById('room').value;
         const status = document.getElementById('status');
         const resetBtn = document.getElementById('resetBtn');
         document.getElementById('listenBtn').disabled = true;
 
-        peer = new Peer(`${room}-listener-${Math.floor(Math.random(, {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
-            ]
-        }
-    })*999)}`);
+        // ID生成のバグを修正
+        const myId = `${room}-listener-${Math.floor(Math.random() * 9999)}`;
+        peer = new Peer(myId, PEER_CONFIG);
 
         peer.on('open', () => {
             status.innerText = "📡 接続を試みています...";
             const conn = peer.connect(`${room}-host`);
             
-            // 配信者がOFFボタン等で接続を閉じたとき
             conn.on('close', () => { showEnd(); });
         });
 
@@ -60,12 +68,16 @@
             call.on('stream', s => {
                 const a = document.getElementById('audio');
                 a.srcObject = s;
-                a.play();
+                a.play().catch(e => {
+                    status.innerText = "⚠️ クリックして再生を許可してください";
+                    window.addEventListener('click', () => a.play(), {once: true});
+                });
             });
             call.on('close', () => { showEnd(); });
         });
 
         peer.on('error', (err) => {
+            console.error(err);
             status.innerText = "❌ 配信に接続できません";
             resetBtn.style.display = "block";
         });
