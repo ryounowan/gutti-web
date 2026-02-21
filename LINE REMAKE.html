@@ -7,9 +7,9 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        .bg-line-blue { background-color: #7494C0; }
+        .bg-dark-navy { background-color: #273246; }
         .key-btn { @apply bg-white text-gray-800 text-3xl font-light py-4 rounded-xl shadow-sm active:bg-gray-200 transition flex flex-col items-center justify-center; }
-        video { transform: scaleX(-1); background: #000; }
+        video { transform: scaleX(-1); background: #000; border-radius: 12px; }
         .incoming-anim { animation: pulse 2s infinite; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
     </style>
@@ -17,348 +17,203 @@
 <body class="bg-gray-50 h-screen flex flex-col overflow-hidden text-gray-900">
 
     <div id="view-home" class="flex-1 flex flex-col overflow-hidden">
-        <header class="bg-[#273246] p-6 text-white rounded-b-3xl shadow-lg">
+        <header class="bg-dark-navy p-6 text-white rounded-b-3xl shadow-lg">
             <div class="flex items-center justify-between">
                 <div class="flex items-center gap-3">
-                    <div class="relative">
-                        <div id="home-icon" class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-3xl border-2 border-green-500 shadow-inner">👤</div>
-                        <select id="icon-select" onchange="saveProfile()" class="absolute inset-0 opacity-0 cursor-pointer">
-                            <option value="👤">👤</option><option value="🐱">🐱</option><option value="🐶">🐶</option><option value="🤖">🤖</option><option value="🦊">🦊</option><option value="😎">😎</option>
-                        </select>
-                    </div>
+                    <div id="home-icon" class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-3xl border-2 border-green-500 shadow-inner">👤</div>
                     <div>
-                        <input id="user-name" type="text" class="bg-transparent border-none font-bold focus:ring-0 text-xl w-32" placeholder="名前を設定" oninput="saveProfile()">
-                        <div class="text-xs text-blue-300 font-mono" id="my-number-display">050-XXXX-XXXX</div>
+                        <input id="user-name" type="text" class="bg-transparent border-none font-bold focus:ring-0 text-xl w-32" oninput="saveProfile()" placeholder="名前を設定">
+                        <div class="text-xs text-blue-300 font-mono" id="my-number-display">読み込み中...</div>
                     </div>
                 </div>
-                <button onclick="switchView('view-keypad')" class="bg-blue-500 w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-2xl font-bold">＋</button>
+                <button onclick="switchView('view-keypad')" class="bg-blue-500 w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-2xl font-bold active:scale-95">＋</button>
             </div>
         </header>
-
-        <main class="flex-1 overflow-y-auto p-4 space-y-6">
-            <section>
-                <h3 class="text-xs font-bold text-gray-400 mb-3 px-2 uppercase tracking-tighter">ショートカット</h3>
-                <div id="contact-list" class="flex gap-4 overflow-x-auto pb-2 scrollbar-hide">
-                    </div>
-            </section>
-
-            <section class="flex-1">
-                <h3 class="text-xs font-bold text-gray-400 mb-3 px-2 uppercase tracking-tighter">履歴</h3>
-                <div id="history-list" class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50 overflow-hidden">
-                    </div>
-            </section>
+        <main class="p-8 flex-1 flex flex-col items-center justify-center text-gray-400 text-sm">
+            <div class="bg-white p-6 rounded-2xl shadow-sm w-full text-center">
+                <p>あなたの番号を相手に伝えてください</p>
+                <p class="text-2xl font-bold text-gray-800 mt-2 select-all" id="display-num-big">----</p>
+            </div>
         </main>
     </div>
 
-    <div id="view-keypad" class="hidden flex-1 flex flex-col bg-gray-50">
-        <div class="p-8 flex flex-col items-center justify-center flex-1">
-            <div class="w-full max-w-xs text-center mb-10">
-                <div id="dial-display" class="text-4xl font-light mb-2 tracking-widest text-gray-800 h-10"></div>
-                <div id="dial-match-name" class="text-green-600 font-bold h-6 text-sm"></div>
-            </div>
-            
-            <div class="grid grid-cols-3 gap-5 w-full max-w-xs">
-                <button onclick="pressKey('1')" class="key-btn">1<span class="text-[8px] text-gray-400"> </span></button>
-                <button onclick="pressKey('2')" class="key-btn">2<span class="text-[8px] text-gray-400">ABC</span></button>
-                <button onclick="pressKey('3')" class="key-btn">3<span class="text-[8px] text-gray-400">DEF</span></button>
-                <button onclick="pressKey('4')" class="key-btn">4<span class="text-[8px] text-gray-400">GHI</span></button>
-                <button onclick="pressKey('5')" class="key-btn">5<span class="text-[8px] text-gray-400">JKL</span></button>
-                <button onclick="pressKey('6')" class="key-btn">6<span class="text-[8px] text-gray-400">MNO</span></button>
-                <button onclick="pressKey('7')" class="key-btn">7<span class="text-[8px] text-gray-400">PQRS</span></button>
-                <button onclick="pressKey('8')" class="key-btn">8<span class="text-[8px] text-gray-400">TUV</span></button>
-                <button onclick="pressKey('9')" class="key-btn">9<span class="text-[8px] text-gray-400">WXYZ</span></button>
-                <button onclick="pressKey('*')" class="key-btn text-gray-400">*</button>
-                <button onclick="pressKey('0')" class="key-btn">0<span class="text-[8px] text-gray-400">+</span></button>
-                <button onclick="pressKey('#')" class="key-btn text-gray-400">#</button>
-            </div>
-
-            <div class="flex items-center justify-between mt-12 w-full max-w-xs px-4">
-                <button onclick="switchView('view-home')" class="text-gray-400 font-bold">戻る</button>
-                <button onclick="openCallSelector()" class="bg-green-500 text-white w-20 h-20 rounded-full shadow-xl flex items-center justify-center text-4xl active:scale-90 transition">📞</button>
-                <button onclick="backspace()" class="text-gray-400 font-bold">消去</button>
-            </div>
-            <button onclick="addToContactsFromDial()" id="btn-add-contact" class="hidden mt-6 text-blue-500 font-bold text-sm">+ 新規連絡先として保存</button>
+    <div id="view-keypad" class="hidden flex-1 flex flex-col bg-gray-50 p-8">
+        <div id="dial-display" class="text-4xl font-light text-center mb-10 tracking-widest h-10"></div>
+        <div class="grid grid-cols-3 gap-5 max-w-xs mx-auto mb-10">
+            <button onclick="pressKey('1')" class="key-btn">1</button>
+            <button onclick="pressKey('2')" class="key-btn">2</button>
+            <button onclick="pressKey('3')" class="key-btn">3</button>
+            <button onclick="pressKey('4')" class="key-btn">4</button>
+            <button onclick="pressKey('5')" class="key-btn">5</button>
+            <button onclick="pressKey('6')" class="key-btn">6</button>
+            <button onclick="pressKey('7')" class="key-btn">7</button>
+            <button onclick="pressKey('8')" class="key-btn">8</button>
+            <button onclick="pressKey('9')" class="key-btn">9</button>
+            <button onclick="pressKey('*')" class="key-btn text-gray-400">*</button>
+            <button onclick="pressKey('0')" class="key-btn">0</button>
+            <button onclick="pressKey('#')" class="key-btn text-gray-400">#</button>
+        </div>
+        <div class="flex justify-between items-center max-w-xs mx-auto w-full px-4">
+            <button onclick="switchView('view-home')" class="text-gray-400 font-bold">戻る</button>
+            <button onclick="startCall()" class="bg-green-500 w-20 h-20 rounded-full text-4xl shadow-xl flex items-center justify-center active:scale-90">📞</button>
+            <button onclick="backspace()" class="text-gray-400 font-bold">消去</button>
         </div>
     </div>
 
-    <div id="view-talk" class="hidden absolute inset-0 z-40 flex flex-col bg-gray-900">
-        <div class="relative flex-1">
-            <video id="remote-video" autoplay playsinline class="w-full h-full object-cover"></video>
-            <div id="remote-profile-overlay" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900">
-                <div id="talk-remote-icon" class="w-32 h-32 bg-white rounded-full flex items-center justify-center text-6xl shadow-2xl mb-4">👤</div>
-                <div id="talk-remote-name" class="text-white text-2xl font-bold">通信中...</div>
-                <div class="text-green-400 text-sm mt-2 animate-pulse" id="call-status-label">通話中</div>
-            </div>
-            <video id="local-video" autoplay playsinline muted class="absolute bottom-24 right-4 w-28 h-40 border-2 border-white/20 rounded-xl shadow-lg"></video>
-            
-            <div class="absolute bottom-8 left-0 right-0 flex justify-center gap-6 px-4">
-                <button onclick="toggleMic()" id="btn-mic" class="w-14 h-14 bg-white/10 text-white rounded-full flex items-center justify-center text-xl backdrop-blur-md">🎤</button>
-                <button onclick="endCall()" class="w-16 h-16 bg-red-500 text-white rounded-full flex items-center justify-center text-3xl shadow-xl">📞</button>
-                <button onclick="toggleVideo()" id="btn-video" class="w-14 h-14 bg-white/10 text-white rounded-full flex items-center justify-center text-xl backdrop-blur-md">📹</button>
-            </div>
+    <div id="incoming-modal" class="hidden fixed inset-0 bg-dark-navy z-50 flex flex-col items-center justify-center p-8 text-white">
+        <div class="incoming-anim text-center">
+            <div id="incoming-icon" class="w-32 h-32 bg-white rounded-full mx-auto flex items-center justify-center text-6xl mb-6 text-black border-4 border-green-500">👤</div>
+            <h2 id="incoming-name" class="text-3xl font-bold mb-2">着信中...</h2>
+            <p id="incoming-num" class="text-blue-300 font-mono mb-20"></p>
+        </div>
+        <div class="flex justify-between w-full max-w-xs px-4">
+            <button onclick="declineCall()" class="bg-red-500 w-20 h-20 rounded-full text-3xl shadow-lg flex items-center justify-center">✖</button>
+            <button onclick="acceptCall()" class="bg-green-500 w-20 h-20 rounded-full text-3xl shadow-lg flex items-center justify-center">✔</button>
         </div>
     </div>
 
-    <div id="incoming-modal" class="hidden fixed inset-0 bg-black/95 z-50 flex items-center justify-center p-8">
-        <div class="w-full max-w-xs text-center incoming-anim">
-            <div id="incoming-icon" class="w-32 h-32 bg-white rounded-full mx-auto flex items-center justify-center text-6xl mb-6 border-4 border-green-500 shadow-2xl">👤</div>
-            <h2 id="incoming-name" class="text-white text-3xl font-bold mb-2">着信中</h2>
-            <p id="incoming-num" class="text-gray-400 font-mono mb-16 tracking-widest"></p>
-            <div class="flex justify-between gap-10">
-                <button onclick="declineCall()" class="bg-red-500 text-white w-20 h-20 rounded-full text-3xl shadow-lg active:scale-90">✖</button>
-                <button onclick="acceptCall()" class="bg-green-500 text-white w-20 h-20 rounded-full text-3xl shadow-lg active:scale-90">✔</button>
-            </div>
+    <div id="view-talk" class="hidden fixed inset-0 bg-gray-900 z-40 flex flex-col text-white p-6">
+        <div class="flex-1 flex flex-col items-center justify-center">
+            <div id="talk-icon" class="w-24 h-24 bg-white rounded-full flex items-center justify-center text-5xl mb-4 text-black">👤</div>
+            <div id="talk-name" class="text-2xl font-bold mb-1">相手の名前</div>
+            <div id="call-timer" class="text-green-400 font-mono text-xl">00:00</div>
+            <div id="calling-status" class="text-gray-400 text-sm mt-2">呼び出し中...</div>
+            <video id="remote-video" autoplay playsinline class="mt-8 w-full max-w-sm"></video>
         </div>
-    </div>
-
-    <div id="call-selector" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-6">
-        <div class="bg-white w-full max-w-xs rounded-3xl p-8 text-center shadow-2xl">
-            <h3 class="font-bold text-xl mb-8">通話モードを選択</h3>
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="startCall('voice')" class="bg-gray-50 p-6 rounded-2xl hover:bg-blue-50 transition border border-gray-100">
-                    <div class="text-4xl mb-2">📞</div><div class="text-sm font-bold">音声通話</div>
-                </button>
-                <button onclick="startCall('video')" class="bg-gray-50 p-6 rounded-2xl hover:bg-green-50 transition border border-gray-100">
-                    <div class="text-4xl mb-2">📹</div><div class="text-sm font-bold">ビデオ通話</div>
-                </button>
-            </div>
-            <button onclick="document.getElementById('call-selector').classList.add('hidden')" class="mt-8 text-gray-400 text-sm font-bold">キャンセル</button>
+        <div class="p-12 flex justify-center">
+            <button onclick="endCall()" class="bg-red-500 w-16 h-16 rounded-full text-3xl shadow-2xl flex items-center justify-center active:scale-95">📞</button>
         </div>
     </div>
 
     <audio id="remote-audio" autoplay></audio>
 
     <script>
-        // --- 基本設定 & データ保存 ---
-        const myNum = localStorage.getItem('my-fixed-num') || `050-${Math.floor(Math.random()*9000+1000)}-${Math.floor(Math.random()*9000+1000)}`;
-        localStorage.setItem('my-fixed-num', myNum);
+        const myNum = localStorage.getItem('my-p2p-num') || `050-${Math.floor(Math.random()*9000+1000)}-${Math.floor(Math.random()*9000+1000)}`;
+        localStorage.setItem('my-p2p-num', myNum);
         
-        let contacts = JSON.parse(localStorage.getItem('contacts') || '[]');
-        let callHistory = JSON.parse(localStorage.getItem('call-history') || '[]');
-        
-        const peer = new Peer(myNum, {
-            config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] }
-        });
+        const peer = new Peer(myNum, { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] } });
 
-        let localStream, currentCall, dialString = "";
-        let isMicOn = true, isVideoOn = false;
+        let dialString = "";
+        let localStream, currentCall, callTimerInterval, cancelTimer;
+        let callSeconds = 0;
 
         window.onload = () => {
             document.getElementById('my-number-display').innerText = myNum;
-            document.getElementById('user-name').value = localStorage.getItem('chat-user-name') || "ユーザー";
-            document.getElementById('home-icon').innerText = localStorage.getItem('chat-user-icon') || "👤";
-            renderContacts();
-            renderHistory();
+            document.getElementById('display-num-big').innerText = myNum;
+            document.getElementById('user-name').value = localStorage.getItem('user-name') || "ユーザー";
         };
 
-        // --- プロフィール管理 ---
         function saveProfile() {
-            localStorage.setItem('chat-user-name', document.getElementById('user-name').value);
-            localStorage.setItem('chat-user-icon', document.getElementById('icon-select').value);
-            document.getElementById('home-icon').innerText = document.getElementById('icon-select').value;
+            localStorage.setItem('user-name', document.getElementById('user-name').value);
         }
 
-        function getMyProfile() {
-            return {
-                name: localStorage.getItem('chat-user-name') || "ゲスト",
-                icon: localStorage.getItem('chat-user-icon') || "👤"
-            };
-        }
-
-        // --- 番号入力 & テンキー ---
-        function formatPhone(str) {
-            const n = str.replace(/\D/g, '');
-            if (n.length <= 3) return n;
-            if (n.length <= 7) return `${n.slice(0,3)}-${n.slice(3)}`;
-            return `${n.slice(0,3)}-${n.slice(3,7)}-${n.slice(7,11)}`;
-        }
-
-        function pressKey(n) {
-            if (dialString.length >= 11) return;
-            dialString += n;
-            updateDialUI();
-        }
-
-        function backspace() {
-            dialString = dialString.slice(0, -1);
-            updateDialUI();
-        }
-
-        function updateDialUI() {
-            const disp = document.getElementById('dial-display');
-            const match = document.getElementById('dial-match-name');
-            const addBtn = document.getElementById('btn-add-contact');
-            
-            disp.innerText = formatPhone(dialString);
-            const found = contacts.find(c => c.number.replace(/\D/g,'') === dialString);
-            
-            if (dialString === "") { match.innerText = ""; addBtn.classList.add('hidden'); }
-            else if (found) { match.innerText = found.name; addBtn.classList.add('hidden'); }
-            else { match.innerText = "登録されていません"; addBtn.classList.remove('hidden'); }
-        }
-
-        window.addEventListener('keydown', (e) => {
-            if (!document.getElementById('view-keypad').classList.contains('hidden')) {
-                if (e.key >= '0' && e.key <= '9') pressKey(e.key);
-                if (e.key === 'Backspace') backspace();
-                if (e.key === 'Enter') openCallSelector();
-            }
-        });
-
-        // --- 通話ロジック (コア) ---
         function switchView(id) {
             ['view-home', 'view-keypad', 'view-talk'].forEach(v => document.getElementById(v).classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         }
 
-        function openCallSelector() {
-            if (!dialString) return;
-            document.getElementById('call-selector').classList.remove('hidden');
-        }
+        function pressKey(k) { if(dialString.length < 11) dialString += k; updateDialUI(); }
+        function backspace() { dialString = dialString.slice(0, -1); updateDialUI(); }
+        function updateDialUI() { document.getElementById('dial-display').innerText = dialString.replace(/(\d{3})(\d{4})(\d{4})/, '$1-$2-$3'); }
 
-        async function startCall(mode) {
-            document.getElementById('call-selector').classList.add('hidden');
-            isVideoOn = (mode === 'video');
+        // --- 発信処理 ---
+        async function startCall() {
+            if(!dialString) return;
+            switchView('view-talk');
+            document.getElementById('talk-name').innerText = dialString;
+            document.getElementById('calling-status').innerText = "呼び出し中（30秒で自動終了）...";
             
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: isVideoOn, audio: true });
-                document.getElementById('local-video').srcObject = localStream;
-                switchView('view-talk');
-                
-                // 通話開始時に自分のプロフィール情報をメタデータとして送る
-                const call = peer.call(dialString, localStream, {
-                    metadata: getMyProfile()
+                localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
+                currentCall = peer.call(dialString, localStream, {
+                    metadata: { name: localStorage.getItem('user-name'), icon: "👤" }
                 });
                 
-                // 履歴に保存
-                saveHistory(dialString, 'outgoing', mode);
-                setupCallHandlers(call);
-            } catch (e) { alert("カメラ/マイクを許可してください"); }
+                setupCallHandlers(currentCall);
+
+                // 【30秒キャンセルロジック】発信側：30秒経って応答（callSeconds > 0）がなければ切断
+                cancelTimer = setTimeout(() => {
+                    if (callSeconds === 0) {
+                        alert("相手が応答しませんでした");
+                        endCall();
+                    }
+                }, 30000); 
+
+            } catch(e) { alert("カメラ・マイクを許可してください"); endCall(); }
         }
 
+        // --- 着信処理 ---
         peer.on('call', call => {
-            // 着信時、相手が送ってきたプロフィール（metadata）を取得
-            const remoteProfile = call.metadata || { name: "不明な相手", icon: "👤" };
-            
-            document.getElementById('incoming-modal').classList.remove('hidden');
-            document.getElementById('incoming-name').innerText = remoteProfile.name;
-            document.getElementById('incoming-icon').innerText = remoteProfile.icon;
-            document.getElementById('incoming-num').innerText = formatPhone(call.peer);
-            
             currentCall = call;
+            const meta = call.metadata || { name: "不明な相手" };
+            document.getElementById('incoming-modal').classList.remove('hidden');
+            document.getElementById('incoming-name').innerText = meta.name;
+            document.getElementById('incoming-num').innerText = call.peer;
+            
+            // 【30秒キャンセルロジック】受信側：30秒間放置されたら自動で閉じる
+            cancelTimer = setTimeout(() => {
+                declineCall();
+            }, 30000);
         });
 
         async function acceptCall() {
+            clearTimeout(cancelTimer); // 操作されたので自動キャンセルを停止
             document.getElementById('incoming-modal').classList.add('hidden');
             try {
-                // 受信側もカメラ起動を試みる（相手がビデオなら）
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('local-video').srcObject = localStream;
+                localStream = await navigator.mediaDevices.getUserMedia({audio: true, video: true});
                 currentCall.answer(localStream);
                 switchView('view-talk');
                 setupCallHandlers(currentCall);
-                saveHistory(currentCall.peer, 'incoming', 'video');
-            } catch(e) { /* 音声のみで回答 */ }
+                startTimer();
+            } catch(e) { endCall(); }
         }
 
         function declineCall() {
-            currentCall.close();
+            clearTimeout(cancelTimer);
+            if(currentCall) currentCall.close();
             document.getElementById('incoming-modal').classList.add('hidden');
-            saveHistory(currentCall.peer, 'missed', 'voice');
+            switchView('view-home');
         }
 
+        // --- 通話制御 ---
         function setupCallHandlers(call) {
-            currentCall = call;
-            const profile = call.metadata || { name: "Unknown", icon: "👤" };
-            document.getElementById('talk-remote-name').innerText = profile.name;
-            document.getElementById('talk-remote-icon').innerText = profile.icon;
-
             call.on('stream', stream => {
+                clearTimeout(cancelTimer); // 繋がったので30秒タイマーを解除
                 const remoteVideo = document.getElementById('remote-video');
                 remoteVideo.srcObject = stream;
-                
-                // 相手が映像を送っているかチェック
-                setTimeout(() => {
-                    const hasVideo = stream.getVideoTracks().some(t => t.enabled);
-                    document.getElementById('remote-profile-overlay').classList.toggle('hidden', hasVideo);
-                }, 1000);
+                remoteVideo.classList.remove('hidden');
+                document.getElementById('remote-audio').srcObject = stream;
+                document.getElementById('calling-status').innerText = "通話中";
+                startTimer();
             });
-
             call.on('close', () => endCall());
+            call.on('error', () => endCall());
+        }
+
+        function startTimer() {
+            if(callTimerInterval) return;
+            callSeconds = 0;
+            callTimerInterval = setInterval(() => {
+                callSeconds++;
+                const m = Math.floor(callSeconds / 60).toString().padStart(2, '0');
+                const s = (callSeconds % 60).toString().padStart(2, '0');
+                document.getElementById('call-timer').innerText = `${m}:${s}`;
+            }, 1000);
         }
 
         function endCall() {
-            if (currentCall) currentCall.close();
-            if (localStream) localStream.getTracks().forEach(t => t.stop());
-            switchView('view-home');
-            location.reload(); // 状態リセットのため
+            if(currentCall) currentCall.close();
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
+            clearInterval(callTimerInterval);
+            clearTimeout(cancelTimer);
+            callTimerInterval = null;
+            location.reload(); 
         }
 
-        // --- 通話中コントロール ---
-        function toggleMic() {
-            isMicOn = !isMicOn;
-            localStream.getAudioTracks()[0].enabled = isMicOn;
-            document.getElementById('btn-mic').classList.toggle('bg-red-500', !isMicOn);
-        }
-
-        function toggleVideo() {
-            isVideoOn = !isVideoOn;
-            localStream.getVideoTracks()[0].enabled = isVideoOn;
-            document.getElementById('btn-video').classList.toggle('bg-red-500', !isVideoOn);
-            document.getElementById('local-video').classList.toggle('hidden', !isVideoOn);
-        }
-
-        // --- 電話帳 & 履歴のUI描画 ---
-        function renderContacts() {
-            const list = document.getElementById('contact-list');
-            list.innerHTML = contacts.length ? '' : '<p class="text-[10px] text-gray-400 p-2">連絡先なし</p>';
-            contacts.forEach(c => {
-                const div = document.createElement('div');
-                div.className = "flex-shrink-0 flex flex-col items-center gap-1 w-16";
-                div.onclick = () => { dialString = c.number.replace(/\D/g,''); openCallSelector(); };
-                div.innerHTML = `<div class="w-12 h-12 bg-white rounded-full flex items-center justify-center text-xl shadow-sm border border-gray-100">${c.icon}</div><span class="text-[9px] font-bold text-gray-500 truncate w-full text-center">${c.name}</span>`;
-                list.appendChild(div);
-            });
-        }
-
-        function renderHistory() {
-            const list = document.getElementById('history-list');
-            list.innerHTML = callHistory.length ? '' : '<p class="p-8 text-center text-xs text-gray-400">履歴はありません</p>';
-            callHistory.slice().reverse().forEach(h => {
-                const contact = contacts.find(c => c.number.replace(/\D/g,'') === h.number.replace(/\D/g,''));
-                const div = document.createElement('div');
-                div.className = "p-4 flex items-center justify-between active:bg-gray-50";
-                div.onclick = () => { dialString = h.number.replace(/\D/g,''); openCallSelector(); };
-                div.innerHTML = `
-                    <div class="flex items-center gap-4">
-                        <div class="text-2xl">${contact ? contact.icon : '👤'}</div>
-                        <div>
-                            <div class="text-sm font-bold ${h.type==='missed'?'text-red-500':''}">${contact ? contact.name : formatPhone(h.number)}</div>
-                            <div class="text-[10px] text-gray-400">${h.time}</div>
-                        </div>
-                    </div>
-                    <div class="text-xs text-gray-400">${h.mode==='video'?'📹':'📞'}</div>
-                `;
-                list.appendChild(div);
-            });
-        }
-
-        function saveHistory(num, type, mode) {
-            callHistory.push({ number: num, type, mode, time: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) });
-            if (callHistory.length > 20) callHistory.shift();
-            localStorage.setItem('call-history', JSON.stringify(callHistory));
-            renderHistory();
-        }
-
-        function addToContactsFromDial() {
-            const name = prompt("保存する名前を入力してください");
-            if (name) {
-                contacts.push({ name, number: dialString, icon: "👤" });
-                localStorage.setItem('contacts', JSON.stringify(contacts));
-                renderContacts();
-                updateDialUI();
-            }
-        }
+        peer.on('open', id => {
+            document.getElementById('my-number-display').innerText = id;
+            document.getElementById('display-num-big').innerText = id;
+        });
     </script>
 </body>
 </html>
