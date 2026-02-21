@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マイクラサーバー状態チェッカー</title>
+    <style>
+        body { 
+            font-family: sans-serif; 
+            margin: 20px; 
+            background-color: #f4f7f6;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: #fff;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+            position: relative;
+        }
+        .sponsor-logo {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+        }
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 25px;
+            padding-left: 60px;
+        }
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+        .edition-select {
+            margin-bottom: 15px;
+            display: flex;
+            gap: 20px;
+        }
+        .edition-select label {
+            font-weight: normal;
+        }
+        input[type="text"] {
+            width: calc(100% - 20px);
+            padding: 10px;
+            margin-bottom: 20px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            padding: 12px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: background-color 0.3s ease;
+            width: 100%;
+        }
+        button:hover {
+            background-color: #2980b9;
+        }
+        .server-info {
+            margin-top: 30px;
+            padding: 20px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            background-color: #ecf0f1;
+            min-height: 100px;
+        }
+        .online { color: #27ae60; font-weight: bold; }
+        .offline { color: #e74c3c; font-weight: bold; }
+        .server-info p {
+            margin: 5px 0;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        
+                <img src="my_icon.png" alt="スポンサーロゴ" class="sponsor-logo">
+
+        
+        <h1>マイクラサーバー状態チェッカー</h1>
+
+        <div class="edition-select">
+            <input type="radio" id="java" name="edition" value="java" checked>
+            <label for="java">Java版</label>
+
+            <input type="radio" id="bedrock" name="edition" value="bedrock">
+            <label for="bedrock">統合版 (Bedrock)</label>
+        </div>
+
+        <label for="serverAddress">サーバーアドレス (IP:Port):</label>
+        <input type="text" id="serverAddress" value="" placeholder="IP:ポートと入力してください">
+        <button onclick="checkServerStatus()">サーバー状態を確認</button>
+
+        <div id="serverStatus" class="server-info">
+            <p>エディションを選択し、アドレスを入力して確認ボタンを押してください。</p>
+        </div>
+    </div>
+
+    <script>
+        function checkServerStatus() {
+            const address = document.getElementById('serverAddress').value.trim();
+            const statusDiv = document.getElementById('serverStatus');
+            
+            // 選択されているエディションを取得
+            const selectedEdition = document.querySelector('input[name="edition"]:checked').value;
+            
+            if (!address) {
+                statusDiv.innerHTML = '<p class="offline">**サーバーアドレスを入力してください。**</p>';
+                return;
+            }
+
+            statusDiv.innerHTML = '<p>サーバー情報を確認しています　しばらくお待ちください</p>';
+            
+            let apiUrl;
+
+            // ★★★ 統合版とJava版でAPIのURLを切り替える ★★★
+            if (selectedEdition === 'bedrock') {
+                apiUrl = `https://api.mcsrvstat.us/bedrock/2/${address}`;
+            } else {
+                apiUrl = `https://api.mcsrvstat.us/2/${address}`;
+            }
+            // ★★★ ここまで ★★★
+
+
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTPエラー: ${response.status} - ${response.statusText}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    let output = '';
+                    const editionName = selectedEdition === 'bedrock' ? '統合版' : 'Java版';
+
+                    if (data.online) {
+                        const players = data.players;
+                        
+                        output += `<p class="online">**${editionName}サーバーは公開中です**</p>`;
+                        output += `<p>現在のプレイヤー数: **${players.online}** / ${players.max}</p>`;
+                        
+                        if (data.version) {
+                            output += `<p>バージョン: ${Array.isArray(data.version) ? data.version.join(', ') : data.version}</p>`;
+                        }
+                        if (data.motd && data.motd.clean) {
+                            output += `<p>サーバー説明: ${data.motd.clean.join('<br>')}</p>`;
+                        }
+                        if (data.hostname) {
+                            output += `<p>ホスト名: ${data.hostname}</p>`;
+                        }
+                        
+                    } else {
+                        output += `<p class="offline">**${editionName}サーバーはオフラインのようです**</p>`;
+                    }
+
+                    statusDiv.innerHTML = output;
+                })
+                .catch(error => {
+                    statusDiv.innerHTML = `<p class="offline">データの取得中にエラーが発生しました。</p><p>エラー詳細: ${error.message}</p>`;
+                    console.error('Fetch Error:', error);
+                });
+        }
+    </script>
+
+</body>
+</html>
