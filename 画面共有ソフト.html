@@ -2,140 +2,92 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>P2P Remote Complete</title>
+    <title>Remote Control v2</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --accent: #3b82f6; --bg: #0f172a; --card: #1e293b; --success: #10b981; --danger: #ef4444; }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        html, body { height: 100%; margin: 0; padding: 0; background: var(--bg); color: white; font-family: sans-serif; overflow: hidden; }
-        body { display: flex; justify-content: center; align-items: center; }
-        .box { background: var(--card); width: 100%; max-width: 1000px; height: 100%; display: flex; flex-direction: column; box-shadow: 0 0 30px rgba(0,0,0,0.5); }
-        #setup { padding: 40px 20px; text-align: center; margin: auto; max-width: 400px; width: 100%; }
-        input { width: 100%; padding: 14px; margin: 10px 0; border-radius: 12px; border: 2px solid #475569; background: #0f172a; color: white; font-size: 16px; }
-        button { padding: 14px; border-radius: 12px; border: none; background: var(--accent); color: white; font-weight: bold; cursor: pointer; width: 100%; }
-        #main { display: none; flex-direction: column; height: 100%; width: 100%; }
-        header { padding: 12px 20px; background: #1e293b; border-bottom: 1px solid #334155; display: flex; justify-content: space-between; align-items: center; }
-        #status-badge { font-size: 12px; background: #0f172a; padding: 4px 12px; border-radius: 20px; color: #94a3b8; }
-        .video-container { flex: 1; background: #000; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        video { max-width: 100%; max-height: 100%; cursor: crosshair; }
-        .controls { padding: 15px; background: #1e293b; display: flex; gap: 10px; border-top: 1px solid #334155; padding-bottom: calc(15px + env(safe-area-inset-bottom)); }
-        .btn-share { background: var(--success); flex: 1; }
-        .btn-logout { background: var(--danger); width: auto; padding: 8px 16px; }
-        @media (min-width: 801px) { .box { height: 92vh; border-radius: 24px; } }
+        body { margin: 0; background: #0f172a; color: white; font-family: sans-serif; text-align: center; }
+        #remote-video { max-width: 100%; max-height: 90vh; background: #000; cursor: crosshair; }
+        .ui { padding: 20px; }
+        input, button { padding: 10px; border-radius: 5px; border: none; margin: 5px; }
+        button { background: #3b82f6; color: white; cursor: pointer; }
+        #status { font-size: 12px; color: #94a3b8; }
     </style>
 </head>
 <body>
-<div class="box">
-    <div id="setup">
-        <h2 style="color:var(--accent)">🌐 Remote Connect</h2>
-        <input type="text" id="room" placeholder="ルーム名" value="my-room-123">
+    <div id="setup" class="ui">
+        <input type="text" id="room" placeholder="ルーム名を入力" value="test1234">
         <button onclick="init()">接続開始</button>
     </div>
-    <div id="main">
-        <header>
-            <div id="room-display" style="font-weight:bold">Room: ---</div>
-            <div style="display:flex; align-items:center; gap:10px;">
-                <span id="status-badge">待機中</span>
-                <button class="btn-logout" onclick="location.reload()">退出</button>
-            </div>
-        </header>
-        <div class="video-container">
-            <video id="remote-video" autoplay playsinline muted></video>
-        </div>
-        <div class="controls">
-            <button class="btn-share" onclick="startScreenShare()">自分の画面を共有</button>
+    <div id="main" style="display:none">
+        <div id="status">状態: 待機中</div>
+        <video id="remote-video" autoplay playsinline muted></video>
+        <div class="ui">
+            <button onclick="startScreenShare()" style="background:#10b981">画面共有を開始</button>
         </div>
     </div>
-</div>
 
 <script>
-    let peer, conn, agentConn, localStream, roomCode;
+    let peer, conn, agentConn, roomCode;
 
     function init() {
         roomCode = document.getElementById('room').value.trim();
-        if(!roomCode) return alert("ルーム名を入力してください");
         peer = new Peer(`${roomCode}_${Math.random().toString(36).substring(2,7)}`);
-
+        
         peer.on('open', () => {
             document.getElementById('setup').style.display = 'none';
-            document.getElementById('main').style.display = 'flex';
-            document.getElementById('room-display').innerText = `Room: ${roomCode}`;
-            connectProcess();
+            document.getElementById('main').style.display = 'block';
+            connectToHub();
         });
 
         peer.on('call', call => {
             call.answer();
-            call.on('stream', stream => {
-                document.getElementById('remote-video').srcObject = stream;
-                document.getElementById('status-badge').innerText = "受信中";
-            });
+            call.on('stream', stream => { document.getElementById('remote-video').srcObject = stream; });
         });
 
         peer.on('connection', c => {
             conn = c;
-            setupListeners();
+            setupAgent();
         });
     }
 
-    async function startScreenShare() {
-        try {
-            localStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
-            document.getElementById('remote-video').srcObject = localStream;
-            document.getElementById('status-badge').innerText = "配信中";
-            if (conn) peer.call(conn.peer, localStream);
-        } catch (e) { console.error(e); }
-    }
-
-    function connectProcess() {
+    function connectToHub() {
         const hubId = `${roomCode}_HUB`;
         const hubCheck = new Peer(hubId);
         hubCheck.on('open', () => {
-            document.getElementById('status-badge').innerText = "ホスト待機中";
-            hubCheck.on('connection', c => {
-                conn = c;
-                setupListeners();
-            });
+            hubCheck.on('connection', c => { conn = c; setupAgent(); });
         });
         hubCheck.on('error', () => {
             conn = peer.connect(hubId);
-            setupListeners();
-            document.getElementById('status-badge').innerText = "接続済み";
+            setupAgent();
         });
     }
 
-    function setupListeners() {
-        // PCのAgent(Node.js)にも並行して接続を試みる
+    // ★重要: PCのNode.js(Agent)に接続する関数
+    function setupAgent() {
+        document.getElementById('status').innerText = "ブラウザ間接続完了。PCエージェントを探しています...";
         agentConn = peer.connect(`${roomCode}_AGENT`);
         
-        conn.on('data', data => {
-            if(data.type === 'click') showVisualClick(data.x, data.y);
+        agentConn.on('open', () => {
+            document.getElementById('status').innerText = "PCエージェントと接続！操作可能です。";
         });
 
         const video = document.getElementById('remote-video');
         video.onmousedown = (e) => {
-            if (conn && conn.open) {
-                const rect = video.getBoundingClientRect();
-                const x = (e.clientX - rect.left) / rect.width;
-                const y = (e.clientY - rect.top) / rect.height;
-                const payload = { type: 'click', x: x, y: y };
-                conn.send(payload); // 相手のブラウザに赤い丸を送る
-                if(agentConn && agentConn.open) agentConn.send(payload); // PCのAgentにクリック指示
-            }
+            if (!conn || !conn.open) return;
+            const rect = video.getBoundingClientRect();
+            const x = (e.clientX - rect.left) / rect.width;
+            const y = (e.clientY - rect.top) / rect.height;
+            const payload = { type: 'click', x: x, y: y };
+            
+            conn.send(payload); // 相手のブラウザへ
+            if(agentConn && agentConn.open) agentConn.send(payload); // PCのNode.jsへ
         };
     }
 
-    function showVisualClick(x, y) {
-        const video = document.getElementById('remote-video');
-        const dot = document.createElement('div');
-        dot.className = 'click-dot';
-        Object.assign(dot.style, {
-            position: 'absolute', left: (x * 100) + '%', top: (y * 100) + '%',
-            width: '20px', height: '20px', background: 'rgba(255,0,0,0.6)',
-            borderRadius: '50%', transform: 'translate(-50%, -50%)', pointerEvents: 'none'
-        });
-        video.parentElement.appendChild(dot);
-        setTimeout(() => dot.remove(), 500);
+    async function startScreenShare() {
+        const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        document.getElementById('remote-video').srcObject = stream;
+        if (conn) peer.call(conn.peer, stream);
     }
 </script>
 </body>
