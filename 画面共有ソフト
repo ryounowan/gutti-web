@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>P2P Remote Screen - Verified</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; text-align: center; background: #f4f7f6; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; padding: 20px; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        video { width: 100%; border-radius: 8px; background: #222; box-shadow: inset 0 0 10px #000; margin-top: 15px; }
+        input { padding: 10px; border: 1px solid #ddd; border-radius: 4px; width: 250px; }
+        button { padding: 10px 20px; border: none; border-radius: 4px; background: #007bff; color: white; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #0056b3; }
+        #my-id { font-weight: bold; color: #d63384; word-break: break-all; }
+        .status { font-size: 0.9em; color: #666; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>P2P Screen Share</h1>
+
+    <div class="card">
+        <h3>1. 自分の配信設定</h3>
+        <p>あなたのID: <span id="my-id">接続中...</span></p>
+        <button onclick="startShare()">画面共有を開始する</button>
+        <div id="host-status" class="status"></div>
+    </div>
+
+    <div class="card">
+        <h3>2. 相手の画面を見る</h3>
+        <input type="text" id="peer-id" placeholder="相手のIDをここにペースト">
+        <button onclick="viewStream()">接続して視聴</button>
+        <div id="viewer-status" class="status"></div>
+    </div>
+
+    <div class="card">
+        <video id="remote-video" autoplay playsinline muted></video>
+    </div>
+</div>
+
+<script>
+    const peer = new Peer();
+    let localStream = null;
+
+    // ID発行完了時
+    peer.on('open', id => {
+        document.getElementById('my-id').innerText = id;
+        console.log('My peer ID is: ' + id);
+    });
+
+    // 【配信側】画面キャプチャ開始
+    async function startShare() {
+        try {
+            // 既存のストリームがあれば停止
+            if (localStream) {
+                localStream.getTracks().forEach(track => track.stop());
+            }
+            localStream = await navigator.mediaDevices.getDisplayMedia({ 
+                video: { cursor: "always" },
+                audio: false 
+            });
+            document.getElementById('remote-video').srcObject = localStream;
+            document.getElementById('host-status').innerText = "配信準備完了。相手にIDを教えてください。";
+        } catch (err) {
+            console.error("Capture Error: ", err);
+            alert("画面共有がキャンセルされたか、ブラウザが許可していません。");
+        }
+    }
+
+    // 【配信側】接続要求が来た時の処理
+    peer.on('call', call => {
+        console.log("着信しました");
+        if (localStream) {
+            call.answer(localStream);
+            document.getElementById('host-status').innerText = "相手が視聴を開始しました。";
+        } else {
+            alert("接続が来ましたが、先に『画面共有を開始』してください。");
+        }
+    });
+
+    // 【視聴側】相手に接続する
+    function viewStream() {
+        const targetId = document.getElementById('peer-id').value.trim();
+        if (!targetId) return alert("IDを入力してください");
+
+        document.getElementById('viewer-status').innerText = "接続中...";
+        
+        // PeerJSのcallメソッドを実行
+        const call = peer.call(targetId, null);
+        
+        if (!call) {
+            document.getElementById('viewer-status').innerText = "接続に失敗しました。";
+            return;
+        }
+
+        call.on('stream', stream => {
+            console.log("ストリーム受信成功");
+            const video = document.getElementById('remote-video');
+            video.srcObject = stream;
+            document.getElementById('viewer-status').innerText = "受信中：リアルタイム映像";
+        });
+
+        call.on('error', err => {
+            console.error("P2P Error:", err);
+            document.getElementById('viewer-status').innerText = "エラー: " + err.type;
+        });
+    }
+
+    // エラーハンドリング
+    peer.on('error', err => {
+        console.error("PeerJS Error:", err);
+        alert("通信エラーが発生しました: " + err.type);
+    });
+</script>
+
+</body>
+</html>
