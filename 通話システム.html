@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Ultra Low Latency P2P Chat</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --accent: #5865f2; --bg: #313338; --card: #2b2d31; --danger: #ed4245; --text: #dbdee1; --speaking: #23a559; }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; flex-direction: column; }
+        
+        /* Setup Screen */
+        #setup { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .setup-card { background: var(--card); padding: 30px; border-radius: 16px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
+        .icon-p { width: 80px; height: 80px; border-radius: 50%; background: #4e5058; margin: 0 auto 15px; border: 3px solid var(--accent); cursor: pointer; overflow: hidden; }
+        .icon-p img { width: 100%; height: 100%; object-fit: cover; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; background: #1e1f22; color: white; font-size: 16px; }
+        .btn-join { width: 100%; padding: 14px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; font-size: 16px; cursor: pointer; }
+
+        /* Main UI */
+        header { padding: 12px 20px; background: var(--card); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e1f22; }
+        #member-list { display: flex; gap: 12px; padding: 10px 15px; background: #2b2d31; overflow-x: auto; min-height: 70px; scrollbar-width: none; }
+        #member-list::-webkit-scrollbar { display: none; }
+        .member-item { display: flex; flex-direction: column; align-items: center; min-width: 50px; }
+        .u-icon { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; transition: 0.1s; }
+        .speaking .u-icon { border-color: var(--speaking); box-shadow: 0 0 8px var(--speaking); }
+        .muted .u-icon { opacity: 0.3; }
+        .u-name { font-size: 10px; margin-top: 4px; color: #94a3b8; }
+
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .msg { display: flex; gap: 12px; animation: msg-in 0.1s ease-out; }
+        @keyframes msg-in { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+        .msg img { width: 38px; height: 38px; border-radius: 50%; background: #4e5058; }
+        .msg-body b { font-size: 14px; color: white; }
+        .msg-body p { margin: 2px 0 0; font-size: 15px; line-height: 1.4; }
+
+        .footer { padding: 10px 15px; background: var(--card); display: flex; gap: 10px; align-items: center; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+        .mic-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #4e5058; color: white; cursor: pointer; font-size: 18px; flex-shrink: 0; }
+        .mic-btn.off { background: var(--danger); }
+        .input-area { flex: 1; background: #383a40; border-radius: 22px; padding: 0 15px; display: flex; align-items: center; }
+        .input-area input { background: transparent; padding: 10px 0; margin: 0; }
+        .send-btn { background: var(--accent); color: white; border: none; border-radius: 20px; padding: 8px 16px; font-weight: bold; cursor: pointer; }
+    </style>
+</head>
+<body>
+
+<div id="setup">
+    <div class="setup-card">
+        <h2 style="margin-top:0">P2P Voice Chat</h2>
+        <div class="icon-p" onclick="document.getElementById('fInput').click()">
+            <img id="pImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
+        </div>
+        <input type="file" id="fInput" accept="image/*" style="display:none" onchange="loadIcon(this)">
+        <input type="text" id="user" placeholder="名前">
+        <input type="text" id="room" placeholder="ルーム名">
+        <button class="btn-join" onclick="join()">チャットを開始</button>
+    </div>
+</div>
+
+<header>
+    <div id="room-id" style="font-weight:bold;"># Loading...</div>
+    <button onclick="location.reload()" style="background:none; border:none; color:var(--danger); cursor:pointer;">退出</button>
+</header>
+<div id="member-list"></div>
+<div id="chat"></div>
+<div class="footer">
+    <button id="micBtn" class="mic-btn" onclick="toggleMic()">🎙️</button>
+    <div class="input-area">
+        <input type="text" id="mInput" placeholder="メッセージ..." onkeypress="if(event.keyCode==13) send()">
+        <button class="send-btn" onclick="send()">送信</button>
+    </div>
+</div>
+
+<script>
+    let peer, myName, roomCode, myFullId, localStream;
+    let conns = {}, memberData = {}, myIcon = "";
+    let isMicOn = true, isSpeaking = false;
+
+    window.onload = () => {
+        document.getElementById('user').value = localStorage.getItem('p2p_name') || "";
+        myIcon = localStorage.getItem('p2p_icon') || document.getElementById('pImg').src;
+        document.getElementById('pImg').src = myIcon;
+    };
+
+    function loadIcon(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                myIcon = e.target.result;
+                document.getElementById('pImg').src = myIcon;
+                localStorage.setItem('p2p_icon', myIcon);
+            };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    async function join() {
+        roomCode = document.getElementById('room').value.trim();
+        myName = document.getElementById('user').value.trim() || "Guest";
+        if (!roomCode) return;
+        localStorage.setItem('p2p_name', myName);
+
+        try {
+            // 最短遅延のマイク設定
+            localStream = await navigator.mediaDevices.getUserMedia({ 
+                audio: { echoCancellation: true, noiseSuppression: true, latencyHint: 0 } 
+            });
+            startVoiceDetection();
+        } catch (e) { alert("マイクが必要です"); return; }
+
+        myFullId = `${roomCode}_${Math.random().toString(36).substr(2, 7)}`;
+        // PeerJSサーバー設定（安定性向上）
+        peer = new Peer(myFullId, { debug: 1 });
+
+        peer.on('open', () => {
+            document.getElementById('setup').style.display = 'none';
+            document.getElementById('room-id').innerText = `# ${roomCode}`;
+            broadcastStatus();
+            initHub();
+        });
+
+        peer.on('call', call => {
+            call.answer(localStream);
+            call.on('stream', s => playAudio(s, call.peer));
+        });
+
+        peer.on('connection', setupConn);
+        peer.on('disconnected', () => peer.reconnect()); // 切断時の自動再接続
+    }
+
+    function initHub() {
+        const hubId = `${roomCode}_HUB`;
+        const hub = new Peer(hubId);
+        hub.on('open', () => {
+            hub.on('connection', setupConn);
+            hub.on('call', c => { c.answer(localStream); c.on('stream', s => playAudio(s, c.peer)); });
+        });
+        hub.on('error', () => connectTo(hubId));
+    }
+
+    function setupConn(conn) {
+        if (conns[conn.peer]) return;
+        conns[conn.peer] = conn;
+        conn.on('open', () => {
+            broadcastStatus();
+            conn.on('data', data => {
+                if (data.type === 'status') {
+                    memberData[conn.peer] = data;
+                    renderMembers();
+                } else if (data.type === 'chat') {
+                    addMessage(data.u, data.m, memberData[conn.peer]?.icon || "");
+                }
+            });
+        });
+        conn.on('close', () => { delete conns[conn.peer]; delete memberData[conn.peer]; renderMembers(); });
+    }
+
+    function connectTo(id) {
+        if (conns[id] || id === myFullId) return;
+        setupConn(peer.connect(id, { reliable: false }));
+        // 低遅延Opusコーデックを優先させる設定
+        if (localStream) {
+            const call = peer.call(id, localStream);
+            call.on('stream', s => playAudio(s, id));
+        }
+    }
+
+    function playAudio(stream, id) {
+        let audio = document.getElementById(`audio-${id}`) || document.createElement('audio');
+        audio.id = `audio-${id}`;
+        audio.srcObject = stream;
+        audio.autoplay = true;
+        document.body.appendChild(audio);
+    }
+
+    function startVoiceDetection() {
+        const ctx = new AudioContext();
+        const src = ctx.createMediaStreamSource(localStream);
+        const ans = ctx.createAnalyser();
+        ans.fftSize = 256;
+        src.connect(ans);
+        const buffer = new Uint8Array(ans.frequencyBinCount);
+        setInterval(() => {
+            ans.getByteFrequencyData(buffer);
+            let avg = buffer.reduce((a, b) => a + b) / buffer.length;
+            let speaking = avg > 25 && isMicOn;
+            if (speaking !== isSpeaking) {
+                isSpeaking = speaking;
+                broadcastStatus();
+            }
+        }, 120);
+    }
+
+    function toggleMic() {
+        if (!localStream) return;
+        isMicOn = !isMicOn;
+        localStream.getAudioTracks()[0].enabled = isMicOn;
+        document.getElementById('micBtn').innerText = isMicOn ? "🎙️" : "🔇";
+        document.getElementById('micBtn').classList.toggle('off', !isMicOn);
+        broadcastStatus();
+    }
+
+    function broadcastStatus() {
+        const s = { type: 'status', u: myName, icon: myIcon, speaking: isSpeaking, muted: !isMicOn };
+        memberData[myFullId] = s;
+        renderMembers();
+        Object.values(conns).forEach(c => { if (c.open) c.send(s); });
+    }
+
+    function renderMembers() {
+        const list = document.getElementById('member-list');
+        list.innerHTML = Object.keys(memberData).map(id => {
+            const m = memberData[id];
+            return `<div class="member-item ${m.speaking?'speaking':''} ${m.muted?'muted':''}">
+                <img src="${m.icon}" class="u-icon">
+                <div class="u-name">${m.u}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function send() {
+        const input = document.getElementById('mInput');
+        if (!input.value) return;
+        const data = { type: 'chat', u: myName, m: input.value };
+        addMessage(myName, input.value, myIcon);
+        Object.values(conns).forEach(c => { if (c.open) c.send(data); });
+        input.value = "";
+    }
+
+    function addMessage(u, m, icon) {
+        const chat = document.getElementById('chat');
+        chat.insertAdjacentHTML('beforeend', `<div class="msg"><img src="${icon}"><div class="msg-body"><b>${u}</b><p>${m}</p></div></div>`);
+        chat.scrollTop = chat.scrollHeight;
+    }
+</script>
+</body>
+</html>
