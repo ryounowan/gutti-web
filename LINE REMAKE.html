@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P2P Talk Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .bg-line-blue { background-color: #7494C0; }
+        .key-btn { @apply bg-white text-gray-800 text-2xl font-semibold py-4 rounded-xl shadow-sm active:bg-gray-200 transition; }
+        video { transform: scaleX(-1); }
+        .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen flex flex-col overflow-hidden text-gray-900">
+
+    <div id="view-home" class="flex-1 flex flex-col overflow-hidden">
+        <header class="bg-[#273246] p-6 text-white rounded-b-3xl shadow-lg">
+            <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                    <div class="relative group">
+                        <div id="home-icon" class="w-14 h-14 bg-white rounded-full flex items-center justify-center text-3xl border-2 border-green-500 shadow-inner">👤</div>
+                        <select id="icon-select" onchange="saveProfile()" class="absolute inset-0 opacity-0 cursor-pointer">
+                            <option value="👤">👤</option><option value="🐱">🐱</option><option value="🐶">🐶</option><option value="🤖">🤖</option><option value="🦊">🦊</option><option value="😎">😎</option>
+                        </select>
+                    </div>
+                    <div>
+                        <input id="user-name" type="text" class="bg-transparent border-none font-bold focus:ring-0 text-xl w-32" placeholder="名前を設定" oninput="saveProfile()">
+                        <div class="text-xs text-blue-300 font-mono" id="my-number-display">050-XXXX-XXXX</div>
+                    </div>
+                </div>
+                <button onclick="switchView('view-keypad')" class="bg-blue-500 p-3 rounded-full shadow-lg">➕</button>
+            </div>
+        </header>
+
+        <main class="flex-1 overflow-y-auto p-4 space-y-6">
+            <section>
+                <h3 class="text-sm font-bold text-gray-400 mb-2 px-2 uppercase tracking-wider">連絡先</h3>
+                <div id="contact-list" class="grid grid-cols-4 sm:grid-cols-6 gap-4 bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+                    </div>
+            </section>
+
+            <section class="flex-1 flex flex-col">
+                <h3 class="text-sm font-bold text-gray-400 mb-2 px-2 uppercase tracking-wider">着信履歴</h3>
+                <div id="history-list" class="bg-white rounded-2xl shadow-sm border border-gray-100 divide-y divide-gray-50 flex-1 overflow-hidden">
+                    </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="view-keypad" class="hidden flex-1 flex flex-col bg-gray-50 animate-slide-up">
+        <div class="p-6 flex flex-col items-center justify-center flex-1">
+            <div class="w-full max-w-xs text-center mb-8">
+                <div id="dial-display" class="text-4xl font-mono font-bold mb-2 tracking-tighter text-gray-800"></div>
+                <div id="dial-match-name" class="text-green-600 font-bold h-6">登録されていません</div>
+            </div>
+            
+            <div class="grid grid-cols-3 gap-4 w-full max-w-xs">
+                <button onclick="pressKey('1')" class="key-btn">1</button>
+                <button onclick="pressKey('2')" class="key-btn">2</button>
+                <button onclick="pressKey('3')" class="key-btn">3</button>
+                <button onclick="pressKey('4')" class="key-btn">4</button>
+                <button onclick="pressKey('5')" class="key-btn">5</button>
+                <button onclick="pressKey('6')" class="key-btn">6</button>
+                <button onclick="pressKey('7')" class="key-btn">7</button>
+                <button onclick="pressKey('8')" class="key-btn">8</button>
+                <button onclick="pressKey('9')" class="key-btn">9</button>
+                <button onclick="pressKey('*')" class="key-btn text-gray-400">*</button>
+                <button onclick="pressKey('0')" class="key-btn">0</button>
+                <button onclick="pressKey('#')" class="key-btn text-gray-400">#</button>
+            </div>
+
+            <div class="flex items-center justify-center gap-8 mt-8 w-full">
+                <button onclick="switchView('view-home')" class="p-4 text-gray-400">戻る</button>
+                <button onclick="openCallSelector()" class="bg-green-500 text-white w-20 h-20 rounded-full shadow-xl flex items-center justify-center text-3xl active:scale-90 transition">📞</button>
+                <button onclick="backspace()" class="p-4 text-gray-400">消去</button>
+            </div>
+            <button onclick="addToContactsFromDial()" id="btn-add-contact" class="hidden mt-4 text-blue-500 text-sm font-bold">+ 連絡先に追加</button>
+        </div>
+    </div>
+
+    <div id="view-talk" class="hidden absolute inset-0 z-40 flex flex-col bg-line-blue">
+        <div id="video-area" class="h-1/3 bg-black relative">
+            <video id="remote-video" autoplay playsinline class="w-full h-full object-cover"></video>
+            <div id="remote-avatar-view" class="hidden absolute inset-0 bg-gray-900 flex flex-col items-center justify-center text-white">
+                <div id="remote-icon" class="w-20 h-20 bg-white rounded-full flex items-center justify-center text-4xl mb-2">👤</div>
+                <div id="remote-name" class="font-bold">Unknown</div>
+            </div>
+            <video id="local-video" autoplay playsinline muted class="absolute bottom-2 right-2 w-20 h-28 border border-white rounded"></video>
+            <button onclick="switchView('view-home')" class="absolute top-4 left-4 bg-black/30 text-white px-3 py-1 rounded-full text-xs">終了</button>
+        </div>
+        <div id="chat-box" class="flex-1 overflow-y-auto p-4 space-y-4"></div>
+        <div class="bg-white p-3 flex gap-2 safe-area-bottom">
+            <input id="chat-input" type="text" class="flex-1 border rounded-full px-4 py-2 text-sm outline-none" placeholder="メッセージを入力">
+            <button onclick="sendMessage()" class="bg-blue-500 text-white px-4 py-2 rounded-full font-bold">送信</button>
+        </div>
+    </div>
+
+    <div id="incoming-modal" class="hidden fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-8">
+        <div class="bg-white w-full max-w-xs rounded-3xl p-10 text-center shadow-2xl">
+            <div class="text-7xl mb-6 animate-bounce">📞</div>
+            <p id="incoming-name" class="font-bold text-2xl mb-1 text-gray-800">着信中</p>
+            <p id="incoming-num" class="text-gray-400 font-mono text-sm mb-10"></p>
+            <div class="flex justify-between gap-4">
+                <button id="decline-btn" class="bg-red-500 text-white w-16 h-16 rounded-full text-2xl shadow-lg active:scale-90 transition">✖</button>
+                <button id="accept-btn" class="bg-green-500 text-white w-16 h-16 rounded-full text-2xl shadow-lg active:scale-90 transition">✔</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="call-selector" class="hidden fixed inset-0 bg-black/70 z-50 flex items-center justify-center p-6">
+        <div class="bg-white w-full max-w-xs rounded-2xl p-6 text-center">
+            <h3 class="font-bold mb-6">通話方法を選択</h3>
+            <div class="flex gap-4">
+                <button onclick="startCall('voice')" class="flex-1 bg-blue-50 p-4 rounded-xl border border-blue-100">📞 音声</button>
+                <button onclick="startCall('video')" class="flex-1 bg-green-50 p-4 rounded-xl border border-green-100">📹 ビデオ</button>
+            </div>
+            <button onclick="document.getElementById('call-selector').classList.add('hidden')" class="mt-6 text-gray-400 text-xs underline">キャンセル</button>
+        </div>
+    </div>
+
+    <audio id="remote-audio" autoplay></audio>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script>
+        // --- データ管理 ---
+        let myNum = localStorage.getItem('my-fixed-num') || `050-${Math.floor(Math.random()*9000+1000)}-${Math.floor(Math.random()*9000+1000)}`;
+        localStorage.setItem('my-fixed-num', myNum);
+        
+        let contacts = JSON.parse(localStorage.getItem('contacts') || '[]');
+        let callHistory = JSON.parse(localStorage.getItem('call-history') || '[]');
+
+        const peer = new Peer(myNum);
+        let localStream, currentCall, activeConn, dialString = "";
+
+        // --- 初期化 ---
+        window.onload = () => {
+            document.getElementById('my-number-display').innerText = myNum;
+            document.getElementById('user-name').value = localStorage.getItem('chat-user-name') || "";
+            document.getElementById('home-icon').innerText = localStorage.getItem('chat-user-icon') || "👤";
+            renderContacts();
+            renderHistory();
+            initMedia();
+        };
+
+        async function initMedia() {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('local-video').srcObject = localStream;
+            } catch (e) { console.error("Media error", e); }
+        }
+
+        // --- 画面遷移 ---
+        function switchView(viewId) {
+            ['view-home', 'view-keypad', 'view-talk'].forEach(v => document.getElementById(v).classList.add('hidden'));
+            document.getElementById(viewId).classList.remove('hidden');
+        }
+
+        // --- キーパッド処理 ---
+        function pressKey(num) {
+            if (dialString.length >= 12) return;
+            dialString += num;
+            updateDialDisplay();
+        }
+        function backspace() {
+            dialString = dialString.slice(0, -1);
+            updateDialDisplay();
+        }
+        function updateDialDisplay() {
+            const display = document.getElementById('dial-display');
+            const matchName = document.getElementById('dial-match-name');
+            const addBtn = document.getElementById('btn-add-contact');
+            
+            display.innerText = dialString;
+            const contact = contacts.find(c => c.number === dialString);
+            
+            if (dialString === "") {
+                matchName.innerText = "";
+                addBtn.classList.add('hidden');
+            } else if (contact) {
+                matchName.innerText = contact.name;
+                matchName.classList.add('text-green-600');
+                addBtn.classList.add('hidden');
+            } else {
+                matchName.innerText = "登録されていません";
+                matchName.classList.remove('text-green-600');
+                addBtn.classList.remove('hidden');
+            }
+        }
+
+        function addToContactsFromDial() {
+            const name = prompt("名前を入力してください");
+            if (name && dialString) {
+                contacts.push({ name, number: dialString, icon: "👤" });
+                localStorage.setItem('contacts', JSON.stringify(contacts));
+                renderContacts();
+                updateDialDisplay();
+            }
+        }
+
+        // --- 連絡先・履歴レンダリング ---
+        function renderContacts() {
+            const list = document.getElementById('contact-list');
+            list.innerHTML = '';
+            contacts.forEach(c => {
+                const div = document.createElement('div');
+                div.className = "flex flex-col items-center gap-1 cursor-pointer active:scale-95 transition";
+                div.onclick = () => { dialString = c.number; openCallSelector(); };
+                div.innerHTML = `<div class="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-xl shadow-sm border border-gray-200">${c.icon}</div><span class="text-[10px] font-bold text-gray-600 truncate w-full text-center">${c.name}</span>`;
+                list.appendChild(div);
+            });
+        }
+
+        function renderHistory() {
+            const list = document.getElementById('history-list');
+            list.innerHTML = callHistory.length ? '' : '<p class="p-4 text-center text-xs text-gray-400">履歴はありません</p>';
+            callHistory.slice().reverse().forEach(h => {
+                const contact = contacts.find(c => c.number === h.number);
+                const item = document.createElement('div');
+                item.className = "p-4 flex justify-between items-center hover:bg-gray-50 cursor-pointer";
+                item.onclick = () => { dialString = h.number; openCallSelector(); };
+                item.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="text-2xl">${contact ? contact.icon : "👤"}</div>
+                        <div>
+                            <div class="font-bold text-sm ${h.type==='missed'?'text-red-500':''}">${contact ? contact.name : h.number}</div>
+                            <div class="text-[10px] text-gray-400">${h.time}</div>
+                        </div>
+                    </div>
+                    <div class="text-xs text-gray-400">${h.mode === 'video' ? '📹' : '📞'}</div>
+                `;
+                list.appendChild(item);
+            });
+        }
+
+        function saveHistory(num, type, mode) {
+            callHistory.push({ number: num, type, mode, time: new Date().toLocaleString() });
+            localStorage.setItem('call-history', JSON.stringify(callHistory));
+            renderHistory();
+        }
+
+        // --- 通話・PeerJS ---
+        peer.on('open', id => document.getElementById('my-number-display').innerText = id);
+
+        function openCallSelector() {
+            if (!dialString) return;
+            document.getElementById('call-selector').classList.remove('hidden');
+        }
+
+        function startCall(mode) {
+            document.getElementById('call-selector').classList.add('hidden');
+            switchView('view-talk');
+            const videoTrack = localStream.getVideoTracks()[0];
+            videoTrack.enabled = (mode === 'video');
+            
+            const call = peer.call(dialString, localStream);
+            setupCall(call, mode);
+            saveHistory(dialString, 'outgoing', mode);
+        }
+
+        peer.on('call', call => {
+            const modal = document.getElementById('incoming-modal');
+            const contact = contacts.find(c => c.number === call.peer);
+            document.getElementById('incoming-name').innerText = contact ? contact.name : "不明な相手";
+            document.getElementById('incoming-num').innerText = call.peer;
+            modal.classList.remove('hidden');
+
+            document.getElementById('accept-btn').onclick = () => {
+                call.answer(localStream);
+                modal.classList.add('hidden');
+                switchView('view-talk');
+                setupCall(call, 'video'); // デフォルトビデオで受ける
+                saveHistory(call.peer, 'incoming', 'video');
+            };
+            document.getElementById('decline-btn').onclick = () => {
+                call.close();
+                modal.classList.add('hidden');
+                saveHistory(call.peer, 'missed', 'voice');
+            };
+        });
+
+        function setupCall(call, mode) {
+            currentCall = call;
+            call.on('stream', stream => {
+                document.getElementById('remote-video').srcObject = stream;
+                const contact = contacts.find(c => c.number === call.peer);
+                document.getElementById('remote-icon').innerText = contact ? contact.icon : "👤";
+                document.getElementById('remote-name').innerText = contact ? contact.name : "Unknown";
+                
+                // 相手がビデオOFFならアイコン表示
+                setTimeout(() => {
+                    const vt = stream.getVideoTracks()[0];
+                    document.getElementById('remote-avatar-view').classList.toggle('hidden', vt && vt.enabled);
+                }, 1000);
+            });
+        }
+
+        // プロフィール保存
+        function saveProfile() {
+            localStorage.setItem('chat-user-name', document.getElementById('user-name').value);
+            localStorage.setItem('chat-user-icon', document.getElementById('icon-select').value);
+            document.getElementById('home-icon').innerText = document.getElementById('icon-select').value;
+        }
+
+        // チャット（最小限）
+        function sendMessage() {
+            const txt = document.getElementById('chat-input').value;
+            if (!txt || !dialString) return;
+            if (!activeConn) activeConn = peer.connect(dialString);
+            activeConn.send({ text: txt, name: localStorage.getItem('chat-user-name') });
+            addMsg('send', txt);
+            document.getElementById('chat-input').value = "";
+        }
+        peer.on('connection', conn => {
+            activeConn = conn;
+            conn.on('data', data => addMsg('receive', data.text));
+        });
+        function addMsg(type, text) {
+            const box = document.getElementById('chat-box');
+            const m = document.createElement('div');
+            m.className = type === 'send' ? 'self-end bg-green-400 p-2 rounded-lg text-sm' : 'self-start bg-white p-2 rounded-lg text-sm';
+            m.innerText = text;
+            box.appendChild(m);
+            box.scrollTop = box.scrollHeight;
+        }
+    </script>
+</body>
+</html>
+
