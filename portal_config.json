@@ -97,5 +97,9 @@
   "password": "2012-0106-8686",
   "isMaintenance": false,
   "sha": "d88a8a783dcd1a65e8c593fd2a4848be172a2263",
-  "username": "ryounowan"
+  "username": "ryounowan",
+  "cardDesign": {
+    "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
+    "color": "#ffffff"
+  }
 }
