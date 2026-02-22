@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Splash Pro - Fixed Percentage</title>
+    <style>
+        :root { --primary: #0078d4; --bg-side: #ffffff; --bg-main: #f0f4f8; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-main); margin: 0; display: flex; height: 100vh; color: #333; }
+        .sidebar { width: 420px; min-width: 420px; background: var(--bg-side); padding: 20px; box-shadow: 2px 0 15px rgba(0,0,0,0.1); overflow-y: auto; z-index: 10; height: 100vh; box-sizing: border-box; }
+        .main-view { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; gap: 20px; }
+        @media (max-width: 1000px) { body { flex-direction: column; height: auto; } .sidebar { width: 100%; min-width: auto; height: auto; } }
+        h2 { margin: 15px 0 10px 0; font-size: 0.9rem; border-left: 5px solid var(--primary); padding-left: 10px; color: #1e293b; background: #f8fafc; padding-top: 5px; padding-bottom: 5px; }
+        .config-item { margin-bottom: 12px; }
+        label { display: block; font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: #475569; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; box-sizing: border-box; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { filter: brightness(1.1); }
+        textarea { width: 100%; height: 120px; font-family: 'Consolas', monospace; font-size: 11px; margin-top: 10px; background: #1e293b; color: #94a3b8; padding: 10px; border-radius: 8px; border: none; resize: vertical; box-sizing: border-box; }
+        .previews-wrapper { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; }
+        .preview-box { background: #333; padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .preview-label { color: white; text-align: center; font-size: 11px; margin-bottom: 8px; opacity: 0.8; }
+        #pc-preview { width: 450px; height: 280px; background: white; position: relative; overflow: hidden; }
+        #mobile-preview { width: 200px; height: 400px; background: white; border-radius: 25px; border: 6px solid #222; position: relative; overflow: hidden; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h1 style="font-size: 1.1rem; margin: 0 0 15px 0; color: var(--primary);">🎨 Splash Pro</h1>
+    
+    <h2>🎨 テキスト設定</h2>
+    <div class="row">
+        <div class="config-item"><label>表示名:</label><input type="text" id="appName" value="Modern App" oninput="updatePreview()"></div>
+        <div class="config-item"><label>バージョン:</label><input type="text" id="appVersion" value="ver 1.0.0" oninput="updatePreview()"></div>
+    </div>
+    <div class="row">
+        <div class="config-item"><label>文字サイズ(px):</label><input type="number" id="fontSize" value="32" oninput="updatePreview()"></div>
+        <div class="config-item"><label>要素間隔(px):</label><input type="number" id="itemGap" value="25" oninput="updatePreview()"></div>
+    </div>
+
+    <h2>🖼️ ロゴ設定</h2>
+    <input type="file" id="logoFile" accept="image/*" onchange="loadFile(event)">
+    <div class="row" style="margin-top:10px;">
+        <div class="config-item"><label>枠の太さ(px):</label><input type="number" id="borderWidth" value="4" oninput="updatePreview()"></div>
+        <div class="config-item"><label>枠,バーの色:</label><input type="color" id="borderColor" value="#0078d4" oninput="updatePreview()"></div>
+    </div>
+    <div class="config-item"><label>ロゴサイズ(px):</label><input type="range" id="logoSize" min="40" max="250" value="100" oninput="updatePreview()"></div>
+
+    <h2>⚙️ システム</h2>
+    <div class="row">
+        <div class="config-item">
+            <label>ローダー:</label>
+            <select id="loaderType" onchange="updatePreview()">
+                <option value="percent">パーセント</option>
+                <option value="spin">スピン</option>
+                <option value="dots">ドット</option>
+                <option value="bar">バー</option>
+            </select>
+        </div>
+        <div class="config-item"><label>表示時間(秒):</label><input type="number" id="duration" value="3" step="0.5" oninput="updatePreview()"></div>
+    </div>
+
+    <button onclick="generateCode()" style="background:#10b981; margin-top:10px;">🚀 コードを生成</button>
+    <textarea id="resultCode" readonly placeholder="ここに埋め込みコードが表示されます"></textarea>
+</div>
+
+<div class="main-view">
+    <div class="previews-wrapper">
+        <div class="preview-box">
+            <div class="preview-label">PC VIEW</div>
+            <div id="pc-preview"></div>
+        </div>
+        <div class="preview-box">
+            <div class="preview-label">MOBILE VIEW</div>
+            <div id="mobile-preview"></div>
+        </div>
+    </div>
+    <div class="row" style="width:100%; max-width:350px; margin-top:10px;">
+        <button onclick="updatePreview(true)" style="background:#475569;">▶ 再生（カウント開始）</button>
+    </div>
+</div>
+
+<script>
+let base64Image = "", timerPc = null, timerMob = null;
+
+function loadFile(event) {
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => { base64Image = e.target.result; updatePreview(); };
+    reader.readAsDataURL(file);
+}
+
+function updatePreview(isPlay = false) {
+    clearInterval(timerPc); clearInterval(timerMob);
+    
+    const config = {
+        name: document.getElementById('appName').value,
+        ver: document.getElementById('appVersion').value,
+        fSize: document.getElementById('fontSize').value,
+        gap: document.getElementById('itemGap').value,
+        lSize: document.getElementById('logoSize').value,
+        bWidth: document.getElementById('borderWidth').value,
+        bColor: document.getElementById('borderColor').value,
+        dur: document.getElementById('duration').value,
+        loader: document.getElementById('loaderType').value
+    };
+
+    const createHTML = (idPrefix) => {
+        const isMob = idPrefix === 'mob';
+        const scale = isMob ? 0.7 : 1;
+        let lHtml = "";
+        
+        if(config.loader === 'percent') {
+            lHtml = `<div style="display:flex;flex-direction:column;align-items:center;">
+                        <div style="width:120px;height:4px;background:rgba(0,0,0,0.1);border-radius:10px;overflow:hidden;">
+                            <div id="${idPrefix}-bar" style="height:100%;background:${config.bColor};width:0%;"></div>
+                        </div>
+                        <div style="font-size:10px;margin-top:5px;font-weight:bold;"><span id="${idPrefix}-num">0</span>%</div>
+                     </div>`;
+        } else if(config.loader === 'spin') {
+            lHtml = `<div style="border:3px solid rgba(0,0,0,0.1);border-top-color:${config.bColor};border-radius:50%;width:25px;height:25px;animation:spin 0.8s linear infinite;"></div>`;
+        } else if(config.loader === 'dots') {
+            lHtml = `<div style="display:flex;gap:5px;">${[0,0.2,0.4].map(d=>`<div style="width:8px;height:8px;background:${config.bColor};border-radius:50%;animation:dot 1.2s infinite ease-in-out;animation-delay:${d}s"></div>`).join('')}</div>`;
+        } else {
+            lHtml = `<div style="width:120px;height:4px;background:rgba(0,0,0,0.1);overflow:hidden;position:relative;"><div style="position:absolute;width:40%;height:100%;background:${config.bColor};animation:bar 1.2s infinite linear;"></div></div>`;
+        }
+
+        return `
+        <div style="width:100%;height:100%;background:white;color:#333;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;overflow:hidden;">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:${config.gap * scale}px;text-align:center;">
+                ${base64Image ? `<img src="${base64Image}" style="width:${config.lSize * scale}px;height:${config.lSize * scale}px;border-radius:50%;border:${config.bWidth * scale}px solid ${config.bColor};object-fit:cover;">` : ""}
+                <div style="font-size:${config.fSize * scale}px;font-weight:800;">${config.name}</div>
+                <div style="min-height:40px;display:flex;align-items:center;">${lHtml}</div>
+            </div>
+            <div style="position:absolute;bottom:15px;right:15px;font-size:10px;opacity:0.6;">${config.ver}</div>
+        </div><style>@keyframes spin{to{transform:rotate(360deg)}}@keyframes dot{0%,80%,100%{transform:scale(0.3);opacity:0.3}40%{transform:scale(1);opacity:1}}@keyframes bar{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}</style>`;
+    };
+
+    document.getElementById('pc-preview').innerHTML = createHTML('pc');
+    document.getElementById('mobile-preview').innerHTML = createHTML('mob');
+
+    // 再生ボタンが押されたとき、またはローダーがパーセントの時に数値を動かす
+    if(config.loader === 'percent') {
+        const startAnim = (id) => {
+            let c = 0;
+            const numEl = document.getElementById(`${id}-num`);
+            const barEl = document.getElementById(`${id}-bar`);
+            const itv = setInterval(() => {
+                c++;
+                if(numEl) numEl.innerText = c;
+                if(barEl) barEl.style.width = c + "%";
+                if(c >= 100) clearInterval(itv);
+            }, (config.dur * 1000) / 100);
+            return itv;
+        };
+        timerPc = startAnim('pc');
+        timerMob = startAnim('mob');
+    }
+}
+
+function generateCode() {
+    const config = {
+        name: document.getElementById('appName').value,
+        ver: document.getElementById('appVersion').value,
+        fSize: document.getElementById('fontSize').value,
+        gap: document.getElementById('itemGap').value,
+        lSize: document.getElementById('logoSize').value,
+        bWidth: document.getElementById('borderWidth').value,
+        bColor: document.getElementById('borderColor').value,
+        dur: document.getElementById('duration').value,
+        loader: document.getElementById('loaderType').value
+    };
+
+    const lH = {
+        percent: `<div class='sp-b'><div id='sp-f' class='sp-f'></div></div><div class='sp-pt'><span id='sp-pc'>0</span>%</div>`,
+        spin: `<div class='sp-s'></div>`,
+        dots: `<div class='sp-d'>${[0,0.2,0.4].map(d=>`<div class='sp-dt' style='animation-delay:${d}s'></div>`).join('')}</div>`,
+        bar: `<div class='sp-bb'><div class='sp-bf'></div></div>`
+    };
+
+    document.getElementById('resultCode').value = `
+<div id="sp-root">
+    <div class="sp-c">
+        ${base64Image ? `<img src='${base64Image}' class='sp-l'>` : ""}
+        <div class="sp-t">${config.name}</div>
+        <div class="sp-ld">${lH[config.loader]}</div>
+    </div>
+    <div class="sp-v">${config.ver}</div>
+    <style>
+        #sp-root { position:fixed; inset:0; background:white; color:#333; display:flex; justify-content:center; align-items:center; z-index:9999999; transition:opacity 0.8s; font-family:sans-serif; user-select:none; }
+        .sp-c { display:flex; flex-direction:column; align-items:center; gap:${config.gap}px; text-align:center; }
+        .sp-l { width:${config.lSize}px; height:${config.lSize}px; border-radius:50%; border:${config.bWidth}px solid ${config.bColor}; object-fit:cover; }
+        .sp-t { font-size:${config.fSize}px; font-weight:800; }
+        .sp-v { position:absolute; bottom:20px; right:20px; font-size:11px; opacity:0.6; }
+        .sp-ld { min-height:45px; display:flex; align-items:center; justify-content:center; }
+        .sp-s { border:3px solid rgba(0,0,0,.1); border-top-color:${config.bColor}; border-radius:50%; width:30px; height:30px; animation:sp-r .8s linear infinite; }
+        .sp-b { width:140px; height:4px; background:rgba(0,0,0,.1); border-radius:10px; overflow:hidden; }
+        .sp-f { height:100%; background:${config.bColor}; width:0%; }
+        .sp-pt { font-size:11px; margin-top:5px; font-weight:bold; }
+        .sp-d { display:flex; gap:6px; }
+        .sp-dt { width:9px; height:9px; background:${config.bColor}; border-radius:50%; animation:sp-o 1.2s infinite ease-in-out; }
+        .sp-bb { width:130px; height:4px; background:rgba(0,0,0,.1); overflow:hidden; position:relative; }
+        .sp-bf { position:absolute; width:40%; height:100%; background:${config.bColor}; animation:sp-a 1.2s infinite linear; }
+        @keyframes sp-r{to{transform:rotate(360deg)}} @keyframes sp-o{0%,80%,100%{transform:scale(.3);opacity:.3}40%{transform:scale(1);opacity:1}} @keyframes sp-a{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}
+        body.sp-lock { overflow:hidden!important; touch-action:none; }
+        @media (max-width: 600px) { .sp-l { width:${config.lSize*0.8}px; height:${config.lSize*0.8}px; } .sp-t { font-size:${config.fSize*0.8}px; } }
+    </style>
+</div>
+<script>
+(function(){
+    document.body.classList.add('sp-lock');
+    ${config.loader==='percent' ? `
+    let c=0; const n=document.getElementById("sp-pc"), b=document.getElementById("sp-f");
+    const i=setInterval(()=>{
+        c++; if(n)n.innerText=c; if(b)b.style.width=c+"%"; if(c>=100)clearInterval(i);
+    }, ${ (config.dur * 1000) / 100 });` : ''}
+    window.addEventListener('load',()=>{
+        setTimeout(()=>{
+            const r=document.getElementById('sp-root');
+            if(r){r.style.opacity="0";setTimeout(()=>r.remove(),800)}
+            document.body.classList.remove('sp-lock');
+        },${config.dur*1000})
+    })
+})()
+<\/script>`.trim();
+}
+updatePreview();
+</script>
+</body>
+</html>
