@@ -53,7 +53,11 @@
     {
       "code": "5UY5-QMD0-8XV0",
       "expiry": null,
-      "userName": "gutti Smartphone"
+      "userName": "gutti Smartphone",
+      "design": {
+        "background": "linear-gradient(135deg, #0000ff 0%, #000054 100%)",
+        "color": "#ffffff"
+      }
     },
     {
       "code": "VMVA-ZN0A-2JV8",
