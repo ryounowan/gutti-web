@@ -1,1 +1,13 @@
-
+{
+  "lastUpdate": "2026/2/24 0:27:52",
+  "data": [
+    {
+      "id": 1771860463819,
+      "name": "新規項目",
+      "type": "server",
+      "status": "periodic",
+      "msg": "メンテナンス中です。",
+      "parent": 1
+    }
+  ]
+}
