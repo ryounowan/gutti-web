@@ -100,11 +100,11 @@
   ],
   "password": "2012-0106-8686",
   "isMaintenance": true,
-  "sha": "4f06488d9b131b0c2c6e081c8a0401378b38a48f",
+  "sha": "afdc376aa36e263fe16cebf6631c82a84066bea1",
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
     "color": "#ffffff"
   },
-  "mode": "maintenance"
+  "mode": "normal"
 }
