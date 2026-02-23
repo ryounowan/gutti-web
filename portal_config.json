@@ -99,7 +99,7 @@
   "sha": "f9d44600cf50bc273c1ea618c79660eb3b08d115",
   "username": "ryounowan",
   "cardDesign": {
-    "background": "linear-gradient(135deg, #ffff00 0%, #000000 100%)",
+    "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
     "color": "#ffffff"
   }
 }
