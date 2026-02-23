@@ -66,11 +66,6 @@
       "code": "VMVA-ZN0A-2JV8",
       "expiry": null,
       "userName": "gutti PC"
-    },
-    {
-      "code": "C25V-5QWC-7D7R",
-      "expiry": 1771862220000,
-      "userName": "新規ユーザー"
     }
   ],
   "order": [
@@ -105,7 +100,7 @@
   ],
   "password": "2012-0106-8686",
   "isMaintenance": true,
-  "sha": "bf71f50fea995a01376098e2531098eeb77f6f33",
+  "sha": "b39f168bfd80620c74dc8caf6d59a8c584d78cc2",
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
