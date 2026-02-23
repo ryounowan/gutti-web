@@ -66,11 +66,6 @@
       "code": "VMVA-ZN0A-2JV8",
       "expiry": null,
       "userName": "gutti PC"
-    },
-    {
-      "code": "ATA5-DDQ7-W63E",
-      "expiry": 1771862580000,
-      "userName": "新規ユーザー"
     }
   ],
   "order": [
@@ -105,7 +100,7 @@
   ],
   "password": "2012-0106-8686",
   "isMaintenance": true,
-  "sha": "ba7ec68a73c562bf3179379763edb5d71ebc3a10",
+  "sha": "82023c52f377861373a0578361612d64a351d67a",
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
