@@ -1,12 +1,12 @@
 {
-  "lastUpdate": "2026/2/24 0:29:59",
+  "lastUpdate": "2026/2/24 0:31:02",
   "data": [
     {
       "id": 1771860463819,
       "name": "新規項目",
       "type": "server",
-      "status": "online",
-      "msg": "正常に動作しています。",
+      "status": "periodic",
+      "msg": "メンテナンス中です。",
       "parent": 1
     }
   ]
