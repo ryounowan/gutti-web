@@ -49,7 +49,7 @@
     "htmlアンドロイドアプリ化ツール.html": "テスト稼働中",
     "稼働状態.html": "システム"
   },
-  "masterKey": "2012-0106-8686",
+  "masterKey": "7777-7777-7777",
   "bgType": "solid",
   "bgValue": "rgb(184, 212, 217)",
   "keys": [
@@ -100,7 +100,7 @@
   ],
   "password": "2012-0106-8686",
   "isMaintenance": true,
-  "sha": "ec7f7fb26e164813bbaffafdacb88f374d17a7dd",
+  "sha": "f301f3d17b6405495195f4da61f7f7071382a64d",
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
