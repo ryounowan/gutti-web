@@ -71,6 +71,11 @@
       "code": "ATA5-DDQ7-W63E",
       "expiry": 1771862580000,
       "userName": "新規ユーザー"
+    },
+    {
+      "code": "7LN5-QWD7-6FTH",
+      "expiry": null,
+      "userName": "新規ユーザー"
     }
   ],
   "order": [
@@ -105,7 +110,7 @@
   ],
   "password": "2012-0106-8686",
   "isMaintenance": true,
-  "sha": "87191c7551e2197520b81a92576922a5d2807a23",
+  "sha": "f70d367efec74c56a5a3d4cf0d662716eb7915ff",
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
