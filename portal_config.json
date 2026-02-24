@@ -66,6 +66,11 @@
       "code": "VMVA-ZN0A-2JV8",
       "expiry": null,
       "userName": "gutti PC"
+    },
+    {
+      "code": "X6SY-4A9A-NU3R",
+      "expiry": 1771947420000,
+      "userName": "新規ユーザー"
     }
   ],
   "order": [
@@ -100,7 +105,7 @@
   ],
   "password": "2012-0106-8686",
   "isMaintenance": true,
-  "sha": "82023c52f377861373a0578361612d64a351d67a",
+  "sha": "9cf737f85059a2937b95b544f822d30d7fb5935c",
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
