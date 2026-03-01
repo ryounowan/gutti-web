@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>マルチタイムツール Pro</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 10px; background: #eef2f3; display: flex; flex-direction: column; align-items: center; }
+        nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 500px; margin-bottom: 20px; }
+        nav button { padding: 15px; border: none; background: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; }
+        nav button.active { background: #2c3e50; color: white; }
+        .tab-content { display: none; width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .tab-content.active { display: block; }
+        .display { font-size: 2.5rem; margin: 20px 0; font-family: monospace; text-align: center; }
+        .lap-item { padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        #alarm-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: #c0392b; color: white; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+    </style>
+</head>
+<body>
+
+    <nav>
+        <button onclick="show('stopwatch')" id="btn-stopwatch" class="active">ストップウォッチ</button>
+        <button onclick="show('timer')" id="btn-timer">タイマー</button>
+        <button onclick="show('alarm')" id="btn-alarm">アラーム</button>
+        <button onclick="show('worldclock')" id="btn-worldclock">世界時計</button>
+    </nav>
+
+    <div id="stopwatch" class="tab-content active">
+        <div id="sw-display" class="display">00:00.00</div>
+        <div style="text-align: center;">
+            <button onclick="startSW()">開始</button><button onclick="stopSW()">停止</button>
+            <button onclick="resetSW()">リセット</button><button onclick="lapSW()">ラップ</button>
+        </div>
+        <div id="lap-list" style="margin-top:20px; height: 150px; overflow-y: auto;"></div>
+    </div>
+
+    <div id="timer" class="tab-content">
+        <input type="number" id="timer-input" placeholder="秒数(秒)" style="width:100%; padding:10px;">
+        <button onclick="startTimer()" style="width:100%; margin-top:10px;">タイマー開始</button>
+        <div id="timer-display" class="display">00:00</div>
+    </div>
+
+    <div id="alarm" class="tab-content">
+        <input type="time" id="alarm-time" style="width:100%; padding:10px;">
+        <button onclick="setAlarm()" style="width:100%; margin-top:10px;">セット</button>
+        <p id="alarm-status">未設定</p>
+    </div>
+
+    <div id="worldclock" class="tab-content">
+        <div id="wc-list"></div>
+    </div>
+
+    <div id="alarm-modal">
+        <h1 style="font-size: 3rem;">⏰ 時間です！</h1>
+        <button onclick="snoozeAlarm()" style="font-size:1.5rem; padding:20px 40px; margin:10px;">スヌーズ (5分)</button>
+        <button onclick="stopAlarm()" style="font-size:1.5rem; padding:20px 40px; margin:10px;">停止</button>
+    </div>
+
+    <script>
+        function show(id) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('btn-' + id).classList.add('active');
+        }
+
+        // ストップウォッチ
+        let swTime = 0, swInt, lapCount = 0;
+        function startSW() { if(!swInt) { let s = Date.now() - swTime; swInt = setInterval(() => { swTime = Date.now() - s; document.getElementById('sw-display').innerText = (swTime/1000).toFixed(2); }, 10); } }
+        function stopSW() { clearInterval(swInt); swInt = null; }
+        function resetSW() { stopSW(); swTime = 0; lapCount = 0; document.getElementById('sw-display').innerText = "00:00.00"; document.getElementById('lap-list').innerHTML = ""; }
+        function lapSW() { lapCount++; document.getElementById('lap-list').innerHTML += `<div class="lap-item"><span>No.${lapCount}</span><span>${document.getElementById('sw-display').innerText}</span></div>`; }
+
+        // タイマー
+        let tInt;
+        function startTimer() {
+            let rem = parseInt(document.getElementById('timer-input').value);
+            tInt = setInterval(() => {
+                rem--;
+                document.getElementById('timer-display').innerText = Math.floor(rem/60) + ":" + (rem%60).toString().padStart(2,'0');
+                if(rem <= 0) { clearInterval(tInt); document.getElementById('alarm-modal').style.display = 'flex'; }
+            }, 1000);
+        }
+
+        // アラーム
+        let alarmTime = null;
+        function setAlarm() { alarmTime = document.getElementById('alarm-time').value; document.getElementById('alarm-status').innerText = "セット完了: " + alarmTime; }
+        setInterval(() => {
+            const now = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
+            if(now === alarmTime && alarmTime !== null) { document.getElementById('alarm-modal').style.display = 'flex'; alarmTime = null; }
+        }, 1000);
+        function stopAlarm() { document.getElementById('alarm-modal').style.display = 'none'; }
+        function snoozeAlarm() { stopAlarm(); let d = new Date(); d.setMinutes(d.getMinutes() + 5); alarmTime = d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}); alert("5分後に再通知します"); }
+
+        // 世界時計
+        const zones = [
+            {n:'日本 (東京)', t:'Asia/Tokyo'}, {n:'北京', t:'Asia/Shanghai'}, {n:'ドバイ', t:'Asia/Dubai'},
+            {n:'ロンドン', t:'Europe/London'}, {n:'パリ', t:'Europe/Paris'}, {n:'ニューヨーク', t:'America/New_York'},
+            {n:'ロサンゼルス', t:'America/Los_Angeles'}, {n:'シドニー', t:'Australia/Sydney'}
+        ];
+        setInterval(() => {
+            document.getElementById('wc-list').innerHTML = zones.map(z => `<p style="margin:5px 0; border-bottom:1px solid #eee;"><b>${z.n}</b>: ${new Date().toLocaleTimeString('ja-JP', {timeZone: z.t})}</p>`).join('');
+        }, 1000);
+    </script>
+</body>
+</html>
