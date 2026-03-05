@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gutti TimeCard Ultimate</title>
+    <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
+    <style>
+        :root { --accent: #0969da; --bg: #f6f8fa; --danger: #cf222e; --success: #2da44e; --warn: #bf8700; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .card { background: white; width: 100%; max-width: 500px; padding: 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); box-sizing: border-box; }
+        .clock { font-size: 32px; font-weight: bold; text-align: center; margin-bottom: 15px; color: #333; font-family: 'Courier New', monospace; }
+        
+        /* カメラエリアの大型化と枠 */
+        #v-cont { 
+            width: 100%; 
+            height: 350px; /* 大きく変更 */
+            background: #000; 
+            border-radius: 12px; 
+            overflow: hidden; 
+            margin-bottom: 15px; 
+            position: relative; 
+            border: 4px solid #333; 
+        }
+        video { width: 100%; height: 100%; object-fit: cover; }
+        .scan-frame {
+            position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
+            border: 2px solid var(--accent); border-radius: 20px;
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.5); /* 枠の外を暗く */
+            pointer-events: none;
+        }
+        .scan-line {
+            position: absolute; top: 0; left: 0; width: 100%; height: 2px;
+            background: var(--accent); box-shadow: 0 0 10px var(--accent);
+            animation: scan 2s linear infinite;
+        }
+        @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+        input { width: 100%; padding: 15px; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px; box-sizing: border-box; font-size: 18px; text-align: center; }
+        .btn { padding: 12px; border: none; border-radius: 8px; color: white; font-weight: bold; cursor: pointer; width: 100%; margin-bottom: 5px; transition: 0.2s; }
+        .btn:active { opacity: 0.7; }
+        .btn-blue { background: var(--accent); } .btn-green { background: var(--success); } .btn-red { background: var(--danger); } .btn-orange { background: var(--warn); } .btn-gray { background: #6e7781; }
+        .status { padding: 12px; border-radius: 8px; text-align: center; margin-bottom: 15px; font-size: 14px; font-weight: bold; }
+        
+        .admin-box { display: none; margin-top: 20px; border-top: 2px solid #eee; padding-top: 15px; width: 100%; }
+        .admin-section { background: #f9f9f9; padding: 12px; border-radius: 8px; margin-bottom: 15px; border: 1px solid #eee; }
+        .log-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; background: white; }
+        .log-table th, .log-table td { border: 1px solid #eee; padding: 8px; text-align: left; }
+        .del-btn { color: var(--danger); cursor: pointer; font-weight: bold; text-align: center; }
+        h4 { margin: 0 0 10px 0; font-size: 14px; color: #555; border-left: 4px solid var(--accent); padding-left: 8px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="clock" id="clock">00:00:00</div>
+    <div id="msg" class="status" style="background:#eef; color:#336;">待機中...</div>
+
+    <div id="v-cont">
+        <video id="video" playsinline></video>
+        <div class="scan-frame"><div class="scan-line"></div></div>
+    </div>
+
+    <input type="text" id="code-in" placeholder="コード入力 / スキャン" maxlength="14">
+    <button class="btn btn-blue" onclick="auth()">認証</button>
+
+    <div id="punch-area" style="display:none; margin-top:15px; border:2px solid var(--accent); padding:15px; border-radius:12px; background: #f0f7ff;">
+        <p style="text-align:center; margin:0 0 10px 0;">👤 ユーザー: <strong id="user-name">---</strong></p>
+        <div id="btn-container" class="punch-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>
+    </div>
+
+    <div style="text-align:center; margin-top:20px;">
+        <small style="color:var(--accent); cursor:pointer;" onclick="showAdmin()">🛠 管理者パネル</small>
+    </div>
+
+    <div id="admin-area" class="admin-box">
+        <div class="admin-section">
+            <h4>🔐 パスワード変更</h4>
+            <input type="text" id="new-master-key" placeholder="新しい管理者コード">
+            <button class="btn btn-gray" onclick="changeMasterKey()">変更保存</button>
+        </div>
+
+        <div class="admin-section">
+            <h4>🔑 キー登録・削除</h4>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
+                <input type="text" id="new-name" placeholder="名前">
+                <input type="text" id="new-code" placeholder="コード">
+            </div>
+            <button class="btn btn-blue" onclick="addKey()">追加</button>
+            <div style="max-height:120px; overflow-y:auto; margin-top:10px; border:1px solid #ddd;">
+                <table class="log-table" style="margin:0;">
+                    <tbody id="key-list"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <h4>📊 履歴管理</h4>
+            <div style="max-height:150px; overflow-y:auto;">
+                <table class="log-table" style="margin:0;">
+                    <tbody id="log-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="admin-section" style="border-color: var(--danger);">
+            <h4 style="border-left-color: var(--danger); color: var(--danger);">⚠️ システム初期化</h4>
+            <p style="font-size: 10px; color: #666; margin-bottom: 5px;">すべてのユーザー、履歴、設定を消去します。</p>
+            <button class="btn btn-red" onclick="factoryReset()">サイトデータを初期化する</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    let masterKey = localStorage.getItem("gutti_master") || "1111-1111-1111";
+    let userKeys = JSON.parse(localStorage.getItem("gutti_keys")) || [];
+    let attendanceLogs = JSON.parse(localStorage.getItem("gutti_logs")) || [];
+    let targetUser = null;
+
+    setInterval(() => { document.getElementById("clock").innerText = new Date().toLocaleTimeString('ja-JP'); }, 1000);
+
+    document.querySelectorAll('input[type="text"]').forEach(el => {
+        el.addEventListener('input', e => {
+            let v = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
+            e.target.value = v.replace(/(.{4})(?=.)/g, '$1-');
+        });
+    });
+
+    function auth() {
+        const val = document.getElementById("code-in").value.trim();
+        if(val === masterKey) { showAdminArea(); setMsg("管理者ログイン", "success"); return; }
+        const user = userKeys.find(k => k.code === val);
+        if(user) {
+            targetUser = user;
+            document.getElementById("user-name").innerText = user.userName;
+            document.getElementById("punch-area").style.display = "block";
+            updateButtons(user.userName);
+            setMsg("認証成功", "success");
+        } else { setMsg("無効なコード", "danger"); }
+    }
+
+    function updateButtons(userName) {
+        const last = attendanceLogs.filter(l => l.n === userName).pop();
+        const cont = document.getElementById("btn-container");
+        if(!last || last.type === '退勤') {
+            cont.style.gridTemplateColumns = "1fr";
+            cont.innerHTML = `<button class="btn btn-green" onclick="doPunch('出勤')">出勤開始</button>`;
+        } else if(last.type === '休憩開始') {
+            cont.style.gridTemplateColumns = "1fr";
+            cont.innerHTML = `<button class="btn btn-blue" onclick="doPunch('休憩終了')">休憩戻り</button>`;
+        } else {
+            cont.style.gridTemplateColumns = "1fr 1fr";
+            cont.innerHTML = `<button class="btn btn-orange" onclick="doPunch('休憩開始')">休憩</button><button class="btn btn-red" onclick="doPunch('退勤')">退勤</button>`;
+        }
+    }
+
+    function doPunch(type) {
+        attendanceLogs.push({ n: targetUser.userName, t: new Date().toLocaleString('ja-JP'), type: type });
+        localStorage.setItem("gutti_logs", JSON.stringify(attendanceLogs));
+        setMsg(type + "完了", "success");
+        setTimeout(() => {
+            document.getElementById("punch-area").style.display = "none";
+            document.getElementById("code-in").value = "";
+            targetUser = null;
+            setMsg("待機中...", "success");
+        }, 2000);
+    }
+
+    function changeMasterKey() {
+        const nk = document.getElementById("new-master-key").value.trim();
+        if(nk.length < 4) return alert("短すぎます");
+        masterKey = nk;
+        localStorage.setItem("gutti_master", nk);
+        alert("変更完了");
+    }
+
+    function addKey() {
+        const n = document.getElementById("new-name").value;
+        const c = document.getElementById("new-code").value;
+        if(!n || !c) return alert("未入力");
+        userKeys.push({ userName: n, code: c });
+        localStorage.setItem("gutti_keys", JSON.stringify(userKeys));
+        updateKeyTable();
+    }
+
+    function deleteKey(i) { if(confirm("消去？")) { userKeys.splice(i, 1); localStorage.setItem("gutti_keys", JSON.stringify(userKeys)); updateKeyTable(); } }
+    
+    function factoryReset() {
+        if(confirm("【警告】すべてのデータが消去されます。よろしいですか？")) {
+            if(confirm("本当によろしいですか？初期パスワードに戻ります。")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+    }
+
+    function updateKeyTable() {
+        document.getElementById("key-list").innerHTML = userKeys.map((k, i) => `<tr><td>${k.userName}</td><td>${k.code}</td><td class="del-btn" onclick="deleteKey(${i})">×</td></tr>`).join("");
+    }
+
+    function updateLogTable() {
+        document.getElementById("log-body").innerHTML = attendanceLogs.slice().reverse().map((l, i) => `<tr><td>${l.t.split(' ')[1]}</td><td>${l.n}</td><td>${l.type}</td></tr>`).join("");
+    }
+
+    function showAdminArea() { document.getElementById("admin-area").style.display = "block"; updateKeyTable(); updateLogTable(); }
+    
+    function showAdmin() {
+        const p = prompt("パスワード");
+        if(p === masterKey) showAdminArea();
+    }
+
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } }).then(s => {
+        const v = document.getElementById("video");
+        v.srcObject = s; v.play();
+        const canvas = document.createElement("canvas");
+        const tick = () => {
+            if(v.readyState === v.HAVE_ENOUGH_DATA) {
+                canvas.height = v.videoHeight; canvas.width = v.videoWidth;
+                const ctx = canvas.getContext("2d");
+                ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
+                const code = jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data, canvas.width, canvas.height);
+                if(code && code.data !== document.getElementById("code-in").value) {
+                    document.getElementById("code-in").value = code.data;
+                    auth();
+                }
+            }
+            requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+    });
+
+    function setMsg(txt, cls) {
+        const m = document.getElementById("msg");
+        m.innerText = txt;
+        m.style.background = cls === "success" ? "#dcfce7" : cls === "danger" ? "#fee2e2" : "#eef";
+        m.style.color = cls === "success" ? "#166534" : cls === "danger" ? "#991b1b" : "#336";
+    }
+</script>
+</body>
+</html>
