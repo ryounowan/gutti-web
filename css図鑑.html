@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>CSSプロパティ図鑑</title>
+    <style>
+        :root { --sidebar: #1e293b; --bg: #f1f5f9; --primary: #3b82f6; }
+        body { font-family: sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); }
+        
+        /* 左：CSSプロパティ一覧 */
+        nav { width: 280px; background: var(--sidebar); color: white; display: flex; flex-direction: column; }
+        .nav-title { padding: 20px; font-weight: bold; background: #0f172a; text-align: center; }
+        .prop-list { flex: 1; overflow-y: auto; padding: 10px; }
+        .prop-item { display: block; width: 100%; text-align: left; padding: 12px; margin-bottom: 5px; border: none; background: rgba(255,255,255,0.05); color: #cbd5e1; border-radius: 6px; cursor: pointer; font-family: monospace; }
+        .prop-item:hover { background: rgba(255,255,255,0.1); }
+        .prop-item.active { background: var(--primary); color: white; font-weight: bold; }
+
+        /* 右：解説と実験場 */
+        main { flex: 1; padding: 40px; display: flex; flex-direction: column; gap: 20px; overflow-y: auto; }
+        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h2 { margin-top: 0; color: var(--sidebar); border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        
+        .code-display { background: #272822; color: #f8f8f2; padding: 20px; border-radius: 8px; font-family: monospace; line-height: 1.6; }
+        .css-key { color: #66d9ef; }   /* プロパティ名の色 */
+        .css-val { color: #e6db74; }   /* 値の色 */
+        
+        .preview-area { display: flex; justify-content: center; align-items: center; min-height: 200px; border: 2px dashed #cbd5e1; border-radius: 8px; background: white; margin-top: 10px; }
+        
+        /* ターゲット要素（この要素の見た目を変える） */
+        #target {
+            padding: 20px;
+            background: #3b82f6;
+            color: white;
+            text-align: center;
+            transition: all 0.3s; /* 変化をなめらかに */
+        }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-title">CSS単語帳 (Property)</div>
+    <div class="prop-list" id="propList"></div>
+</nav>
+
+<main>
+    <div class="card">
+        <h2 id="propName">CSSを選んでください</h2>
+        <p id="propDesc">左のリストから、意味を知りたいCSSプロパティを選択してください。</p>
+    </div>
+
+    <div class="card">
+        <div style="font-size: 0.8em; color: #64748b; margin-bottom: 5px;">CSSの書き方例:</div>
+        <div class="code-display" id="cssCode">
+            .box { <br>
+            &nbsp;&nbsp;<span class="css-key" id="displayKey">property</span>: <span class="css-val" id="displayVal">value</span>;<br>
+            }
+        </div>
+    </div>
+
+    <div class="card">
+        <div style="font-size: 0.8em; color: #64748b; margin-bottom: 5px;">見た目の変化:</div>
+        <div class="preview-area">
+            <div id="target">対象のボックス</div>
+        </div>
+    </div>
+</main>
+
+<script>
+    const cssData = {
+        "color": {
+            desc: "【文字の色】を変えます。redやblueなどの名前のほか、#ff0000のような色コードで指定します。",
+            val: "orange",
+            targetStyle: "color"
+        },
+        "background-color": {
+            desc: "【背景の色】を変えます。要素全体の塗りつぶし色を指定します。",
+            val: "#10b981",
+            targetStyle: "backgroundColor"
+        },
+        "font-size": {
+            desc: "【文字の大きさ】を変えます。px（ピクセル）などの単位を使って指定します。",
+            val: "32px",
+            targetStyle: "fontSize"
+        },
+        "width": {
+            desc: "【横幅】を指定します。箱の大きさを決める重要な設定です。",
+            val: "300px",
+            targetStyle: "width"
+        },
+        "border": {
+            desc: "【枠線】を引きます。「太さ・種類・色」の3つをセットで書くのが一般的です。",
+            val: "5px solid #000",
+            targetStyle: "border"
+        },
+        "border-radius": {
+            desc: "【角の丸み】をつけます。数値を大きくすると角が丸くなり、50%にすると円になります。",
+            val: "20px",
+            targetStyle: "borderRadius"
+        },
+        "margin": {
+            desc: "【外側の余白】を作ります。他の要素との間の距離を広げたい時に使います。",
+            val: "50px",
+            targetStyle: "margin"
+        },
+        "padding": {
+            desc: "【内側の余白】を作ります。枠線から文字までの距離を広げたい時に使います。",
+            val: "40px",
+            targetStyle: "padding"
+        },
+        "box-shadow": {
+            desc: "【影】をつけます。ふわっと浮き上がったようなデザインにできます。",
+            val: "10px 10px 20px rgba(0,0,0,0.3)",
+            targetStyle: "boxShadow"
+        },
+        "opacity": {
+            desc: "【不透明度】を変えます。1.0がくっきり、0.0が完全な透明です。",
+            val: "0.5",
+            targetStyle: "opacity"
+        }
+    };
+
+    const propList = document.getElementById('propList');
+    const propName = document.getElementById('propName');
+    const propDesc = document.getElementById('propDesc');
+    const displayKey = document.getElementById('displayKey');
+    const displayVal = document.getElementById('displayVal');
+    const target = document.getElementById('target');
+
+    Object.keys(cssData).forEach(prop => {
+        const btn = document.createElement('button');
+        btn.innerText = prop;
+        btn.className = 'prop-item';
+        btn.onclick = () => {
+            document.querySelectorAll('.prop-item').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            
+            // データ反映
+            const data = cssData[prop];
+            propName.innerText = prop;
+            propDesc.innerText = data.desc;
+            displayKey.innerText = prop;
+            displayVal.innerText = data.val;
+            
+            // スタイルリセット
+            target.style = "";
+            target.style.padding = "20px";
+            target.style.background = "#3b82f6";
+            target.style.color = "white";
+            
+            // 新しいスタイル適用
+            target.style[data.targetStyle] = data.val;
+        };
+        propList.appendChild(btn);
+    });
+</script>
+
+</body>
+</html>
