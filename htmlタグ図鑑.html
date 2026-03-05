@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>HTMLタグ学習マスター</title>
+    <style>
+        :root { --primary: #2563eb; --bg: #f8fafc; --text: #1e293b; --accent: #3b82f6; }
+        body { font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif; margin: 0; display: flex; height: 100vh; background: var(--bg); color: var(--text); }
+        
+        /* サイドバー */
+        nav { width: 300px; background: #fff; border-right: 1px solid #e2e8f0; display: flex; flex-direction: column; }
+        .nav-header { padding: 20px; font-weight: bold; background: var(--primary); color: white; text-align: center; }
+        .category-label { background: #f1f5f9; padding: 8px 15px; font-size: 0.85em; font-weight: bold; color: #64748b; border-bottom: 1px solid #e2e8f0; }
+        .tag-list { flex: 1; overflow-y: auto; padding: 5px; }
+        .tag-item { display: block; width: 100%; text-align: left; padding: 8px 15px; margin-bottom: 2px; border: none; background: none; border-radius: 4px; cursor: pointer; transition: 0.2s; font-family: 'Consolas', monospace; font-size: 0.95em; }
+        .tag-item:hover { background: #eff6ff; color: var(--primary); }
+        .tag-item.active { background: var(--primary); color: white; }
+
+        /* メイン画面 */
+        main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .content-area { padding: 30px; overflow-y: auto; flex: 1; }
+        
+        h2 { margin-top: 0; color: var(--primary); border-left: 5px solid var(--primary); padding-left: 15px; margin-bottom: 20px; }
+        .description { line-height: 1.7; margin-bottom: 25px; background: #fff; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .code-header { font-size: 0.8em; font-weight: bold; color: #64748b; margin-bottom: 5px; display: flex; justify-content: space-between; }
+        .code-box { background: #1e1e1e; color: #d4d4d4; padding: 20px; border-radius: 8px; margin-bottom: 25px; font-family: 'Consolas', 'Monaco', monospace; white-space: pre-wrap; line-height: 1.5; font-size: 15px; position: relative; }
+        .preview-label { font-size: 0.8em; font-weight: bold; color: #64748b; margin-bottom: 5px; }
+        .preview-box { background: white; border: 2px solid #e2e8f0; padding: 25px; border-radius: 8px; min-height: 120px; box-shadow: inset 0 2px 4px rgba(0,0,0,0.02); }
+        
+        /* スクロールバー装飾 */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f5f9; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<nav>
+    <div class="nav-header">HTML全タグ辞典 2026</div>
+    <div class="tag-list" id="tagList"></div>
+</nav>
+
+<main>
+    <div class="content-area">
+        <h2 id="tagName">タグを選択してください</h2>
+        <div class="description" id="tagDesc">左側のメニューから学習したいタグをクリックしてください。実際のコードとその表示結果がここに現れます。</div>
+        
+        <div class="code-header">コード（HTML）</div>
+        <div class="code-box" id="tagCode"></div>
+        
+        <div class="preview-label">表示結果（ブラウザでの見え方）</div>
+        <div id="tagPreviewContainer">
+            <iframe id="previewFrame" style="width: 100%; border: none; background: white; border: 2px solid #e2e8f0; border-radius: 8px; min-height: 200px;"></iframe>
+        </div>
+    </div>
+</main>
+
+<script>
+    const tagCategories = [
+        {
+            name: "1. 基本構造",
+            tags: {
+                "<!DOCTYPE html>": { desc: "HTML5であることを宣言します。文書の先頭に必ず記述します。", code: "<!DOCTYPE html>\n<html>\n  <p>※これは宣言なので画面には何も表示されません</p>\n</html>" },
+                "<html>": { desc: "HTML文書の全体を囲むルート要素です。lang属性で言語（jaなど）を指定します。", code: "<html lang=\"ja\">\n  <body>ここがページの内容になります</body>\n</html>" },
+                "<head>": { desc: "ページのメタ情報（設定）を入れる場所です。ここにある内容は画面には表示されません。", code: "<head>\n  <meta charset=\"UTF-8\">\n  <title>ページのタイトル</title>\n</head>\n<p>headタグは設定情報なので、プレビューには中身は表示されません。</p>" },
+                "<title>": { desc: "ブラウザのタブや検索結果に表示されるタイトルを定義します。", code: "<title>私のWebサイト</title>\n<p>ブラウザの一番上のタブを確認してください（このツール内では反映されません）。</p>" },
+                "<body>": { desc: "実際にブラウザの画面上に表示されるすべてのコンテンツをこの中に書きます。", code: "<body>\n  <h1>ようこそ</h1>\n  <p>ここが画面に表示されるエリアです。</p>\n</body>" }
+            }
+        },
+        {
+            name: "2. テキスト・文章の構造",
+            tags: {
+                "<h1>〜<h6>": { desc: "見出しです。1が最も大きく、6が最も小さくなります。", code: "<h1>h1: 最大の見出し</h1>\n<h2>h2: 中見出し</h2>\n<h3>h3: 小見出し</h3>\n<h4>h4: 見出し</h4>" },
+                "<p>": { desc: "段落（Paragraph）です。文章のまとまりを作ります。", code: "<p>これは1つ目の段落です。</p>\n<p>これは2つ目の段落です。段落の間には自動的に少し余白が入ります。</p>" },
+                "<br>": { desc: "改行（Break）を入れます。終了タグは不要です。", code: "一行目<br>二行目（brで改行しています）" },
+                "<strong>": { desc: "重要なテキストを強調します。通常は太字で表示されます。", code: "ここは普通の文字ですが、<strong>ここだけは重要です。</strong>" },
+                "<span>": { desc: "意味を持たないインライン要素です。CSSで特定の部分の色を変える際などに使います。", code: "普通の文字の中に、<span style=\"color: red; font-weight: bold;\">ここだけ赤い文字</span>を混ぜる。" },
+                "<div>": { desc: "意味を持たないブロック要素です。コンテンツをグループ化してレイアウトを作るのに必須です。", code: "<div style=\"background: #eef2ff; padding: 20px; border: 1px solid #6366f1;\">\n  <div>ここはdivの中です。</div>\n  <p>グループ化して装飾できます。</p>\n</div>" }
+            }
+        },
+        {
+            name: "3. リスト・表（テーブル）",
+            tags: {
+                "<ul>": { desc: "順序のない箇条書き（Unordered List）です。liタグと一緒に使います。", code: "<ul>\n  <li>りんご</li>\n  <li>バナナ</li>\n  <li>オレンジ</li>\n</ul>" },
+                "<ol>": { desc: "順序のある箇条書き（Ordered List）です。自動で番号がつきます。", code: "<ol>\n  <li>まずはお湯を沸かします</li>\n  <li>麺を入れます</li>\n  <li>3分待ちます</li>\n</ol>" },
+                "<table>": { desc: "表（テーブル）を作成します。trが行、thが見出し、tdが内容です。", code: "<table border=\"1\" style=\"width:100%; border-collapse: collapse;\">\n  <tr style=\"background: #f1f5f9;\">\n    <th>商品名</th>\n    <th>価格</th>\n  </tr>\n  <tr>\n    <td>コーヒー</td>\n    <td>300円</td>\n  </tr>\n  <tr>\n    <td>ケーキ</td>\n    <td>500円</td>\n  </tr>\n</table>" }
+            }
+        },
+        {
+            name: "4. リンク・メディア",
+            tags: {
+                "<a>": { desc: "リンク（Anchor）です。href属性で移動先URLを指定します。", code: "<a href=\"https://www.google.com\" target=\"_blank\">Googleを開く（別タブ）</a>" },
+                "<img>": { desc: "画像（Image）を表示します。srcにURL、altに説明を書きます。", code: "<img src=\"https://picsum.photos/200/100\" alt=\"ランダム画像\">\n<p>画像が表示されます。</p>" },
+                "<iframe>": { desc: "別のWebページをこのページの中に埋め込みます。", code: "<iframe src=\"https://example.com\" style=\"width:100%; height:100px;\"></iframe>" },
+                "<video>": { desc: "動画を再生します。controls属性で再生ボタン等を表示します。", code: "<video controls width=\"250\">\n  <source src=\"https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4\" type=\"video/mp4\">\n  動画がサポートされていません\n</video>" }
+            }
+        },
+        {
+            name: "5. フォーム（入力画面）",
+            tags: {
+                "<form>": { desc: "入力フォーム全体をまとめます。", code: "<form onsubmit=\"return false;\">\n  <label>名前：</label>\n  <input type=\"text\">\n  <button type=\"submit\">送信ボタン</button>\n</form>" },
+                "<input>": { desc: "様々な入力部品を作ります。typeによって形が激変します。", code: "テキスト：<input type=\"text\"><br>\nパスワード：<input type=\"password\"><br>\nチェック：<input type=\"checkbox\"> 同意" },
+                "<textarea>": { desc: "複数行の長い文章を入力できるエリアです。", code: "<textarea rows=\"4\" cols=\"30\">ここにメッセージを記入してください</textarea>" },
+                "<select>": { desc: "プルダウン式の選択メニューを作ります。", code: "<select>\n  <option>選択肢1</option>\n  <option>選択肢2</option>\n  <option>選択肢3</option>\n</select>" }
+            }
+        },
+        {
+            name: "6. セマンティック（構造）",
+            tags: {
+                "<header>": { desc: "ページのヘッダー部分。ロゴやナビゲーションを置きます。", code: "<header style=\"background: #333; color: white; padding: 10px;\">サイトのロゴ</header>" },
+                "<nav>": { desc: "ナビゲーションメニューのリンク集に使います。", code: "<nav>\n  <a href=\"#\">ホーム</a> | <a href=\"#\">ブログ</a> | <a href=\"#\">連絡先</a>\n</nav>" },
+                "<main>": { desc: "そのページのメインとなるコンテンツを囲みます。", code: "<main>\n  <h1>本日のニュース</h1>\n  <p>ここがページのメイン内容です。</p>\n</main>" },
+                "<footer>": { desc: "ページ最下部のフッター。コピーライトなどを書きます。", code: "<footer style=\"margin-top:20px; font-size: 0.8em; color: gray;\">© 2026 My Web Site</footer>" }
+            }
+        }
+    ];
+
+    const tagList = document.getElementById('tagList');
+    const tagName = document.getElementById('tagName');
+    const tagDesc = document.getElementById('tagDesc');
+    const tagCode = document.getElementById('tagCode');
+    const previewFrame = document.getElementById('previewFrame');
+
+    // リスト生成
+    tagCategories.forEach(cat => {
+        const label = document.createElement('div');
+        label.className = 'category-label';
+        label.innerText = cat.name;
+        tagList.appendChild(label);
+
+        Object.keys(cat.tags).forEach(t => {
+            const btn = document.createElement('button');
+            btn.className = 'tag-item';
+            btn.innerText = t;
+            btn.onclick = () => showTag(t, cat.tags[t], btn);
+            tagList.appendChild(btn);
+        });
+    });
+
+    function showTag(name, data, element) {
+        document.querySelectorAll('.tag-item').forEach(b => b.classList.remove('active'));
+        element.classList.add('active');
+
+        tagName.innerText = name;
+        tagDesc.innerText = data.desc;
+        tagCode.innerText = data.code;
+
+        const doc = previewFrame.contentDocument || previewFrame.contentWindow.document;
+        doc.open();
+        doc.write('<html><head><style>body{font-family:sans-serif; padding:10px; margin:0;}</style></head><body>' + data.code + '</body></html>');
+        doc.close();
+    }
+</script>
+
+</body>
+</html>
