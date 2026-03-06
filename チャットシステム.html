@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>P2P Ultimate Chat</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { 
+            --accent: #5865f2; --bg: #313338; --card: #2b2d31; 
+            --danger: #ed4245; --text: #dbdee1; --speaking: #23a559;
+            --me-bubble: #5865f2; --other-bubble: #383a40;
+        }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        body { 
+            height: 100dvh; margin: 0; background: var(--bg); color: var(--text); 
+            font-family: -apple-system, sans-serif; display: flex; flex-direction: column; overflow: hidden;
+        }
+
+        /* Loading Spinner */
+        .spinner { width: 18px; height: 18px; border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; vertical-align: middle; margin-right: 5px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Home/Lobby */
+        #setup { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; flex-direction: column; padding: 20px; overflow-y: auto; }
+        .profile-section { background: var(--card); padding: 20px; border-radius: 16px; text-align: center; margin-bottom: 20px; }
+        .icon-p { width: 70px; height: 70px; border-radius: 50%; background: #4e5058; margin: 0 auto 10px; border: 3px solid var(--accent); cursor: pointer; overflow: hidden; }
+        .icon-p img { width: 100%; height: 100%; object-fit: cover; }
+        
+        .room-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        .room-card { background: var(--card); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px; cursor: pointer; }
+        .room-avatar { width: 45px; height: 45px; border-radius: 12px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; }
+        .room-info { flex: 1; }
+        .delete-room { padding: 10px; color: var(--danger); font-size: 18px; }
+
+        /* Main App UI */
+        header { padding: 10px 15px; background: var(--card); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(0,0,0,0.2); z-index: 10; }
+        .header-btns { display: flex; gap: 8px; }
+        .call-btn, .mic-toggle { border: none; color: white; padding: 8px 14px; border-radius: 20px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .call-btn { background: #4e5058; }
+        .call-btn.active { background: var(--speaking); }
+        .mic-toggle { background: #4e5058; display: none; }
+        .mic-toggle.muted { background: var(--danger); }
+
+        #member-list { display: flex; gap: 12px; padding: 10px 15px; background: #2b2d31; overflow-x: auto; min-height: 70px; flex-shrink: 0; }
+        .member-item { display: flex; flex-direction: column; align-items: center; min-width: 50px; }
+        .u-icon { width: 36px; height: 36px; border-radius: 50%; border: 2px solid transparent; object-fit: cover; }
+        .speaking .u-icon { border-color: var(--speaking); box-shadow: 0 0 8px var(--speaking); }
+
+        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 14px; }
+        .date-label { align-self: center; font-size: 11px; color: #94a3b8; background: rgba(0,0,0,0.2); padding: 3px 15px; border-radius: 10px; margin: 10px 0; }
+        .system-msg { align-self: center; font-size: 11px; color: #94a3b8; padding: 4px; }
+        
+        .msg { display: flex; gap: 8px; max-width: 85%; align-items: flex-end; }
+        .msg.me { align-self: flex-end; flex-direction: row-reverse; }
+        .avatar { width: 32px; height: 32px; border-radius: 50%; align-self: flex-start; flex-shrink: 0; }
+        .msg-bubble { padding: 8px 14px; border-radius: 18px; font-size: 15px; color: white; word-break: break-all; }
+        .msg.me .msg-bubble { background: var(--me-bubble); border-bottom-right-radius: 2px; }
+        .msg:not(.me) .msg-bubble { background: var(--other-bubble); border-bottom-left-radius: 2px; }
+        .msg-time { font-size: 10px; color: #94a3b8; margin: 0 4px; padding-bottom: 2px; flex-shrink: 0; }
+        .msg-media { max-width: 100%; border-radius: 12px; margin-top: 4px; display: block; background: #000; cursor: pointer; }
+        
+        /* File Box UI */
+        .file-box { background: rgba(0,0,0,0.2); padding: 10px; border-radius: 10px; display: flex; align-items: center; gap: 10px; text-decoration: none; color: white; margin-top: 4px; border: 1px solid rgba(255,255,255,0.1); }
+        .file-icon { font-size: 20px; }
+
+        .footer { padding: 10px; background: var(--card); display: flex; gap: 10px; align-items: center; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
+        .input-area { flex: 1; background: #383a40; border-radius: 20px; padding: 0 12px; display: flex; align-items: center; }
+        .input-area input { background: transparent; border: none; padding: 10px 0; color: white; flex: 1; font-size: 16px; }
+        #loading-indicator { display: none; font-size: 12px; color: var(--accent); margin-right: 10px; }
+    </style>
+</head>
+<body>
+
+<div id="setup">
+    <div class="profile-section">
+        <div class="icon-p" onclick="document.getElementById('fInput').click()"><img id="pImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E"></div>
+        <input type="file" id="fInput" accept="image/*" style="display:none" onchange="loadIcon(this)">
+        <input type="text" id="user" placeholder="名前を入力" style="width:100%; padding:10px; border-radius:8px; border:none; background:#1e1f22; color:white; text-align:center;">
+    </div>
+    <div style="font-size:14px; color:#94a3b8; margin:10px 5px; display:flex; justify-content:space-between;"><span>ルームリスト</span><button onclick="createNewRoom()" style="background:var(--accent); color:white; border:none; border-radius:15px; padding:4px 12px; font-size:12px;">+ 新規</button></div>
+    <div class="room-grid" id="room-list-container"></div>
+</div>
+
+<header>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <button onclick="exitRoom()" style="background:none; border:none; color:white; font-size:20px;">←</button>
+        <div id="room-id" style="font-weight:bold;"># ---</div>
+    </div>
+    <div class="header-btns">
+        <button id="micToggle" class="mic-toggle" onclick="toggleMic()">🎤 ON</button>
+        <button id="callBtn" class="call-btn" onclick="toggleCall()">📞 通話開始</button>
+    </div>
+</header>
+<div id="member-list"></div>
+<div id="chat"></div>
+<div class="footer">
+    <button style="background:none; border:none; color:#b5bac1; font-size:22px;" onclick="document.getElementById('mFileInput').click()">+</button>
+    <input type="file" id="mFileInput" style="display:none" onchange="handleFile(this)">
+    <div id="loading-indicator"><div class="spinner"></div></div>
+    <div class="input-area">
+        <input type="text" id="mInput" placeholder="メッセージ" autocomplete="off">
+        <button style="background:none; border:none; color:var(--accent); font-weight:bold;" onclick="sendText()">送信</button>
+    </div>
+</div>
+
+<script>
+    let peer, myName, roomCode, myFullId, localStream, isCalling = false, isMuted = false;
+    let conns = {}, memberData = {}, myIcon = "", lastDateStr = "", isSpeaking = false;
+
+    window.onload = () => {
+        document.getElementById('user').value = localStorage.getItem('p2p_name') || "";
+        myIcon = localStorage.getItem('p2p_icon') || document.getElementById('pImg').src;
+        document.getElementById('pImg').src = myIcon;
+        renderRoomList();
+        document.getElementById('mInput').onkeypress = (e) => { if(e.key==='Enter') sendText(); };
+    };
+
+    function loadIcon(input) {
+        if (input.files?.[0]) {
+            const reader = new FileReader();
+            reader.onload = (e) => { myIcon = e.target.result; document.getElementById('pImg').src = myIcon; localStorage.setItem('p2p_icon', myIcon); };
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+
+    function createNewRoom() {
+        const name = prompt("ルーム名を入力");
+        if (!name) return;
+        let rooms = JSON.parse(localStorage.getItem('p2p_rooms_v2') || "[]");
+        if (!rooms.includes(name)) { rooms.push(name); localStorage.setItem('p2p_rooms_v2', JSON.stringify(rooms)); renderRoomList(); }
+    }
+
+    function renderRoomList() {
+        const rooms = JSON.parse(localStorage.getItem('p2p_rooms_v2') || "[]");
+        const container = document.getElementById('room-list-container');
+        container.innerHTML = rooms.map(r => `
+            <div class="room-card" onclick="joinRoom('${r}')">
+                <div class="room-avatar">${r.substring(0,1)}</div>
+                <div class="room-info"><div class="room-name">${r}</div></div>
+                <div class="delete-room" onclick="deleteRoom('${r}', event)">×</div>
+            </div>`).join('');
+    }
+
+    function deleteRoom(name, e) {
+        e.stopPropagation();
+        if (!confirm(`${name}を削除？`)) return;
+        let rooms = JSON.parse(localStorage.getItem('p2p_rooms_v2') || "[]").filter(r => r !== name);
+        localStorage.setItem('p2p_rooms_v2', JSON.stringify(rooms));
+        localStorage.removeItem(`chat_${name}`);
+        renderRoomList();
+    }
+
+    async function joinRoom(name) {
+        roomCode = name; myName = document.getElementById('user').value.trim() || "Guest";
+        localStorage.setItem('p2p_name', myName); loadChatHistory();
+        myFullId = `${roomCode}_${Math.random().toString(36).substr(2, 7)}`;
+        peer = new Peer(myFullId);
+        peer.on('open', () => { document.getElementById('setup').style.display='none'; document.getElementById('room-id').innerText=`# ${roomCode}`; broadcastStatus(); initHub(); });
+        peer.on('call', call => { if (isCalling) { call.answer(localStream); call.on('stream', s => playAudio(s, call.peer)); } });
+        peer.on('connection', setupConn);
+    }
+
+    function exitRoom() { location.reload(); }
+
+    function setupConn(conn) {
+        if (conns[conn.peer]) return;
+        conns[conn.peer] = conn;
+        conn.on('open', () => {
+            broadcastStatus();
+            conn.on('data', data => {
+                if (data.type === 'status') { if (data.system) addSystemMsg(data.system); memberData[conn.peer] = data; renderMembers(); }
+                else if (data.type === 'chat') addMessage(data.u, data.m, memberData[conn.peer]?.icon, false, data.file, data.time, data.fullDate);
+            });
+        });
+    }
+
+    function initHub() {
+        const hubId = `${roomCode}_HUB`;
+        const hub = new Peer(hubId);
+        hub.on('open', () => hub.on('connection', setupConn));
+        hub.on('error', () => connectTo(hubId));
+    }
+
+    function connectTo(id) { if (!conns[id] && id !== myFullId) setupConn(peer.connect(id)); }
+
+    async function toggleCall() {
+        const btn = document.getElementById('callBtn');
+        const micBtn = document.getElementById('micToggle');
+        if (!isCalling) {
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                isCalling = true; isMuted = false;
+                btn.innerText = "🎤 通話中"; btn.classList.add('active'); micBtn.style.display = "block";
+                broadcastStatus({ system: `${myName}が通話を開始しました` });
+                addSystemMsg("通話を開始しました");
+                Object.keys(conns).forEach(id => { const call = peer.call(id, localStream); call.on('stream', s => playAudio(s, id)); });
+                startVoiceDetection();
+            } catch (e) { alert("マイク不可"); }
+        } else {
+            if(localStream) localStream.getTracks().forEach(t => t.stop());
+            isCalling = false; btn.innerText = "📞 通話開始"; btn.classList.remove('active'); micBtn.style.display = "none";
+            broadcastStatus({ system: `${myName}が通話を終了しました` });
+            addSystemMsg("通話を終了しました");
+            document.querySelectorAll('audio').forEach(a => a.remove());
+        }
+    }
+
+    function toggleMic() {
+        isMuted = !isMuted; localStream.getAudioTracks()[0].enabled = !isMuted;
+        document.getElementById('micToggle').innerText = isMuted ? "🎙️ OFF" : "🎤 ON";
+        document.getElementById('micToggle').classList.toggle('muted', isMuted);
+        broadcastStatus();
+    }
+
+    function playAudio(stream, id) {
+        if (!isCalling) return;
+        let audio = document.getElementById(`audio-${id}`) || document.createElement('audio');
+        audio.id = `audio-${id}`; audio.srcObject = stream; audio.autoplay = true;
+        document.body.appendChild(audio);
+    }
+
+    function startVoiceDetection() {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const src = ctx.createMediaStreamSource(localStream);
+        const ans = ctx.createAnalyser();
+        ans.fftSize = 256; src.connect(ans);
+        const buffer = new Uint8Array(ans.frequencyBinCount);
+        const detect = () => {
+            if (!isCalling) return;
+            ans.getByteFrequencyData(buffer);
+            let speaking = (buffer.reduce((a, b) => a + b) / buffer.length) > 35 && !isMuted;
+            if (speaking !== isSpeaking) { isSpeaking = speaking; broadcastStatus(); }
+            requestAnimationFrame(detect);
+        };
+        detect();
+    }
+
+    function broadcastStatus(extra = {}) {
+        const s = { type: 'status', u: myName, icon: myIcon, speaking: isSpeaking, calling: isCalling, muted: isMuted, ...extra };
+        memberData[myFullId] = s; renderMembers();
+        Object.values(conns).forEach(c => { if (c.open) c.send(s); });
+    }
+
+    function renderMembers() {
+        const list = document.getElementById('member-list');
+        list.innerHTML = Object.keys(memberData).map(id => {
+            const m = memberData[id];
+            return `<div class="member-item ${m.speaking?'speaking':''}">
+                <img src="${m.icon}" class="u-icon ${m.muted?'muted-icon':''}" style="opacity:${m.calling ? '1' : '0.4'}">
+                <div style="font-size:10px; margin-top:4px; color:${m.calling?'var(--speaking)':'inherit'}">${m.u}${m.muted ? ' 🔇' : ''}</div>
+            </div>`;
+        }).join('');
+    }
+
+    function addSystemMsg(text) {
+        const chat = document.getElementById('chat');
+        chat.insertAdjacentHTML('beforeend', `<div class="system-msg">${text}</div>`);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    function sendText() {
+        const input = document.getElementById('mInput');
+        if (!input.value.trim()) return;
+        const now = new Date();
+        const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const fullDate = now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+        const data = { type: 'chat', u: myName, m: input.value, time, fullDate };
+        addMessage(myName, input.value, myIcon, true, null, time, fullDate);
+        Object.values(conns).forEach(c => { if (c.open) c.send(data); });
+        input.value = "";
+    }
+
+    function handleFile(input) {
+        if (!input.files?.[0]) return;
+        const file = input.files[0];
+        const loading = document.getElementById('loading-indicator');
+        loading.style.display = 'block';
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const now = new Date();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const fullDate = now.toLocaleDateString('ja-JP', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' });
+            const fileObj = { data: e.target.result, type: file.type, name: file.name };
+            
+            addMessage(myName, "", myIcon, true, fileObj, time, fullDate);
+            Object.values(conns).forEach(c => { if (c.open) c.send({ type: 'chat', u: myName, m: "", file: fileObj, time, fullDate }); });
+            
+            loading.style.display = 'none';
+        };
+        reader.readAsDataURL(file);
+        input.value = ""; 
+    }
+
+    function addMessage(u, m, icon, isMe, file = null, time, fullDate, isHistory = false) {
+        const chat = document.getElementById('chat');
+        if (fullDate !== lastDateStr) {
+            chat.insertAdjacentHTML('beforeend', `<div class="date-label">${fullDate}</div>`);
+            lastDateStr = fullDate;
+        }
+        let content = m ? `<div class="msg-bubble">${m}</div>` : "";
+        if (file) {
+            if (file.type.startsWith('image/')) {
+                content += `<img src="${file.data}" class="msg-media" onclick="window.open(this.src)">`;
+            } else if (file.type.startsWith('video/')) {
+                content += `<video src="${file.data}" class="msg-media" controls playsinline></video>`;
+            } else {
+                content += `<a href="${file.data}" download="${file.name}" class="file-box">
+                    <span class="file-icon">📄</span>
+                    <div style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px;">${file.name}</div>
+                </a>`;
+            }
+        }
+        const html = `<div class="msg ${isMe ? 'me' : ''}"><img src="${icon}" class="avatar"><div class="msg-content">${!isMe ? `<span style="font-size:10px;color:#94a3b8;margin-left:4px;">${u}</span>` : ''}<div style="display:flex; flex-direction:${isMe?'row-reverse':'row'}; align-items:flex-end;">${content}<span class="msg-time">${time}</span></div></div></div>`;
+        chat.insertAdjacentHTML('beforeend', html);
+        chat.scrollTop = chat.scrollHeight;
+
+        if (!isHistory) {
+            let history = JSON.parse(localStorage.getItem(`chat_${roomCode}`) || "[]");
+            history.push({ u, m, icon, isMe, file, time, fullDate });
+            if (history.length > 30) history.shift(); // ファイル込みのため履歴数は少なめに
+            localStorage.setItem(`chat_${roomCode}`, JSON.stringify(history));
+        }
+    }
+
+    function loadChatHistory() {
+        const chat = document.getElementById('chat'); chat.innerHTML = ""; lastDateStr = "";
+        const history = JSON.parse(localStorage.getItem(`chat_${roomCode}`) || "[]");
+        history.forEach(msg => { addMessage(msg.u, msg.m, msg.icon, msg.isMe, msg.file, msg.time, msg.fullDate, true); });
+    }
+</script>
+</body>
+</html>
