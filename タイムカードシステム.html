@@ -7,27 +7,20 @@
     <script src="https://unpkg.com/jsqr/dist/jsQR.js"></script>
     <style>
         :root { --accent: #0969da; --bg: #f6f8fa; --danger: #cf222e; --success: #2da44e; --warn: #bf8700; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        body { font-family: -apple-system, "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; background: var(--bg); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
         .card { background: white; width: 100%; max-width: 500px; padding: 20px; border-radius: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.1); box-sizing: border-box; }
         .clock { font-size: 32px; font-weight: bold; text-align: center; margin-bottom: 15px; color: #333; font-family: 'Courier New', monospace; }
         
-        /* カメラエリアの大型化と枠 */
+        /* 大型カメラエリア */
         #v-cont { 
-            width: 100%; 
-            height: 350px; /* 大きく変更 */
-            background: #000; 
-            border-radius: 12px; 
-            overflow: hidden; 
-            margin-bottom: 15px; 
-            position: relative; 
-            border: 4px solid #333; 
+            width: 100%; height: 350px; background: #000; border-radius: 12px; 
+            overflow: hidden; margin-bottom: 15px; position: relative; border: 4px solid #333; 
         }
         video { width: 100%; height: 100%; object-fit: cover; }
         .scan-frame {
             position: absolute; top: 10%; left: 10%; width: 80%; height: 80%;
             border: 2px solid var(--accent); border-radius: 20px;
-            box-shadow: 0 0 0 2000px rgba(0,0,0,0.5); /* 枠の外を暗く */
-            pointer-events: none;
+            box-shadow: 0 0 0 2000px rgba(0,0,0,0.5); pointer-events: none;
         }
         .scan-line {
             position: absolute; top: 0; left: 0; width: 100%; height: 2px;
@@ -61,12 +54,12 @@
         <div class="scan-frame"><div class="scan-line"></div></div>
     </div>
 
-    <input type="text" id="code-in" placeholder="コード入力 / スキャン" maxlength="14">
+    <input type="text" id="code-in" class="auto-hyphen" placeholder="コード入力 / スキャン" maxlength="14">
     <button class="btn btn-blue" onclick="auth()">認証</button>
 
     <div id="punch-area" style="display:none; margin-top:15px; border:2px solid var(--accent); padding:15px; border-radius:12px; background: #f0f7ff;">
         <p style="text-align:center; margin:0 0 10px 0;">👤 ユーザー: <strong id="user-name">---</strong></p>
-        <div id="btn-container" class="punch-grid" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>
+        <div id="btn-container" style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;"></div>
     </div>
 
     <div style="text-align:center; margin-top:20px;">
@@ -75,18 +68,18 @@
 
     <div id="admin-area" class="admin-box">
         <div class="admin-section">
-            <h4>🔐 パスワード変更</h4>
-            <input type="text" id="new-master-key" placeholder="新しい管理者コード">
+            <h4>🔐 管理コード変更</h4>
+            <input type="text" id="new-master-key" class="auto-hyphen" placeholder="新しい管理者コード" maxlength="14">
             <button class="btn btn-gray" onclick="changeMasterKey()">変更保存</button>
         </div>
 
         <div class="admin-section">
-            <h4>🔑 キー登録・削除</h4>
+            <h4>🔑 ユーザー登録</h4>
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 5px;">
-                <input type="text" id="new-name" placeholder="名前">
-                <input type="text" id="new-code" placeholder="コード">
+                <input type="text" id="new-name" placeholder="氏名 (日本語可)">
+                <input type="text" id="new-code" class="auto-hyphen" placeholder="コード" maxlength="14">
             </div>
-            <button class="btn btn-blue" onclick="addKey()">追加</button>
+            <button class="btn btn-blue" onclick="addKey()">このブラウザに登録</button>
             <div style="max-height:120px; overflow-y:auto; margin-top:10px; border:1px solid #ddd;">
                 <table class="log-table" style="margin:0;">
                     <tbody id="key-list"></tbody>
@@ -95,7 +88,7 @@
         </div>
 
         <div class="admin-section">
-            <h4>📊 履歴管理</h4>
+            <h4>📊 履歴</h4>
             <div style="max-height:150px; overflow-y:auto;">
                 <table class="log-table" style="margin:0;">
                     <tbody id="log-body"></tbody>
@@ -105,8 +98,7 @@
 
         <div class="admin-section" style="border-color: var(--danger);">
             <h4 style="border-left-color: var(--danger); color: var(--danger);">⚠️ システム初期化</h4>
-            <p style="font-size: 10px; color: #666; margin-bottom: 5px;">すべてのユーザー、履歴、設定を消去します。</p>
-            <button class="btn btn-red" onclick="factoryReset()">サイトデータを初期化する</button>
+            <button class="btn btn-red" onclick="factoryReset()">すべてのデータを消去してリセット</button>
         </div>
     </div>
 </div>
@@ -119,7 +111,8 @@
 
     setInterval(() => { document.getElementById("clock").innerText = new Date().toLocaleTimeString('ja-JP'); }, 1000);
 
-    document.querySelectorAll('input[type="text"]').forEach(el => {
+    // コード入力欄（auto-hyphenクラス）のみハイフンを自動挿入
+    document.querySelectorAll('.auto-hyphen').forEach(el => {
         el.addEventListener('input', e => {
             let v = e.target.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();
             e.target.value = v.replace(/(.{4})(?=.)/g, '$1-');
@@ -135,8 +128,8 @@
             document.getElementById("user-name").innerText = user.userName;
             document.getElementById("punch-area").style.display = "block";
             updateButtons(user.userName);
-            setMsg("認証成功", "success");
-        } else { setMsg("無効なコード", "danger"); }
+            setMsg("認証成功: " + user.userName, "success");
+        } else { setMsg("認証できませんでした", "danger"); }
     }
 
     function updateButtons(userName) {
@@ -144,7 +137,7 @@
         const cont = document.getElementById("btn-container");
         if(!last || last.type === '退勤') {
             cont.style.gridTemplateColumns = "1fr";
-            cont.innerHTML = `<button class="btn btn-green" onclick="doPunch('出勤')">出勤開始</button>`;
+            cont.innerHTML = `<button class="btn btn-green" onclick="doPunch('出勤')">出勤</button>`;
         } else if(last.type === '休憩開始') {
             cont.style.gridTemplateColumns = "1fr";
             cont.innerHTML = `<button class="btn btn-blue" onclick="doPunch('休憩終了')">休憩戻り</button>`;
@@ -168,29 +161,29 @@
 
     function changeMasterKey() {
         const nk = document.getElementById("new-master-key").value.trim();
-        if(nk.length < 4) return alert("短すぎます");
+        if(nk.length < 4) return alert("パスワードが短すぎます");
         masterKey = nk;
         localStorage.setItem("gutti_master", nk);
-        alert("変更完了");
+        alert("管理パスワードを変更しました");
     }
 
     function addKey() {
-        const n = document.getElementById("new-name").value;
-        const c = document.getElementById("new-code").value;
-        if(!n || !c) return alert("未入力");
+        const n = document.getElementById("new-name").value.trim();
+        const c = document.getElementById("new-code").value.trim();
+        if(!n || !c) return alert("名前とコードを入力してください");
         userKeys.push({ userName: n, code: c });
         localStorage.setItem("gutti_keys", JSON.stringify(userKeys));
         updateKeyTable();
+        document.getElementById("new-name").value = "";
+        document.getElementById("new-code").value = "";
     }
 
-    function deleteKey(i) { if(confirm("消去？")) { userKeys.splice(i, 1); localStorage.setItem("gutti_keys", JSON.stringify(userKeys)); updateKeyTable(); } }
+    function deleteKey(i) { if(confirm("このユーザーを削除しますか？")) { userKeys.splice(i, 1); localStorage.setItem("gutti_keys", JSON.stringify(userKeys)); updateKeyTable(); } }
     
     function factoryReset() {
-        if(confirm("【警告】すべてのデータが消去されます。よろしいですか？")) {
-            if(confirm("本当によろしいですか？初期パスワードに戻ります。")) {
-                localStorage.clear();
-                location.reload();
-            }
+        if(confirm("【重要】すべての設定・ユーザー・履歴を完全に消去しますか？")) {
+            localStorage.clear();
+            location.reload();
         }
     }
 
@@ -205,7 +198,7 @@
     function showAdminArea() { document.getElementById("admin-area").style.display = "block"; updateKeyTable(); updateLogTable(); }
     
     function showAdmin() {
-        const p = prompt("パスワード");
+        const p = prompt("パスワードを入力");
         if(p === masterKey) showAdminArea();
     }
 
