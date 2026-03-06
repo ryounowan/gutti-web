@@ -6,69 +6,156 @@
     <title>Ultra Low Latency P2P Chat</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --accent: #5865f2; --bg: #313338; --card: #2b2d31; --danger: #ed4245; --text: #dbdee1; --speaking: #23a559; }
-        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
-        body { height: 100vh; margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; display: flex; flex-direction: column; }
+        :root { 
+            --accent: #5865f2; 
+            --bg: #313338; 
+            --card: #2b2d31; 
+            --danger: #ed4245; 
+            --text: #dbdee1; 
+            --speaking: #23a559;
+            --input-bg: #1e1f22;
+        }
         
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        
+        body { 
+            height: 100dvh; /* スマホのツールバーを考慮 */
+            margin: 0; 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            display: flex; 
+            flex-direction: column;
+            overflow: hidden;
+        }
+
         /* Setup Screen */
-        #setup { position: fixed; inset: 0; background: var(--bg); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; }
-        .setup-card { background: var(--card); padding: 30px; border-radius: 16px; width: 100%; max-width: 360px; text-align: center; box-shadow: 0 10px 25px rgba(0,0,0,0.3); }
-        .icon-p { width: 80px; height: 80px; border-radius: 50%; background: #4e5058; margin: 0 auto 15px; border: 3px solid var(--accent); cursor: pointer; overflow: hidden; }
+        #setup { 
+            position: fixed; inset: 0; background: var(--bg); z-index: 100; 
+            display: flex; align-items: center; justify-content: center; padding: 20px; 
+        }
+        .setup-card { 
+            background: var(--card); padding: 30px; border-radius: 16px; 
+            width: 100%; max-width: 400px; text-align: center; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+        }
+        .icon-p { 
+            width: 100px; height: 100px; border-radius: 50%; background: #4e5058; 
+            margin: 0 auto 20px; border: 4px solid var(--accent); cursor: pointer; 
+            overflow: hidden; position: relative;
+        }
         .icon-p img { width: 100%; height: 100%; object-fit: cover; }
-        input { width: 100%; padding: 12px; margin: 8px 0; border-radius: 8px; border: none; background: #1e1f22; color: white; font-size: 16px; }
-        .btn-join { width: 100%; padding: 14px; border-radius: 8px; border: none; background: var(--accent); color: white; font-weight: bold; font-size: 16px; cursor: pointer; }
+        
+        input { 
+            width: 100%; padding: 14px; margin: 10px 0; border-radius: 8px; 
+            border: none; background: var(--input-bg); color: white; font-size: 16px; 
+        }
 
-        /* Main UI */
-        header { padding: 12px 20px; background: var(--card); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e1f22; }
-        #member-list { display: flex; gap: 12px; padding: 10px 15px; background: #2b2d31; overflow-x: auto; min-height: 70px; scrollbar-width: none; }
+        /* Main UI Container */
+        .app-container {
+            max-width: 1000px; margin: 0 auto; width: 100%; height: 100%;
+            display: flex; flex-direction: column; background: var(--bg);
+        }
+
+        header { 
+            padding: 15px 20px; background: var(--card); display: flex; 
+            justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid rgba(0,0,0,0.2);
+        }
+
+        #member-list { 
+            display: flex; gap: 15px; padding: 12px 20px; background: #2b2d31; 
+            overflow-x: auto; min-height: 85px; align-items: center;
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+        }
         #member-list::-webkit-scrollbar { display: none; }
-        .member-item { display: flex; flex-direction: column; align-items: center; min-width: 50px; }
-        .u-icon { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; transition: 0.1s; }
-        .speaking .u-icon { border-color: var(--speaking); box-shadow: 0 0 8px var(--speaking); }
-        .muted .u-icon { opacity: 0.3; }
-        .u-name { font-size: 10px; margin-top: 4px; color: #94a3b8; }
+        
+        .member-item { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+        .u-icon { 
+            width: 42px; height: 42px; border-radius: 50%; 
+            border: 3px solid transparent; transition: all 0.2s; object-fit: cover;
+        }
+        .speaking .u-icon { border-color: var(--speaking); transform: scale(1.1); }
+        .muted .u-icon { opacity: 0.4; filter: grayscale(0.8); }
+        .u-name { font-size: 11px; margin-top: 6px; color: #b5bac1; font-weight: 500; }
 
-        #chat { flex: 1; overflow-y: auto; padding: 15px; display: flex; flex-direction: column; gap: 12px; }
-        .msg { display: flex; gap: 12px; animation: msg-in 0.1s ease-out; }
-        @keyframes msg-in { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
-        .msg img { width: 38px; height: 38px; border-radius: 50%; background: #4e5058; }
-        .msg-body b { font-size: 14px; color: white; }
-        .msg-body p { margin: 2px 0 0; font-size: 15px; line-height: 1.4; }
+        #chat { 
+            flex: 1; overflow-y: auto; padding: 20px; display: flex; 
+            flex-direction: column; gap: 16px; 
+            -webkit-overflow-scrolling: touch;
+        }
 
-        .footer { padding: 10px 15px; background: var(--card); display: flex; gap: 10px; align-items: center; padding-bottom: calc(10px + env(safe-area-inset-bottom)); }
-        .mic-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #4e5058; color: white; cursor: pointer; font-size: 18px; flex-shrink: 0; }
+        /* Message Styling */
+        .msg { display: flex; gap: 12px; align-items: flex-start; max-width: 85%; }
+        .msg.me { align-self: flex-end; flex-direction: row-reverse; }
+        .msg img { width: 40px; height: 40px; border-radius: 50%; flex-shrink: 0; background: #4e5058; }
+        .msg-body { display: flex; flex-direction: column; }
+        .msg.me .msg-body { align-items: flex-end; }
+        
+        .msg-body b { font-size: 13px; color: #b5bac1; margin-bottom: 4px; }
+        .msg-bubble { 
+            background: #383a40; padding: 10px 14px; border-radius: 2px 16px 16px 16px; 
+            color: #dbdee1; font-size: 15px; line-height: 1.5; word-break: break-all;
+        }
+        .msg.me .msg-bubble { 
+            background: var(--accent); color: white; border-radius: 16px 2px 16px 16px; 
+        }
+
+        .footer { 
+            padding: 15px; background: var(--card); display: flex; gap: 12px; 
+            align-items: center; padding-bottom: calc(15px + env(safe-area-inset-bottom));
+        }
+        .mic-btn { 
+            width: 48px; height: 48px; border-radius: 50%; border: none; 
+            background: #4e5058; color: white; cursor: pointer; font-size: 20px; 
+            display: flex; align-items: center; justify-content: center; transition: 0.2s;
+        }
         .mic-btn.off { background: var(--danger); }
-        .input-area { flex: 1; background: #383a40; border-radius: 22px; padding: 0 15px; display: flex; align-items: center; }
-        .input-area input { background: transparent; padding: 10px 0; margin: 0; }
-        .send-btn { background: var(--accent); color: white; border: none; border-radius: 20px; padding: 8px 16px; font-weight: bold; cursor: pointer; }
+        .mic-btn:active { transform: scale(0.9); }
+
+        .input-area { 
+            flex: 1; background: #383a40; border-radius: 24px; 
+            padding: 0 6px 0 16px; display: flex; align-items: center; 
+        }
+        .input-area input { background: transparent; padding: 12px 0; margin: 0; border: none; }
+        .send-btn { 
+            background: var(--accent); color: white; border: none; 
+            border-radius: 20px; padding: 8px 18px; font-weight: bold; 
+            cursor: pointer; margin-left: 8px;
+        }
     </style>
 </head>
 <body>
 
 <div id="setup">
     <div class="setup-card">
-        <h2 style="margin-top:0">P2P Voice Chat</h2>
+        <h2 style="margin-top:0; color:white;">P2P Voice Chat</h2>
         <div class="icon-p" onclick="document.getElementById('fInput').click()">
             <img id="pImg" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23ccc'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E">
         </div>
         <input type="file" id="fInput" accept="image/*" style="display:none" onchange="loadIcon(this)">
-        <input type="text" id="user" placeholder="名前">
-        <input type="text" id="room" placeholder="ルーム名">
+        <input type="text" id="user" placeholder="名前を入力">
+        <input type="text" id="room" placeholder="ルーム名（共通の単語）">
         <button class="btn-join" onclick="join()">チャットを開始</button>
     </div>
 </div>
 
-<header>
-    <div id="room-id" style="font-weight:bold;"># Loading...</div>
-    <button onclick="location.reload()" style="background:none; border:none; color:var(--danger); cursor:pointer;">退出</button>
-</header>
-<div id="member-list"></div>
-<div id="chat"></div>
-<div class="footer">
-    <button id="micBtn" class="mic-btn" onclick="toggleMic()">🎙️</button>
-    <div class="input-area">
-        <input type="text" id="mInput" placeholder="メッセージ..." onkeypress="if(event.keyCode==13) send()">
-        <button class="send-btn" onclick="send()">送信</button>
+<div class="app-container">
+    <header>
+        <div id="room-id" style="font-weight:bold; color:white;"># ルーム待ち...</div>
+        <button onclick="location.reload()" style="background:none; border:none; color:var(--danger); font-weight:bold; cursor:pointer;">退出</button>
+    </header>
+
+    <div id="member-list"></div>
+    
+    <div id="chat"></div>
+
+    <div class="footer">
+        <button id="micBtn" class="mic-btn" onclick="toggleMic()">🎙️</button>
+        <div class="input-area">
+            <input type="text" id="mInput" placeholder="メッセージを入力..." autocomplete="off">
+            <button class="send-btn" onclick="send()">送信</button>
+        </div>
     </div>
 </div>
 
@@ -77,10 +164,22 @@
     let conns = {}, memberData = {}, myIcon = "";
     let isMicOn = true, isSpeaking = false;
 
+    // 初期化：保存されたデータの読み込み
     window.onload = () => {
-        document.getElementById('user').value = localStorage.getItem('p2p_name') || "";
-        myIcon = localStorage.getItem('p2p_icon') || document.getElementById('pImg').src;
-        document.getElementById('pImg').src = myIcon;
+        const savedName = localStorage.getItem('p2p_name');
+        const savedIcon = localStorage.getItem('p2p_icon');
+        if (savedName) document.getElementById('user').value = savedName;
+        if (savedIcon) {
+            myIcon = savedIcon;
+            document.getElementById('pImg').src = myIcon;
+        } else {
+            myIcon = document.getElementById('pImg').src;
+        }
+
+        // Enterキーで送信
+        document.getElementById('mInput').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') send();
+        });
     };
 
     function loadIcon(input) {
@@ -98,22 +197,28 @@
     async function join() {
         roomCode = document.getElementById('room').value.trim();
         myName = document.getElementById('user').value.trim() || "Guest";
-        if (!roomCode) return;
+        if (!roomCode) { alert("ルーム名を入力してください"); return; }
+        
         localStorage.setItem('p2p_name', myName);
 
         try {
-            // 最短遅延のマイク設定
             localStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: { echoCancellation: true, noiseSuppression: true, latencyHint: 0 } 
+                audio: { 
+                    echoCancellation: true, 
+                    noiseSuppression: true, 
+                    autoGainControl: true
+                } 
             });
             startVoiceDetection();
-        } catch (e) { alert("マイクが必要です"); return; }
+        } catch (e) { 
+            alert("マイクの使用を許可してください。"); 
+            return; 
+        }
 
         myFullId = `${roomCode}_${Math.random().toString(36).substr(2, 7)}`;
-        // PeerJSサーバー設定（安定性向上）
         peer = new Peer(myFullId, { debug: 1 });
 
-        peer.on('open', () => {
+        peer.on('open', (id) => {
             document.getElementById('setup').style.display = 'none';
             document.getElementById('room-id').innerText = `# ${roomCode}`;
             broadcastStatus();
@@ -126,15 +231,15 @@
         });
 
         peer.on('connection', setupConn);
-        peer.on('disconnected', () => peer.reconnect()); // 切断時の自動再接続
+        peer.on('error', err => console.error("Peer Error:", err));
     }
 
+    // 他のユーザーを探す仕組み
     function initHub() {
         const hubId = `${roomCode}_HUB`;
         const hub = new Peer(hubId);
         hub.on('open', () => {
             hub.on('connection', setupConn);
-            hub.on('call', c => { c.answer(localStream); c.on('stream', s => playAudio(s, c.peer)); });
         });
         hub.on('error', () => connectTo(hubId));
     }
@@ -142,6 +247,7 @@
     function setupConn(conn) {
         if (conns[conn.peer]) return;
         conns[conn.peer] = conn;
+        
         conn.on('open', () => {
             broadcastStatus();
             conn.on('data', data => {
@@ -149,17 +255,22 @@
                     memberData[conn.peer] = data;
                     renderMembers();
                 } else if (data.type === 'chat') {
-                    addMessage(data.u, data.m, memberData[conn.peer]?.icon || "");
+                    addMessage(data.u, data.m, memberData[conn.peer]?.icon || "", false);
                 }
             });
         });
-        conn.on('close', () => { delete conns[conn.peer]; delete memberData[conn.peer]; renderMembers(); });
+
+        conn.on('close', () => {
+            delete conns[conn.peer];
+            delete memberData[conn.peer];
+            renderMembers();
+        });
     }
 
     function connectTo(id) {
         if (conns[id] || id === myFullId) return;
-        setupConn(peer.connect(id, { reliable: false }));
-        // 低遅延Opusコーデックを優先させる設定
+        const conn = peer.connect(id);
+        setupConn(conn);
         if (localStream) {
             const call = peer.call(id, localStream);
             call.on('stream', s => playAudio(s, id));
@@ -167,37 +278,41 @@
     }
 
     function playAudio(stream, id) {
-        let audio = document.getElementById(`audio-${id}`) || document.createElement('audio');
-        audio.id = `audio-${id}`;
+        let audio = document.getElementById(`audio-${id}`);
+        if (!audio) {
+            audio = document.createElement('audio');
+            audio.id = `audio-${id}`;
+            document.body.appendChild(audio);
+        }
         audio.srcObject = stream;
-        audio.autoplay = true;
-        document.body.appendChild(audio);
+        audio.play().catch(e => console.log("Auto-play blocked, wait for user interaction."));
     }
 
     function startVoiceDetection() {
-        const ctx = new AudioContext();
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const src = ctx.createMediaStreamSource(localStream);
         const ans = ctx.createAnalyser();
         ans.fftSize = 256;
         src.connect(ans);
         const buffer = new Uint8Array(ans.frequencyBinCount);
+        
         setInterval(() => {
             ans.getByteFrequencyData(buffer);
             let avg = buffer.reduce((a, b) => a + b) / buffer.length;
-            let speaking = avg > 25 && isMicOn;
+            let speaking = avg > 30 && isMicOn;
             if (speaking !== isSpeaking) {
                 isSpeaking = speaking;
                 broadcastStatus();
             }
-        }, 120);
+        }, 100);
     }
 
     function toggleMic() {
-        if (!localStream) return;
         isMicOn = !isMicOn;
         localStream.getAudioTracks()[0].enabled = isMicOn;
-        document.getElementById('micBtn').innerText = isMicOn ? "🎙️" : "🔇";
-        document.getElementById('micBtn').classList.toggle('off', !isMicOn);
+        const btn = document.getElementById('micBtn');
+        btn.innerText = isMicOn ? "🎙️" : "🔇";
+        btn.classList.toggle('off', !isMicOn);
         broadcastStatus();
     }
 
@@ -214,23 +329,34 @@
             const m = memberData[id];
             return `<div class="member-item ${m.speaking?'speaking':''} ${m.muted?'muted':''}">
                 <img src="${m.icon}" class="u-icon">
-                <div class="u-name">${m.u}</div>
+                <div class="u-name">${m.u}${id === myFullId ? ' (自分)' : ''}</div>
             </div>`;
         }).join('');
     }
 
     function send() {
         const input = document.getElementById('mInput');
-        if (!input.value) return;
-        const data = { type: 'chat', u: myName, m: input.value };
-        addMessage(myName, input.value, myIcon);
+        const val = input.value.trim();
+        if (!val) return;
+        
+        const data = { type: 'chat', u: myName, m: val };
+        addMessage(myName, val, myIcon, true);
+        
         Object.values(conns).forEach(c => { if (c.open) c.send(data); });
         input.value = "";
     }
 
-    function addMessage(u, m, icon) {
+    function addMessage(u, m, icon, isMe) {
         const chat = document.getElementById('chat');
-        chat.insertAdjacentHTML('beforeend', `<div class="msg"><img src="${icon}"><div class="msg-body"><b>${u}</b><p>${m}</p></div></div>`);
+        const html = `
+            <div class="msg ${isMe ? 'me' : ''}">
+                <img src="${icon}">
+                <div class="msg-body">
+                    <b>${u}</b>
+                    <div class="msg-bubble">${m}</div>
+                </div>
+            </div>`;
+        chat.insertAdjacentHTML('beforeend', html);
         chat.scrollTop = chat.scrollHeight;
     }
 </script>
