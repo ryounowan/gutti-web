@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>数字モンスター：真・究極進化</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --main: #e74c3c; --bg: #0d0d0d; --card: #1a1a1a; --player: #f1c40f; --enemy: #e74c3c; --accent: #3498db; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: white; margin: 0; padding: 10px; overflow-x: hidden; }
+        .box { background: #181818; padding: 15px; border-radius: 15px; max-width: 850px; margin: 10px auto; border: 1px solid #333; position: relative; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        #selected-status { margin-top: 10px; padding: 12px; background: #222; border-radius: 10px; border: 1px solid var(--player); display: none; animation: fadeIn 0.3s; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        .party-list { display: flex; overflow-x: auto; gap: 15px; padding: 15px; background: #000; border-radius: 12px; min-height: 180px; scrollbar-width: thin; }
+        .monster-icon { position: relative; min-width: 130px; padding: 12px; background: var(--card); border-radius: 10px; cursor: pointer; text-align: center; border: 2px solid #333; transition: 0.2s; }
+        .monster-icon.selected { border-color: var(--player); background: #252510; transform: translateY(-5px); }
+        
+        .monster-card { width: 46%; background: #202020; padding: 15px; border-radius: 20px; border: 3px solid #444; text-align: center; position: relative; transition: 0.3s; }
+        .hp-bar { height: 18px; background: #333; border-radius: 9px; margin: 12px 0; border: 2px solid #000; overflow: hidden; }
+        .hp-inner { height: 100%; background: linear-gradient(90deg, #2ecc71, #27ae60); transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); width: 100%; }
+        
+        #giant-text { position: fixed; top: 45%; left: 50%; transform: translate(-50%, -50%); color: white; padding: 30px 100px; font-size: 3.5rem; font-weight: 900; display: none; z-index: 5000; border: 8px solid white; text-shadow: 4px 4px 0 #000; border-radius: 20px; pointer-events: none; text-transform: uppercase; font-style: italic; white-space: nowrap; }
+        
+        .atk-anim { transform: scale(1.1) translateY(-25px); border-color: #fff; z-index: 10; }
+        .dmg-anim { animation: shake 0.4s; background: #600 !important; }
+        @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-10px)} 40%{transform:translateX(10px)} 60%{transform:translateX(-10px)} 80%{transform:translateX(10px)} }
+        
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; font-size: 0.85rem; background: rgba(0,0,0,0.4); padding: 8px; border-radius: 8px; margin-top: 10px; }
+        .stat-line { display: flex; justify-content: space-between; border-bottom: 1px solid #333; }
+        .skill-box { margin-top: 10px; background: #333; padding: 8px; border-radius: 8px; font-size: 0.8rem; text-align: left; min-height: 4.5em; }
+        
+        button { background: var(--main); color: white; padding: 10px 18px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        button:hover { filter: brightness(1.2); transform: scale(1.05); }
+        input { background: #222; color: white; border: 1px solid #444; padding: 10px; border-radius: 8px; }
+        #log { height: 140px; overflow-y: auto; background: #000; padding: 12px; border-radius: 10px; font-size: 0.85rem; margin-top: 15px; color: #0f0; border: 1px solid #333; font-family: 'Courier New', monospace; }
+    </style>
+</head>
+<body>
+
+<div id="giant-text"></div>
+
+<div class="box">
+    <div style="display:flex; justify-content: space-between; align-items: center;">
+        <h2 style="margin:0; color:var(--player);">💎 DIGITAL MONSTERS</h2>
+        <span id="streak-view" style="font-weight:bold; background:#333; padding:5px 12px; border-radius:20px;">STREAK: 0</span>
+    </div>
+    
+    <div style="margin:15px 0; display:flex; gap:10px; flex-wrap:wrap;">
+        <input type="number" id="numIn" placeholder="数字を入力 (最大8桁)">
+        <input type="text" id="nameIn" placeholder="名前をつける" maxlength="10">
+        <button onclick="spawn()">召喚する</button>
+    </div>
+
+    <div id="party" class="party-list"></div>
+
+    <div id="selected-status">
+        <div style="display:flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+                <h3 id="sel-name" style="margin:0; color:var(--player);">---</h3>
+                <div id="sel-stats" class="stats-grid" style="width:250px;"></div>
+            </div>
+            <div id="sel-skill" class="skill-box" style="width:250px; margin:0;"></div>
+        </div>
+    </div>
+</div>
+
+<div class="box" style="display:flex; gap:10px; align-items: center; justify-content: center; background:#111;">
+    <button onclick="startNPC()" style="background:#444;">NPCと戦う</button>
+    <input type="text" id="room-id" style="width:100px;" placeholder="部屋名">
+    <button onclick="connectRoom()" style="background:#8e44ad;">通信対戦</button>
+    <button onclick="exportMonster()" style="background:#27ae60;">保存</button>
+    <button onclick="importJSON()" style="background:#2980b9;">読込</button>
+    <input type="file" id="fileIn" style="display:none;" onchange="processFile(this)">
+</div>
+
+<div id="battle-view" class="box" style="display:none; background: radial-gradient(circle, #222, #000);">
+    <div style="display: flex; justify-content: space-around; gap: 15px;">
+        <div id="p1" class="monster-card"></div>
+        <div id="p2" class="monster-card"></div>
+    </div>
+    <div id="log"></div>
+</div>
+
+<script>
+let party = JSON.parse(localStorage.getItem('monPartyV15') || '[]');
+let streak = parseInt(localStorage.getItem('monStreakV15') || '0');
+let mySelected = null, isBattling = false, peer, conn;
+
+const skills = [
+    { n: "会心の一撃", type: "crit", d: "15%の確率でダメージが3倍になる。" },
+    { n: "不屈の精神", type: "endure", d: "一度だけHP0を1で耐える。" },
+    { n: "超成長", type: "ultraGrow", d: "毎ターンのATK上昇量が3倍になる。" },
+    { n: "ドレイン", type: "drain", d: "与えたダメージの40%を吸収回復する。" },
+    { n: "道連れ", type: "revenge", d: "倒れた時、相手に150ダメージ与える。" },
+    { n: "鉄壁ガード", type: "guard", d: "DEFを1.5倍にして計算する。" },
+    { n: "神速の構え", type: "haste", d: "SPDを1.5倍にして計算する。" },
+    { n: "猛毒の息", type: "poison", d: "攻撃時、相手に30の追加ダメージ。" },
+    { n: "フルパワー", type: "fullAtk", d: "最初の1撃のみダメージが2.5倍。" },
+    { n: "絶対回避", type: "evade", d: "15%の確率で攻撃を無効化する。" },
+    { n: "破壊衝動", type: "berserk", d: "DEF半減、ATK1.5倍になる。" },
+    { n: "リジェネ", type: "regen", d: "毎ターンHPを25回復し続ける。" },
+    { n: "凍てつく波動", type: "chill", d: "相手のUP（成長）を0にする。" },
+    { n: "カウンター", type: "counter", d: "25%の確率で受けたダメージを反射。" },
+    { n: "捨身の構え", type: "sacrifice", d: "HPを削り、ATKを2倍にする。" },
+    { n: "威圧感", type: "aura", d: "相手のSPDを30%ダウンさせる。" },
+    { n: "連撃", type: "multi", d: "15%の確率で2回連続攻撃を行う。" },
+    { n: "トゲの鎧", type: "thorn", d: "攻撃を受けるたび相手に25ダメージ。" },
+    { n: "魔力吸収", type: "mana", d: "相手がUPするたび、自分も同量UPする。" },
+    { n: "大逆転", type: "clutch", d: "HPが少ないほど攻撃力が上昇。" }
+];
+
+function drawMonster(canvas, num, size = 100) {
+    const ctx = canvas.getContext('2d');
+    const n = parseInt(num);
+    const s = (idx) => Math.abs(Math.sin(n * idx) * 10000);
+    ctx.clearRect(0,0,size,size);
+    
+    const hue = s(1) % 360;
+    const bodyType = Math.floor(s(2) % 8);
+    const eyeType = Math.floor(s(3) % 8);
+    const mouthType = Math.floor(s(4) % 8);
+    const decoType = Math.floor(s(5) % 10);
+    const patternType = Math.floor(s(6) % 5);
+
+    ctx.fillStyle = `hsl(${hue}, 70%, 50%)`;
+    ctx.strokeStyle = "white"; ctx.lineWidth = 3;
+    ctx.beginPath();
+    if(bodyType==0) ctx.arc(size/2, size/2, size/3, 0, 7);
+    else if(bodyType==1) ctx.roundRect(size/4, size/4, size/2, size/2, 15);
+    else if(bodyType==2) { ctx.moveTo(size/2, 10); ctx.lineTo(size-10, size/2); ctx.lineTo(size/2, size-10); ctx.lineTo(10, size/2); }
+    else if(bodyType==3) { ctx.moveTo(size/2, 10); ctx.lineTo(size-10, size-10); ctx.lineTo(10, size-10); }
+    else if(bodyType==4) { for(let i=0; i<6; i++) { let a=i*Math.PI/3; ctx.lineTo(size/2+Math.cos(a)*35, size/2+Math.sin(a)*35); } }
+    else if(bodyType==5) { ctx.ellipse(size/2, size/2, 40, 25, s(7), 0, 7); }
+    else if(bodyType==6) { ctx.moveTo(20,20); ctx.quadraticCurveTo(size/2, 0, size-20, 20); ctx.lineTo(size-20, size-20); ctx.lineTo(20, size-20); }
+    else { ctx.moveTo(size/2, 10); ctx.bezierCurveTo(size, 10, size, size, size/2, size-10); ctx.bezierCurveTo(0, size, 0, 10, size/2, 10); }
+    ctx.closePath(); ctx.fill(); ctx.stroke();
+
+    ctx.globalAlpha = 0.3; ctx.fillStyle = "white";
+    if(patternType==1) { for(let i=0; i<3; i++) ctx.fillRect(20, 35+i*10, 60, 4); }
+    else if(patternType==2) { ctx.beginPath(); ctx.arc(size/2, size/2, 15, 0, 7); ctx.stroke(); }
+    ctx.globalAlpha = 1.0;
+
+    ctx.fillStyle = `hsl(${(hue+40)%360}, 80%, 40%)`;
+    if(decoType==1) { ctx.beginPath(); ctx.moveTo(size/2-20, 25); ctx.lineTo(size/2-35, 5); ctx.lineTo(size/2-10, 20); ctx.fill(); }
+    if(decoType==2) { ctx.fillRect(20, 30, 60, 8); }
+    if(decoType==3) { ctx.beginPath(); ctx.arc(size/2, 20, 15, 0, Math.PI, true); ctx.fill(); }
+
+    [size/2-14, size/2+14].forEach(x => {
+        ctx.fillStyle = "white"; ctx.beginPath();
+        if(eyeType==0) ctx.arc(x, 45, 8, 0, 7);
+        else if(eyeType==1) ctx.rect(x-6, 40, 12, 12);
+        else if(eyeType==2) { ctx.moveTo(x-8, 45); ctx.lineTo(x+8, 45); ctx.lineWidth=4; ctx.stroke(); ctx.lineWidth=2; return; }
+        else if(eyeType==3) { ctx.arc(x, 45, 8, 0, Math.PI); ctx.fill(); return; }
+        else ctx.arc(x, 45, 6, 0, 7);
+        ctx.fill();
+        ctx.fillStyle = "black"; ctx.beginPath(); ctx.arc(x, 45, 3, 0, 7); ctx.fill();
+    });
+
+    ctx.strokeStyle = "black"; ctx.lineWidth = 2; ctx.beginPath();
+    if(mouthType==0) ctx.arc(size/2, 65, 8, 0, Math.PI);
+    else if(mouthType==1) { ctx.moveTo(size/2-10, 65); ctx.lineTo(size/2+10, 65); }
+    else if(mouthType==2) { ctx.moveTo(size/2-8, 70); ctx.lineTo(size/2, 60); ctx.lineTo(size/2+8, 70); }
+    else if(mouthType==3) ctx.arc(size/2, 70, 5, 0, 7);
+    else ctx.arc(size/2, 60, 10, 0.5, 2.6);
+    ctx.stroke();
+}
+
+function generateMonsterData(num, name) {
+    const s = (n) => Math.abs(Math.sin(parseInt(num) * n) * 100000);
+    return {
+        num: num, name: name, hp: Math.floor(s(10)%501)+500, maxHp: Math.floor(s(10)%501)+500,
+        atk: Math.floor(s(11)%101)+50, def: Math.floor(s(12)%61)+20, spd: Math.floor(s(13)%151)+50, up: Math.floor(s(14)%21)+5,
+        skill: skills[Math.floor(s(15)%skills.length)], turn: 0
+    };
+}
+
+async function showGiantText(txt, color) {
+    const el = document.getElementById('giant-text');
+    el.style.backgroundColor = color;
+    el.innerText = txt;
+    el.style.display = 'block';
+    await new Promise(r => setTimeout(r, 1000));
+    el.style.display = 'none';
+}
+
+async function startBattle(m1, m2) {
+    if(isBattling) return; isBattling = true;
+    document.getElementById('battle-view').style.display = 'block';
+    document.getElementById('log').innerHTML = "";
+    addLog("READY... FIGHT!!");
+    
+    [m1, m2].forEach(m => { 
+        m.hp = m.maxHp; m.curAtk = m.atk; m.turn = 0; 
+        if(!m.skill.d) m.skill = skills.find(s => s.n === m.skill.n) || m.skill;
+    });
+
+    renderCard(m1, 'p1', true);
+    renderCard(m2, 'p2', false); 
+
+    let turnCount = 1;
+
+    while(m1.hp > 0 && m2.hp > 0) {
+        addLog(`--- TURN ${turnCount} ---`);
+        await new Promise(r => setTimeout(r, 600));
+
+        let m1Speed = m1.spd * (m1.skill.type === "haste" ? 1.5 : 1);
+        let m2Speed = m2.spd * (m2.skill.type === "haste" ? 1.5 : 1);
+        let order = m1Speed >= m2Speed ? [m1, m2] : [m2, m1];
+        let ids = m1Speed >= m2Speed ? ['p1', 'p2'] : ['p2', 'p1'];
+
+        for (let i = 0; i < 2; i++) {
+            let atker = order[i];
+            let defer = order[1 - i];
+            let atkId = ids[i];
+            let defId = ids[1 - i];
+
+            if (atker.hp <= 0) break; 
+            atker.turn++;
+            
+            if(defer.skill.type === "evade" && Math.random() < 0.15) { 
+                addLog(`${defer.name}は攻撃を回避した！`);
+                await showGiantText("EVADE!!", "#3498db"); 
+            } else {
+                let dmg = Math.max(10, (atker.curAtk * (atker.skill.type==="berserk"?1.5:1) * (atker.skill.type==="fullAtk"&&atker.turn===1?2.5:1)) - (defer.skill.type==="guard"?defer.def*1.5:defer.def));
+                
+                if(atker.skill.type === "crit" && Math.random() < 0.15) { 
+                    await showGiantText("CRITICAL!!", "#f1c40f"); 
+                    dmg *= 3; 
+                }
+
+                document.getElementById(atkId).classList.add('atk-anim');
+                defer.hp -= dmg;
+                updateHPBar(defer, defId);
+                document.getElementById(defId).classList.add('dmg-anim');
+                
+                if(atker.skill.type === "drain") {
+                    let heal = dmg * 0.4;
+                    atker.hp = Math.min(atker.maxHp, atker.hp + heal);
+                    updateHPBar(atker, atkId);
+                    addLog(`${atker.name}はHPを${Math.floor(heal)}回復！`);
+                }
+
+                addLog(`${atker.name}の攻撃！ ${defer.name}に${Math.floor(dmg)}ダメージ！`);
+                
+                await new Promise(r => setTimeout(r, 600));
+                document.getElementById(atkId).classList.remove('atk-anim');
+                document.getElementById(defId).classList.remove('dmg-anim');
+            }
+
+            if (defer.hp <= 0) break; 
+            await new Promise(r => setTimeout(r, 400));
+        }
+
+        if (m1.hp > 0 && m2.hp > 0) {
+            let upMult1 = m1.skill.type === "ultraGrow" ? 3 : 1;
+            let upMult2 = m2.skill.type === "ultraGrow" ? 3 : 1;
+            m1.curAtk += (m1.up * upMult1);
+            m2.curAtk += (m2.up * upMult2);
+            addLog(`ステータスが上昇！`);
+            renderCard(m1, 'p1', true);
+            renderCard(m2, 'p2', false);
+            turnCount++;
+        }
+        await new Promise(r => setTimeout(r, 500));
+    }
+
+    if(m1.hp > 0) {
+        streak++; 
+        renderCard(m2, 'p2', true); 
+        await showGiantText("YOU WIN!!", "#2ecc71");
+    } else {
+        streak = 0; 
+        renderCard(m2, 'p2', true);
+        await showGiantText("YOU LOSE...", "#e74c3c");
+    }
+    
+    isBattling = false; 
+    save(); 
+    updateUI();
+}
+
+function updateHPBar(m, id) {
+    const pct = Math.max(0, (m.hp / m.maxHp) * 100);
+    document.querySelector(`#${id} .hp-inner`).style.width = pct + "%";
+    document.querySelector(`#${id} .hp-text`).innerText = `${Math.floor(Math.max(0, m.hp))}/${m.maxHp}`;
+}
+
+function renderCard(m, id, showSkill) {
+    const skillDesc = showSkill ? (m.skill.d || "不明な効果") : "??????????";
+    const skillName = showSkill ? m.skill.n : "?????";
+    
+    document.getElementById(id).innerHTML = `
+        <canvas id="cv-btl-${id}" width="100" height="100"></canvas>
+        <div style="font-weight:bold; font-size:1.2rem; color:var(--player);">${m.name}</div>
+        <div class="hp-bar"><div class="hp-inner" style="width:${(m.hp/m.maxHp)*100}%"></div></div>
+        <div style="font-size:0.8rem;" class="hp-text">${Math.floor(Math.max(0, m.hp))}/${m.maxHp}</div>
+        <div class="stats-grid">
+            <div class="stat-line"><span>ATK</span><span>${Math.floor(m.curAtk || m.atk)}</span></div>
+            <div class="stat-line"><span>DEF</span><span>${m.def}</span></div>
+            <div class="stat-line"><span>SPD</span><span>${m.spd}</span></div>
+            <div class="stat-line"><span>UP</span><span>${m.up}</span></div>
+        </div>
+        <div class="skill-box">
+            <span style="color:var(--player); font-weight:bold;">【${skillName}】</span><br>
+            <span style="font-size:0.75rem; color:#ccc;">${skillDesc}</span>
+        </div>
+    `;
+    drawMonster(document.getElementById(`cv-btl-${id}`), m.num, 100);
+}
+
+function spawn() {
+    const num = document.getElementById('numIn').value; if(!num) return;
+    if(num.length > 8) { alert("8桁以下で入力してください"); return; }
+    const m = generateMonsterData(num, document.getElementById('nameIn').value || "MON-" + num);
+    party.push(m); save(); updateUI();
+}
+
+function selectMonster(m) {
+    mySelected = JSON.parse(JSON.stringify(m));
+    const status = document.getElementById('selected-status');
+    status.style.display = 'block';
+    document.getElementById('sel-name').innerText = m.name;
+    document.getElementById('sel-stats').innerHTML = `
+        <div class="stat-line"><span>HP</span><span>${m.maxHp}</span></div>
+        <div class="stat-line"><span>ATK</span><span>${m.atk}</span></div>
+        <div class="stat-line"><span>DEF</span><span>${m.def}</span></div>
+        <div class="stat-line"><span>SPD</span><span>${m.spd}</span></div>
+        <div class="stat-line"><span>UP</span><span>${m.up}</span></div>
+    `;
+    document.getElementById('sel-skill').innerHTML = `
+        <span style="color:var(--player); font-weight:bold;">【${m.skill.n}】</span><br>
+        <span style="font-size:0.8rem;">${m.skill.d}</span>
+    `;
+    updateUI();
+}
+
+function updateUI() {
+    document.getElementById('streak-view').innerText = "STREAK: " + streak;
+    const div = document.getElementById('party'); div.innerHTML = "";
+    party.forEach((m, i) => {
+        const item = document.createElement('div');
+        item.className = `monster-icon ${mySelected?.num === m.num ? 'selected' : ''}`;
+        item.onclick = () => selectMonster(m);
+        item.innerHTML = `<button style="position:absolute;top:0;right:0;background:rgba(255,0,0,0.7);border-radius:50%;width:22px;height:22px;padding:0;" onclick="deleteMon(event,${i})">×</button><canvas id="cv-${i}" width="100" height="100"></canvas><div>${m.name}</div>`;
+        div.appendChild(item); drawMonster(document.getElementById(`cv-${i}`), m.num, 100);
+    });
+}
+
+function addLog(t) { const l = document.getElementById('log'); l.innerHTML = `> ${t}<br>` + l.innerHTML; }
+function deleteMon(e, i) { e.stopPropagation(); party.splice(i, 1); save(); updateUI(); }
+function save() { localStorage.setItem('monPartyV15', JSON.stringify(party)); localStorage.setItem('monStreakV15', streak); }
+function startNPC() { if(!mySelected || isBattling) return alert("モンスターを選んでね"); startBattle(mySelected, generateMonsterData(Math.floor(Math.random()*99999999), "ENEMY")); }
+function exportMonster() { if(!mySelected) return; const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify([mySelected])])); a.download = `${mySelected.name}.json`; a.click(); }
+function importJSON() { document.getElementById('fileIn').click(); }
+function processFile(obj) { const f = new FileReader(); f.onload = () => { party = party.concat(JSON.parse(f.result)); save(); updateUI(); }; f.readAsText(obj.files[0]); }
+function connectRoom() { const r = document.getElementById('room-id').value; if(!r || !mySelected) return; peer = new Peer("room-" + r); peer.on('open', () => addLog("待機中...")); peer.on('error', () => { peer = new Peer("room-" + r + "-2"); peer.on('open', () => { conn = peer.connect("room-" + r); setupConn(); }); }); peer.on('connection', c => { conn = c; setupConn(); }); }
+function setupConn() { conn.on('open', () => { conn.send(mySelected); addLog("CONNECTED!"); }); conn.on('data', data => { startBattle(mySelected, data); }); }
+updateUI();
+</script>
+</body>
+</html>
+
