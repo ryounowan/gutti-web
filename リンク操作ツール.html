@@ -3,122 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>P2P Mini Controller</title>
+    <title>P2P Remote Desktop Sim</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
         body { font-family: sans-serif; margin: 0; background: #121212; color: #e0e0e0; text-align: center; overflow: hidden; }
         #pc-view, #mobile-view { display: none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; }
         
-        /* PC View: Game Canvas */
-        #game-canvas { background: #1a1a1a; border: 2px solid #B8D4D9; border-radius: 10px; margin-top: 10px; }
-        #qrcode { background: white; padding: 20px; border-radius: 10px; display: inline-block; margin: 10px; }
-        #qrcode img { display: block; }
+        /* PC View: Desktop Sim */
+        #desktop { width: 80vw; height: 60vh; background: #1a1a1a; border: 2px solid #B8D4D9; position: relative; overflow: hidden; cursor: none; }
+        #cursor { width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; pointer-events: none; transition: transform 0.1s; border: 2px solid #B8D4D9; }
+        #qrcode { background: white; padding: 15px; border-radius: 10px; margin-top: 10px; }
 
-        /* Mobile View: Controller */
-        .btn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
-        .btn { width: 100px; height: 100px; background: #B8D4D9; color: #121212; border-radius: 50%; display: flex; 
-               justify-content: center; align-items: center; font-weight: bold; font-size: 1.5rem; user-select: none; -webkit-tap-highlight-color: transparent; }
-        .btn:active { background: #8aa8ad; transform: scale(0.9); }
-        .status-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        /* Mobile View: Trackpad */
+        #trackpad { width: 90vw; height: 70vh; background: #222; border: 2px solid #B8D4D9; border-radius: 20px; touch-action: none; display: flex; justify-content: center; align-items: center; color: #666; }
+        .btn-row { margin-top: 20px; display: flex; gap: 20px; }
+        .click-btn { width: 120px; height: 60px; background: #B8D4D9; color: #121212; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div id="pc-view">
-        <h2 style="color:#B8D4D9">P2P Lab: ボール操作</h2>
-        <canvas id="game-canvas" width="400" height="300"></canvas>
+        <h2 style="color:#B8D4D9">Virtual Remote Desktop</h2>
+        <div id="desktop">
+            <div id="cursor"></div>
+            <div id="content" style="margin-top:100px;">スマホを繋いでマウスを動かそう</div>
+        </div>
         <div id="pc-ui">
             <div id="qrcode"></div>
-            <p>スマホでスキャンして接続</p>
+            <p id="pc-status">QRをスキャンして接続</p>
         </div>
-        <p id="pc-status">ID発行中...</p>
     </div>
 
     <div id="mobile-view">
-        <div class="btn-grid">
-            <div class="btn" id="btn-up">↑</div>
-            <div></div> <div class="btn" id="btn-left">←</div>
-            <div class="btn" id="btn-right">→</div>
-            <div></div> <div class="btn" id="btn-down">↓</div>
+        <div id="trackpad">TRACKPAD (Swipe to move)</div>
+        <div class="btn-row">
+            <div class="click-btn" id="left-click">LEFT CLICK</div>
         </div>
-        <p id="mobile-status"><span class="status-dot" style="background:gray"></span>接続中...</p>
+        <p id="mobile-status">接続中...</p>
     </div>
 
     <script>
-        // --- ゲーム設定 (PC側) ---
-        const canvas = document.getElementById('game-canvas');
-        const ctx = canvas.getContext('2d');
-        let player = { x: 200, y: 150, size: 20, color: '#B8D4D9' };
-
-        function draw() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = player.color;
-            ctx.beginPath();
-            ctx.arc(player.x, player.y, player.size, 0, Math.PI * 2);
-            ctx.fill();
-            requestAnimationFrame(draw);
-        }
-
-        // --- P2Pロジック ---
-        const peerId = Math.floor(1000 + Math.random() * 9000).toString(); // 数字4桁で極短化
+        const peerId = "gutti-remote-" + Math.floor(1000 + Math.random() * 9000);
         const peer = new Peer(peerId);
         const params = new URLSearchParams(window.location.hash.substring(1));
         const targetId = params.get('id');
 
+        // --- PC側の状態 ---
+        let cursorX = 400;
+        let cursorY = 300;
+
         if (targetId) {
-            // 【スマホモード】
+            // 【スマホ側：トラックパッド】
             document.getElementById('mobile-view').style.display = 'flex';
             const conn = peer.connect(targetId);
-            
-            ['up', 'down', 'left', 'right'].forEach(dir => {
-                const btn = document.getElementById('btn-' + dir);
-                const sendMove = () => { if(conn.open) conn.send({type: 'move', dir: dir}); };
-                btn.addEventListener('touchstart', (e) => { 
-                    e.preventDefault(); 
-                    navigator.vibrate(50); 
-                    sendMove(); 
-                    // 長押し対応
-                    btn.interval = setInterval(sendMove, 100);
-                });
-                btn.addEventListener('touchend', () => clearInterval(btn.interval));
-            });
 
             conn.on('open', () => {
-                document.getElementById('mobile-status').innerHTML = '<span class="status-dot" style="background:lime"></span>接続完了';
+                document.getElementById('mobile-status').textContent = "接続完了！";
+                
+                let lastTouchX = 0;
+                let lastTouchY = 0;
+
+                const trackpad = document.getElementById('trackpad');
+                trackpad.addEventListener('touchstart', (e) => {
+                    lastTouchX = e.touches[0].clientX;
+                    lastTouchY = e.touches[0].clientY;
+                });
+
+                trackpad.addEventListener('touchmove', (e) => {
+                    e.preventDefault();
+                    const touchX = e.touches[0].clientX;
+                    const touchY = e.touches[0].clientY;
+                    
+                    // 移動の差分を計算
+                    const dx = touchX - lastTouchX;
+                    const dy = touchY - lastTouchY;
+
+                    conn.send({ type: 'mouseMove', dx: dx * 2, dy: dy * 2 });
+
+                    lastTouchX = touchX;
+                    lastTouchY = touchY;
+                });
+
+                document.getElementById('left-click').addEventListener('touchstart', (e) => {
+                    e.preventDefault();
+                    navigator.vibrate(50);
+                    conn.send({ type: 'click' });
+                });
             });
         } else {
-            // 【PCモード】
+            // 【PC側：デスクトップシミュレーター】
             document.getElementById('pc-view').style.display = 'flex';
-            draw(); // アニメーション開始
+            const cursor = document.getElementById('cursor');
+            const desktop = document.getElementById('desktop');
 
             peer.on('open', (id) => {
-                const url = window.location.origin + window.location.pathname + '#id=' + id;
-                document.getElementById('pc-status').textContent = "待機中 ID: " + id;
-                
-                // QR生成 (最小密度設定)
-                new QRCode(document.getElementById("qrcode"), {
-                    text: url,
-                    width: 180,
-                    height: 180,
-                    correctLevel : QRCode.CorrectLevel.L // 最小ドット
-                });
+                const url = window.location.href.split('#')[0] + '#id=' + id;
+                new QRCode(document.getElementById("qrcode"), { text: url, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.L });
             });
 
             peer.on('connection', (conn) => {
-                document.getElementById('pc-ui').style.display = 'none'; // 接続されたらQRを消す
-                document.getElementById('pc-status').textContent = "スマホ接続済み";
+                document.getElementById('pc-ui').style.display = 'none';
                 conn.on('data', (data) => {
-                    if (data.type === 'move') {
-                        const speed = 10;
-                        if(data.dir === 'up') player.y -= speed;
-                        if(data.dir === 'down') player.y += speed;
-                        if(data.dir === 'left') player.x -= speed;
-                        if(data.dir === 'right') player.x += speed;
+                    if (data.type === 'mouseMove') {
+                        cursorX += data.dx;
+                        cursorY += data.dy;
                         
-                        // 画面外に出ないように制限
-                        player.x = Math.max(0, Math.min(canvas.width, player.x));
-                        player.y = Math.max(0, Math.min(canvas.height, player.y));
+                        // 範囲制限
+                        cursorX = Math.max(0, Math.min(desktop.clientWidth, cursorX));
+                        cursorY = Math.max(0, Math.min(desktop.clientHeight, cursorY));
+
+                        cursor.style.left = cursorX + 'px';
+                        cursor.style.top = cursorY + 'px';
+                    }
+                    if (data.type === 'click') {
+                        cursor.style.transform = 'scale(1.5)';
+                        setTimeout(() => cursor.style.transform = 'scale(1)', 100);
+                        document.getElementById('content').textContent = "クリックされました！";
                     }
                 });
             });
