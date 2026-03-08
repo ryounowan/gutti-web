@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>Genesis OS - v5.9.4 Optimized Theme Suite</title>
+    <title>Genesis OS - v5.9.4 Optimized AI Suite</title>
     <style>
         /* テーマ変数 */
         :root { 
@@ -71,11 +71,12 @@
         .sys-graph { width: 100%; height: 100px; background: #000; position: relative; border: 1px solid var(--accent); overflow: hidden; }
         .sys-bar { width: 4px; background: var(--accent); position: absolute; bottom: 0; transition: height 0.5s; }
 
-        /* Sandbox 固有スタイル */
         .sandbox-container { display: flex; height: 100%; flex-direction: column; }
         .sandbox-editors { display: flex; flex: 1; gap: 2px; background: #333; }
         .sandbox-code { flex: 1; background: #1e1e1e; color: #d4d4d4; border: none; padding: 10px; font-family: monospace; font-size: 12px; outline: none; resize: none; }
         .sandbox-preview { flex: 1; background: #fff; border: none; }
+
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head>
@@ -116,6 +117,7 @@
     ];
 
     const apps = {
+        ai: { n: 'Genesis AI', i: '🤖', w: 450, h: 600 },
         browser: { n: 'Browser', i: '🌐', w: 950, h: 650 },
         video: { n: 'Media Player', i: '🎬', w: 800, h: 600 },
         paint: { n: 'Paint Pro', i: '🎨', w: 850, h: 650 },
@@ -171,7 +173,7 @@
         Object.keys(apps).forEach(k => {
             const di = document.createElement('div'); di.className = 'icon';
             di.innerHTML = `<div style="font-size:45px">${apps[k].i}</div><span>${apps[k].n}</span>`;
-            di.ondblclick = () => openApp(k);
+           di.onclick = () => openApp(k);
             di.oncontextmenu = (e) => showCtx(e, k);
             d.appendChild(di);
         });
@@ -196,14 +198,23 @@
         else if(k === 'qr') body += `<div style="padding:20px;text-align:center;"><h4>QR Generator</h4><input type="text" id="qt-${k}" style="width:80%"><br><br><button class="sys-btn" onclick="gQ('${k}')">生成</button><div id="qo-${k}" style="background:#fff;padding:10px;margin:20px auto;display:inline-block"></div></div>`;
         else if(k === 'settings') body += `<div style="padding:20px;overflow-y:auto;"><h3>Settings</h3><div style="margin-bottom:20px;"><h4>🌓 テーマ設定</h4><button class="sys-btn" onclick="toggleTheme(false)">🌑 ダーク</button><button class="sys-btn" onclick="toggleTheme(true)">☀️ ライト</button></div><div><h4>🖼️ 壁紙設定</h4><div class="bg-grid">${bgTemplates.map(url=>`<div class="bg-opt" style="background-image:url('${url}')" onclick="setBG('${url}')"></div>`).join('')}</div><p>URLで指定:</p><input type="text" id="wp-url" style="width:70%;"><button class="sys-btn" onclick="setBG(document.getElementById('wp-url').value)">適用</button></div></div>`;
         else if(k === 'cmd') body += `<div id="cmd-out-${k}" style="flex:1;padding:10px;font-family:monospace;font-size:13px;overflow-y:auto;background:#000;color:#0f0;white-space:pre-wrap;">Genesis OS [Version 5.9.4]\n(C) Genesis Corp. All rights reserved.\n\nType 'help' for commands.\n</div><div style="display:flex;background:#000;padding:5px 10px;border-top:1px solid #333;"><span style="color:#0f0;font-family:monospace;margin-right:5px;">></span><input type="text" id="cmd-in-${k}" style="flex:1;background:transparent;border:none;color:#0f0;font-family:monospace;outline:none;" autofocus onkeydown="if(event.key==='Enter')exC('${k}')"></div>`;
-        
         else if(k === 'clock') body += `<div style="padding:20px;"><h3>Global Clock</h3><div id="clock-list"></div><hr><h3>Timer</h3><div style="font-size:30px; margin-bottom:10px;" id="timer-disp">00:00</div><input type="number" id="timer-input" placeholder="Sec" style="width:60px"> <button class="sys-btn" onclick="startTimer()">Start</button></div>`;
         else if(k === 'weather') body += `<div id="weather-app-body" style="padding:20px; text-align:center; display:flex; flex-direction:column; justify-content:center; height:100%;"><h3>Current Weather</h3><div id="w-icon" style="font-size:60px;">⌛</div><div id="w-temp" style="font-size:28px; font-weight:bold;">Loading...</div><p id="w-desc">Fetching data...</p><p id="w-loc" style="font-size:12px; opacity:0.6;"></p></div>`;
         else if(k === 'sysmon') body += `<div style="padding:20px;"><h3>System Monitor</h3><p>CPU Usage</p><div class="sys-graph" id="cpu-graph"></div><p>Memory Usage</p><div class="sys-graph" id="mem-graph"></div><p style="margin-top:15px; font-size:12px;">Active Windows: <span id="win-count">0</span></p></div>`;
         else if(k === 'explorer') body += `<div style="padding:10px; background:rgba(0,0,0,0.2); display:flex; gap:10px;"><span>C:\\Genesis\\User\\</span></div><div id="file-list" style="padding:20px; display:grid; grid-template-columns:repeat(auto-fill, 80px); gap:20px;"></div>`;
-        
-        // --- Sandbox HTML ---
         else if(k === 'sandbox') body += `<div class="sandbox-container"><div style="padding:5px; background:#222;"><button class="sys-btn" onclick="runSandbox()">▶ 実行 (Run)</button></div><div class="sandbox-editors"><textarea id="sb-code" class="sandbox-code" spellcheck="false"><h1>Genesis UI</h1>\n<p>Edit here!</p>\n<style>\n body { background: #111; color: cyan; font-family: sans-serif; text-align: center; }\n</style>\n<script>\n console.log('Hello from Sandbox');\n<\/script></textarea><iframe id="sb-preview" class="sandbox-preview"></iframe></div></div>`;
+        else if(k === 'ai') body += `
+            <div style="display:flex; flex-direction:column; height:100%; background:rgba(15,15,20,0.85); backdrop-filter:blur(10px);">
+                <div id="ai-chat-log" style="flex:1; padding:20px; overflow-y:auto; font-size:13px; display:flex; flex-direction:column; gap:12px; scroll-behavior:smooth;">
+                    <div style="background:var(--accent); color:#000; padding:10px 14px; border-radius:18px 18px 18px 4px; align-self:flex-start; max-width:85%; box-shadow:0 4px 15px rgba(76,194,255,0.3);">
+                        Genesis OSへようこそ。私はシステムアシスタントです。アプリの起動やウェブ検索、設定変更のお手伝いをします。
+                    </div>
+                </div>
+                <div style="padding:15px; background:rgba(255,255,255,0.05); border-top:1px solid rgba(128,128,128,0.2); display:flex; gap:10px;">
+                    <input type="text" id="ai-input" style="flex:1; border:none; outline:none; background:rgba(255,255,255,0.1); color:#fff; padding:10px 15px; border-radius:20px;" placeholder="システムに質問..." onkeydown="if(event.key==='Enter') sendAIChat()">
+                    <button class="sys-btn" onclick="sendAIChat()" style="margin:0; border-radius:20px; width:60px;">送信</button>
+                </div>
+            </div>`;
         
         body += `</div>`;
 
@@ -220,7 +231,109 @@
         makeDrag(w, k); focusWin(k);
     }
 
-    // --- Code Sandbox Logic ---
+    /* --- 強化版 Genesis AI Logic (システム連携完全版) --- */
+    function sendAIChat() {
+        const input = document.getElementById('ai-input');
+        const log = document.getElementById('ai-chat-log');
+        const val = input.value.trim();
+        if (!val) return;
+
+        // ユーザーのメッセージを表示
+        const uMsg = document.createElement('div');
+        uMsg.style.cssText = "background:rgba(255,255,255,0.15); color:#fff; padding:10px 14px; border-radius:18px 18px 4px 18px; align-self:flex-end; max-width:85%; margin-bottom:5px; animation: fadeUp 0.3s ease;";
+        uMsg.innerText = val;
+        log.appendChild(uMsg);
+        input.value = '';
+
+        setTimeout(async () => {
+            const aMsg = document.createElement('div');
+            aMsg.style.cssText = "background:var(--accent); color:#000; padding:10px 14px; border-radius:18px 18px 18px 4px; align-self:flex-start; max-width:85%; box-shadow:0 4px 15px rgba(76,194,255,0.3); margin-bottom:5px; animation: fadeUp 0.3s ease;";
+            
+            let reply = "";
+            const cmd = val.toLowerCase();
+
+            // 1. ウェブ検索連携
+            if (cmd.includes("調べて") || cmd.includes("検索") || cmd.includes("google")) {
+                const query = val.replace(/調べて|検索して|googleで|を/g, "").trim();
+                openApp('browser');
+                setTimeout(() => {
+                    const url = `https://www.google.com/search?q=${encodeURIComponent(query)}&igu=1`;
+                    if(document.getElementById('ub-browser')) document.getElementById('ub-browser').value = url;
+                    if(document.getElementById('wf-browser')) document.getElementById('wf-browser').src = url;
+                }, 500);
+                reply = `承知しました。「${query}」についてブラウザで検索を開始します。`;
+            }
+            // 2. メモ連携
+            else if (cmd.includes("メモ") || cmd.includes("保存") || cmd.includes("記録")) {
+                const memoText = val.replace(/メモして|保存して|記録して|を/g, "").trim();
+                openApp('memo');
+                setTimeout(() => {
+                    const mt = document.getElementById('mt-memo');
+                    if(mt) {
+                        mt.value += (mt.value ? "\n" : "") + "[AI Log]: " + (memoText || "新しいメモ");
+                        localStorage.setItem('g_memo', mt.value);
+                    }
+                }, 500);
+                reply = "Notepadに内容を記録し、保存しました。";
+            }
+            // 3. コード生成・Sandbox連携
+            else if (cmd.includes("コード") || cmd.includes("プログラム") || cmd.includes("作って")) {
+                openApp('sandbox');
+                setTimeout(() => {
+                    const generatedCode = `<!DOCTYPE html>\n<html>\n<body style="background:#111; color:#0f0; display:flex; justify-content:center; align-items:center; height:100vh; font-family:sans-serif; flex-direction:column;">\n  <h1>AI Generated Interface</h1>\n  <p>Request: ${val}</p>\n  <button onclick="alert('Genesis System Active')" style="padding:10px; cursor:pointer;">Test Action</button>\n</body>\n</html>`;
+                    const sb = document.getElementById('sb-code');
+                    if(sb) {
+                        sb.value = generatedCode;
+                        runSandbox();
+                    }
+                }, 500);
+                reply = "指示に基づいたプロトタイプコードをSandboxに生成・展開しました。";
+            }
+            // 4. 計算連携
+            else if (cmd.includes("計算") || cmd.includes("電卓")) {
+                openApp('calc');
+                reply = "電卓を起動しました。数値を入力してください。";
+            }
+            // 5. 天気連携（位置情報活用）
+            else if (cmd.includes("天気")) {
+                reply = "現在地の気象データを確認します...";
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(async pos => {
+                        try {
+                            const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`);
+                            const data = await res.json();
+                            const cw = data.current_weather;
+                            const desc = {0:"快晴",1:"晴れ",2:"時々曇り",3:"曇り",45:"霧",61:"雨",71:"雪",95:"雷雨"}[cw.weathercode] || "不明";
+                            aMsg.innerText = `現在の天気は「${desc}」、気温は ${cw.temperature}℃ です。`;
+                        } catch(e) { aMsg.innerText = "気象データの取得中にエラーが発生しました。"; }
+                    }, () => { aMsg.innerText = "位置情報の取得が許可されていません。"; });
+                }
+            }
+            // 6. システム操作（テーマ・壁紙・消去）
+            else if (cmd.includes("ダーク")) { toggleTheme(false); reply = "システムをダークモードに設定しました。"; }
+            else if (cmd.includes("ライト")) { toggleTheme(true); reply = "システムをライトモードに設定しました。"; }
+            else if (cmd.includes("壁紙") || cmd.includes("背景")) {
+                const newBG = "https://images.unsplash.com/photo-1506318137071-a8e063b4b477?q=80&w=1000";
+                setBG(newBG);
+                reply = "壁紙を宇宙のテーマに変更しました。";
+            }
+            else if (cmd.includes("消して") || cmd.includes("クリア")) {
+                if(wins['paint']) { cC('paint'); reply = "キャンバスをクリアしました。"; }
+                else { reply = "何を消去しますか？（ペイントが開いている場合はキャンバスをクリアできます）"; }
+            }
+            // 7. 汎用応答
+            else {
+                reply = "「" + val + "」について承知いたしました。Genesis OSの各アプリを操作できます。例：「富士山を検索」「メモして：明日は会議」「壁紙を変えて」";
+            }
+
+            if(reply) {
+                aMsg.innerText = reply;
+                log.appendChild(aMsg);
+                log.scrollTop = log.scrollHeight;
+            }
+        }, 600);
+    }
+
     function runSandbox() {
         const code = document.getElementById('sb-code').value;
         const preview = document.getElementById('sb-preview').contentWindow.document;
@@ -229,7 +342,6 @@
         preview.close();
     }
 
-    // --- Weather App Logic ---
     function initWeather() {
         const iconMap = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",48:"🌫️",51:"🌦️",61:"🌧️",71:"❄️",95:"⛈️"};
         const descMap = {0:"Clear Sky",1:"Mainly Clear",2:"Partly Cloudy",3:"Overcast",45:"Foggy",51:"Light Drizzle",61:"Rain",71:"Snow",95:"Thunderstorm"};
@@ -238,16 +350,17 @@
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=${pos.coords.latitude}&longitude=${pos.coords.longitude}&current_weather=true`)
                 .then(res => res.json()).then(data => {
                     const cw = data.current_weather;
-                    document.getElementById('w-icon').innerText = iconMap[cw.weathercode] || "🌤️";
-                    document.getElementById('w-temp').innerText = `${cw.temperature}°C`;
-                    document.getElementById('w-desc').innerText = descMap[cw.weathercode] || "Unknown";
-                    document.getElementById('w-loc').innerText = `Lat: ${pos.coords.latitude.toFixed(2)}, Lon: ${pos.coords.longitude.toFixed(2)}`;
+                    if(document.getElementById('w-icon')){
+                        document.getElementById('w-icon').innerText = iconMap[cw.weathercode] || "🌤️";
+                        document.getElementById('w-temp').innerText = `${cw.temperature}°C`;
+                        document.getElementById('w-desc').innerText = descMap[cw.weathercode] || "Unknown";
+                        document.getElementById('w-loc').innerText = `Lat: ${pos.coords.latitude.toFixed(2)}, Lon: ${pos.coords.longitude.toFixed(2)}`;
+                    }
                 });
-            }, () => document.getElementById('w-desc').innerText = "Access denied.");
+            }, () => { if(document.getElementById('w-desc')) document.getElementById('w-desc').innerText = "Access denied."; });
         }
     }
 
-    // --- Global Clock ---
     function updateGlobalClock() {
         const list = document.getElementById('clock-list'); if(!list) return;
         const zones = [{n:'Local',z:undefined},{n:'New York',z:'America/New_York'},{n:'London',z:'Europe/London'}];
@@ -264,7 +377,6 @@
         }, 1000);
     }
 
-    // --- System Monitor ---
     function initSysMon() {
         const draw = (id) => {
             const g = document.getElementById(id); if(!g) return;
@@ -278,7 +390,6 @@
         setInterval(() => { draw('cpu-graph'); draw('mem-graph'); if(document.getElementById('win-count')) document.getElementById('win-count').innerText = Object.keys(wins).length; }, 2000);
     }
 
-    // --- File Explorer ---
     function updateExplorer() {
         const list = document.getElementById('file-list'); if(!list) return;
         const files = [{n:'Desktop',i:'📁'},{n:'Documents',i:'📁'},{n:'Pictures',i:'📁'},{n:'System32',i:'📁'},{n:'memo.txt',i:'📝'}];
@@ -305,7 +416,7 @@
     function exC(k) {
         const i = document.getElementById(`cmd-in-${k}`); const o = document.getElementById(`cmd-out-${k}`); const cmd = i.value.trim().toLowerCase();
         let res = `\n> ${i.value}\n`;
-        if (cmd === 'help') res += "Available commands: help, ver, time, cls, exit, color [code], about";
+        if (cmd === 'help') res += "Available commands: help, ver, time, cls, exit, color [code]";
         else if (cmd === 'ver') res += "Genesis OS [Version 5.9.4]";
         else if (cmd === 'time') res += new Date().toLocaleTimeString();
         else if (cmd === 'cls') { o.innerHTML = ""; res = ""; }
