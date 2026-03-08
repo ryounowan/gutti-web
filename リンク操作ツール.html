@@ -3,124 +3,93 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>P2P Remote Desktop Sim</title>
+    <title>P2P Debug Controller</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        body { font-family: sans-serif; margin: 0; background: #121212; color: #e0e0e0; text-align: center; overflow: hidden; }
-        #pc-view, #mobile-view { display: none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; }
-        
-        /* PC View: Desktop Sim */
-        #desktop { width: 80vw; height: 60vh; background: #1a1a1a; border: 2px solid #B8D4D9; position: relative; overflow: hidden; cursor: none; }
-        #cursor { width: 20px; height: 20px; background: white; border-radius: 50%; position: absolute; pointer-events: none; transition: transform 0.1s; border: 2px solid #B8D4D9; }
-        #qrcode { background: white; padding: 15px; border-radius: 10px; margin-top: 10px; }
-
-        /* Mobile View: Trackpad */
-        #trackpad { width: 90vw; height: 70vh; background: #222; border: 2px solid #B8D4D9; border-radius: 20px; touch-action: none; display: flex; justify-content: center; align-items: center; color: #666; }
-        .btn-row { margin-top: 20px; display: flex; gap: 20px; }
-        .click-btn { width: 120px; height: 60px; background: #B8D4D9; color: #121212; border-radius: 10px; display: flex; justify-content: center; align-items: center; font-weight: bold; }
+        body { font-family: sans-serif; margin: 0; background: #121212; color: #B8D4D9; text-align: center; }
+        #log { font-size: 12px; color: #888; background: #000; padding: 5px; height: 60px; overflow-y: scroll; text-align: left; }
+        .view { display: none; height: 100vh; flex-direction: column; justify-content: center; align-items: center; }
+        #desktop { width: 300px; height: 200px; background: #222; border: 1px solid #B8D4D9; position: relative; }
+        #cursor { width: 15px; height: 15px; background: #fff; border-radius: 50%; position: absolute; top: 50%; left: 50%; }
+        #qrcode { background: white; padding: 10px; margin: 10px; }
+        .pad { width: 250px; height: 250px; background: #333; border-radius: 20px; display: flex; align-items: center; justify-content: center; touch-action: none; }
     </style>
 </head>
 <body>
 
-    <div id="pc-view">
-        <h2 style="color:#B8D4D9">Virtual Remote Desktop</h2>
-        <div id="desktop">
-            <div id="cursor"></div>
-            <div id="content" style="margin-top:100px;">スマホを繋いでマウスを動かそう</div>
-        </div>
-        <div id="pc-ui">
-            <div id="qrcode"></div>
-            <p id="pc-status">QRをスキャンして接続</p>
-        </div>
+    <div id="log">ログ: 待機中...</div>
+
+    <div id="pc-view" class="view">
+        <div id="desktop"><div id="cursor"></div></div>
+        <div id="qrcode"></div>
+        <p id="pc-id-display">ID発行中...</p>
     </div>
 
-    <div id="mobile-view">
-        <div id="trackpad">TRACKPAD (Swipe to move)</div>
-        <div class="btn-row">
-            <div class="click-btn" id="left-click">LEFT CLICK</div>
-        </div>
-        <p id="mobile-status">接続中...</p>
+    <div id="mobile-view" class="view">
+        <div class="pad" id="pad">TRACKPAD</div>
+        <p>指を動かして操作</p>
     </div>
 
     <script>
-        const peerId = "gutti-remote-" + Math.floor(1000 + Math.random() * 9000);
-        const peer = new Peer(peerId);
+        const logEl = document.getElementById('log');
+        function logger(msg) { logEl.innerText = msg + "\n" + logEl.innerText; }
+
+        // IDを短く固定
+        const myId = "gutti-" + Math.floor(1000 + Math.random() * 9000);
+        const peer = new Peer(myId);
+
         const params = new URLSearchParams(window.location.hash.substring(1));
         const targetId = params.get('id');
 
-        // --- PC側の状態 ---
-        let cursorX = 400;
-        let cursorY = 300;
+        peer.on('open', (id) => {
+            logger("Peer準備完了: " + id);
+            if (targetId) {
+                logger("接続開始 -> " + targetId);
+                const conn = peer.connect(targetId);
+                setupMobile(conn);
+            } else {
+                setupPC(id);
+            }
+        });
 
-        if (targetId) {
-            // 【スマホ側：トラックパッド】
-            document.getElementById('mobile-view').style.display = 'flex';
-            const conn = peer.connect(targetId);
+        peer.on('error', (err) => logger("エラー: " + err.type));
 
-            conn.on('open', () => {
-                document.getElementById('mobile-status').textContent = "接続完了！";
-                
-                let lastTouchX = 0;
-                let lastTouchY = 0;
-
-                const trackpad = document.getElementById('trackpad');
-                trackpad.addEventListener('touchstart', (e) => {
-                    lastTouchX = e.touches[0].clientX;
-                    lastTouchY = e.touches[0].clientY;
-                });
-
-                trackpad.addEventListener('touchmove', (e) => {
-                    e.preventDefault();
-                    const touchX = e.touches[0].clientX;
-                    const touchY = e.touches[0].clientY;
-                    
-                    // 移動の差分を計算
-                    const dx = touchX - lastTouchX;
-                    const dy = touchY - lastTouchY;
-
-                    conn.send({ type: 'mouseMove', dx: dx * 2, dy: dy * 2 });
-
-                    lastTouchX = touchX;
-                    lastTouchY = touchY;
-                });
-
-                document.getElementById('left-click').addEventListener('touchstart', (e) => {
-                    e.preventDefault();
-                    navigator.vibrate(50);
-                    conn.send({ type: 'click' });
-                });
-            });
-        } else {
-            // 【PC側：デスクトップシミュレーター】
+        function setupPC(id) {
             document.getElementById('pc-view').style.display = 'flex';
-            const cursor = document.getElementById('cursor');
-            const desktop = document.getElementById('desktop');
-
-            peer.on('open', (id) => {
-                const url = window.location.href.split('#')[0] + '#id=' + id;
-                new QRCode(document.getElementById("qrcode"), { text: url, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.L });
-            });
+            document.getElementById('pc-id-display').innerText = "ID: " + id;
+            const url = window.location.href.split('#')[0] + "#id=" + id;
+            new QRCode(document.getElementById("qrcode"), { text: url, width: 150, height: 150 });
 
             peer.on('connection', (conn) => {
-                document.getElementById('pc-ui').style.display = 'none';
+                logger("スマホが接続しました！");
                 conn.on('data', (data) => {
-                    if (data.type === 'mouseMove') {
-                        cursorX += data.dx;
-                        cursorY += data.dy;
-                        
-                        // 範囲制限
-                        cursorX = Math.max(0, Math.min(desktop.clientWidth, cursorX));
-                        cursorY = Math.max(0, Math.min(desktop.clientHeight, cursorY));
+                    if (data.type === 'move') {
+                        const cursor = document.getElementById('cursor');
+                        cursor.style.left = (parseInt(cursor.style.left || 50) + data.dx) + "px";
+                        cursor.style.top = (parseInt(cursor.style.top || 50) + data.dy) + "px";
+                    }
+                });
+            });
+        }
 
-                        cursor.style.left = cursorX + 'px';
-                        cursor.style.top = cursorY + 'px';
-                    }
-                    if (data.type === 'click') {
-                        cursor.style.transform = 'scale(1.5)';
-                        setTimeout(() => cursor.style.transform = 'scale(1)', 100);
-                        document.getElementById('content').textContent = "クリックされました！";
-                    }
+        function setupMobile(conn) {
+            document.getElementById('mobile-view').style.display = 'flex';
+            conn.on('open', () => {
+                logger("PCに接続成功！");
+                let lx, ly;
+                const pad = document.getElementById('pad');
+                pad.addEventListener('touchstart', e => {
+                    lx = e.touches[0].clientX;
+                    ly = e.touches[0].clientY;
+                });
+                pad.addEventListener('touchmove', e => {
+                    e.preventDefault();
+                    const dx = e.touches[0].clientX - lx;
+                    const dy = e.touches[0].clientY - ly;
+                    conn.send({ type: 'move', dx: dx, dy: dy });
+                    lx = e.touches[0].clientX;
+                    ly = e.touches[0].clientY;
                 });
             });
         }
