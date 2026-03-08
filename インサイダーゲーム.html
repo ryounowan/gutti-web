@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>P2P Insider Game</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --primary: #673ab7; --accent: #ff9800; --danger: #f44336; --success: #4caf50; }
+        body { font-family: sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background: #fdfdfd; color: #333; }
+        .card { background: white; padding: 25px; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.1); border-top: 8px solid var(--primary); }
+        .hidden { display: none; }
+        input, select { width: calc(100% - 22px); padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; color: white; background: var(--primary); margin-top: 10px; }
+        #timer { font-size: 48px; text-align: center; font-weight: bold; color: var(--accent); margin: 10px 0; }
+        .role-box { padding: 15px; border-radius: 8px; text-align: center; margin-bottom: 20px; border: 2px solid #eee; }
+        .role-master { background: #e3f2fd; border-color: #2196f3; }
+        .role-insider { background: #fff3e0; border-color: #ff9800; }
+        .role-common { background: #f5f5f5; border-color: #9e9e9e; }
+        #word-display { font-size: 28px; font-weight: bold; color: var(--danger); margin-top: 10px; }
+        .status { font-size: 13px; text-align: center; color: #666; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2 style="text-align:center;">インサイダーゲーム</h2>
+
+    <div id="lobby-screen">
+        <input type="text" id="user-name" placeholder="名前を入力">
+        <input type="text" id="room-id" placeholder="合言葉">
+        <button id="join-btn" onclick="initConnection()">部屋に入る</button>
+        <p id="status-msg" class="status">合言葉でマッチングします</p>
+
+        <div id="host-setup" class="hidden">
+            <hr>
+            <h3>ゲーム設定 (ホスト)</h3>
+            <label style="font-size:12px;">議論時間:</label>
+            <select id="time-limit">
+                <option value="300" selected>5分</option>
+                <option value="600">10分</option>
+            </select>
+            <label style="font-size:12px;">お題を自由に設定:</label>
+            <input type="text" id="custom-word" placeholder="お題を入力 (例: カレーライス)">
+            <p>参加人数: <span id="player-count">1</span>名</p>
+            <button onclick="startGame()" style="background:var(--success);">ゲーム開始</button>
+        </div>
+    </div>
+
+    <div id="game-screen" class="hidden">
+        <div id="timer">05:00</div>
+        
+        <div id="role-area" class="role-box">
+            <div id="role-name" style="font-size: 18px; font-weight: bold;">確認中...</div>
+            <div id="word-display" class="hidden">お題: <span>? ? ?</span></div>
+            <div id="insider-msg" class="hidden" style="font-size:12px; margin-top:10px;">
+                正解を知っていることを隠して、庶民を正解へ導いてください。
+            </div>
+        </div>
+
+        <button onclick="location.reload()" style="background:var(--danger);">ゲームを終了して戻る</button>
+    </div>
+</div>
+
+<script>
+    let peer, connections = [], myName, isHost = false, timerInterval;
+    const PREFIX = "insider-room-";
+
+    window.onload = () => {
+        document.getElementById('user-name').value = localStorage.getItem('insider_name') || "";
+    };
+
+    function initConnection() {
+        myName = document.getElementById('user-name').value || "名無し";
+        const room = document.getElementById('room-id').value;
+        if (!room) return alert("合言葉を入力してください");
+        
+        localStorage.setItem('insider_name', myName);
+        document.getElementById('join-btn').disabled = true;
+        
+        const fullId = PREFIX + room;
+        peer = new Peer(fullId);
+
+        peer.on('open', () => {
+            isHost = true;
+            document.getElementById('host-setup').classList.remove('hidden');
+            refreshList();
+            peer.on('connection', conn => {
+                conn.on('data', data => {
+                    if (data.type === 'JOIN') { conn.userName = data.name; connections.push(conn); refreshList(); }
+                });
+            });
+        });
+
+        peer.on('error', err => {
+            if (err.type === 'unavailable-id') { peer.destroy(); joinAsGuest(fullId); }
+        });
+    }
+
+    function joinAsGuest(hostId) {
+        peer = new Peer();
+        peer.on('open', () => {
+            const conn = peer.connect(hostId);
+            conn.on('open', () => {
+                conn.send({ type: 'JOIN', name: myName });
+                document.getElementById('status-msg').innerText = "接続完了。開始を待っています...";
+                conn.on('data', data => {
+                    if (data.type === 'START') setupGame(data);
+                    if (data.type === 'TICK') document.getElementById('timer').innerText = data.time;
+                });
+            });
+        });
+    }
+
+    function refreshList() {
+        document.getElementById('player-count').innerText = connections.length + 1;
+    }
+
+    function startGame() {
+        const word = document.getElementById('custom-word').value || "リンゴ";
+        const timeLimit = parseInt(document.getElementById('time-limit').value);
+        const players = [myName, ...connections.map(c => c.userName)];
+        
+        // 役割シャッフル
+        // 0: マスター, 1: インサイダー, 2以降: 庶民
+        let indices = players.map((_, i) => i);
+        indices = indices.sort(() => Math.random() - 0.5);
+
+        const rolesData = players.map((name, i) => {
+            const roleIdx = indices.indexOf(i);
+            if (roleIdx === 0) return "MASTER";
+            if (roleIdx === 1) return "INSIDER";
+            return "COMMON";
+        });
+
+        // 自分の設定
+        setupGame({ role: rolesData[0], word: word });
+
+        // 各ゲストに送信
+        connections.forEach((c, i) => {
+            c.send({ type: 'START', role: rolesData[i+1], word: word });
+        });
+
+        startTimer(timeLimit);
+    }
+
+    function setupGame(data) {
+        document.getElementById('lobby-screen').classList.add('hidden');
+        document.getElementById('game-screen').classList.remove('hidden');
+        
+        const roleName = document.getElementById('role-name');
+        const wordDisplay = document.getElementById('word-display');
+        const roleBox = document.getElementById('role-area');
+
+        roleBox.className = "role-box";
+
+        if (data.role === "MASTER") {
+            roleName.innerText = "あなたは【マスター】です";
+            roleBox.classList.add('role-master');
+            wordDisplay.classList.remove('hidden');
+            wordDisplay.querySelector('span').innerText = data.word;
+        } else if (data.role === "INSIDER") {
+            roleName.innerText = "あなたは【インサイダー】です";
+            roleBox.classList.add('role-insider');
+            wordDisplay.classList.remove('hidden');
+            wordDisplay.querySelector('span').innerText = data.word;
+            document.getElementById('insider-msg').classList.remove('hidden');
+        } else {
+            roleName.innerText = "あなたは【庶民】です";
+            roleBox.classList.add('role-common');
+            wordDisplay.classList.add('hidden');
+        }
+    }
+
+    function startTimer(sec) {
+        let left = sec;
+        timerInterval = setInterval(() => {
+            left--;
+            const m = Math.floor(left / 60).toString().padStart(2, '0');
+            const s = (left % 60).toString().padStart(2, '0');
+            const timeStr = `${m}:${s}`;
+            document.getElementById('timer').innerText = timeStr;
+            if (isHost) connections.forEach(c => c.send({ type: 'TICK', time: timeStr }));
+            if (left <= 0) clearInterval(timerInterval);
+        }, 1000);
+    }
+</script>
+</body>
+</html>
