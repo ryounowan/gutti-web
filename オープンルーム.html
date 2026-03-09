@@ -3,21 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Lobby - Fixed Sync</title>
+    <title>Gutti Lobby - Custom Color Warp</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
-        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; box-sizing: border-box; }
+        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
+        
         #login-screen { position: fixed; inset: 0; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
         .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 300px; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid #334155; }
         input[type="text"] { padding: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 16px; outline: none; }
         button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 16px; }
+
         #ui-layer { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 90%; max-width: 500px; z-index: 2000; }
-        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; box-sizing: border-box; }
-        #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; border:none; cursor:pointer;}
+        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; }
+        #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; }
+
+        /* モーダル（カラー選択用） */
         #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 4000; }
         .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 280px; display: flex; flex-direction: column; gap: 10px; }
         .modal-content input { padding: 10px; border-radius: 8px; border: 1px solid #444; background: #0f172a; color: white; }
+
         #lobby-canvas { background: radial-gradient(circle at center, #1e293b 0%, #020617 80%); display: block; }
         #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; text-shadow: 0 0 10px #f87171; display: none; z-index: 3000; pointer-events: none; text-align: center; }
         #warp-bar { width: 200px; height: 5px; background: #444; margin: 10px auto; border-radius: 3px; overflow: hidden; }
@@ -26,7 +31,7 @@
 </head>
 <body>
 
-<div id="status-bar">GUTTI LOBBY - COORDINATE SYNC ACTIVE</div>
+<div id="status-bar">GUTTI LOBBY - CUSTOM COLOR ENGINE ACTIVE</div>
 <div id="warp-notice">
     WARP INITIATED
     <div id="warp-bar"><div id="warp-bar-inner"></div></div>
@@ -86,7 +91,6 @@
         myName = document.getElementById('user-name').value || "Guest";
         const file = document.getElementById('icon-upload').files[0];
         if(file) {
-            // アイコンのリサイズ（同期の安定化のため）
             myIconData = await new Promise(r => {
                 const reader = new FileReader();
                 reader.onload = e => {
@@ -105,15 +109,12 @@
         localStorage.setItem('gutti_name', myName);
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'flex';
-        
-        // 初期位置を中央に設定
         players['me'] = { id: 'me', name: myName, icon: myIconData, rx: 0.5, ry: 0.5, targetRX: 0.5, targetRY: 0.5, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 };
         initPeer(); requestAnimationFrame(draw);
         canvas.addEventListener('mousedown', e => moveMe(e.clientX, e.clientY));
         canvas.addEventListener('touchstart', e => { if(document.activeElement.id !== 'chat-input') moveMe(e.touches[0].clientX, e.touches[0].clientY); });
     }
 
-    // 画面比率に基づいた移動 (rx, ry は 0.0 ~ 1.0)
     function moveMe(x, y) { 
         if(isTransitioning) return; 
         const rx = x / canvas.width;
@@ -323,7 +324,6 @@
 
         Object.keys(players).forEach(id => {
             const p = players[id];
-            // 座標補間
             p.rx += (p.targetRX - p.rx) * 0.1; 
             p.ry += (p.targetRY - p.ry) * 0.1;
             
