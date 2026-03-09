@@ -3,52 +3,74 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Lobby - Sync Noise</title>
+    <title>Gutti Lobby - Mobile Optimized</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
-        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
+        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 10px 15px; font-size: 12px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
+        
         #login-screen { position: fixed; inset: 0; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 300px; border: 1px solid #334155; }
-        input[type="text"] { padding: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 16px; outline: none; }
-        button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; }
-        #ui-layer { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 90%; max-width: 500px; z-index: 2000; }
-        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; }
+        .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 85%; max-width: 320px; border: 1px solid #334155; }
+        input[type="text"] { padding: 18px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 18px; outline: none; }
+        button { padding: 18px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 16px; }
+
+        #ui-layer { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 92%; max-width: 500px; z-index: 2000; }
+        #chat-input { width: 100%; padding: 18px 25px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.98); color: white; outline: none; font-size: 18px; box-sizing: border-box; }
+        #portal-btn { background: #7c3aed; padding: 12px 24px; border-radius: 30px; font-size: 14px; color: white; border: none; font-weight: bold; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.4); }
+
+        #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 4000; }
+        .modal-content { background: #1e293b; padding: 25px; border-radius: 24px; width: 85%; max-width: 300px; display: flex; flex-direction: column; gap: 12px; }
+        
         #lobby-canvas { background: radial-gradient(circle at center, #1e293b 0%, #020617 80%); display: block; }
-        #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; display: none; z-index: 3000; text-align: center; }
-        #warp-bar { width: 200px; height: 5px; background: #444; margin: 10px auto; border-radius: 3px; overflow: hidden; }
+        #warp-notice { position: fixed; top: 20%; left: 50%; transform: translate(-50%, -50%); font-size: 24px; font-weight: bold; color: #ef4444; display: none; z-index: 3000; text-align: center; text-shadow: 0 0 10px rgba(239, 68, 68, 0.5); }
+        #warp-bar { width: 220px; height: 8px; background: #334155; margin: 15px auto; border-radius: 4px; overflow: hidden; }
         #warp-bar-inner { width: 100%; height: 100%; background: #ef4444; }
     </style>
 </head>
 <body>
 
-<div id="status-bar">GUTTI LOBBY - VIRTUAL SYNC & NOISE RELAY</div>
+<div id="status-bar">GUTTI LOBBY - MOBILE OPTIMIZED</div>
 <div id="warp-notice">WARP INITIATED<div id="warp-bar"><div id="warp-bar-inner"></div></div></div>
+
+<div id="portal-modal">
+    <div class="modal-content">
+        <h3 style="margin:0; text-align:center;">Create Portal</h3>
+        <input type="text" id="p-name" placeholder="Portal Name">
+        <input type="text" id="p-url" placeholder="https://...">
+        <input type="color" id="p-color" value="#7c3aed" style="width:100%; height:50px; border:none; background:none;">
+        <div style="display:flex; gap:10px; margin-top:5px;">
+            <button onclick="closePortalMaker()" style="flex:1; background:#475569; font-size:14px; padding:12px;">Cancel</button>
+            <button onclick="submitPortal()" style="flex:1; font-size:14px; padding:12px;">Create</button>
+        </div>
+    </div>
+</div>
 
 <div id="login-screen">
     <div class="login-card">
-        <h1 style="text-align:center;">GUTTI GLITCH</h1>
-        <input type="text" id="user-name" placeholder="Name" maxlength="10">
-        <label style="font-size:12px; text-align:center; color:#94a3b8; cursor:pointer;">📷 Custom Icon<input type="file" id="icon-upload" accept="image/*" style="display:none;"></label>
-        <button onclick="startLobby()">Connect</button>
+        <h1 style="text-align:center; margin-bottom:10px; letter-spacing:2px;">GUTTI GLITCH</h1>
+        <input type="text" id="user-name" placeholder="Your Name" maxlength="10">
+        <label style="font-size:14px; text-align:center; color:#94a3b8; cursor:pointer; padding:10px;">📷 Upload Icon<input type="file" id="icon-upload" accept="image/*" style="display:none;"></label>
+        <button onclick="startLobby()">Connect Lobby</button>
     </div>
 </div>
 
 <canvas id="lobby-canvas"></canvas>
 
 <div id="ui-layer">
-    <input type="text" id="chat-input" placeholder="Say something..." maxlength="30" onkeypress="if(event.key==='Enter') sendLocalChat()">
+    <button id="portal-btn" onclick="openPortalMaker()">🌀 Create Warp Portal</button>
+    <input type="text" id="chat-input" placeholder="Message..." maxlength="30" onkeypress="if(event.key==='Enter') sendLocalChat()">
 </div>
 
 <script>
     const ROOM_ID = "GUTTI-SYNC-RELAY-2026";
     const PREFIX = "gutti-sv10-";
-    const BASE_SIZE = 1000; // 仮想的な画面サイズ（1000px基準）
+    const BASE_SIZE = 1000; 
+    const SAFE_RADIUS = 130;
     
     let peer, myName, myIconData = null;
     let players = {}, portals = {}, iconCache = {}, receivedMsgIds = new Set();
     let canvas, ctx, scale = 1, offsetX = 0, offsetY = 0;
-    let particles = [], relayPackets = [];
+    let warpTarget = null, warpTimer = 0, isTransitioning = false;
 
     window.onload = () => {
         canvas = document.getElementById('lobby-canvas');
@@ -61,15 +83,16 @@
     function resize() {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        // 1000pxの仮想空間を現在の画面にフィットさせる倍率を計算
-        scale = Math.min(canvas.width / BASE_SIZE, canvas.height / BASE_SIZE);
+        
+        // スマホで見やすいように倍率を少し底上げ (縦が長い場合は横幅基準で少しズーム)
+        const baseScale = Math.min(canvas.width / BASE_SIZE, canvas.height / BASE_SIZE);
+        scale = window.innerWidth < 600 ? baseScale * 1.5 : baseScale; 
+        
         offsetX = (canvas.width - BASE_SIZE * scale) / 2;
         offsetY = (canvas.height - BASE_SIZE * scale) / 2;
     }
 
-    // 実座標(画面)から仮想座標(1000基準)へ変換
     function toVirtual(val, isY = false) { return (val - (isY ? offsetY : offsetX)) / scale; }
-    // 仮想座標から実座標へ変換
     function toReal(val, isY = false) { return val * scale + (isY ? offsetY : offsetX); }
 
     async function startLobby() {
@@ -85,14 +108,37 @@
         requestAnimationFrame(draw);
 
         canvas.addEventListener('mousedown', e => moveMe(e.clientX, e.clientY));
-        canvas.addEventListener('touchstart', e => { if(document.activeElement.id !== 'chat-input') moveMe(e.touches[0].clientX, e.touches[0].clientY); });
+        canvas.addEventListener('touchstart', e => { 
+            if(document.activeElement.id !== 'chat-input') {
+                e.preventDefault();
+                moveMe(e.touches[0].clientX, e.touches[0].clientY);
+            }
+        }, {passive: false});
     }
 
     function moveMe(x, y) {
-        const vx = toVirtual(x);
-        const vy = toVirtual(y, true);
+        if(isTransitioning) return;
+        const vx = toVirtual(x); const vy = toVirtual(y, true);
         players['me'].targetX = vx; players['me'].targetY = vy;
         relayBroadcast({ type: 'MOVE', x: vx, y: vy });
+    }
+
+    function openPortalMaker() {
+        const dist = Math.hypot(players['me'].x - 500, players['me'].y - 500);
+        if(dist < SAFE_RADIUS) return alert("❌ Safe Zone内には設置できません！");
+        document.getElementById('portal-modal').style.display = 'flex';
+    }
+    function closePortalMaker() { document.getElementById('portal-modal').style.display = 'none'; }
+    function submitPortal() {
+        const name = document.getElementById('p-name').value;
+        const url = document.getElementById('p-url').value;
+        const color = document.getElementById('p-color').value;
+        if(name && url) {
+            const portal = { name, url, x: players['me'].x, y: players['me'].y, color: color };
+            portals[peer.id] = portal;
+            relayBroadcast({ type: 'PORTAL_UPDATE', portal });
+            closePortalMaker();
+        }
     }
 
     function initPeer() {
@@ -111,7 +157,6 @@
     }
 
     function setupPeerHandlers() { peer.on('connection', conn => setupConnection(conn)); }
-
     function setupConnection(conn) {
         conn.on('open', () => {
             conn.send({ type: 'JOIN', name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y, senderId: peer.id });
@@ -125,18 +170,21 @@
         receivedMsgIds.add(d.msgId);
         
         const sid = d.senderId;
-        
-        // 【ノイズ演出】転送元と自分の「ノイズフラグ」を立てる
-        if (players[sid]) players[sid].noiseTime = 20; 
-        players['me'].noiseTime = 10;
+        if (players[sid]) players[sid].noiseTime = 15; 
+        players['me'].noiseTime = 8;
 
         if (d.type === 'JOIN') {
             players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, noiseTime: 0 };
+            conn.send({ type: 'SYNC_REPLY', senderId: peer.id, name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y, allPortals: portals });
+        }
+        if (d.type === 'SYNC_REPLY') {
+            players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, noiseTime: 0 };
+            if (d.allPortals) Object.assign(portals, d.allPortals);
         }
         if (d.type === 'MOVE' && players[sid]) { players[sid].targetX = d.x; players[sid].targetY = d.y; }
         if (d.type === 'CHAT' && players[sid]) { players[sid].msg = d.msg; players[sid].msgTime = Date.now(); }
+        if (d.type === 'PORTAL_UPDATE') { portals[sid] = d.portal; }
 
-        // バケツリレー転送
         Object.keys(peer.connections).forEach(targetId => {
             if (targetId !== conn.peer) {
                 setTimeout(() => {
@@ -172,8 +220,8 @@
         for (let i = 0; i < 5; i++) {
             const h = Math.random() * rs;
             const yo = ry - rs/2 + Math.random() * rs;
-            const xo = (Math.random() - 0.5) * 25 * scale;
-            ctx.fillStyle = (Math.random() > 0.5) ? 'rgba(255,0,0,0.5)' : 'rgba(0,255,255,0.5)';
+            const xo = (Math.random() - 0.5) * 30 * scale;
+            ctx.fillStyle = (Math.random() > 0.5) ? 'rgba(255,0,0,0.6)' : 'rgba(0,255,255,0.6)';
             ctx.fillRect(rx - rs/2 + xo, yo, rs, h);
         }
         ctx.restore();
@@ -183,20 +231,45 @@
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const now = Date.now();
 
-        // Safe Area描画
+        // Safe Area
         ctx.strokeStyle = "rgba(96, 165, 250, 0.2)";
-        ctx.beginPath(); ctx.arc(toReal(500), toReal(500, true), 130 * scale, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath(); ctx.arc(toReal(500), toReal(500, true), SAFE_RADIUS * scale, 0, Math.PI*2); ctx.stroke();
+        ctx.setLineDash([]);
 
+        // Portal
+        let onPortal = false;
+        Object.keys(portals).forEach(pid => {
+            const p = portals[pid];
+            const rx = toReal(p.x), ry = toReal(p.y, true);
+            const pulse = (40 + Math.sin(now/200)*8) * scale;
+            const grad = ctx.createRadialGradient(rx, ry, 5, rx, ry, pulse);
+            grad.addColorStop(0, p.color); grad.addColorStop(1, "transparent");
+            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(rx, ry, pulse, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = `bold ${Math.max(12, 11 * scale)}px sans-serif`; ctx.textAlign="center";
+            ctx.fillText(p.name.toUpperCase(), rx, ry - 60 * scale);
+            if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 35) { onPortal = true; warpTarget = p; }
+        });
+
+        // Warp Notice
+        const notice = document.getElementById('warp-notice');
+        if (onPortal && !isTransitioning) {
+            if (warpTimer <= 0) warpTimer = 5000;
+            warpTimer -= 16.6;
+            notice.style.display = 'block';
+            document.getElementById('warp-bar-inner').style.width = (warpTimer / 5000) * 100 + "%";
+            if (warpTimer <= 300) { isTransitioning = true; window.location.href = warpTarget.url; }
+        } else if (!isTransitioning) {
+            warpTimer = 0; notice.style.display = 'none';
+        }
+
+        // Players
         Object.keys(players).forEach(id => {
             const p = players[id];
             p.x += (p.targetX - p.x) * 0.1; p.y += (p.targetY - p.y) * 0.1;
-            
-            const rx = toReal(p.x);
-            const ry = toReal(p.y, true);
-            const rs = 44 * scale;
+            const rx = toReal(p.x), ry = toReal(p.y, true), rs = 55 * scale; // 少し大きく描画
 
             ctx.save();
-            // アイコン描画
             if(p.icon) {
                 if(!iconCache[p.icon]) { const img = new Image(); img.src = p.icon; iconCache[p.icon] = img; }
                 ctx.save(); ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI*2); ctx.clip();
@@ -206,22 +279,17 @@
                 ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI*2); ctx.fill();
             }
 
-            // 【中継ノイズ】転送が発生した瞬間に激しくグリッチ
-            if (p.noiseTime > 0) {
-                applyGlitch(p.x, p.y, 50);
-                p.noiseTime--;
-            }
+            if (p.noiseTime > 0) { applyGlitch(p.x, p.y, 60); p.noiseTime--; }
 
-            // チャット
             if(p.msg && now - p.msgTime < 5000) {
-                ctx.font = (14 * scale) + "px sans-serif";
+                const fontSize = Math.max(16, 14 * scale);
+                ctx.font = fontSize + "px sans-serif"; 
                 const tw = ctx.measureText(p.msg).width;
-                ctx.fillStyle = "white"; ctx.beginPath(); ctx.roundRect(rx - tw/2 - 10, ry - 75*scale, tw + 20, 30*scale, 8); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, rx, ry - 55*scale);
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.roundRect(rx - tw/2 - 12, ry - 85*scale, tw + 24, 35*scale, 10); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, rx, ry - 62*scale);
             }
-            
-            ctx.fillStyle = "white"; ctx.font = `bold ${12 * scale}px sans-serif`; ctx.textAlign = "center";
-            ctx.fillText(p.name, rx, ry + 42 * scale);
+            ctx.fillStyle = "white"; ctx.font = `bold ${Math.max(14, 12 * scale)}px sans-serif`; ctx.textAlign = "center";
+            ctx.fillText(p.name, rx, ry + 48 * scale);
             ctx.restore();
         });
         requestAnimationFrame(draw);
