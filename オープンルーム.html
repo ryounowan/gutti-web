@@ -3,49 +3,61 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Lobby - Glitch & Sync</title>
+    <title>Gutti Lobby - Custom Color Warp</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
-        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 10px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
+        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
+        
         #login-screen { position: fixed; inset: 0; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 85%; max-width: 300px; border: 1px solid #334155; }
+        .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 300px; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid #334155; }
         input[type="text"] { padding: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 16px; outline: none; }
-        button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; }
-        #ui-layer { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 92%; max-width: 500px; z-index: 2000; }
-        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; box-sizing: border-box; }
-        #portal-btn { background: #7c3aed; padding: 10px 20px; border-radius: 30px; font-size: 13px; color: white; border: none; font-weight: bold; }
-        #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 4000; }
-        .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 85%; max-width: 280px; display: flex; flex-direction: column; gap: 12px; }
+        button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 16px; }
+
+        #ui-layer { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 90%; max-width: 500px; z-index: 2000; }
+        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; }
+        #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; }
+
+        /* モーダル（カラー選択用） */
+        #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 4000; }
+        .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 280px; display: flex; flex-direction: column; gap: 10px; }
+        .modal-content input { padding: 10px; border-radius: 8px; border: 1px solid #444; background: #0f172a; color: white; }
+
         #lobby-canvas { background: radial-gradient(circle at center, #1e293b 0%, #020617 80%); display: block; }
-        #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; display: none; z-index: 3000; text-align: center; }
+        #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; text-shadow: 0 0 10px #f87171; display: none; z-index: 3000; pointer-events: none; text-align: center; }
         #warp-bar { width: 200px; height: 5px; background: #444; margin: 10px auto; border-radius: 3px; overflow: hidden; }
-        #warp-bar-inner { width: 100%; height: 100%; background: #ef4444; }
+        #warp-bar-inner { width: 100%; height: 100%; background: #ef4444; transition: width 0.1s; }
     </style>
 </head>
 <body>
 
-<div id="status-bar">GUTTI LOBBY - GLITCH RELAY ACTIVE</div>
-<div id="warp-notice">WARP INITIATED<div id="warp-bar"><div id="warp-bar-inner"></div></div></div>
+<div id="status-bar">GUTTI LOBBY - CUSTOM COLOR ENGINE ACTIVE</div>
+<div id="warp-notice">
+    WARP INITIATED
+    <div id="warp-bar"><div id="warp-bar-inner"></div></div>
+</div>
 
 <div id="portal-modal">
     <div class="modal-content">
-        <h3 style="margin:0; text-align:center;">Create Portal</h3>
+        <h3 style="margin:0 0 10px 0;">Create Portal</h3>
         <input type="text" id="p-name" placeholder="Portal Name">
-        <input type="text" id="p-url" placeholder="https://...">
-        <input type="color" id="p-color" value="#7c3aed" style="width:100%; height:40px; border:none; background:none;">
-        <div style="display:flex; gap:10px;">
-            <button onclick="closePortalMaker()" style="flex:1; background:#475569;">Cancel</button>
-            <button onclick="submitPortal()" style="flex:1;">Create</button>
+        <input type="text" id="p-url" placeholder="URL (https://...)">
+        <div style="display:flex; align-items:center; gap:10px;">
+            <label>Color:</label>
+            <input type="color" id="p-color" value="#7c3aed" style="flex:1; height:40px; padding:2px;">
+        </div>
+        <div style="display:flex; gap:10px; margin-top:10px;">
+            <button onclick="closePortalMaker()" style="flex:1; background:#475569; padding:10px; font-size:14px;">Cancel</button>
+            <button onclick="submitPortal()" style="flex:1; padding:10px; font-size:14px;">Create</button>
         </div>
     </div>
 </div>
 
 <div id="login-screen">
     <div class="login-card">
-        <h1 style="text-align:center; margin:0 0 10px 0; letter-spacing:2px;">GUTTI GLITCH</h1>
+        <h1 style="margin:0; font-size:22px; text-align:center; letter-spacing:4px; color:#fff;">GUTTI GLITCH</h1>
         <input type="text" id="user-name" placeholder="Name" maxlength="10">
-        <label style="font-size:12px; text-align:center; color:#94a3b8; cursor:pointer;">📷 Custom Icon<input type="file" id="icon-upload" accept="image/*" style="display:none;"></label>
+        <label style="font-size:12px; cursor:pointer; text-align:center; color:#94a3b8;">📷 Custom Icon<input type="file" id="icon-upload" accept="image/*" style="display:none;"></label>
         <button onclick="startLobby()">Connect</button>
     </div>
 </div>
@@ -58,35 +70,22 @@
 </div>
 
 <script>
-    const ROOM_ID = "GUTTI-SYNC-RELAY-2026";
-    const PREFIX = "gutti-sv11-";
-    const BASE_SIZE = 1000; 
+    const OPEN_ROOM_ID = "GUTTI-OPEN-GLITCH-WARP-2026";
+    const PREFIX = "gutti-open-v8-";
     const SAFE_RADIUS = 130;
     
-    let peer, myName, myIconData = null;
-    let players = {}, portals = {}, iconCache = {}, receivedMsgIds = new Set();
-    let canvas, ctx, scale = 1, offsetX = 0, offsetY = 0;
-    let warpTarget = null, warpTimer = 0, isTransitioning = false;
+    let peer, myName, myIconData = null, isHost = false;
+    let players = {}, portals = {}, iconCache = {};
+    let canvas, ctx, warpTarget = null, warpTimer = 0, isTransitioning = false;
+    let particles = [];
 
     window.onload = () => {
         canvas = document.getElementById('lobby-canvas');
         ctx = canvas.getContext('2d');
-        resize();
-        window.onresize = resize;
+        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
+        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
         document.getElementById('user-name').value = localStorage.getItem('gutti_name') || "";
     };
-
-    function resize() {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-        const baseScale = Math.min(canvas.width / BASE_SIZE, canvas.height / BASE_SIZE);
-        scale = window.innerWidth < 600 ? baseScale * 1.6 : baseScale; 
-        offsetX = (canvas.width - BASE_SIZE * scale) / 2;
-        offsetY = (canvas.height - BASE_SIZE * scale) / 2;
-    }
-
-    function toVirtual(val, isY = false) { return (val - (isY ? offsetY : offsetX)) / scale; }
-    function toReal(val, isY = false) { return val * scale + (isY ? offsetY : offsetX); }
 
     async function startLobby() {
         myName = document.getElementById('user-name').value || "Guest";
@@ -95,23 +94,17 @@
         localStorage.setItem('gutti_name', myName);
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'flex';
-        
-        players['me'] = { id: 'me', name: myName, icon: myIconData, x: 500, y: 500, targetX: 500, targetY: 500, msg: "", msgTime: 0, noiseTime: 0, opacity: 1 };
-        initPeer();
-        requestAnimationFrame(draw);
+        players['me'] = { id: 'me', name: myName, icon: myIconData, x: canvas.width/2, y: canvas.height/2, targetX: canvas.width/2, targetY: canvas.height/2, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 };
+        initPeer(); requestAnimationFrame(draw);
         canvas.addEventListener('mousedown', e => moveMe(e.clientX, e.clientY));
         canvas.addEventListener('touchstart', e => { if(document.activeElement.id !== 'chat-input') moveMe(e.touches[0].clientX, e.touches[0].clientY); });
     }
 
-    function moveMe(x, y) {
-        if(isTransitioning) return;
-        const vx = toVirtual(x); const vy = toVirtual(y, true);
-        players['me'].targetX = vx; players['me'].targetY = vy;
-        relayBroadcast({ type: 'MOVE', x: vx, y: vy });
-    }
+    function moveMe(x, y) { if(isTransitioning) return; players['me'].targetX = x; players['me'].targetY = y; broadcast({ type: 'MOVE', x, y }); }
 
+    // ポータル作成関連
     function openPortalMaker() {
-        const dist = Math.hypot(players['me'].x - 500, players['me'].y - 500);
+        const dist = Math.hypot(players['me'].x - canvas.width/2, players['me'].y - canvas.height/2);
         if(dist < SAFE_RADIUS) return alert("❌ Safe Zone内には設置できません！");
         document.getElementById('portal-modal').style.display = 'flex';
     }
@@ -122,97 +115,111 @@
         const color = document.getElementById('p-color').value;
         if(name && url) {
             const portal = { name, url, x: players['me'].x, y: players['me'].y, color: color };
-            portals[peer.id] = portal;
-            relayBroadcast({ type: 'PORTAL_UPDATE', portal });
+            portals['me'] = portal;
+            broadcast({ type: 'PORTAL_UPDATE', portal, id: peer.id });
             closePortalMaker();
         }
     }
 
     function initPeer() {
-        peer = new Peer(PREFIX + ROOM_ID);
-        peer.on('open', () => { setupPeerHandlers(); });
-        peer.on('error', (err) => {
-            if(err.type === 'unavailable-id') {
-                peer = new Peer();
-                peer.on('open', () => {
-                    setupPeerHandlers();
-                    const conn = peer.connect(PREFIX + ROOM_ID);
-                    setupConnection(conn);
-                });
-            }
-        });
+        peer = new Peer(PREFIX + OPEN_ROOM_ID);
+        peer.on('open', () => { isHost = true; peer.on('connection', c => { c.on('open', () => { c.on('data', d => handleData(c, d)); c.on('close', () => removePlayer(c.peer)); }); }); });
+        peer.on('error', e => { if(e.type === 'unavailable-id') joinGuest(); });
     }
 
-    function setupPeerHandlers() { peer.on('connection', conn => setupConnection(conn)); }
-    function setupConnection(conn) {
-        conn.on('open', () => {
-            conn.send({ type: 'JOIN', name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y, senderId: peer.id });
-            conn.on('data', data => handleData(conn, data));
+    function joinGuest() {
+        peer = new Peer();
+        peer.on('open', () => {
+            const c = peer.connect(PREFIX + OPEN_ROOM_ID);
+            c.on('open', () => {
+                c.send({ type: 'JOIN', name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y });
+                c.on('data', d => handleData(c, d));
+            });
         });
     }
 
     function handleData(conn, d) {
-        if (!d.msgId) d.msgId = Math.random().toString(36).substr(2, 9);
-        if (receivedMsgIds.has(d.msgId)) return;
-        receivedMsgIds.add(d.msgId);
-        
-        const sid = d.senderId;
-        // データを受け取ったプレイヤーにノイズを発生させる
-        if (players[sid]) players[sid].noiseTime = 15; 
-        players['me'].noiseTime = 8;
-
-        if (d.type === 'JOIN') {
-            players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, noiseTime: 0, opacity: 1 };
-            conn.send({ type: 'SYNC_REPLY', senderId: peer.id, name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y, allPortals: portals });
+        const sid = isHost ? conn.peer : d.id;
+        if(d.type === 'JOIN' && isHost) { players[conn.peer] = { id: conn.peer, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 }; syncAll(); }
+        if(d.type === 'SYNC') {
+            const newP = { 'me': players['me'] };
+            Object.keys(d.allP).forEach(id => { if(id !== peer.id) newP[id] = d.allP[id]; newP[id].opacity = d.allP[id].opacity || 1; });
+            players = newP; portals = d.allPortals;
         }
-        if (d.type === 'SYNC_REPLY') {
-            players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, noiseTime: 0, opacity: 1 };
-            if (d.allPortals) Object.assign(portals, d.allPortals);
+        if(isHost && players[sid]) {
+            if(d.type === 'MOVE') { players[sid].targetX = d.x; players[sid].targetY = d.y; }
+            if(d.type === 'WARP_STATUS') { players[sid].warping = d.warping; players[sid].warpTimeLeft = d.timeLeft; }
+            if(d.type === 'CHAT') { players[sid].msg = d.msg; players[sid].msgTime = Date.now(); }
+            syncAll();
+        } else if(!isHost && d.type === 'CHAT' && players[sid]) {
+            players[sid].msg = d.msg; players[sid].msgTime = Date.now();
         }
-        if (d.type === 'MOVE' && players[sid]) { players[sid].targetX = d.x; players[sid].targetY = d.y; }
-        if (d.type === 'CHAT' && players[sid]) { players[sid].msg = d.msg; players[sid].msgTime = Date.now(); }
-        if (d.type === 'PORTAL_UPDATE') { portals[sid] = d.portal; }
-
-        // リレー送信
-        Object.keys(peer.connections).forEach(targetId => {
-            if (targetId !== conn.peer) {
-                setTimeout(() => {
-                    const targetConn = peer.connections[targetId][0];
-                    if (targetConn && targetConn.open) targetConn.send(d);
-                }, 200);
-            }
-        });
+        if(d.type === 'PORTAL_UPDATE') { portals[sid] = d.portal; if(isHost) syncAll(); }
     }
 
-    function relayBroadcast(data) {
-        data.senderId = peer.id;
-        data.msgId = Math.random().toString(36).substr(2, 9);
-        receivedMsgIds.add(data.msgId);
-        Object.keys(peer.connections).forEach(id => {
-            const conn = peer.connections[id][0];
-            if (conn && conn.open) conn.send(data);
-        });
+    function syncAll() {
+        if(!isHost) return;
+        const allP = {}; allP[peer.id] = players['me'];
+        Object.keys(players).forEach(id => { if(id !== 'me') allP[id] = players[id]; });
+        Object.keys(peer.connections).forEach(id => peer.connections[id][0].send({ type: 'SYNC', allP, allPortals: portals }));
+    }
+
+    function broadcast(data) {
+        if(!peer) return;
+        if(isHost) Object.keys(peer.connections).forEach(id => peer.connections[id][0].send(data));
+        else { const h = peer.connections[Object.keys(peer.connections)[0]]; if(h) h[0].send(data); }
     }
 
     function sendLocalChat() {
         const input = document.getElementById('chat-input');
         if(!input.value) return;
         players['me'].msg = input.value; players['me'].msgTime = Date.now();
-        relayBroadcast({ type: 'CHAT', msg: input.value });
+        broadcast({ type: 'CHAT', msg: input.value, id: peer.id });
         input.value = ""; input.blur();
     }
 
-    // ★ ノイズ描画関数（指定されたグリッチ演出）
-    function applyGlitch(x, y, size) {
-        ctx.save();
-        const rx = toReal(x), ry = toReal(y, true), rs = size * scale;
-        ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI * 2); ctx.clip();
+    function createWarpParticles(x, y, color) {
         for (let i = 0; i < 6; i++) {
-            const h = Math.random() * rs;
-            const yo = ry - rs/2 + Math.random() * rs;
-            const xo = (Math.random() - 0.5) * 25 * scale;
+            particles.push({
+                x: x + (Math.random() - 0.5) * 35,
+                y: y + (Math.random() - 0.5) * 35,
+                vx: (Math.random() - 0.5) * 3,
+                vy: -Math.random() * 6 - 3,
+                life: 1,
+                color: color || '#fff',
+                size: Math.random() * 4 + 1,
+                angle: Math.random() * Math.PI * 2,
+                radius: Math.random() * 20
+            });
+        }
+    }
+
+    function drawParticles() {
+        ctx.save();
+        particles.forEach((p, i) => {
+            p.life -= 0.025;
+            if (p.life <= 0) { particles.splice(i, 1); return; }
+            p.angle += 0.15;
+            p.x += Math.cos(p.angle) * p.radius * 0.1 + p.vx;
+            p.y += p.vy;
+            p.radius += 0.25;
+            ctx.globalAlpha = p.life;
+            ctx.fillStyle = p.color;
+            ctx.shadowBlur = 12; ctx.shadowColor = p.color;
+            ctx.beginPath(); ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2); ctx.fill();
+        });
+        ctx.restore();
+    }
+
+    function applyGlitch(imgX, imgY, size, p) {
+        ctx.save();
+        ctx.beginPath(); ctx.arc(imgX, imgY, size/2, 0, Math.PI * 2); ctx.clip();
+        for (let i = 0; i < 5; i++) {
+            const h = Math.random() * size;
+            const y = imgY - size/2 + Math.random() * size;
+            const xOffset = (Math.random() - 0.5) * 20 * (1 - p.opacity);
             ctx.fillStyle = (Math.random() > 0.5) ? 'rgba(255,0,0,0.5)' : 'rgba(0,255,255,0.5)';
-            ctx.fillRect(rx - rs/2 + xo, yo, rs, h);
+            ctx.fillRect(imgX - size/2 + xOffset, y, size, h);
         }
         ctx.restore();
     }
@@ -220,74 +227,90 @@
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const now = Date.now();
-
-        // Safe Area
-        ctx.strokeStyle = "rgba(96, 165, 250, 0.2)";
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath(); ctx.arc(toReal(500), toReal(500, true), SAFE_RADIUS * scale, 0, Math.PI*2); ctx.stroke();
+        
+        ctx.setLineDash([5, 10]);
+        ctx.strokeStyle = "rgba(96, 165, 250, 0.4)";
+        ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, SAFE_RADIUS, 0, Math.PI*2); ctx.stroke();
         ctx.setLineDash([]);
 
-        // Portal
         let onPortal = false;
         Object.keys(portals).forEach(pid => {
-            const p = portals[pid];
-            const rx = toReal(p.x), ry = toReal(p.y, true);
-            const pulse = (40 + Math.sin(now/200)*8) * scale;
-            const grad = ctx.createRadialGradient(rx, ry, 5, rx, ry, pulse);
+            const p = (pid === 'me' || pid === peer.id) ? portals['me'] : portals[pid];
+            if(!p) return;
+            const pulse = 35 + Math.sin(now/200)*5;
+            const grad = ctx.createRadialGradient(p.x, p.y, 5, p.x, p.y, pulse);
             grad.addColorStop(0, p.color); grad.addColorStop(1, "transparent");
-            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(rx, ry, pulse, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = "white"; ctx.font = `bold ${Math.max(12, 11 * scale)}px sans-serif`; ctx.textAlign="center";
-            ctx.fillText(p.name.toUpperCase(), rx, ry - 60 * scale);
-            if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 35) { onPortal = true; warpTarget = p; }
+            ctx.fillStyle = grad;
+            ctx.beginPath(); ctx.arc(p.x, p.y, pulse, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = "white"; ctx.font = "bold 11px sans-serif"; ctx.textAlign="center"; 
+            ctx.fillText(p.name.toUpperCase(), p.x, p.y - 55);
+            if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 30) onPortal = true;
         });
 
-        // Warp Logic
         const notice = document.getElementById('warp-notice');
-        if (onPortal && !isTransitioning) {
-            if (warpTimer <= 0) warpTimer = 5000;
-            warpTimer -= 16.6;
+        const barInner = document.getElementById('warp-bar-inner');
+
+        if ((onPortal && warpTarget) || isTransitioning) {
+            if (!isTransitioning) {
+                warpTimer -= 16.6;
+                players['me'].warping = true;
+                players['me'].warpTimeLeft = Math.ceil(warpTimer / 1000);
+            } else { warpTimer -= 25; }
             notice.style.display = 'block';
-            document.getElementById('warp-bar-inner').style.width = (warpTimer / 5000) * 100 + "%";
-            players['me'].noiseTime = 5; // ワープ中も常に少しノイズ
-            if (warpTimer <= 0) { isTransitioning = true; window.location.href = warpTarget.url; }
-        } else if (!isTransitioning) {
-            warpTimer = 0; notice.style.display = 'none';
+            barInner.style.width = (Math.max(0, warpTimer) / 5000) * 100 + "%";
+            broadcast({ type: 'WARP_STATUS', warping: true, timeLeft: Math.max(0, players['me'].warpTimeLeft) });
+            if (warpTimer <= 1500) {
+                isTransitioning = true;
+                players['me'].opacity = Math.max(0, (warpTimer - 500) / 1000); 
+                createWarpParticles(players['me'].x, players['me'].y, warpTarget.color);
+            }
+            if (warpTimer <= 0) { window.location.href = warpTarget.url; return; }
+        } else if (onPortal && !warpTarget) {
+            Object.keys(portals).forEach(pid => {
+                const p = (pid === 'me' || pid === peer.id) ? portals['me'] : portals[pid];
+                if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 30) {
+                    warpTarget = p; warpTimer = 5000;
+                }
+            });
+        } else if (!isTransitioning && players['me'].warping) {
+            warpTarget = null; warpTimer = 0;
+            notice.style.display = 'none';
+            players['me'].warping = false;
+            players['me'].opacity = 1;
+            broadcast({ type: 'WARP_STATUS', warping: false, timeLeft: 0 });
         }
 
-        // Players
+        drawParticles();
+
         Object.keys(players).forEach(id => {
             const p = players[id];
             p.x += (p.targetX - p.x) * 0.1; p.y += (p.targetY - p.y) * 0.1;
-            const rx = toReal(p.x), ry = toReal(p.y, true), rs = 50 * scale;
-
+            const op = (id === 'me') ? p.opacity : (p.opacity || 1);
             ctx.save();
+            ctx.globalAlpha = op;
             if(p.icon) {
                 if(!iconCache[p.icon]) { const img = new Image(); img.src = p.icon; iconCache[p.icon] = img; }
-                ctx.save(); ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI*2); ctx.clip();
-                if(iconCache[p.icon].complete) ctx.drawImage(iconCache[p.icon], rx-rs/2, ry-rs/2, rs, rs);
+                ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.clip();
+                if(iconCache[p.icon].complete) ctx.drawImage(iconCache[p.icon], p.x-22, p.y-22, 44, 44);
                 ctx.restore();
             } else {
-                ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.fill();
             }
-
-            // ★ ノイズ演出の実行
-            if (p.noiseTime > 0) {
-                applyGlitch(p.x, p.y, 50);
-                p.noiseTime--;
-            }
-
+            if(p.warping && op > 0) applyGlitch(p.x, p.y, 44, p);
             if(p.msg && now - p.msgTime < 5000) {
-                const fontSize = Math.max(16, 14 * scale);
-                ctx.font = fontSize + "px sans-serif"; const tw = ctx.measureText(p.msg).width;
-                ctx.fillStyle = "white"; ctx.beginPath(); ctx.roundRect(rx - tw/2 - 12, ry - 85*scale, tw + 24, 35*scale, 10); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, rx, ry - 62*scale);
+                ctx.save(); ctx.font = "14px sans-serif"; const tw = ctx.measureText(p.msg).width;
+                ctx.fillStyle = "rgba(255,255,255,0.95)";
+                ctx.beginPath(); ctx.roundRect(p.x - tw/2 - 10, p.y - 75, tw + 20, 30, 8); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, p.x, p.y - 55);
+                ctx.restore();
             }
-            ctx.fillStyle = "white"; ctx.font = `bold ${Math.max(13, 12 * scale)}px sans-serif`; ctx.textAlign = "center";
-            ctx.fillText(p.name, rx, ry + 48 * scale);
+            ctx.fillStyle = "white"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center";
+            ctx.fillText(p.name, p.x, p.y+42);
             ctx.restore();
         });
         requestAnimationFrame(draw);
     }
+    function removePlayer(id) { delete players[id]; delete portals[id]; if(isHost) syncAll(); }
 </script>
 </body>
 </html>
