@@ -2,88 +2,85 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>P2P Word Wolf - Pro Custom</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>P2P Word Wolf</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --primary: #1a73e8; --danger: #d93025; --success: #34a853; --neutral: #5f6368; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 500px; margin: 20px auto; padding: 20px; background: #f8f9fa; color: #333; }
-        .card { background: white; padding: 25px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        :root { --primary: #1a73e8; --danger: #d93025; --success: #34a853; --neutral: #5f6368; --bg: #f8f9fa; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, sans-serif; margin: 0; padding: 15px; background: var(--bg); color: #333; }
+        .card { background: white; padding: 20px; border-radius: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 500px; margin: auto; }
+        h2 { text-align: center; margin: 0 0 15px 0; color: var(--primary); font-size: 1.4rem; }
         .hidden { display: none; }
-        input, select { width: calc(100% - 22px); padding: 10px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
-        label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; }
-        button { width: 100%; padding: 14px; border: none; border-radius: 8px; font-size: 16px; cursor: pointer; color: white; background: var(--primary); margin-top: 10px; }
-        button:hover { opacity: 0.9; }
-        #timer { font-size: 48px; text-align: center; font-weight: bold; color: var(--danger); margin: 10px 0; font-variant-numeric: tabular-nums; }
-        #word-box { font-size: 26px; color: var(--danger); text-align: center; margin: 15px 0; border: 2px dashed var(--danger); padding: 15px; border-radius: 8px; background: #fff5f5; }
-        .player-item { background: #f1f3f4; padding: 10px; margin-bottom: 5px; border-radius: 6px; display: flex; justify-content: space-between; align-items: center; }
-        .vote-btn { width: auto; padding: 6px 15px; margin: 0; font-size: 14px; }
-        #result-board { background: #fffde7; padding: 15px; border-radius: 8px; border: 1px solid #fbc02d; margin-top: 15px; font-size: 14px; line-height: 1.6; }
-        .winner-banner { font-size: 24px; font-weight: bold; text-align: center; margin: 10px 0; padding: 15px; border-radius: 8px; }
-        .majority-win { background: #e8f5e9; color: var(--success); }
-        .minority-win { background: #ffebee; color: var(--danger); }
+        input, select { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 12px; font-size: 16px; outline: none; }
+        label { font-size: 13px; color: #666; font-weight: bold; display: block; margin-top: 10px; margin-left: 5px; }
+        button { width: 100%; padding: 16px; border: none; border-radius: 12px; font-size: 16px; font-weight: bold; cursor: pointer; color: white; background: var(--primary); margin-top: 10px; }
+        #timer { font-size: 52px; text-align: center; font-weight: bold; color: var(--danger); margin: 10px 0; font-variant-numeric: tabular-nums; }
+        #word-box { font-size: 28px; color: var(--danger); text-align: center; margin: 15px 0; border: 3px dashed var(--danger); padding: 15px; border-radius: 15px; background: #fff5f5; font-weight: bold; }
+        .player-item { background: #f1f3f4; padding: 12px; margin-bottom: 8px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #e0e0e0; }
+        .vote-btn { width: auto; padding: 8px 20px; margin: 0; font-size: 14px; background: var(--danger); }
+        #result-board { background: #fffde7; padding: 15px; border-radius: 15px; border: 1px solid #fbc02d; margin-top: 15px; font-size: 14px; line-height: 1.8; }
+        .winner-banner { font-size: 22px; font-weight: bold; text-align: center; margin: 15px 0; padding: 15px; border-radius: 12px; }
+        .majority-win { background: #e8f5e9; color: var(--success); border: 2px solid var(--success); }
+        .minority-win { background: #ffebee; color: var(--danger); border: 2px solid var(--danger); }
+        hr { border: 0; border-top: 1px solid #eee; margin: 15px 0; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2 style="text-align:center; margin-bottom:10px;">ワードウルフ P2P</h2>
+    <h2>ワードウルフ P2P</h2>
 
     <div id="lobby-screen">
-        <label>あなたの名前</label>
-        <input type="text" id="user-name" placeholder="名無しさん">
+        <label>表示名</label>
+        <input type="text" id="user-name" placeholder="名前を入力">
         <label>部屋の合言葉</label>
-        <input type="text" id="room-id" placeholder="例: ひみつの部屋">
+        <input type="text" id="room-id" placeholder="合言葉を合わせる">
         <button id="join-btn" onclick="initConnection()">部屋に入る / 作る</button>
-        <p id="status-msg" style="text-align:center; font-size:13px; color:#888;">同じ合言葉で繋がります</p>
+        <p id="status-msg" style="text-align:center; font-size:13px; color:#888;">同じ合言葉の人とマッチングします</p>
 
         <div id="host-setup" class="hidden">
             <hr>
-            <h3>ゲーム設定 (ホスト)</h3>
-            
+            <h3>ホストメニュー</h3>
             <label>議論時間</label>
             <select id="time-limit">
                 <option value="60">1分</option>
                 <option value="180" selected>3分</option>
                 <option value="300">5分</option>
-                <option value="600">10分</option>
             </select>
-
-            <label>お題</label>
+            <label>お題設定</label>
             <select id="word-set" onchange="document.getElementById('custom-input').classList.toggle('hidden', this.value !== 'custom')">
-                <option value="random">ランダム（パンダ、野球など）</option>
-                <option value="custom">カスタム入力する</option>
+                <option value="random">おまかせ (食べ物・動物など)</option>
+                <option value="custom">自分で入力する</option>
             </select>
-            
             <div id="custom-input" class="hidden">
-                <input type="text" id="word-a" placeholder="多数派（例：うどん）">
-                <input type="text" id="word-b" placeholder="少数派（例：そば）">
+                <input type="text" id="word-a" placeholder="多数派 (例: うどん)">
+                <input type="text" id="word-b" placeholder="少数派 (例: そば)">
             </div>
-
-            <p style="margin-top:15px;">参加中: <span id="player-count">1</span>名</p>
-            <ul id="player-list" style="padding:0;"></ul>
-            <button onclick="startGame()" style="background:var(--success);">この設定でゲーム開始</button>
+            <p style="text-align:center; font-weight:bold;">参加者: <span id="player-count">1</span>名</p>
+            <button onclick="startGame()" style="background:var(--success);">ゲーム開始！</button>
         </div>
     </div>
 
     <div id="game-screen" class="hidden">
         <div id="timer">03:00</div>
-        <div style="text-align:center; font-size:12px; color:#666;">あなたのお題</div>
+        <div style="text-align:center; font-size:13px; color:#666; font-weight:bold;">あなたのお題</div>
         <div id="word-box">? ? ?</div>
         
         <div id="voting-area">
-            <p style="font-weight:bold; font-size:14px;">ウルフだと思う人に投票してください：</p>
+            <p style="font-weight:bold; font-size:15px; margin-bottom:10px;">ウルフ(少数派)だと思う人に投票：</p>
             <div id="vote-list"></div>
         </div>
 
         <div id="host-reveal-area" class="hidden">
-            <p style="text-align:center; color:var(--primary); font-weight:bold;">全員の投票が完了しました</p>
-            <button onclick="revealResult()" style="background:var(--primary);">結果を全員に公開する</button>
+            <p style="text-align:center; color:var(--primary); font-weight:bold; padding:10px; border: 1px solid; border-radius: 10px;">全員の投票が完了しました！</p>
+            <button onclick="revealResult()">結果を全員に公開</button>
         </div>
 
         <div id="final-result" class="hidden">
             <div id="winner-banner" class="winner-banner"></div>
             <div id="result-board"></div>
-            <button onclick="location.reload()" style="background:var(--neutral);">ロビーへ戻る</button>
+            <button onclick="location.reload()" style="background:var(--neutral);">ロビーに戻る</button>
         </div>
     </div>
 </div>
@@ -91,16 +88,15 @@
 <script>
     let peer, connections = [], myName, isHost = false, timerInterval;
     let votes = {}, playersData = [], currentPair = {};
-    const PREFIX = "wolf-final-";
+    const PREFIX = "wolf-game-v2-";
 
-    // 保存された名前を読み込み
     window.onload = () => {
-        const savedName = localStorage.getItem('wolf_username');
-        if (savedName) document.getElementById('user-name').value = savedName;
+        const saved = localStorage.getItem('wolf_username');
+        if (saved) document.getElementById('user-name').value = saved;
     };
 
     function initConnection() {
-        myName = document.getElementById('user-name').value || "名無し";
+        myName = document.getElementById('user-name').value || "ユーザー" + Math.floor(Math.random()*100);
         const room = document.getElementById('room-id').value;
         if (!room) return alert("合言葉を入力してください");
         
@@ -112,26 +108,22 @@
 
         peer.on('open', () => {
             isHost = true;
-            document.getElementById('status-msg').innerText = "ホストとして待機中...";
             document.getElementById('host-setup').classList.remove('hidden');
-            refreshPlayerList();
+            document.getElementById('status-msg').innerText = "ホスト待機中...";
+            refreshCount();
             peer.on('connection', conn => {
-                conn.on('data', data => {
-                    if (data.type === 'JOIN') { 
-                        conn.userName = data.name; 
-                        connections.push(conn); 
-                        refreshPlayerList(); 
-                    }
-                    if (data.type === 'VOTE') handleVote(conn.userName, data.target);
+                conn.on('open', () => {
+                    conn.on('data', data => {
+                        if (data.type === 'JOIN') { conn.userName = data.name; connections.push(conn); refreshCount(); }
+                        if (data.type === 'VOTE') handleVote(conn.userName, data.target);
+                    });
                 });
             });
         });
 
         peer.on('error', err => {
-            if (err.type === 'unavailable-id') {
-                peer.destroy();
-                joinAsGuest(fullId);
-            }
+            if (err.type === 'unavailable-id') { peer.destroy(); joinAsGuest(fullId); }
+            else { alert("接続エラー: " + err.type); location.reload(); }
         });
     }
 
@@ -141,7 +133,7 @@
             const conn = peer.connect(hostId);
             conn.on('open', () => {
                 conn.send({ type: 'JOIN', name: myName });
-                document.getElementById('status-msg').innerText = "参加者として接続しました。開始を待っています...";
+                document.getElementById('status-msg').innerText = "接続中...";
                 conn.on('data', data => {
                     if (data.type === 'START') setupGameUI(data.word, data.players);
                     if (data.type === 'TICK') document.getElementById('timer').innerText = data.time;
@@ -151,23 +143,19 @@
         });
     }
 
-    function refreshPlayerList() {
-        const list = document.getElementById('player-list');
-        list.innerHTML = `<div class="player-item"><span>● ${myName} (ホスト)</span></div>`;
-        connections.forEach(c => {
-            list.innerHTML += `<div class="player-item"><span>● ${c.userName}</span></div>`;
-        });
+    function refreshCount() {
         document.getElementById('player-count').innerText = connections.length + 1;
     }
 
     function startGame() {
-        // 時間設定の取得
         const timeLimit = parseInt(document.getElementById('time-limit').value);
-        
-        // お題の設定
+        const pairs = [
+            {a:"パンダ",b:"シロクマ"}, {a:"野球",b:"ソフトボール"}, {a:"うどん",b:"そば"},
+            {a:"お風呂",b:"シャワー"}, {a:"映画館",b:"遊園地"}, {a:"YouTube",b:"TikTok"}
+        ];
         currentPair = document.getElementById('word-set').value === 'custom' 
             ? { a: document.getElementById('word-a').value, b: document.getElementById('word-b').value }
-            : [{a:"パンダ",b:"シロクマ"},{a:"野球",b:"ソフトボール"},{a:"うどん",b:"そば"},{a:"YouTube",b:"TikTok"}][Math.floor(Math.random()*4)];
+            : pairs[Math.floor(Math.random()*pairs.length)];
         
         const allNames = [myName, ...connections.map(c => c.userName)];
         const wolfIdx = Math.floor(Math.random() * allNames.length);
@@ -177,7 +165,6 @@
         connections.forEach((c, i) => {
             c.send({ type: 'START', word: (i + 1 === wolfIdx ? currentPair.b : currentPair.a), players: allNames });
         });
-        
         startTimer(timeLimit);
     }
 
@@ -199,26 +186,17 @@
         let left = sec;
         timerInterval = setInterval(() => {
             left--;
-            const m = Math.floor(left / 60).toString().padStart(2, '0');
-            const s = (left % 60).toString().padStart(2, '0');
-            const timeStr = `${m}:${s}`;
+            const timeStr = `${Math.floor(left / 60).toString().padStart(2, '0')}:${(left % 60).toString().padStart(2, '0')}`;
             document.getElementById('timer').innerText = timeStr;
-            
             if (isHost) connections.forEach(c => c.send({ type: 'TICK', time: timeStr }));
-            
-            if (left <= 0) {
-                clearInterval(timerInterval);
-                if (isHost && Object.keys(votes).length < connections.length + 1) {
-                    // 時間切れの処理（必要に応じて）
-                }
-            }
+            if (left <= 0) clearInterval(timerInterval);
         }, 1000);
     }
 
     function submitVote(target) {
         if (isHost) handleVote(myName, target);
         else peer.connections[Object.keys(peer.connections)[0]][0].send({ type: 'VOTE', target: target });
-        document.getElementById('voting-area').innerHTML = "<p style='text-align:center; color:#666;'>投票を受け付けました。集計を待っています...</p>";
+        document.getElementById('voting-area').innerHTML = "<p style='text-align:center; padding: 20px;'>投票完了。集計を待っています...</p>";
     }
 
     function handleVote(voter, target) {
@@ -230,35 +208,30 @@
     }
 
     function revealResult() {
-        // 集計ロジック
         const counts = {};
         Object.values(votes).forEach(v => counts[v] = (counts[v] || 0) + 1);
         const maxVotes = Math.max(...Object.values(counts));
         const votedOuts = Object.keys(counts).filter(name => counts[name] === maxVotes);
-        
         const wolf = playersData.find(p => p.isWolf);
-        // 最多得票者にウルフが含まれていれば多数派の勝ち
         const isMajorityWin = votedOuts.includes(wolf.name);
         
-        const resultData = { type: 'REVEAL', isMajorityWin, votes, playersData, pair: currentPair };
-        displayFinalResult(resultData);
-        connections.forEach(c => c.send(resultData));
+        const res = { type: 'REVEAL', isMajorityWin, votes, playersData, pair: currentPair };
+        displayFinalResult(res);
+        connections.forEach(c => c.send(res));
     }
 
     function displayFinalResult(data) {
         document.getElementById('voting-area').classList.add('hidden');
         document.getElementById('host-reveal-area').classList.add('hidden');
         document.getElementById('final-result').classList.remove('hidden');
-        document.getElementById('timer').innerText = "終了";
         
         const banner = document.getElementById('winner-banner');
-        banner.innerText = data.isMajorityWin ? "多数派の勝利！" : "少数派（ウルフ）の勝利！";
+        banner.innerText = data.isMajorityWin ? "多数派の勝利！" : "ウルフの勝利！";
         banner.className = "winner-banner " + (data.isMajorityWin ? "majority-win" : "minority-win");
 
-        let html = `<b>多数派のお題: ${data.pair.a}</b><br><b>少数派のお題: ${data.pair.b}</b><hr>`;
+        let html = `<b>お題: 多数派[${data.pair.a}] / ウルフ[${data.pair.b}]</b><hr>`;
         data.playersData.forEach(p => {
-            const vTarget = data.votes[p.name] || "未投票";
-            html += `<div>${p.name} (${p.isWolf?'少数派':'多数派'}) → <b>${vTarget}</b> に投票</div>`;
+            html += `<div>${p.name} (${p.isWolf?'ウルフ':'多数派'}) → ${data.votes[p.name] || '無効'} へ投票</div>`;
         });
         document.getElementById('result-board').innerHTML = html;
     }
