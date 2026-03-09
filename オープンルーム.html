@@ -18,7 +18,6 @@
         #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; }
         #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; }
 
-        /* モーダル（カラー選択用） */
         #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 4000; }
         .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 280px; display: flex; flex-direction: column; gap: 10px; }
         .modal-content input { padding: 10px; border-radius: 8px; border: 1px solid #444; background: #0f172a; color: white; }
@@ -31,7 +30,7 @@
 </head>
 <body>
 
-<div id="status-bar">GUTTI LOBBY - CUSTOM COLOR ENGINE ACTIVE</div>
+<div id="status-bar">GUTTI LOBBY - SYNC ENGINE ACTIVE</div>
 <div id="warp-notice">
     WARP INITIATED
     <div id="warp-bar"><div id="warp-bar-inner"></div></div>
@@ -110,7 +109,16 @@
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'flex';
         players['me'] = { id: 'me', name: myName, icon: myIconData, rx: 0.5, ry: 0.5, targetRX: 0.5, targetRY: 0.5, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 };
-        initPeer(); requestAnimationFrame(draw);
+        
+        initPeer(); 
+        requestAnimationFrame(draw);
+
+        setInterval(() => {
+            if (peer && peer.open) {
+                broadcast({ type: 'MOVE', rx: players['me'].targetRX, ry: players['me'].targetRY });
+            }
+        }, 100);
+
         canvas.addEventListener('mousedown', e => moveMe(e.clientX, e.clientY));
         canvas.addEventListener('touchstart', e => { if(document.activeElement.id !== 'chat-input') moveMe(e.touches[0].clientX, e.touches[0].clientY); });
     }
