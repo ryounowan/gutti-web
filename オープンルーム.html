@@ -3,26 +3,21 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Lobby - Custom Color Warp</title>
+    <title>Gutti Lobby - Fixed Sync</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
-        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
-        
+        #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; box-sizing: border-box; }
         #login-screen { position: fixed; inset: 0; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
         .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 300px; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid #334155; }
         input[type="text"] { padding: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 16px; outline: none; }
         button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 16px; }
-
         #ui-layer { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 90%; max-width: 500px; z-index: 2000; }
-        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; }
-        #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; }
-
-        /* モーダル（カラー選択用） */
+        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; box-sizing: border-box; }
+        #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; border:none; cursor:pointer;}
         #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 4000; }
         .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 280px; display: flex; flex-direction: column; gap: 10px; }
         .modal-content input { padding: 10px; border-radius: 8px; border: 1px solid #444; background: #0f172a; color: white; }
-
         #lobby-canvas { background: radial-gradient(circle at center, #1e293b 0%, #020617 80%); display: block; }
         #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; text-shadow: 0 0 10px #f87171; display: none; z-index: 3000; pointer-events: none; text-align: center; }
         #warp-bar { width: 200px; height: 5px; background: #444; margin: 10px auto; border-radius: 3px; overflow: hidden; }
@@ -31,7 +26,7 @@
 </head>
 <body>
 
-<div id="status-bar">GUTTI LOBBY - CUSTOM COLOR ENGINE ACTIVE</div>
+<div id="status-bar">GUTTI LOBBY - COORDINATE SYNC ACTIVE</div>
 <div id="warp-notice">
     WARP INITIATED
     <div id="warp-bar"><div id="warp-bar-inner"></div></div>
@@ -90,21 +85,46 @@
     async function startLobby() {
         myName = document.getElementById('user-name').value || "Guest";
         const file = document.getElementById('icon-upload').files[0];
-        if(file) myIconData = await new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(file); });
+        if(file) {
+            // アイコンのリサイズ（同期の安定化のため）
+            myIconData = await new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvasTmp = document.createElement('canvas');
+                        canvasTmp.width = 64; canvasTmp.height = 64;
+                        canvasTmp.getContext('2d').drawImage(img, 0, 0, 64, 64);
+                        r(canvasTmp.toDataURL('image/jpeg', 0.7));
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
         localStorage.setItem('gutti_name', myName);
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'flex';
-        players['me'] = { id: 'me', name: myName, icon: myIconData, x: canvas.width/2, y: canvas.height/2, targetX: canvas.width/2, targetY: canvas.height/2, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 };
+        
+        // 初期位置を中央に設定
+        players['me'] = { id: 'me', name: myName, icon: myIconData, rx: 0.5, ry: 0.5, targetRX: 0.5, targetRY: 0.5, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 };
         initPeer(); requestAnimationFrame(draw);
         canvas.addEventListener('mousedown', e => moveMe(e.clientX, e.clientY));
         canvas.addEventListener('touchstart', e => { if(document.activeElement.id !== 'chat-input') moveMe(e.touches[0].clientX, e.touches[0].clientY); });
     }
 
-    function moveMe(x, y) { if(isTransitioning) return; players['me'].targetX = x; players['me'].targetY = y; broadcast({ type: 'MOVE', x, y }); }
+    // 画面比率に基づいた移動 (rx, ry は 0.0 ~ 1.0)
+    function moveMe(x, y) { 
+        if(isTransitioning) return; 
+        const rx = x / canvas.width;
+        const ry = y / canvas.height;
+        players['me'].targetRX = rx; players['me'].targetRY = ry; 
+        broadcast({ type: 'MOVE', rx, ry }); 
+    }
 
-    // ポータル作成関連
     function openPortalMaker() {
-        const dist = Math.hypot(players['me'].x - canvas.width/2, players['me'].y - canvas.height/2);
+        const p = players['me'];
+        const dist = Math.hypot((p.rx * canvas.width) - canvas.width/2, (p.ry * canvas.height) - canvas.height/2);
         if(dist < SAFE_RADIUS) return alert("❌ Safe Zone内には設置できません！");
         document.getElementById('portal-modal').style.display = 'flex';
     }
@@ -114,7 +134,7 @@
         const url = document.getElementById('p-url').value;
         const color = document.getElementById('p-color').value;
         if(name && url) {
-            const portal = { name, url, x: players['me'].x, y: players['me'].y, color: color };
+            const portal = { name, url, rx: players['me'].rx, ry: players['me'].ry, color: color };
             portals['me'] = portal;
             broadcast({ type: 'PORTAL_UPDATE', portal, id: peer.id });
             closePortalMaker();
@@ -132,7 +152,7 @@
         peer.on('open', () => {
             const c = peer.connect(PREFIX + OPEN_ROOM_ID);
             c.on('open', () => {
-                c.send({ type: 'JOIN', name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y });
+                c.send({ type: 'JOIN', name: myName, icon: myIconData, rx: players['me'].rx, ry: players['me'].ry });
                 c.on('data', d => handleData(c, d));
             });
         });
@@ -140,14 +160,24 @@
 
     function handleData(conn, d) {
         const sid = isHost ? conn.peer : d.id;
-        if(d.type === 'JOIN' && isHost) { players[conn.peer] = { id: conn.peer, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 }; syncAll(); }
+        if(d.type === 'JOIN' && isHost) { 
+            players[conn.peer] = { id: conn.peer, name: d.name, icon: d.icon, rx: d.rx, ry: d.ry, targetRX: d.rx, targetRY: d.ry, msg: "", msgTime: 0, warping: false, warpTimeLeft: 0, opacity: 1 }; 
+            syncAll(); 
+        }
         if(d.type === 'SYNC') {
             const newP = { 'me': players['me'] };
-            Object.keys(d.allP).forEach(id => { if(id !== peer.id) newP[id] = d.allP[id]; newP[id].opacity = d.allP[id].opacity || 1; });
+            Object.keys(d.allP).forEach(id => { 
+                if(id !== peer.id) {
+                    newP[id] = d.allP[id]; 
+                    if(d.allP[id].icon && !iconCache[d.allP[id].icon]) {
+                        const img = new Image(); img.src = d.allP[id].icon; iconCache[d.allP[id].icon] = img;
+                    }
+                }
+            });
             players = newP; portals = d.allPortals;
         }
         if(isHost && players[sid]) {
-            if(d.type === 'MOVE') { players[sid].targetX = d.x; players[sid].targetY = d.y; }
+            if(d.type === 'MOVE') { players[sid].targetRX = d.rx; players[sid].targetRY = d.ry; }
             if(d.type === 'WARP_STATUS') { players[sid].warping = d.warping; players[sid].warpTimeLeft = d.timeLeft; }
             if(d.type === 'CHAT') { players[sid].msg = d.msg; players[sid].msgTime = Date.now(); }
             syncAll();
@@ -161,13 +191,15 @@
         if(!isHost) return;
         const allP = {}; allP[peer.id] = players['me'];
         Object.keys(players).forEach(id => { if(id !== 'me') allP[id] = players[id]; });
-        Object.keys(peer.connections).forEach(id => peer.connections[id][0].send({ type: 'SYNC', allP, allPortals: portals }));
+        Object.keys(peer.connections).forEach(id => {
+            if(peer.connections[id][0].open) peer.connections[id][0].send({ type: 'SYNC', allP, allPortals: portals });
+        });
     }
 
     function broadcast(data) {
         if(!peer) return;
         if(isHost) Object.keys(peer.connections).forEach(id => peer.connections[id][0].send(data));
-        else { const h = peer.connections[Object.keys(peer.connections)[0]]; if(h) h[0].send(data); }
+        else { const h = peer.connections[Object.keys(peer.connections)[0]]; if(h && h[0].open) h[0].send(data); }
     }
 
     function sendLocalChat() {
@@ -237,46 +269,53 @@
         Object.keys(portals).forEach(pid => {
             const p = (pid === 'me' || pid === peer.id) ? portals['me'] : portals[pid];
             if(!p) return;
+            const px = p.rx * canvas.width;
+            const py = p.ry * canvas.height;
             const pulse = 35 + Math.sin(now/200)*5;
-            const grad = ctx.createRadialGradient(p.x, p.y, 5, p.x, p.y, pulse);
+            const grad = ctx.createRadialGradient(px, py, 5, px, py, pulse);
             grad.addColorStop(0, p.color); grad.addColorStop(1, "transparent");
             ctx.fillStyle = grad;
-            ctx.beginPath(); ctx.arc(p.x, p.y, pulse, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.arc(px, py, pulse, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = "white"; ctx.font = "bold 11px sans-serif"; ctx.textAlign="center"; 
-            ctx.fillText(p.name.toUpperCase(), p.x, p.y - 55);
-            if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 30) onPortal = true;
+            ctx.fillText(p.name.toUpperCase(), px, py - 55);
+            
+            const me = players['me'];
+            if(Math.hypot((me.rx * canvas.width) - px, (me.ry * canvas.height) - py) < 30) onPortal = true;
         });
 
         const notice = document.getElementById('warp-notice');
         const barInner = document.getElementById('warp-bar-inner');
+        const me = players['me'];
 
         if ((onPortal && warpTarget) || isTransitioning) {
             if (!isTransitioning) {
                 warpTimer -= 16.6;
-                players['me'].warping = true;
-                players['me'].warpTimeLeft = Math.ceil(warpTimer / 1000);
+                me.warping = true;
+                me.warpTimeLeft = Math.ceil(warpTimer / 1000);
             } else { warpTimer -= 25; }
             notice.style.display = 'block';
             barInner.style.width = (Math.max(0, warpTimer) / 5000) * 100 + "%";
-            broadcast({ type: 'WARP_STATUS', warping: true, timeLeft: Math.max(0, players['me'].warpTimeLeft) });
+            broadcast({ type: 'WARP_STATUS', warping: true, timeLeft: Math.max(0, me.warpTimeLeft) });
             if (warpTimer <= 1500) {
                 isTransitioning = true;
-                players['me'].opacity = Math.max(0, (warpTimer - 500) / 1000); 
-                createWarpParticles(players['me'].x, players['me'].y, warpTarget.color);
+                me.opacity = Math.max(0, (warpTimer - 500) / 1000); 
+                createWarpParticles(me.rx * canvas.width, me.ry * canvas.height, warpTarget.color);
             }
             if (warpTimer <= 0) { window.location.href = warpTarget.url; return; }
         } else if (onPortal && !warpTarget) {
             Object.keys(portals).forEach(pid => {
                 const p = (pid === 'me' || pid === peer.id) ? portals['me'] : portals[pid];
-                if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 30) {
+                const px = p.rx * canvas.width;
+                const py = p.ry * canvas.height;
+                if(Math.hypot((me.rx * canvas.width) - px, (me.ry * canvas.height) - py) < 30) {
                     warpTarget = p; warpTimer = 5000;
                 }
             });
-        } else if (!isTransitioning && players['me'].warping) {
+        } else if (!isTransitioning && me.warping) {
             warpTarget = null; warpTimer = 0;
             notice.style.display = 'none';
-            players['me'].warping = false;
-            players['me'].opacity = 1;
+            me.warping = false;
+            me.opacity = 1;
             broadcast({ type: 'WARP_STATUS', warping: false, timeLeft: 0 });
         }
 
@@ -284,28 +323,34 @@
 
         Object.keys(players).forEach(id => {
             const p = players[id];
-            p.x += (p.targetX - p.x) * 0.1; p.y += (p.targetY - p.y) * 0.1;
+            // 座標補間
+            p.rx += (p.targetRX - p.rx) * 0.1; 
+            p.ry += (p.targetRY - p.ry) * 0.1;
+            
+            const px = p.rx * canvas.width;
+            const py = p.ry * canvas.height;
             const op = (id === 'me') ? p.opacity : (p.opacity || 1);
+            
             ctx.save();
             ctx.globalAlpha = op;
             if(p.icon) {
                 if(!iconCache[p.icon]) { const img = new Image(); img.src = p.icon; iconCache[p.icon] = img; }
-                ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.clip();
-                if(iconCache[p.icon].complete) ctx.drawImage(iconCache[p.icon], p.x-22, p.y-22, 44, 44);
+                ctx.save(); ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI*2); ctx.clip();
+                if(iconCache[p.icon].complete) ctx.drawImage(iconCache[p.icon], px-22, py-22, 44, 44);
                 ctx.restore();
             } else {
-                ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(px, py, 22, 0, Math.PI*2); ctx.fill();
             }
-            if(p.warping && op > 0) applyGlitch(p.x, p.y, 44, p);
+            if(p.warping && op > 0) applyGlitch(px, py, 44, p);
             if(p.msg && now - p.msgTime < 5000) {
                 ctx.save(); ctx.font = "14px sans-serif"; const tw = ctx.measureText(p.msg).width;
                 ctx.fillStyle = "rgba(255,255,255,0.95)";
-                ctx.beginPath(); ctx.roundRect(p.x - tw/2 - 10, p.y - 75, tw + 20, 30, 8); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, p.x, p.y - 55);
+                ctx.beginPath(); ctx.roundRect(px - tw/2 - 10, py - 75, tw + 20, 30, 8); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, px, py - 55);
                 ctx.restore();
             }
             ctx.fillStyle = "white"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center";
-            ctx.fillText(p.name, p.x, p.y+42);
+            ctx.fillText(p.name, px, py+42);
             ctx.restore();
         });
         requestAnimationFrame(draw);
