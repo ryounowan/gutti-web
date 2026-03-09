@@ -3,43 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Lobby - Noise Relay</title>
+    <title>Gutti Lobby - Sync Noise</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         body { margin: 0; background: #020617; color: white; font-family: 'Segoe UI', sans-serif; overflow: hidden; touch-action: none; }
         #status-bar { position: fixed; top: 0; width: 100%; background: rgba(15, 23, 42, 0.95); padding: 8px 15px; font-size: 11px; z-index: 100; border-bottom: 1px solid #1e293b; color: #60a5fa; }
         #login-screen { position: fixed; inset: 0; background: #020617; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
-        .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 300px; box-shadow: 0 0 50px rgba(0,0,0,0.8); border: 1px solid #334155; }
+        .login-card { background: #1e293b; padding: 30px; border-radius: 24px; display: flex; flex-direction: column; gap: 15px; width: 300px; border: 1px solid #334155; }
         input[type="text"] { padding: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; font-size: 16px; outline: none; }
-        button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        button { padding: 15px; background: #2563eb; color: white; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; }
         #ui-layer { position: fixed; bottom: 25px; left: 50%; transform: translateX(-50%); display: none; flex-direction: column; align-items: center; gap: 15px; width: 90%; max-width: 500px; z-index: 2000; }
-        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; font-size: 16px; }
-        #portal-btn { background: #7c3aed; padding: 10px 25px; border-radius: 30px; font-size: 14px; color: white; font-weight: bold; }
-        #portal-modal { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 4000; }
-        .modal-content { background: #1e293b; padding: 25px; border-radius: 20px; width: 280px; display: flex; flex-direction: column; gap: 10px; }
+        #chat-input { width: 100%; padding: 16px 24px; border-radius: 40px; border: 2px solid #2563eb; background: rgba(15, 23, 42, 0.95); color: white; outline: none; }
         #lobby-canvas { background: radial-gradient(circle at center, #1e293b 0%, #020617 80%); display: block; }
-        #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; display: none; z-index: 3000; pointer-events: none; text-align: center; }
+        #warp-notice { position: fixed; top: 15%; left: 50%; transform: translate(-50%, -50%); font-size: 20px; font-weight: bold; color: #ef4444; display: none; z-index: 3000; text-align: center; }
         #warp-bar { width: 200px; height: 5px; background: #444; margin: 10px auto; border-radius: 3px; overflow: hidden; }
-        #warp-bar-inner { width: 100%; height: 100%; background: #ef4444; transition: width 0.1s; }
+        #warp-bar-inner { width: 100%; height: 100%; background: #ef4444; }
     </style>
 </head>
 <body>
 
-<div id="status-bar">GUTTI LOBBY - NOISE RELAY NETWORK ACTIVE</div>
+<div id="status-bar">GUTTI LOBBY - VIRTUAL SYNC & NOISE RELAY</div>
 <div id="warp-notice">WARP INITIATED<div id="warp-bar"><div id="warp-bar-inner"></div></div></div>
-
-<div id="portal-modal">
-    <div class="modal-content">
-        <h3 style="margin:0;">Create Portal</h3>
-        <input type="text" id="p-name" placeholder="Portal Name">
-        <input type="text" id="p-url" placeholder="https://...">
-        <input type="color" id="p-color" value="#7c3aed" style="width:100%; height:40px;">
-        <div style="display:flex; gap:10px;">
-            <button onclick="closePortalMaker()" style="flex:1; background:#475569;">Cancel</button>
-            <button onclick="submitPortal()" style="flex:1;">Create</button>
-        </div>
-    </div>
-</div>
 
 <div id="login-screen">
     <div class="login-card">
@@ -53,28 +37,40 @@
 <canvas id="lobby-canvas"></canvas>
 
 <div id="ui-layer">
-    <button id="portal-btn" onclick="openPortalMaker()">🌀 Create Warp Portal</button>
     <input type="text" id="chat-input" placeholder="Say something..." maxlength="30" onkeypress="if(event.key==='Enter') sendLocalChat()">
 </div>
 
 <script>
-    const ROOM_ID = "GUTTI-NOISE-RELAY-2026";
-    const PREFIX = "gutti-nv9-";
-    const SAFE_RADIUS = 130;
+    const ROOM_ID = "GUTTI-SYNC-RELAY-2026";
+    const PREFIX = "gutti-sv10-";
+    const BASE_SIZE = 1000; // 仮想的な画面サイズ（1000px基準）
     
     let peer, myName, myIconData = null;
     let players = {}, portals = {}, iconCache = {}, receivedMsgIds = new Set();
-    let canvas, ctx, warpTarget = null, warpTimer = 0, isTransitioning = false;
-    let particles = []; // グリッチ・粒子エフェクト用
-    let relayPackets = []; // 【新規】バケツリレーの視覚エフェクト用
+    let canvas, ctx, scale = 1, offsetX = 0, offsetY = 0;
+    let particles = [], relayPackets = [];
 
     window.onload = () => {
         canvas = document.getElementById('lobby-canvas');
         ctx = canvas.getContext('2d');
-        window.onresize = () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; };
-        canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+        resize();
+        window.onresize = resize;
         document.getElementById('user-name').value = localStorage.getItem('gutti_name') || "";
     };
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        // 1000pxの仮想空間を現在の画面にフィットさせる倍率を計算
+        scale = Math.min(canvas.width / BASE_SIZE, canvas.height / BASE_SIZE);
+        offsetX = (canvas.width - BASE_SIZE * scale) / 2;
+        offsetY = (canvas.height - BASE_SIZE * scale) / 2;
+    }
+
+    // 実座標(画面)から仮想座標(1000基準)へ変換
+    function toVirtual(val, isY = false) { return (val - (isY ? offsetY : offsetX)) / scale; }
+    // 仮想座標から実座標へ変換
+    function toReal(val, isY = false) { return val * scale + (isY ? offsetY : offsetX); }
 
     async function startLobby() {
         myName = document.getElementById('user-name').value || "Guest";
@@ -84,7 +80,7 @@
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('ui-layer').style.display = 'flex';
         
-        players['me'] = { id: 'me', name: myName, icon: myIconData, x: canvas.width/2, y: canvas.height/2, targetX: canvas.width/2, targetY: canvas.height/2, msg: "", msgTime: 0, warping: false, opacity: 1, noiseActive: false };
+        players['me'] = { id: 'me', name: myName, icon: myIconData, x: 500, y: 500, targetX: 500, targetY: 500, msg: "", msgTime: 0, noiseTime: 0 };
         initPeer();
         requestAnimationFrame(draw);
 
@@ -92,24 +88,11 @@
         canvas.addEventListener('touchstart', e => { if(document.activeElement.id !== 'chat-input') moveMe(e.touches[0].clientX, e.touches[0].clientY); });
     }
 
-    function moveMe(x, y) { if(isTransitioning) return; players['me'].targetX = x; players['me'].targetY = y; createRelayPacket({ type: 'MOVE', x, y }, peer.id); }
-
-    function openPortalMaker() {
-        const dist = Math.hypot(players['me'].x - canvas.width/2, players['me'].y - canvas.height/2);
-        if(dist < SAFE_RADIUS) return;
-        document.getElementById('portal-modal').style.display = 'flex';
-    }
-    function closePortalMaker() { document.getElementById('portal-modal').style.display = 'none'; }
-    function submitPortal() {
-        const name = document.getElementById('p-name').value;
-        const url = document.getElementById('p-url').value;
-        const color = document.getElementById('p-color').value;
-        if(name && url) {
-            const portal = { name, url, x: players['me'].x, y: players['me'].y, color: color };
-            portals[peer.id] = portal;
-            createRelayPacket({ type: 'PORTAL_UPDATE', portal }, peer.id);
-            closePortalMaker();
-        }
+    function moveMe(x, y) {
+        const vx = toVirtual(x);
+        const vy = toVirtual(y, true);
+        players['me'].targetX = vx; players['me'].targetY = vy;
+        relayBroadcast({ type: 'MOVE', x: vx, y: vy });
     }
 
     function initPeer() {
@@ -127,15 +110,12 @@
         });
     }
 
-    function setupPeerHandlers() {
-        peer.on('connection', conn => setupConnection(conn));
-    }
+    function setupPeerHandlers() { peer.on('connection', conn => setupConnection(conn)); }
 
     function setupConnection(conn) {
         conn.on('open', () => {
             conn.send({ type: 'JOIN', name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y, senderId: peer.id });
             conn.on('data', data => handleData(conn, data));
-            conn.on('close', () => { if(players[conn.peer]) delete players[conn.peer]; });
         });
     }
 
@@ -143,72 +123,37 @@
         if (!d.msgId) d.msgId = Math.random().toString(36).substr(2, 9);
         if (receivedMsgIds.has(d.msgId)) return;
         receivedMsgIds.add(d.msgId);
-        if (receivedMsgIds.size > 100) receivedMsgIds.delete(receivedMsgIds.values().next().value);
-
+        
         const sid = d.senderId;
-
-        // 【バケツリレー演出】データを受信したら、その人から自分へ飛んでくるパケットを表示
-        if (d.type !== 'JOIN' && d.type !== 'SYNC_BACK') {
-             createRelayPacketAnimation(sid, 'me', d.type);
-        }
+        
+        // 【ノイズ演出】転送元と自分の「ノイズフラグ」を立てる
+        if (players[sid]) players[sid].noiseTime = 20; 
+        players['me'].noiseTime = 10;
 
         if (d.type === 'JOIN') {
-            players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, warping: false, opacity: 1, noiseActive: false };
-            conn.send({ type: 'SYNC_BACK', name: myName, icon: myIconData, x: players['me'].x, y: players['me'].y, senderId: peer.id, allPortals: portals });
+            players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, noiseTime: 0 };
         }
-        if (d.type === 'SYNC_BACK') {
-            players[sid] = { id: sid, name: d.name, icon: d.icon, x: d.x, y: d.y, targetX: d.x, targetY: d.y, msg: "", msgTime: 0, warping: false, opacity: 1, noiseActive: false };
-            if (d.allPortals) Object.assign(portals, d.allPortals);
-        }
+        if (d.type === 'MOVE' && players[sid]) { players[sid].targetX = d.x; players[sid].targetY = d.y; }
+        if (d.type === 'CHAT' && players[sid]) { players[sid].msg = d.msg; players[sid].msgTime = Date.now(); }
 
-        // MOVEやCHATなどの処理は、少し遅延させて（パケットが届いた瞬間に）反映させる
-        const delay = (d.type === 'MOVE' || d.type === 'CHAT') ? 600 : 0;
-        setTimeout(() => {
-            if (d.type === 'MOVE' && players[sid]) { players[sid].targetX = d.x; players[sid].targetY = d.y; }
-            if (d.type === 'CHAT' && players[sid]) { players[sid].msg = d.msg; players[sid].msgTime = Date.now(); }
-            if (d.type === 'PORTAL_UPDATE') { portals[sid] = d.portal; }
-            if (d.type === 'WARP_STATUS' && players[sid]) { players[sid].warping = d.warping; players[sid].noiseActive = d.warping; }
-        }, delay);
-
-        // --- バケツリレー転送：送り主以外に、少し時間差で転送 ---
+        // バケツリレー転送
         Object.keys(peer.connections).forEach(targetId => {
             if (targetId !== conn.peer) {
                 setTimeout(() => {
                     const targetConn = peer.connections[targetId][0];
-                    if (targetConn && targetConn.open) {
-                        targetConn.send(d);
-                        // 転送するパケットアニメーション
-                        createRelayPacketAnimation('me', targetId, d.type);
-                    }
-                }, 800); // 転送時のタメ（人力感）
+                    if (targetConn && targetConn.open) targetConn.send(d);
+                }, 400);
             }
         });
     }
 
-    // 【新規】自分が起点となるパケットを作成し、全員に送る（自分から周囲へ飛んでいく演出）
-    function createRelayPacket(data, originId) {
+    function relayBroadcast(data) {
         data.senderId = peer.id;
         data.msgId = Math.random().toString(36).substr(2, 9);
         receivedMsgIds.add(data.msgId);
-        
         Object.keys(peer.connections).forEach(id => {
             const conn = peer.connections[id][0];
-            if (conn && conn.open) {
-                conn.send(data);
-                createRelayPacketAnimation('me', id, data.type);
-            }
-        });
-        
-        // 自分のMOVE等は即時反映
-        if (data.type === 'MOVE') { players['me'].targetX = data.x; players['me'].targetY = data.y; }
-    }
-
-    // 【新規】パケットが飛ぶアニメーションデータを追加
-    function createRelayPacketAnimation(startId, endId, type) {
-        relayPackets.push({
-            startId, endId, type,
-            progress: 0,
-            color: (type === 'CHAT' ? '#3b82f6' : (type === 'PORTAL_UPDATE' ? '#7c3aed' : '#94a3b8'))
+            if (conn && conn.open) conn.send(data);
         });
     }
 
@@ -216,113 +161,67 @@
         const input = document.getElementById('chat-input');
         if(!input.value) return;
         players['me'].msg = input.value; players['me'].msgTime = Date.now();
-        createRelayPacket({ type: 'CHAT', msg: input.value }, peer.id);
+        relayBroadcast({ type: 'CHAT', msg: input.value });
         input.value = ""; input.blur();
     }
 
-    // --- エフェクト・ノイズロジック ---
-    function createNoiseParticles(x, y, color) {
-        for (let i = 0; i < 3; i++) {
-            particles.push({ x: x + (Math.random()-0.5)*30, y: y + (Math.random()-0.5)*30, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, life: 1, color, size: Math.random()*3+1 });
-        }
-    }
-
-    function applyGlitch(imgX, imgY, size) {
+    function applyGlitch(x, y, size) {
         ctx.save();
-        ctx.beginPath(); ctx.arc(imgX, imgY, size/2, 0, Math.PI * 2); ctx.clip();
-        for (let i = 0; i < 3; i++) {
-            const y = imgY - size/2 + Math.random() * size;
-            const xOffset = (Math.random() - 0.5) * 15;
-            ctx.fillStyle = (Math.random() > 0.5) ? 'rgba(255,0,0,0.3)' : 'rgba(0,255,255,0.3)';
-            ctx.fillRect(imgX - size/2 + xOffset, y, size, Math.random()*5);
+        const rx = toReal(x), ry = toReal(y, true), rs = size * scale;
+        ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI * 2); ctx.clip();
+        for (let i = 0; i < 5; i++) {
+            const h = Math.random() * rs;
+            const yo = ry - rs/2 + Math.random() * rs;
+            const xo = (Math.random() - 0.5) * 25 * scale;
+            ctx.fillStyle = (Math.random() > 0.5) ? 'rgba(255,0,0,0.5)' : 'rgba(0,255,255,0.5)';
+            ctx.fillRect(rx - rs/2 + xo, yo, rs, h);
         }
         ctx.restore();
     }
 
-    // --- 描画ロジック ---
     function draw() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const now = Date.now();
-        
-        // Safe Zone
-        ctx.setLineDash([5, 10]); ctx.strokeStyle = "rgba(96, 165, 250, 0.4)";
-        ctx.beginPath(); ctx.arc(canvas.width/2, canvas.height/2, SAFE_RADIUS, 0, Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
 
-        // ポータル描画
-        let onPortal = false;
-        Object.keys(portals).forEach(pid => {
-            const p = portals[pid];
-            const pulse = 35 + Math.sin(now/200)*5;
-            const grad = ctx.createRadialGradient(p.x, p.y, 5, p.x, p.y, pulse);
-            grad.addColorStop(0, p.color); grad.addColorStop(1, "transparent");
-            ctx.fillStyle = grad; ctx.beginPath(); ctx.arc(p.x, p.y, pulse, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = "white"; ctx.font = "bold 11px sans-serif"; ctx.textAlign="center"; ctx.fillText(p.name.toUpperCase(), p.x, p.y - 55);
-            if(Math.hypot(players['me'].x - p.x, players['me'].y - p.y) < 30) { onPortal = true; warpTarget = p; }
-        });
+        // Safe Area描画
+        ctx.strokeStyle = "rgba(96, 165, 250, 0.2)";
+        ctx.beginPath(); ctx.arc(toReal(500), toReal(500, true), 130 * scale, 0, Math.PI*2); ctx.stroke();
 
-        // ワープ処理 (ノイズ強化)
-        const notice = document.getElementById('warp-notice');
-        if (onPortal && !isTransitioning) {
-            if (warpTimer <= 0) warpTimer = 5000;
-            warpTimer -= 16.6;
-            notice.style.display = 'block';
-            document.getElementById('warp-bar-inner').style.width = (warpTimer / 5000) * 100 + "%";
-            createNoiseParticles(players['me'].x, players['me'].y, warpTarget.color); // ワープ中は粒子全開
-            if (warpTimer <= 1000) { isTransitioning = true; window.location.href = warpTarget.url; }
-        } else if (!isTransitioning) {
-            warpTimer = 0; notice.style.display = 'none';
-        }
-
-        // 【新規】バケツリレーパケットのアニメーション描画
-        relayPackets = relayPackets.filter(p => p.progress < 1);
-        relayPackets.forEach(p => {
-            p.progress += 0.03; // パケットが飛ぶ速度
-            const start = (p.startId === 'me' ? players['me'] : players[p.startId]);
-            const end = (p.endId === 'me' ? players['me'] : players[p.endId]);
-            if (start && end) {
-                const x = start.x + (end.x - start.x) * p.progress;
-                const y = start.y + (end.y - start.y) * p.progress;
-                ctx.fillStyle = p.color; ctx.shadowBlur = 10; ctx.shadowColor = p.color;
-                ctx.beginPath(); ctx.arc(x, y, 4, 0, Math.PI * 2); ctx.fill();
-                ctx.shadowBlur = 0;
-            } else { p.progress = 1; } // 相手がいなければ消す
-        });
-
-        // 粒子エフェクト描画
-        particles = particles.filter(p => p.life > 0);
-        particles.forEach(p => {
-            p.life -= 0.02; p.x += p.vx; p.y += p.vy;
-            ctx.fillStyle = p.color; ctx.globalAlpha = p.life;
-            ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
-        });
-        ctx.globalAlpha = 1;
-
-        // プレイヤー描画 (グリッチ・ノイズ残し)
         Object.keys(players).forEach(id => {
             const p = players[id];
             p.x += (p.targetX - p.x) * 0.1; p.y += (p.targetY - p.y) * 0.1;
             
+            const rx = toReal(p.x);
+            const ry = toReal(p.y, true);
+            const rs = 44 * scale;
+
             ctx.save();
             // アイコン描画
             if(p.icon) {
                 if(!iconCache[p.icon]) { const img = new Image(); img.src = p.icon; iconCache[p.icon] = img; }
-                ctx.save(); ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.clip();
-                if(iconCache[p.icon].complete) ctx.drawImage(iconCache[p.icon], p.x-22, p.y-22, 44, 44);
+                ctx.save(); ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI*2); ctx.clip();
+                if(iconCache[p.icon].complete) ctx.drawImage(iconCache[p.icon], rx-rs/2, ry-rs/2, rs, rs);
                 ctx.restore();
             } else {
-                ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(p.x, p.y, 22, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = (id==='me'?'#3b82f6':'#94a3b8'); ctx.beginPath(); ctx.arc(rx, ry, rs/2, 0, Math.PI*2); ctx.fill();
+            }
+
+            // 【中継ノイズ】転送が発生した瞬間に激しくグリッチ
+            if (p.noiseTime > 0) {
+                applyGlitch(p.x, p.y, 50);
+                p.noiseTime--;
+            }
+
+            // チャット
+            if(p.msg && now - p.msgTime < 5000) {
+                ctx.font = (14 * scale) + "px sans-serif";
+                const tw = ctx.measureText(p.msg).width;
+                ctx.fillStyle = "white"; ctx.beginPath(); ctx.roundRect(rx - tw/2 - 10, ry - 75*scale, tw + 20, 30*scale, 8); ctx.fill();
+                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, rx, ry - 55*scale);
             }
             
-            // グリッチエフェクト（転送注意ノイズ）
-            if (p.warping || p.noiseActive || (Math.random() < 0.005)) { applyGlitch(p.x, p.y, 44); }
-
-            // チャット描画
-            if(p.msg && now - p.msgTime < 5000) {
-                ctx.font = "14px sans-serif"; const tw = ctx.measureText(p.msg).width;
-                ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.beginPath(); ctx.roundRect(p.x - tw/2 - 10, p.y - 75, tw + 20, 30, 8); ctx.fill();
-                ctx.fillStyle = "#000"; ctx.textAlign = "center"; ctx.fillText(p.msg, p.x, p.y - 55);
-            }
-            ctx.fillStyle = "white"; ctx.font="bold 12px sans-serif"; ctx.textAlign="center"; ctx.fillText(p.name, p.x, p.y+42);
+            ctx.fillStyle = "white"; ctx.font = `bold ${12 * scale}px sans-serif`; ctx.textAlign = "center";
+            ctx.fillText(p.name, rx, ry + 42 * scale);
             ctx.restore();
         });
         requestAnimationFrame(draw);
