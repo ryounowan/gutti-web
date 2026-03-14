@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Gutti App License</title>
+    <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gutti Publisher - Multi File Support</title>
+    <style>
+        :root { --primary: #24292e; --success: #2da44e; --danger: #cf222e; --bg: #f6f8fa; }
+        body { font-family: -apple-system, sans-serif; max-width: 600px; margin: 0 auto; padding: 15px; background: var(--bg); color: #24292f; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); border: 1px solid #d0d7de; margin-bottom: 15px; }
+        h1 { font-size: 18px; margin: 0 0 10px 0; display: flex; justify-content: space-between; align-items: center; }
+        input, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #d0d7de; border-radius: 6px; box-sizing: border-box; font-size: 14px; }
+        textarea { height: 200px; font-family: monospace; background: #fafafa; }
+        #drop-zone { border: 2px dashed #d0d7de; padding: 20px; text-align: center; background: #fff; border-radius: 8px; font-size: 12px; cursor: pointer; margin-bottom: 10px; }
+        .btn-group { display: flex; gap: 10px; }
+        .btn { flex: 1; padding: 14px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; color: white; }
+        .btn-pub { background: var(--success); }
+        .btn-unpub { background: #fff; color: var(--danger); border: 1px solid var(--danger); }
+        .status-badge { display: inline-block; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: bold; }
+        .status-success { background: #dafbe1; color: #1a7f37; }
+        .status-waiting { background: #ddf4ff; color: #0969da; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .file-item { padding: 12px; border: 1px solid #d0d7de; border-radius: 8px; background: #fff; margin-bottom: 8px; }
+        .count-value { color: #0969da; font-weight: bold; font-size: 16px; margin: 0 5px; }
+        .counter-box { margin: 8px 0; font-size: 13px; color: #555; background: #f0f7ff; padding: 5px 10px; border-radius: 4px; display: flex; align-items: center; }
+        .file-actions { display: flex; gap: 5px; margin-top: 10px; }
+        .file-actions button { flex: 1; font-size: 11px; padding: 8px; cursor: pointer; border: 1px solid #ddd; background: #f9f9f9; border-radius: 4px; }
+        #status-msg { margin-top: 10px; padding: 10px; border-radius: 6px; display: none; text-align: center; font-size: 13px; font-weight: bold; }
+        /* 複数ファイル選択時のリスト表示用 */
+        #selected-files-info { font-size: 12px; color: #666; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h1>🚀 エディタ <a id="github-link" href="#" target="_blank" style="font-size:12px; color:var(--primary); text-decoration:none;">🔗 GitHub</a></h1>
+    <input type="password" id="token" placeholder="GitHubトークン" value="ここに自分のgithub pasesのトークン">
+    <input type="text" id="repo" placeholder="リポジトリ名" value="gutti-web">
+    
+    <div id="drop-zone" onclick="document.getElementById('file-input').click()">📄 複数ファイルを選択</div>
+    <input type="file" id="file-input" style="display:none" multiple onchange="handleFileSelect(this.files)">
+    <div id="selected-files-info"></div>
+
+    <input type="text" id="filename" placeholder="ファイル名 (単体アップ用)">
+    <textarea id="content" placeholder="HTMLを入力 (単体アップ用)"></textarea>
+    
+    <div class="btn-group">
+        <button class="btn btn-pub" onclick="execBulkUpload()">🚀 選択した全ファイルを公開</button>
+        <button class="btn btn-unpub" onclick="exec('delete')">🔒 現在のファイルを削除</button>
+    </div>
+    <div id="status-msg"></div>
+</div>
+
+<div class="card">
+    <h1>📂 公開中リスト <button style="font-size:10px;" onclick="fetchFileList()">更新</button></h1>
+    <div id="file-list"></div>
+</div>
+
+<script>
+    const statusMsg = document.getElementById('status-msg');
+    let selectedFiles = []; // 選択されたファイルを保持
+
+    function handleFileSelect(files) {
+        if (files.length === 0) return;
+        selectedFiles = Array.from(files);
+        const info = document.getElementById('selected-files-info');
+        info.innerText = `選択済み: ${selectedFiles.length} 件のファイル`;
+
+        // 最初の1つをエディタに表示（従来通りの挙動）
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById('filename').value = files[0].name;
+            document.getElementById('content').value = e.target.result;
+        };
+        reader.readAsText(files[0]);
+    }
+
+    // --- GitHub 統計・リスト取得処理 (変更なし) ---
+    async function getStats(token, username, repo) {
+        try {
+            const res = await fetch(`https://api.github.com/repos/${username}/${repo}/traffic/views`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            return data.count || 0;
+        } catch (e) { return 0; }
+    }
+
+    async function fetchFileList() {
+        const token = document.getElementById('token').value.trim();
+        const repo = document.getElementById('repo').value.trim();
+        const listEl = document.getElementById('file-list');
+        listEl.innerHTML = "読込中...";
+        try {
+            const userRes = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${token}` } });
+            const userData = await userRes.json();
+            const username = userData.login;
+            document.getElementById('github-link').href = `https://github.com/${username}/${repo}`;
+            const totalViews = await getStats(token, username, repo);
+            const pagesRes = await fetch(`https://api.github.com/repos/${username}/${repo}/pages/builds`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const buildStatus = pagesRes.ok ? (await pagesRes.json())[0]?.status : "unknown";
+            const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const files = await res.json();
+            listEl.innerHTML = "";
+            files.filter(f => f.name.endsWith('.html') || f.name.endsWith('.md') || f.name.endsWith('.png') || f.name.endsWith('.jpg') || f.name.endsWith('.mp4')).forEach((file) => {
+                const isReady = (buildStatus === "built" || buildStatus === "completed");
+                const url = `https://${username}.github.io/${repo}/${file.name === 'index.html' ? '' : file.name}`;
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <div style="font-weight:bold;">📄 ${file.name} 
+                        <span class="status-badge ${isReady?'status-success':'status-waiting'}">${isReady?'✅ 公開中':'⏳ 更新中'}</span>
+                    </div>
+                    <div class="counter-box">📈 閲覧数:<span class="count-value">${totalViews}</span> (14日間)</div>
+                    <div class="file-actions">
+                        <button onclick="loadContent('${file.name}')">📝 編集</button>
+                        <button onclick="window.open('${url}', '_blank')">表示</button>
+                        <button onclick="copyText('${url}')">URLコピー</button>
+                    </div>
+                `;
+                listEl.appendChild(div);
+            });
+        } catch (e) { listEl.innerHTML = "失敗。トークンを確認。"; }
+    }
+
+    // --- 一括アップロード処理 ---
+    async function execBulkUpload() {
+        if (selectedFiles.length === 0) {
+            // ファイルが選択されていない場合はエディタの内容をアップ
+            exec('upload');
+            return;
+        }
+
+        const token = document.getElementById('token').value.trim();
+        const repo = document.getElementById('repo').value.trim();
+        statusMsg.style.display = 'block';
+        
+        try {
+            const userRes = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${token}` } });
+            const username = (await userRes.json()).login;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                statusMsg.innerText = `処理中 (${i+1}/${selectedFiles.length}): ${file.name}`;
+                
+                // ファイルをBase64に変換 (テキスト・バイナリ両対応)
+                const base64 = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e) => resolve(e.target.result.split(',')[1]);
+                    reader.readAsDataURL(file);
+                });
+
+                const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${file.name}`;
+                
+                // 既存ファイルのSHAを取得
+                const fileRes = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+                let sha = fileRes.ok ? (await fileRes.json()).sha : "";
+
+                // アップロード実行
+                await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: `Upload ${file.name}`, 
+                        content: base64, 
+                        sha: sha || undefined 
+                    })
+                });
+            }
+            statusMsg.innerText = "🚀 全てのアップロードが完了！";
+            selectedFiles = [];
+            document.getElementById('selected-files-info').innerText = "";
+            setTimeout(fetchFileList, 1000);
+        } catch (e) {
+            statusMsg.innerText = "❌ 一括アップロードエラー";
+            console.error(e);
+        }
+    }
+
+    // --- 既存の単一処理 (編集用) ---
+    async function loadContent(file) {
+        const token = document.getElementById('token').value.trim();
+        const repo = document.getElementById('repo').value.trim();
+        statusMsg.style.display = 'block'; statusMsg.innerText = '読込中...';
+        try {
+            const userRes = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${token}` } });
+            const username = (await userRes.json()).login;
+            const res = await fetch(`https://api.github.com/repos/${username}/${repo}/contents/${file}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            document.getElementById('filename').value = file;
+            document.getElementById('content').value = decodeURIComponent(escape(atob(data.content)));
+            statusMsg.innerText = '✅ 読込完了';
+        } catch (e) { statusMsg.innerText = '❌ プレビュー不可(バイナリ等)'; }
+    }
+
+    async function exec(action) {
+        const token = document.getElementById('token').value.trim();
+        const repo = document.getElementById('repo').value.trim();
+        const filename = document.getElementById('filename').value.trim();
+        const content = document.getElementById('content').value;
+        statusMsg.style.display = 'block'; statusMsg.innerText = '処理中...';
+        try {
+            const userRes = await fetch('https://api.github.com/user', { headers: { 'Authorization': `Bearer ${token}` } });
+            const username = (await userRes.json()).login;
+            const apiUrl = `https://api.github.com/repos/${username}/${repo}/contents/${filename}`;
+            const fileRes = await fetch(apiUrl, { headers: { 'Authorization': `Bearer ${token}` } });
+            let sha = fileRes.ok ? (await fileRes.json()).sha : "";
+            
+            if (action === 'upload') {
+                const base64 = btoa(unescape(encodeURIComponent(content)));
+                await fetch(apiUrl, {
+                    method: 'PUT',
+                    headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: "Update", content: base64, sha: sha || undefined })
+                });
+                statusMsg.innerText = "🚀 完了！";
+            } else {
+                await fetch(apiUrl, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ message: "Delete", sha: sha }) });
+                statusMsg.innerText = "🔒 削除完了";
+            }
+            setTimeout(fetchFileList, 1000);
+        } catch (e) { statusMsg.innerText = "❌ エラー"; }
+    }
+
+    function copyText(text) { navigator.clipboard.writeText(text).then(() => alert("コピーしました")); }
+    setTimeout(fetchFileList, 1000);
+</script>
+</body>
+</html>
+
+</head>
+<body></body>
+</html>
+</head>
+<body></body>
+</html>
