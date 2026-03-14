@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Gutti App License</title>
+    <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gutti Admin Console Pro</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root { --primary: #0969da; --success: #2da44e; --danger: #cf222e; --bg: #f6f8fa; --border: #d0d7de; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #1f2328; padding-bottom: 60px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .card { background: white; padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 16px; border: 1px solid var(--border); }
+        h2 { font-size: 1.1rem; margin: 0 0 15px 0; display: flex; align-items: center; gap: 8px; }
+        
+        input { width: 100%; padding: 12px; border: 1px solid var(--border); border-radius: 8px; box-sizing: border-box; font-size: 16px; margin-bottom: 10px; }
+        button { padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+        .btn-blue { background: var(--primary); color: white; width: 100%; }
+        .btn-gray { background: #eff2f5; color: #24292f; }
+        .btn-danger { color: var(--danger); background: transparent; padding: 4px 8px; font-size: 16px; }
+
+        .tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+        .tab { flex: 1; padding: 10px; text-align: center; background: #eee; border-radius: 8px 8px 0 0; cursor: pointer; font-size: 13px; }
+        .tab.active { background: white; border: 1px solid var(--border); border-bottom: none; font-weight: bold; }
+        .tab.disabled { pointer-events: none; opacity: 0.5; cursor: not-allowed; }
+
+        .table-wrapper { overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 400px; }
+        th, td { border-bottom: 1px solid #eee; padding: 10px 5px; text-align: left; }
+        
+        /* 期限切れの赤表示 */
+        .expired-row { background: #fff1f0 !important; color: #cf222e !important; }
+        .expired-row input { color: #cf222e !important; }
+        .warn-icon { color: #cf222e; font-weight: bold; margin-right: 4px; }
+
+        #reader { width: 100%; border-radius: 12px; overflow: hidden; margin-bottom: 10px; display: none; background: #000; }
+        .status-bar { position: fixed; bottom: 0; left: 0; right: 0; background: #24292f; color: white; font-size: 12px; padding: 10px; text-align: center; display: none; z-index: 1000; }
+        .hidden { display: none; }
+        tr.highlight { background: #fff9c4 !important; transition: 1s; border: 2px solid #fbc02d; }
+        
+        /* 画像読み込みエリア */
+        .upload-area { border: 2px dashed var(--border); padding: 25px; text-align: center; border-radius: 12px; margin-top: 15px; cursor: pointer; background: #fafbfc; }
+        
+        /* 名前入力欄の調整：全体表示 */
+        .name-input { width: 100%; border: none; background: transparent; font-weight: bold; font-size: 12px; padding: 4px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="card" id="auth-card">
+        <h2>🔐 管理者ログイン</h2>
+        <input type="text" id="master-key-input" placeholder="0000-0000-0000" maxlength="14" oninput="formatKey(this)">
+        <button class="btn-blue" onclick="checkAuth()">ログイン</button>
+    </div>
+
+    <div id="main-ops" class="hidden">
+        <div class="tabs" id="main-tabs">
+            <div class="tab active" onclick="switchTab('issue')">管理パネル</div>
+            <div class="tab" onclick="switchTab('scanner')">スキャン</div>
+            <div class="tab" onclick="switchTab('settings')">システム設定</div>
+        </div>
+
+        <div id="tab-issue" class="card">
+            <h2>🔑 ライセンス発行</h2>
+            <input type="text" id="user-name" placeholder="契約者名">
+            <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:5px; margin-bottom:10px;">
+                <button class="btn-gray" onclick="setExp(1)">1h</button>
+                <button class="btn-gray" onclick="setExp(24)">1d</button>
+                <button class="btn-gray" onclick="setExp(168)">1w</button>
+                <button class="btn-gray" onclick="setExp(0)">∞</button>
+            </div>
+            <input type="datetime-local" id="custom-date">
+            <button class="btn-blue" onclick="generateAndSave()">⚡ 発行して保存</button>
+            
+            <h2 style="margin-top:25px;">📋 契約者一覧 (⚠️=期限切れ)</h2>
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width: 35%;">名前</th>
+                            <th style="width: 35%;">キー</th>
+                            <th style="width: 20%;">有効期限</th>
+                            <th style="width: 10%;"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="key-list-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="tab-scanner" class="card hidden">
+            <h2>📸 スキャン</h2>
+            <div id="reader"></div>
+            <button id="scan-start-btn" class="btn-blue" onclick="startScanner()">カメラを起動する</button>
+            <button id="scan-stop-btn" class="btn-gray hidden" style="width:100%; margin-top:10px;" onclick="stopScanner()">キャンセル（カメラを閉じる）</button>
+            
+            <div id="image-scan-area" class="upload-area" onclick="document.getElementById('qr-input').click()">
+                🖼️ <strong>画像・スクリーンショットを選択</strong>
+                <input type="file" id="qr-input" accept="image/*" class="hidden" onchange="scanImage(this)">
+            </div>
+        </div>
+
+        <div id="tab-settings" class="card hidden">
+            <h2>⚙️ 高度な設定</h2>
+            <button class="btn-gray" style="width:100%; color:var(--danger);" onclick="resetAllDesigns()">全リセット</button>
+            <hr style="margin:20px 0;">
+            <input type="text" id="new-master-key" placeholder="新しい管理者キー" maxlength="14" oninput="formatKey(this)">
+            <button class="btn-blue" onclick="updateMasterKey()">管理者キーを更新保存</button>
+        </div>
+    </div>
+</div>
+
+<div id="status-bar" class="status-bar"></div>
+
+<script>
+    const TOKEN = "ここに自分のgithub pasesトークン";
+    const REPO_NAME = "gutti-web";
+    const CONFIG_FILE = "portal_config.json";
+    let config = null;
+    let html5QrCode = null;
+    let isScanning = false;
+
+    function formatKey(el) {
+        let val = el.value.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+        let formatted = "";
+        for (let i = 0; i < val.length; i++) {
+            if (i > 0 && i % 4 === 0 && i < 12) formatted += "-";
+            formatted += val[i];
+        }
+        el.value = formatted;
+    }
+
+    async function checkAuth() {
+        const input = document.getElementById('master-key-input').value;
+        showStatus("同期中...");
+        await fetchConfig();
+        if (input === config.masterKey) {
+            document.getElementById('auth-card').classList.add('hidden');
+            document.getElementById('main-ops').classList.remove('hidden');
+            renderTable();
+        } else { alert("キーが不一致です。"); showStatus(""); }
+    }
+
+    async function fetchConfig() {
+        const url = `https://api.github.com/repos/ryounowan/${REPO_NAME}/contents/${CONFIG_FILE}?t=${Date.now()}`;
+        const res = await fetch(url, { headers: { 'Authorization': `token ${TOKEN}` } });
+        const data = await res.json();
+        config = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+        config.sha = data.sha;
+    }
+
+    function renderTable() {
+        const tbody = document.getElementById('key-list-body');
+        const now = Date.now();
+        tbody.innerHTML = config.keys.map((k, i) => {
+            const isExpired = k.expiry && now > k.expiry;
+            const rowClass = isExpired ? 'expired-row' : '';
+            const warnLabel = isExpired ? '<span class="warn-icon">⚠️</span>' : '';
+            
+            return `
+                <tr class="${rowClass}" data-code="${k.code.replace(/-/g,'')}">
+                    <td>
+                        <div style="display:flex; align-items:center;">
+                            ${warnLabel}
+                            <input type="text" class="name-input" value="${k.userName||''}" onchange="updateName(${i}, this.value)">
+                        </div>
+                    </td>
+                    <td style="font-family:monospace;">${k.code}</td>
+                    <td style="white-space:nowrap;">${k.expiry ? new Date(k.expiry).toLocaleDateString() : '永久'}</td>
+                    <td><button class="btn-danger" onclick="deleteKey(${i})">×</button></td>
+                </tr>
+            `;
+        }).reverse().join('');
+    }
+
+    function findAndHighlight(txt) {
+        const cleanTxt = txt.replace(/[^0-9A-Z]/gi, '').toUpperCase();
+        switchTab('issue', true);
+        const rows = document.querySelectorAll('#key-list-body tr');
+        let found = false;
+        rows.forEach(row => {
+            const rowKey = row.getAttribute('data-code');
+            if(cleanTxt && rowKey && rowKey.includes(cleanTxt)) {
+                row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                row.classList.add('highlight');
+                found = true;
+                setTimeout(() => row.classList.remove('highlight'), 3000);
+            }
+        });
+        if(!found) alert("一致するデータがありません:\n" + txt);
+    }
+
+    function startScanner() {
+        isScanning = true;
+        updateTabState();
+        document.getElementById('reader').style.display = 'block';
+        document.getElementById('scan-start-btn').style.display = 'none';
+        document.getElementById('scan-stop-btn').classList.remove('hidden');
+        document.getElementById('image-scan-area').classList.add('hidden');
+
+        html5QrCode = new Html5Qrcode("reader");
+        html5QrCode.start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (txt) => {
+            stopScanner();
+            findAndHighlight(txt);
+        }).catch(() => stopScanner());
+    }
+
+    function stopScanner() {
+        if(html5QrCode) {
+            html5QrCode.stop().then(() => {
+                isScanning = false;
+                updateTabState();
+                document.getElementById('reader').style.display = 'none';
+                document.getElementById('scan-start-btn').style.display = 'block';
+                document.getElementById('scan-stop-btn').classList.add('hidden');
+                document.getElementById('image-scan-area').classList.remove('hidden');
+            }).catch(() => {
+                isScanning = false;
+                updateTabState();
+                document.getElementById('reader').style.display = 'none';
+                document.getElementById('scan-start-btn').style.display = 'block';
+                document.getElementById('scan-stop-btn').classList.add('hidden');
+                document.getElementById('image-scan-area').classList.remove('hidden');
+            });
+        }
+    }
+
+    async function scanImage(input) {
+        if (input.files && input.files[0]) {
+            showStatus("解析中...");
+            const tempReader = new Html5Qrcode("reader");
+            try {
+                const result = await tempReader.scanFile(input.files[0], true);
+                findAndHighlight(result);
+                showStatus("✅ 完了", 2000);
+            } catch (err) {
+                alert("QRコードが見つかりません");
+                showStatus("");
+            }
+            input.value = "";
+        }
+    }
+
+    function updateTabState() {
+        const tabs = document.querySelectorAll('.tab');
+        tabs.forEach(tab => {
+            if(isScanning) tab.classList.add('disabled');
+            else tab.classList.remove('disabled');
+        });
+    }
+
+    function switchTab(t, force = false) {
+        if (isScanning && !force) return;
+        document.getElementById('tab-issue').classList.toggle('hidden', t !== 'issue');
+        document.getElementById('tab-scanner').classList.toggle('hidden', t !== 'scanner');
+        document.getElementById('tab-settings').classList.toggle('hidden', t !== 'settings');
+        document.querySelectorAll('.tab').forEach((el, idx) => el.classList.toggle('active', ['issue','scanner','settings'][idx] === t));
+    }
+
+    async function syncGitHub(msg) {
+        showStatus("保存中...");
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(config, null, 2))));
+        const res = await fetch(`https://api.github.com/repos/ryounowan/${REPO_NAME}/contents/${CONFIG_FILE}`, {
+            method: 'PUT',
+            headers: { 'Authorization': `token ${TOKEN}` },
+            body: JSON.stringify({ message: msg, content, sha: config.sha })
+        });
+        if (res.ok) {
+            const data = await res.json();
+            config.sha = data.content.sha;
+            showStatus("✅ 完了", 2000);
+            renderTable();
+        }
+    }
+
+    async function generateAndSave() {
+        const name = document.getElementById('user-name').value || "新規ユーザー";
+        const S = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+        let r = ""; for (let i = 0; i < 12; i++) r += S.charAt(Math.floor(Math.random() * S.length));
+        const code = r.substr(0, 4) + "-" + r.substr(4, 4) + "-" + r.substr(8, 4);
+        const expiry = document.getElementById('custom-date').value ? new Date(document.getElementById('custom-date').value).getTime() : null;
+        config.keys.push({ code, expiry, userName: name });
+        await syncGitHub("Add: " + name);
+        document.getElementById('user-name').value = "";
+    }
+
+    async function deleteKey(i) { if(confirm("消去しますか？")) { config.keys.splice(i, 1); await syncGitHub("Delete"); } }
+    async function updateName(i, val) { config.keys[i].userName = val; await syncGitHub("Update Name"); }
+    async function updateMasterKey() {
+        const newKey = document.getElementById('new-master-key').value;
+        if (newKey.length === 14) {
+            config.masterKey = newKey;
+            await syncGitHub("Update Master Key");
+            alert("管理者キーを更新しました。");
+        }
+    }
+    async function resetAllDesigns() {
+        if(confirm("全リセットしますか？")) {
+            config.keys.forEach(k => delete k.design);
+            await syncGitHub("Reset");
+        }
+    }
+
+    function setExp(h) {
+        const input = document.getElementById('custom-date');
+        if (h === 0) { input.value = ""; return; }
+        let d = new Date(); d.setHours(d.getHours() + h);
+        input.value = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+    }
+    function showStatus(t, ms = 0) {
+        const b = document.getElementById('status-bar');
+        b.innerText = t; b.style.display = t ? 'block' : 'none';
+        if (ms > 0) setTimeout(() => b.style.display = 'none', ms);
+    }
+</script>
+</body>
+</html>
+</head>
+<body></body>
+</html>
