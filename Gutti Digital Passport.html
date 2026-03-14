@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>Gutti Digital Passport</title>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gutti Digital Passport</title>
+    <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --accent: #24292f; --danger: #cf222e; }
+        
+        /* 全要素のサイズ計算を固定 */
+        * { box-sizing: border-box; }
+
+        html, body {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            overflow: hidden; -ms-overflow-style: none; scrollbar-width: none;
+            background: #e0e4e8;
+        }
+        html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; }
+
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            display: flex; flex-direction: column; 
+            align-items: center; /* 水平中央 */
+            justify-content: center; /* 垂直中央 */
+        }
+        
+        .login-box { 
+            background: rgba(255,255,255,0.9); padding: 30px; border-radius: 20px; 
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1); 
+            width: 90%; max-width: 340px; text-align: center;
+            backdrop-filter: blur(10px);
+        }
+
+        #view-container { 
+            display: none; 
+            width: 95%; 
+            max-width: 380px; 
+            flex-direction: column; 
+            gap: 15px; 
+            align-items: center; 
+            margin: 0 auto; /* 左右中央寄せを保証 */
+        }
+
+        /* ⚙️配置用コンテナ */
+        .card-wrapper {
+            position: relative; 
+            width: 100%; 
+            padding-top: 40px; /* ⚙️アイコン用のスペース */
+        }
+
+        /* ⚙️アイコン：カードの右上に浮かせる */
+        .settings-icon {
+            position: absolute; 
+            top: 0; 
+            right: 5px; 
+            font-size: 24px;
+            cursor: pointer; 
+            opacity: 0.4; 
+            transition: 0.3s;
+            z-index: 10;
+        }
+        .settings-icon:hover { opacity: 1; transform: rotate(45deg); }
+
+        /* リアルなカードデザイン */
+        .license-card { 
+            width: 100%; 
+            aspect-ratio: 1.58 / 1; 
+            border-radius: 18px; 
+            color: white; 
+            padding: 22px; 
+            position: relative; 
+            box-shadow: 0 15px 35px rgba(0,0,0,0.25), inset 0 1px 1px rgba(255,255,255,0.3);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+        }
+
+        /* 光沢エフェクト */
+        .license-card::before {
+            content: ""; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%;
+            background: linear-gradient(115deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 40%, rgba(255,255,255,0) 60%, rgba(255,255,255,0.1) 100%);
+            pointer-events: none;
+        }
+
+        .user-name { 
+            font-size: clamp(18px, 6vw, 24px); 
+            font-weight: 800; 
+            margin-top: 8px; 
+            text-transform: uppercase; 
+            letter-spacing: 1px;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
+        }
+
+        .ic-chip {
+            width: 42px; height: 30px; 
+            background: linear-gradient(135deg, #f3d060 0%, #d4af37 50%, #b8860b 100%);
+            border-radius: 5px; margin: 10px 0;
+            box-shadow: inset 0 0 3px rgba(0,0,0,0.2);
+        }
+
+        .edit-panel { 
+            background: white; border-radius: 18px; padding: 15px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.08); width: 100%; 
+            display: none; grid-template-columns: 1fr 1fr; gap: 10px;
+        }
+        
+        .code-section { 
+            background: white; border-radius: 18px; padding: 15px; width: 100%;
+            display: flex; flex-direction: column; align-items: center; gap: 10px; 
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+        }
+
+        canvas#barcode { width: 100% !important; max-width: 280px; height: auto !important; }
+
+        .btn { background: var(--accent); color: white; border: none; padding: 14px; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; transition: 0.2s; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        
+        input[type="text"] { width: 100%; padding: 14px; border: 2px solid #ddd; border-radius: 12px; font-size: 18px; text-align: center; margin-bottom: 15px; outline: none; }
+        input[type="text"]:focus { border-color: #999; }
+    </style>
+</head>
+<body>
+
+    <div class="login-box" id="login-box">
+        <h2 style="margin:0 0 20px 0; color:#333; font-size: 20px;">Digital Passport</h2>
+        <input type="text" id="key-input" placeholder="0000-0000-0000" maxlength="14">
+        <button class="btn" onclick="lookupLicense()">UNFOLD PASSPORT</button>
+    </div>
+
+    <div id="view-container">
+        <div id="expiry-warn" style="color:var(--danger); font-weight:bold; font-size:12px; display:none; background:white; padding:5px 15px; border-radius:20px;">⚠️ EXPIRED</div>
+
+        <div class="card-wrapper">
+            <div class="settings-icon" onclick="toggleSettings()">⚙️</div>
+            <div class="license-card" id="main-card">
+                <div id="card-header" style="font-size:10px; opacity:0.8; font-weight: 900; letter-spacing: 1.5px;">GUTTI SYSTEM PASSPORT</div>
+                <div class="ic-chip"></div>
+                <div class="user-name" id="disp-name">---</div>
+                <div style="font-family:monospace; font-size:15px; opacity:0.8; margin-top: 5px;" id="disp-key">0000-0000-0000</div>
+                <div style="position:absolute; bottom:20px; right:20px; text-align:right; font-size:10px;">
+                    <span style="opacity: 0.6; font-weight: bold;">VALID THRU</span><br>
+                    <b id="disp-expiry" style="font-size:12px;">--/--/--</b>
+                </div>
+            </div>
+        </div>
+
+        <div class="edit-panel" id="edit-panel">
+            <div style="grid-column: span 2; font-size: 11px; font-weight: bold; color:#888; text-align: center;">DESIGN CUSTOMIZER</div>
+            <div><label style="font-size:10px; display:block; margin-bottom:3px;">Color 1</label><input type="color" id="color1" oninput="updateDesign()" style="width:100%; height:35px; border-radius:5px; border:1px solid #eee;"></div>
+            <div><label style="font-size:10px; display:block; margin-bottom:3px;">Color 2</label><input type="color" id="color2" oninput="updateDesign()" style="width:100%; height:35px; border-radius:5px; border:1px solid #eee;"></div>
+            <div style="grid-column: span 2;"><label style="font-size:10px; display:block; margin-bottom:3px;">Text Color</label><input type="color" id="textColor" value="#ffffff" oninput="updateDesign()" style="width:100%; height:35px; border-radius:5px; border:1px solid #eee;"></div>
+            <button class="btn" id="save-btn" onclick="saveDesign()" style="grid-column: span 2; font-size: 12px; padding: 10px; margin-top:5px;">SAVE CHANGES</button>
+        </div>
+
+        <div class="code-section">
+            <canvas id="barcode"></canvas>
+            <div id="qrcode"></div>
+            <button style="font-size: 11px; color: #aaa; background: none; border: none; cursor: pointer; margin-top: 5px; text-decoration: underline;" onclick="location.reload()">LOGOUT</button>
+        </div>
+    </div>
+
+<script>
+    const TOKEN = "ここに自分にgithub pasesトークン";
+    const API_URL = "https://api.github.com/repos/ryounowan/gutti-web/contents/portal_config.json";
+    
+    let configData = null;
+    let isAdmin = false;
+
+    // ハイフン自動入力
+    document.getElementById('key-input').addEventListener('input', e => {
+        let v = e.target.value.replace(/\W/g, "").toUpperCase();
+        let r = v.substr(0,4) + (v.length>4?"-"+v.substr(4,4):"") + (v.length>8?"-"+v.substr(8,4):"");
+        e.target.value = r;
+    });
+
+    function toggleSettings() {
+        const panel = document.getElementById('edit-panel');
+        panel.style.display = (panel.style.display === 'grid') ? 'none' : 'grid';
+    }
+
+    async function lookupLicense() {
+        const inputKey = document.getElementById('key-input').value.toUpperCase();
+        const head = { 'Authorization': `token ${TOKEN}` };
+        try {
+            const res = await fetch(API_URL + "?t=" + Date.now(), { headers: head });
+            const data = await res.json();
+            configData = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+            const adminKey = (configData.masterKey || "2012-0106-8686").toUpperCase();
+            const uIdx = configData.keys.findIndex(k => k.code === inputKey);
+            
+            let target = null;
+            if (inputKey === adminKey) {
+                isAdmin = true;
+                target = { userName: "SYSTEM ADMIN", code: adminKey, design: configData.cardDesign };
+            } else if (uIdx !== -1) {
+                isAdmin = false;
+                target = configData.keys[uIdx];
+            }
+
+            if (target) {
+                applyDesign(target);
+                document.getElementById('login-box').style.display = 'none';
+                document.getElementById('view-container').style.display = 'flex';
+                document.getElementById('disp-name').innerText = target.userName || "GUTTI USER";
+                document.getElementById('disp-key').innerText = target.code;
+                
+                if (target.expiry) {
+                    const d = new Date(target.expiry);
+                    document.getElementById('disp-expiry').innerText = `${d.toLocaleDateString()}`;
+                    if(Date.now() > target.expiry) document.getElementById('expiry-warn').style.display = 'block';
+                } else {
+                    document.getElementById('disp-expiry').innerText = "PERPETUAL";
+                }
+                
+                JsBarcode("#barcode", target.code, { format:"CODE128", displayValue:false, height:50, width:2, margin:0 });
+                document.getElementById('qrcode').innerHTML = "";
+                new QRCode(document.getElementById('qrcode'), { text: target.code, width: 80, height: 80 });
+            } else { alert("キーを認識できません"); }
+        } catch (e) { alert("トークンを確認してください"); }
+    }
+
+    function updateDesign() {
+        const c1 = document.getElementById('color1').value;
+        const c2 = document.getElementById('color2').value;
+        const txt = document.getElementById('textColor').value;
+        const card = document.getElementById('main-card');
+        card.style.background = `linear-gradient(135deg, ${c1} 0%, ${c2} 100%)`;
+        card.style.color = txt;
+    }
+
+    function applyDesign(user) {
+        const card = document.getElementById('main-card');
+        const d = user.design || configData.cardDesign || { background: 'linear-gradient(135deg, #1e293b 0%, #334155 100%)', color: '#ffffff' };
+        card.style.background = d.background;
+        card.style.color = d.color;
+        const hex = d.background.match(/#[a-fA-F0-9]{6}/g);
+        if(hex && hex.length >= 2) {
+            document.getElementById('color1').value = hex[0];
+            document.getElementById('color2').value = hex[1];
+        }
+        document.getElementById('textColor').value = d.color;
+    }
+
+    async function saveDesign() {
+        const btn = document.getElementById('save-btn');
+        btn.disabled = true;
+        const newD = { 
+            background: `linear-gradient(135deg, ${document.getElementById('color1').value} 0%, ${document.getElementById('color2').value} 100%)`,
+            color: document.getElementById('textColor').value
+        };
+        const head = { 'Authorization': `token ${TOKEN}` };
+        try {
+            const fileRes = await fetch(API_URL + "?t=" + Date.now(), { headers: head });
+            const fileData = await fileRes.json();
+            configData = JSON.parse(decodeURIComponent(escape(atob(fileData.content))));
+            if (isAdmin) configData.cardDesign = newD;
+            else {
+                const idx = configData.keys.findIndex(k => k.code === document.getElementById('disp-key').innerText);
+                if (idx !== -1) configData.keys[idx].design = newD;
+            }
+            const updatedContent = btoa(unescape(encodeURIComponent(JSON.stringify(configData, null, 2))));
+            await fetch(API_URL, {
+                method: 'PUT',
+                headers: head,
+                body: JSON.stringify({ message: "Update Design", content: updatedContent, sha: fileData.sha })
+            });
+            alert("Saved!");
+            toggleSettings();
+        } catch (e) { alert("Save Failed"); }
+        btn.disabled = false;
+    }
+</script>
+</body>
+</html>
+
+
+</head>
+<body></body>
+</html>
