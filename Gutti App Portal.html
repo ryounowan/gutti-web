@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <title>MyApplication</title>
+     <!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Gutti App Portal Pro - Maintenance Update</title>
+    <style id="custom-theme">
+        :root { --accent: #0969da; --text: #1f2328; --card-bg: rgba(255, 255, 255, 0.9); }
+        body { 
+            font-family: -apple-system, sans-serif; 
+            margin: 0; padding: 0; 
+            min-height: 100vh; 
+            background: #f6f8fa; 
+            background-size: cover; background-attachment: fixed; background-position: center;
+            color: var(--text); 
+            transition: background 0.3s ease;
+        }
+        body.locked { overflow: hidden !important; }
+        header, #main-content, #auth-gate { display: none; }
+        header { background: rgba(36, 41, 46, 0.9); color: white; padding: 15px 20px; justify-content: space-between; align-items: center; backdrop-filter: blur(5px); position: sticky; top: 0; z-index: 100; }
+        .user-icon { width: 35px; height: 35px; border-radius: 50%; background: #555; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 18px; border: 2px solid #fff; }
+        #auth-gate { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #1a1a1a; color: white; flex-direction: column; align-items: center; justify-content: center; z-index: 10000; }
+        #auth-gate input { padding: 15px; font-size: 20px; border-radius: 8px; border: none; margin: 20px 0; width: 280px; text-align: center; font-family: monospace; letter-spacing: 2px; background: #333; color: white; }
+        #admin-panel { display: none; background: #fff; border-bottom: 3px solid var(--accent); padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); z-index: 1000; max-height: 85vh; overflow-y: auto; color: #1f2328; }
+        .admin-section { border: 1px solid #eee; padding: 15px; margin-bottom: 15px; border-radius: 10px; background: #f9f9f9; }
+        .admin-box { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 20px; }
+        .folder-section { background: rgba(255, 255, 255, 0.4); border-radius: 15px; padding: 20px; margin-bottom: 30px; border: 1px solid rgba(255, 255, 255, 0.3); backdrop-filter: blur(15px); }
+        .folder-title { font-size: 18px; font-weight: bold; margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 15px; }
+        .app-card { background: var(--card-bg); border-radius: 18px; padding: 12px; text-align: center; text-decoration: none; color: inherit; transition: 0.2s; display: flex; flex-direction: column; align-items: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .icon-box { width: 65px; height: 65px; border-radius: 15px; background: #fff; margin-bottom: 8px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 1px solid #eee; }
+        .icon-box img { width: 100%; height: 100%; object-fit: cover; }
+        .btn { padding: 8px 16px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; background: var(--accent); color: white; font-size: 13px; }
+        .btn-danger { background: #cf222e; }
+        .btn-success { background: #2da44e; }
+        .btn-logout { background: transparent; border: 1px solid white; color: white; margin-right: 10px; }
+        .sort-controls { display: none; margin-top: 8px; gap: 4px; width: 100%; justify-content: center; flex-direction: column; }
+        .admin-active .sort-controls { display: flex; }
+        .key-table { width: 100%; font-size: 12px; margin-top: 10px; border-collapse: collapse; }
+        .key-table th, .key-table td { padding: 8px; border: 1px solid #ddd; text-align: left; }
+        .expired-row { color: #cf222e !important; font-weight: bold; }
+        .color-picker-box { display: flex; align-items: center; gap: 10px; background: #fff; padding: 10px; border-radius: 8px; border: 1px solid #ddd; }
+        input[type="color"] { border: none; width: 40px; height: 40px; cursor: pointer; background: none; }
+        #key-status-badge { position: fixed; bottom: 15px; right: 15px; background: rgba(0, 0, 0, 0.7); color: #fff; padding: 8px 15px; border-radius: 20px; font-size: 11px; z-index: 9999; backdrop-filter: blur(5px); border: 1px solid rgba(255, 255, 255, 0.2); font-family: monospace; pointer-events: none; display: none; }
+        
+        /* メンテナンス用スタイル */
+        .maintenance-mode { border: 2px solid #cf222e !important; background: #fff5f5 !important; }
+    </style>
+</head>
+<body class="locked">
+<div id="sp-root">
+    <div class="sp-content">
+        
+        <div class="sp-title">Gutti App Portal</div>
+        <div id="sp-ldr-box"><div class='sp-b'><div class='sp-f'></div></div><div class='sp-pt'><span id='sp-pc'>0</span>%</div></div>
+    </div>
+    <style>
+        #sp-root { position:fixed; inset:0; background:#b8d4d9; color:#333333; display:flex; justify-content:center; align-items:center; z-index:9999999; transition:opacity 0.8s; font-family:sans-serif; user-select:none; }
+        .sp-content { display:flex; flex-direction:column; align-items:center; gap:min(5vw, 25px); text-align:center; }
+        .sp-logo { width:min(30vw, 120px); height:min(30vw, 120px); border-radius:50%; border:4px solid #0078d4; object-fit:cover; object-position:center center; }
+        .sp-title { font-size:min(8vw, 2.2rem); font-weight:800; }
+        #sp-ldr-box { min-height:45px; display:flex; flex-direction:column; align-items:center; justify-content:center; }
+        .sp-s { border:3px solid rgba(0,0,0,.1); border-top-color:#0078d4; border-radius:50%; width:30px; height:30px; animation:sp-s .8s linear infinite; }
+        .sp-b { width:min(50vw, 160px); height:5px; background:rgba(0,0,0,.1); border-radius:10px; overflow:hidden; }
+        .sp-f { height:100%; background:#0078d4; width:0%; animation:sp-pl 3s forwards linear; }
+        .sp-pt { font-size:12px; margin-top:8px; font-weight:bold; }
+        .sp-d { display:flex; gap:6px; }
+        .sp-dt { width:10px; height:10px; background:#0078d4; border-radius:50%; animation:sp-dot 1.2s infinite ease-in-out; }
+        .sp-bb { width:min(40vw, 140px); height:4px; background:rgba(0,0,0,.1); overflow:hidden; position:relative; }
+        .sp-bf { position:absolute; width:40%; height:100%; background:#0078d4; animation:sp-bar 1.2s infinite linear; }
+        @keyframes sp-s{to{transform:rotate(360deg)}} @keyframes sp-pl{to{width:100%}} 
+        @keyframes sp-dot{0%,80%,100%{transform:scale(.3);opacity:.3}40%{transform:scale(1);opacity:1}} 
+        @keyframes sp-bar{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}
+        body.sp-lock { overflow:hidden!important; touch-action:none; }
+    </style>
+</div>
+<script>
+(function(){
+    document.body.classList.add('sp-lock');
+    let c=0;const el=document.getElementById("sp-pc");const itv=setInterval(()=>{c++;if(el)el.innerText=c;if(c>=100)clearInterval(itv)},30);
+    window.addEventListener('load',()=>{
+        setTimeout(()=>{
+            const r=document.getElementById('sp-root');
+            if(r){r.style.opacity="0";setTimeout(()=>r.remove(),800)}
+            document.body.classList.remove('sp-lock');
+        },3000)
+    })
+})()
+</script>
+
+<div id="key-status-badge"></div>
+
+<div id="auth-gate">
+    <h2 style="letter-spacing: 3px;">GUTTI PORTAL</h2>
+    <input type="text" id="key-input" placeholder="0000-0000-0000" maxlength="14" oninput="formatKey(this)">
+    <button class="btn" onclick="checkProductKey()" style="padding: 12px 50px; font-size: 16px;">認証</button>
+    <p id="auth-error" style="color: #ff4d4d; margin-top: 20px; font-weight: bold; text-align: center;"></p>
+</div>
+
+<header id="header">
+    <div style="font-size: 18px; font-weight: bold;">GUTTI App Portal</div>
+    <div style="display: flex; align-items: center;">
+        <button class="btn btn-logout" onclick="logout()">再ログイン</button>
+        <div class="user-icon" onclick="toggleAdminPanel()">👤</div>
+    </div>
+</header>
+
+<div id="main-content">
+    <div id="admin-panel">
+        <div class="admin-section" id="maintenance-admin-section">
+            <strong>⚠️ システム設定</strong>
+            <div class="admin-box">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; color: #cf222e; font-weight: bold;">
+                    <input type="checkbox" id="maintenance-toggle" onchange="toggleMaintenanceConfig()"> メンテナンスモードを有効にする
+                </label>
+                <p style="font-size: 11px; color: #666; width: 100%; margin: 5px 0 0 0;">※有効な場合、管理者以外はアクセスできなくなります。</p>
+            </div>
+        </div>
+
+        <div class="admin-section" style="background: #f0f7ff;">
+            <strong>🖼️ 背景デザイン設定</strong>
+            <div class="admin-box">
+                <div class="color-picker-box">
+                    <label>色1:</label><input type="color" id="bg-color-1" value="#f6f8fa" oninput="updateColorPreview()">
+                    <label id="label-color-2" style="display:none;">色2:</label>
+                    <input type="color" id="bg-color-2" value="#ffffff" style="display:none;" oninput="updateColorPreview()">
+                </div>
+                <select id="bg-style-select" onchange="toggleColorMode()" style="padding:8px; border-radius:6px;">
+                    <option value="solid">単色</option>
+                    <option value="linear">縦グラデーション</option>
+                    <option value="radial">円形グラデーション</option>
+                    <option value="image">画像URL</option>
+                </select>
+                <input type="text" id="bg-img-url" placeholder="画像URL" style="display:none; padding:8px; flex:1;">
+                <button class="btn btn-success" onclick="applyAndSaveBackground()">プレビュー適用</button>
+            </div>
+        </div>
+
+        <div class="admin-section">
+            <strong>🔑 ライセンスキー管理</strong>
+            <div class="admin-box">
+                <button class="btn" onclick="generateKey('forever')">永久ライセンス</button>
+                <button class="btn" onclick="generateKey('1hour')">1時間ライセンス</button>
+                <button class="btn" onclick="generateKey('1day')">1日ライセンス</button>
+                <button class="btn" onclick="generateKey('1week')">1週間ライセンス</button>
+                <input type="datetime-local" id="custom-expiry-input" style="padding:5px;">
+                <button class="btn btn-success" onclick="generateKey('custom')">指定発行</button>
+            </div>
+            <table class="key-table">
+                <thead><tr><th>ライセンスキー</th><th>期限</th><th>操作</th></tr></thead>
+                <tbody id="key-table-body"></tbody>
+            </table>
+        </div>
+
+        <div class="admin-section">
+            <strong>📂 フォルダ & 並び替え</strong>
+            <div class="admin-box">
+                <input type="text" id="new-folder-input" placeholder="フォルダ名">
+                <button class="btn" onclick="addFolder()">作成</button>
+                <button class="btn" style="background:#666;" onclick="toggleSortMode()">モード切替</button>
+            </div>
+        </div>
+
+        <div style="display: flex; justify-content: flex-end; gap: 10px;">
+            <button class="btn btn-success" style="padding:15px 40px;" onclick="saveConfigToServer()">💾 設定をGitHubへ保存</button>
+            <button class="btn" style="background:#444;" onclick="toggleAdminPanel()">閉じる</button>
+        </div>
+    </div>
+    <div class="container" id="main-container"></div>
+</div>
+
+<script>
+    const TOKEN = "ここのなかを自分のgithub pasesのトークンを入力";
+    const REPO_NAME = "gutti-web";
+    const CONFIG_FILE = "portal_config.json";
+    
+    // configにisMaintenanceを追加
+    let config = { 
+        folders: ["未分類"], 
+        mapping: {}, 
+        keys: [], 
+        order: [], 
+        masterKey: "1111-1111-1111", 
+        bgType: "color", 
+        bgValue: "#f6f8fa",
+        isMaintenance: false 
+    };
+    let fetchedFiles = [];
+    let username = "";
+    let isSortMode = false;
+    let isExpiredAlerting = false;
+
+    function formatKey(el) {
+        let val = el.value.replace(/[^0-9a-zA-Z]/g, "").toUpperCase();
+        let res = "";
+        if (val.length > 0) {
+            res += val.substr(0, 4);
+            if (val.length > 4) res += "-" + val.substr(4, 4);
+            if (val.length > 8) res += "-" + val.substr(8, 4);
+        }
+        el.value = res;
+    }
+
+    setInterval(() => {
+        const role = sessionStorage.getItem('gutti_auth');
+        if (!role || role === 'admin' || isExpiredAlerting) return; 
+        
+        // 一般ユーザーログイン中、管理者がメンテナンスをONにした場合即座に追い出す
+        if (config.isMaintenance) {
+            isExpiredAlerting = true;
+            alert("現在メンテナンスモードに入りました。");
+            logout();
+            return;
+        }
+
+        const currentKey = localStorage.getItem('gutti_portal_key');
+        if (currentKey) {
+            const found = config.keys.find(k => k.code === currentKey.toUpperCase());
+            if (!found || (found.expiry && Date.now() > found.expiry)) {
+                isExpiredAlerting = true;
+                alert("期限が切れています。");
+                logout(); 
+            }
+        }
+    }, 1000);
+
+    async function init() {
+        try {
+            const headers = { 'Authorization': `token ${TOKEN}` };
+            const uRes = await fetch('https://api.github.com/user', { headers });
+            const uData = await uRes.json();
+            username = uData.login;
+
+            const cRes = await fetch(`https://api.github.com/repos/${username}/${REPO_NAME}/contents/${CONFIG_FILE}`, { headers });
+            if (cRes.ok) {
+                const data = await cRes.json();
+                config = JSON.parse(decodeURIComponent(escape(atob(data.content))));
+                document.body.style.background = config.bgValue || "#f6f8fa";
+                // 管理パネルのチェックボックス状態を反映
+                document.getElementById('maintenance-toggle').checked = !!config.isMaintenance;
+                if(config.isMaintenance) document.getElementById('maintenance-admin-section').classList.add('maintenance-mode');
+            }
+
+            const savedKey = localStorage.getItem('gutti_portal_key');
+            if (savedKey) {
+                const adminKey = (config.password || config.masterKey || "1111-1111-1111").toUpperCase();
+                if (savedKey.toUpperCase() === adminKey) {
+                    await showPortal('admin', savedKey);
+                } else {
+                    // 一般ユーザーかつメンテナンス中の場合
+                    if (config.isMaintenance) {
+                        localStorage.removeItem('gutti_portal_key');
+                        showAuthGate("現在メンテナンス中です。");
+                        return;
+                    }
+                    const found = config.keys.find(k => k.code === savedKey.toUpperCase());
+                    if (found && (!found.expiry || Date.now() < found.expiry)) {
+                        await showPortal('user', savedKey);
+                    } else {
+                        showAuthGate();
+                    }
+                }
+            } else {
+                showAuthGate();
+            }
+        } catch (e) { 
+            console.error(e);
+            showAuthGate();
+        }
+    }
+
+    function showAuthGate(errorMsg = "") {
+        document.getElementById('auth-gate').style.display = 'flex';
+        document.getElementById('auth-error').innerText = errorMsg;
+        document.body.classList.add('locked');
+    }
+
+    async function showPortal(role, key) {
+        sessionStorage.setItem('gutti_auth', role);
+        localStorage.setItem('gutti_portal_key', key.toUpperCase());
+        updateKeyBadge(role, key);
+        
+        document.getElementById('auth-gate').style.display = 'none';
+        document.getElementById('header').style.display = 'flex';
+        document.getElementById('main-content').style.display = 'block';
+        document.body.classList.remove('locked');
+
+        const headers = { 'Authorization': `token ${TOKEN}` };
+        const fRes = await fetch(`https://api.github.com/repos/${username}/${REPO_NAME}/contents/`, { headers });
+        fetchedFiles = (await fRes.json()).filter(f => f.name.endsWith('.html') && f.name !== 'index.html');
+        if(config.order) {
+            fetchedFiles.sort((a, b) => (config.order.indexOf(a.name) === -1 ? 999 : config.order.indexOf(a.name)) - (config.order.indexOf(b.name) === -1 ? 999 : config.order.indexOf(b.name)));
+        }
+        render();
+    }
+
+    function checkProductKey() {
+        const input = document.getElementById('key-input').value.toUpperCase();
+        const adminKey = (config.password || config.masterKey || "1111-1111-1111").toUpperCase();
+        
+        if (input === adminKey) { 
+            showPortal('admin', input); 
+        } else {
+            // メンテナンスチェック
+            if (config.isMaintenance) {
+                document.getElementById('auth-error').innerText = "⚠️只今メンテナンス中です。しばらく時間をおいてもう一度お試しください。⚠️";
+                return;
+            }
+            const found = config.keys.find(k => k.code === input);
+            if (found) {
+                if (found.expiry && Date.now() > found.expiry) alert("期限切れです");
+                else { showPortal('user', input); }
+            } else alert("無効なキーです");
+        }
+    }
+
+    // メンテナンス切り替え
+    function toggleMaintenanceConfig() {
+        config.isMaintenance = document.getElementById('maintenance-toggle').checked;
+        const section = document.getElementById('maintenance-admin-section');
+        if(config.isMaintenance) section.classList.add('maintenance-mode');
+        else section.classList.remove('maintenance-mode');
+    }
+
+    // --- 以降、既存機能 ---
+    function updateKeyBadge(role, key) {
+        const badge = document.getElementById('key-status-badge');
+        if (role === 'admin') badge.innerHTML = `🛡️ 管理者 (${key})`;
+        else {
+            const found = config.keys.find(k => k.code === key.toUpperCase());
+            const expText = found && found.expiry ? new Date(found.expiry).toLocaleString() : '永久ライセンス';
+            badge.innerHTML = `🔑 ${key} [期限: ${expText}]`;
+        }
+        badge.style.display = 'block';
+    }
+    function logout() { localStorage.removeItem('gutti_portal_key'); sessionStorage.removeItem('gutti_auth'); location.reload(); }
+    function toggleAdminPanel() {
+        const panel = document.getElementById('admin-panel');
+        if (sessionStorage.getItem('gutti_auth') === 'admin') {
+            panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+            if(panel.style.display === 'block') renderKeyList();
+        }
+    }
+    function toggleColorMode() {
+        const mode = document.getElementById('bg-style-select').value;
+        document.getElementById('bg-color-2').style.display = (mode === 'linear' || mode === 'radial') ? 'inline-block' : 'none';
+        document.getElementById('label-color-2').style.display = document.getElementById('bg-color-2').style.display;
+        document.getElementById('bg-img-url').style.display = (mode === 'image') ? 'block' : 'none';
+        document.querySelector('.color-picker-box').style.display = (mode === 'image') ? 'none' : 'flex';
+    }
+    function updateColorPreview() {
+        const mode = document.getElementById('bg-style-select').value;
+        const c1 = document.getElementById('bg-color-1').value;
+        const c2 = document.getElementById('bg-color-2').value;
+        const img = document.getElementById('bg-img-url').value;
+        if (mode === 'solid') document.body.style.background = c1;
+        else if (mode === 'linear') document.body.style.background = `linear-gradient(180deg, ${c1} 0%, ${c2} 100%)`;
+        else if (mode === 'radial') document.body.style.background = `radial-gradient(circle, ${c1} 0%, ${c2} 100%)`;
+        else if (mode === 'image') document.body.style.background = `url('${img}') center/cover fixed no-repeat`;
+    }
+    function applyAndSaveBackground() {
+        updateColorPreview();
+        config.bgType = document.getElementById('bg-style-select').value;
+        config.bgValue = (config.bgType === 'image') ? document.getElementById('bg-img-url').value : document.body.style.background;
+    }
+    function generateKey(type) {
+        const S = "0123456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+        let r = ""; for (let i = 0; i < 12; i++) r += S.charAt(Math.floor(Math.random() * S.length));
+        const code = r.substr(0, 4) + "-" + r.substr(4, 4) + "-" + r.substr(8, 4);
+        let expiry = null;
+        if (type === '1hour') expiry = Date.now() + 3600000;
+        else if (type === '1day') expiry = Date.now() + 86400000;
+        else if (type === '1week') expiry = Date.now() + 604800000;
+        else if (type === 'custom') {
+            const val = document.getElementById('custom-expiry-input').value;
+            if(!val) return; expiry = new Date(val).getTime();
+        }
+        config.keys.push({ code, expiry });
+        renderKeyList();
+    }
+    function renderKeyList() {
+        const tbody = document.getElementById('key-table-body');
+        const now = Date.now();
+        tbody.innerHTML = config.keys.map((k, i) => {
+            const isExpired = k.expiry && now > k.expiry;
+            return `<tr class="${isExpired ? 'expired-row' : ''}"><td>${k.code}</td><td style="font-size:10px;">${k.expiry ? new Date(k.expiry).toLocaleString() : '永久'}</td>
+            <td><button class="btn btn-danger" onclick="config.keys.splice(${i},1);renderKeyList();">削除</button></td></tr>`;
+        }).join('');
+    }
+    function addFolder() {
+        const val = document.getElementById('new-folder-input').value;
+        if(val && !config.folders.includes(val)) { config.folders.push(val); render(); }
+    }
+    function deleteFolder(name) {
+        if(name === "未分類") return;
+        if(confirm(name + " を削除？")) { config.folders = config.folders.filter(f => f !== name); render(); }
+    }
+    function moveFolder(idx, dir) {
+        let to = idx + dir;
+        if(to >= 0 && to < config.folders.length) { [config.folders[idx], config.folders[to]] = [config.folders[to], config.folders[idx]]; render(); }
+    }
+    function moveApp(name, dir) {
+        let idx = fetchedFiles.findIndex(f => f.name === name);
+        let to = idx + dir;
+        if(to >= 0 && to < fetchedFiles.length) { [fetchedFiles[idx], fetchedFiles[to]] = [fetchedFiles[to], fetchedFiles[idx]]; render(); }
+    }
+    function toggleSortMode() { isSortMode = !isSortMode; document.body.classList.toggle('admin-active', isSortMode); render(); }
+    async function saveConfigToServer() {
+        const headers = { 'Authorization': `token ${TOKEN}`, 'Content-Type': 'application/json' };
+        const url = `https://api.github.com/repos/${username}/${REPO_NAME}/contents/${CONFIG_FILE}`;
+        const get = await fetch(url, { headers });
+        const sha = get.ok ? (await get.json()).sha : undefined;
+        config.order = fetchedFiles.map(f => f.name);
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(config))));
+        const res = await fetch(url, { method: 'PUT', headers, body: JSON.stringify({ message: "Update config", content, sha }) });
+        if(res.ok) alert("✅ GitHubに保存完了！");
+    }
+    function render() {
+        const container = document.getElementById('main-container'); container.innerHTML = "";
+        config.folders.forEach((folder, fIdx) => {
+            const apps = fetchedFiles.filter(f => (config.mapping[f.name] || "未分類") === folder);
+            if(folder === "未分類" && apps.length === 0) return;
+            const sec = document.createElement('div'); sec.className = 'folder-section';
+            let headBtn = isSortMode ? `<div style="display:flex; gap:5px;"><button class="btn" onclick="moveFolder(${fIdx}, -1)">↑</button><button class="btn" onclick="moveFolder(${fIdx}, 1)">↓</button><button class="btn btn-danger" onclick="deleteFolder('${folder}')">削除</button></div>` : "";
+            sec.innerHTML = `<div class="folder-title">📁 ${folder} ${headBtn}</div><div class="gallery"></div>`;
+            const gal = sec.querySelector('.gallery');
+            apps.forEach(f => {
+                const card = document.createElement('div'); card.className = 'app-card';
+                card.innerHTML = `<a href="https://${username}.github.io/${REPO_NAME}/${f.name}" target="_blank" style="text-decoration:none; color:inherit; width:100%; display:flex; flex-direction:column; align-items:center;">
+                    <div class="icon-box" id="icon-${f.sha}">...</div><div style="font-size:12px; font-weight:bold;">${f.name.replace('.html','')}</div></a>
+                    <div class="sort-controls"><div style="display:flex; gap:2px;"><button class="btn" onclick="moveApp('${f.name}', -1)">←</button><button class="btn" onclick="moveApp('${f.name}', 1)">→</button></div>
+                    <select onchange="config.mapping['${f.name}']=this.value; render();">${config.folders.map(v => `<option value="${v}" ${v===folder?'selected':''}>${v}</option>`).join('')}</select></div>`;
+                gal.appendChild(card);
+                fetch(f.download_url).then(r => r.text()).then(h => {
+                    const m = h.match(/<link rel=["']apple-touch-icon["'] href=["']([^"']+)["']/);
+                    const i = document.getElementById(`icon-${f.sha}`); if(i) i.innerHTML = m ? `<img src="${m[1]}">` : '📦';
+                });
+            });
+            container.appendChild(sec);
+        });
+    }
+    init();
+</script>
+</body>
+</html>
+</head>
+<body></body>
+</html>
