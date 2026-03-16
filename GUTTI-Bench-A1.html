@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GUTTI-Bench-A1</title>
+    <style>
+        :root { --accent: #00ffa3; --bg: #050505; --card: #111111; --text: #f0f0f0; --bad: #ff4545; --good: #00ffa3; --warn: #ffcc00; --ref: #ff0055; }
+        * { box-sizing: border-box; font-family: 'Inter', system-ui, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { margin: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+        
+        #app { width: 100vw; height: 100vh; display: flex; flex-direction: column; padding: 20px; }
+        .header { text-align: center; margin-bottom: 10px; }
+        .header h1 { margin: 0; font-size: 1.2rem; letter-spacing: 4px; color: var(--accent); }
+
+        #viewport { flex: 1; background: #000; border-radius: 16px; position: relative; border: 1px solid #333; overflow: hidden; display: flex; align-items: center; justify-content: center; margin-bottom: 15px; }
+        #canvas-2d, #canvas-3d { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        .status-tag { position: absolute; top: 15px; left: 15px; background: rgba(0,0,0,0.8); border: 1px solid var(--accent); color: var(--accent); padding: 4px 12px; font-size: 10px; border-radius: 20px; z-index: 5; }
+
+        .btn { background: var(--accent); color: #000; border: none; padding: 18px; width: 100%; font-size: 1rem; font-weight: 900; border-radius: 12px; cursor: pointer; }
+
+        /* リザルト画面 */
+        #results { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; padding: 15px; padding-bottom: 80px; }
+        .score-hero { text-align: center; padding: 10px 0; border-bottom: 1px solid #222; margin-bottom: 15px; }
+        .total-val { font-size: 3.5rem; font-weight: 900; margin: 0; background: linear-gradient(to bottom, #fff, var(--accent)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* 三段比較バーセクション */
+        .comp-group { margin-bottom: 20px; background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #333; }
+        .comp-item { margin-bottom: 15px; }
+        .comp-item:last-child { margin-bottom: 0; }
+        .bar-container { height: 10px; background: #222; border-radius: 5px; margin: 8px 0; position: relative; overflow: hidden; }
+        .bar-fill { height: 100%; background: var(--accent); width: 0%; transition: width 2s cubic-bezier(0.1, 0, 0.2, 1); }
+        .bar-marker { position: absolute; top: 0; height: 100%; width: 2px; background: var(--ref); box-shadow: 0 0 8px var(--ref); z-index: 2; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 10px; color: #888; }
+        .bar-val { color: #fff; font-weight: bold; }
+
+        /* 用途別評価 */
+        .suit-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+        .suit-card { background: var(--card); padding: 10px; border-radius: 10px; border: 1px solid #222; }
+        .suit-name { font-size: 9px; color: #888; font-weight: bold; }
+        .suit-eval { font-size: 11px; font-weight: bold; margin-top: 2px; }
+
+        /* 詳細スペック */
+        .full-spec { margin-top: 20px; background: #000; border: 1px solid #222; border-radius: 12px; padding: 12px; }
+        .spec-group-title { font-size: 10px; font-weight: bold; color: var(--accent); margin: 12px 0 6px 0; border-bottom: 1px solid #222; padding-bottom: 3px; }
+        .spec-row { display: flex; justify-content: space-between; font-size: 10px; padding: 7px 0; border-bottom: 1px solid #111; }
+        .spec-key { color: #666; }
+        .spec-val { color: #ddd; font-weight: bold; text-align: right; word-break: break-all; margin-left: 10px; }
+
+        #progress-line { position: absolute; bottom: 0; left: 0; height: 4px; background: var(--accent); width: 0%; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div class="header"><h1>GUTTI-Bench-A1</h1></div>
+    <div id="viewport">
+        <div class="status-tag" id="status-txt">READY</div>
+        <canvas id="canvas-2d"></canvas>
+        <div id="canvas-3d"></div>
+        <div id="progress-line"></div>
+        <div id="start-hint" style="text-align:center; z-index:2; color:#666; font-size:12px;"><b>ULTIMATE PERFORMANCE AUDIT</b><br>全ハードウェア資産を計測中...</div>
+    </div>
+    <div class="controls"><button id="run-btn" class="btn" onclick="startTest()">RUN GUTTI-BENCH</button></div>
+</div>
+
+<div id="results">
+    <div class="score-hero">
+        <div id="res-grade" style="font-size: 10px; color: var(--accent); letter-spacing: 2px; font-weight: bold;">GRADE: ---</div>
+        <div class="total-val" id="res-total">0</div>
+        <div style="font-size: 9px; color:#555;">PERFORMANCE COMPLETE ANALYTICS</div>
+    </div>
+
+    <div class="comp-group">
+        <div class="comp-item">
+            <div class="bar-label"><span>CPU MULTI-THREAD SCORE</span><span id="v-cpu" class="bar-val">0</span></div>
+            <div class="bar-container"><div id="b-cpu" class="bar-fill"></div><div class="bar-marker" style="left: 85%;"></div></div>
+        </div>
+        <div class="comp-item">
+            <div class="bar-label"><span>GPU RENDERING SCORE</span><span id="v-gpu" class="bar-val">0</span></div>
+            <div class="bar-container"><div id="b-gpu" class="bar-fill"></div><div class="bar-marker" style="left: 95%;"></div></div>
+        </div>
+        <div class="comp-item">
+            <div class="bar-label"><span>TOTAL OVERALL POWER</span><span id="v-total-pct" class="bar-val">Comparing...</span></div>
+            <div class="bar-container"><div id="b-total" class="bar-fill" style="background:linear-gradient(90deg, #008252, var(--accent))"></div><div class="bar-marker" style="left: 90%;"></div></div>
+        </div>
+        <div style="font-size: 7px; color:var(--ref); text-align:right; margin-top:4px;">Red Line: High-End Desktop King (i9-14900K / RTX 5090)</div>
+    </div>
+
+    <div class="suit-grid">
+        <div class="suit-card"><div class="suit-name">ネット閲覧</div><div class="suit-eval" id="e-web">-</div></div>
+        <div class="suit-card"><div class="suit-name">動画視聴</div><div class="suit-eval" id="e-video">-</div></div>
+        <div class="suit-card"><div class="suit-name">2D軽量ゲー</div><div class="suit-eval" id="e-lg">-</div></div>
+        <div class="suit-card"><div class="suit-name">3D重量ゲー</div><div class="suit-eval" id="e-hg">-</div></div>
+        <div class="suit-card" style="grid-column: span 2;"><div class="suit-name">動画編集</div><div class="suit-eval" id="e-edit">-</div></div>
+    </div>
+
+    <div class="full-spec">
+        <div class="spec-group-title">Display & Visual Quality</div>
+        <div class="spec-row"><span class="spec-key">Native Resolution</span><span class="spec-val" id="s-res">--</span></div>
+        <div class="spec-row"><span class="spec-key">Pixel Density (DPI)</span><span class="spec-val" id="s-dpr">--</span></div>
+        <div class="spec-row"><span class="spec-key">Refresh Rate (Est)</span><span class="spec-val" id="s-fps">--</span></div>
+        <div class="spec-row"><span class="spec-key">Color Depth</span><span class="spec-val" id="s-color">--</span></div>
+        <div class="spec-row"><span class="spec-key">HDR Support</span><span class="spec-val" id="s-hdr">--</span></div>
+
+        <div class="spec-group-title">Core Engine Specs</div>
+        <div class="spec-row"><span class="spec-key">Processor</span><span class="spec-val" id="s-cpu-info">--</span></div>
+        <div class="spec-row"><span class="spec-key">Graphics Chip</span><span class="spec-val" id="s-gpu-info">--</span></div>
+        <div class="spec-row"><span class="spec-key">System Memory</span><span class="spec-val" id="s-mem">--</span></div>
+        <div class="spec-row"><span class="spec-key">Operating System</span><span class="spec-val" id="s-plat">--</span></div>
+    </div>
+
+    <button class="btn" style="background:#222; color:#fff; margin-top:20px;" onclick="location.reload()">RE-RUN TEST</button>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+    const $ = id => document.getElementById(id);
+    let cpuScore = 0, gpuScore = 0;
+
+    (async function init() {
+        // 画質・ディスプレイ情報の取得
+        $('s-res').innerText = `${window.screen.width} x ${window.screen.height}`;
+        $('s-dpr').innerText = window.devicePixelRatio.toFixed(2) + "x";
+        $('s-color').innerText = window.screen.colorDepth + "-bit Deep Color";
+        
+        // HDR対応チェック
+        const isHDR = window.matchMedia("(dynamic-range: high)").matches;
+        $('s-hdr').innerText = isHDR ? "Supported" : "Not Detected / SDR";
+
+        // ハードウェア情報
+        $('s-cpu-info').innerText = (navigator.hardwareConcurrency || "?") + " Logical Cores";
+        const gl = document.createElement('canvas').getContext('webgl');
+        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        $('s-gpu-info').innerText = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL).split('/').pop().replace(/ANGLE \(.*\)/, "").trim() : "Standard";
+        $('s-mem').innerText = (navigator.deviceMemory || "Unknown") + " GB Available";
+        $('s-plat').innerText = navigator.platform;
+
+        // リフレッシュレート計測
+        let f = 0, start = performance.now();
+        const fpsCheck = () => {
+            f++;
+            if(performance.now() - start < 1000) requestAnimationFrame(fpsCheck);
+            else $('s-fps').innerText = f + " Hz";
+        };
+        fpsCheck();
+    })();
+
+    async function startTest() {
+        $('run-btn').disabled = true;
+        $('start-hint').style.display = 'none';
+        $('status-txt').innerText = "PHASE 1: LOGIC STRESS";
+        cpuScore = await runTest(true);
+        $('status-txt').innerText = "PHASE 2: VISUAL STRESS";
+        $('canvas-2d').style.display = 'none';
+        gpuScore = await runTest(false);
+        showResults();
+    }
+
+    function runTest(isCpu) {
+        return new Promise(res => {
+            const box = isCpu ? $('canvas-2d') : $('canvas-3d');
+            let start = performance.now(), count = 0;
+            if(isCpu) {
+                const ctx = box.getContext('2d');
+                box.width = box.offsetWidth; box.height = box.offsetHeight;
+                const loop = () => {
+                    let pct = (performance.now() - start) / 5000;
+                    $('progress-line').style.width = (Math.min(1, pct) * 100) + "%";
+                    for(let i=0; i<600; i++) {
+                        ctx.fillStyle = `hsl(${Math.random()*360}, 60%, 50%)`;
+                        ctx.fillRect(Math.random()*box.width, Math.random()*box.height, 1, 1);
+                        count++;
+                    }
+                    if(pct < 1) requestAnimationFrame(loop); else res(Math.floor(count / 950));
+                };
+                loop();
+            } else {
+                const renderer = new THREE.WebGLRenderer({antialias:true});
+                renderer.setSize(box.offsetWidth, box.offsetHeight);
+                box.appendChild(renderer.domElement);
+                const scene = new THREE.Scene();
+                const cam = new THREE.PerspectiveCamera(75, box.offsetWidth/box.offsetHeight, 0.1, 1000);
+                cam.position.z = 2;
+                const obj = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 60), new THREE.MeshNormalMaterial({wireframe:true}));
+                scene.add(obj);
+                const anim = () => {
+                    let pct = (performance.now() - start) / 5000;
+                    $('progress-line').style.width = (Math.min(1, pct) * 100) + "%";
+                    obj.rotation.y += 0.25;
+                    renderer.render(scene, cam);
+                    count++;
+                    if(pct < 1) requestAnimationFrame(anim); else { renderer.dispose(); box.innerHTML=""; res(count * 13); }
+                };
+                anim();
+            }
+        });
+    }
+
+    function showResults() {
+        $('app').style.display = 'none';
+        $('results').style.display = 'block';
+        const total = cpuScore + gpuScore;
+        
+        // 最強PC基準（i9-14900K = 11,000 / RTX 5090 = 14,000 / Total = 25,000）
+        const refCPU = 11000, refGPU = 14000, refTotal = 25000;
+
+        $('res-total').innerText = total.toLocaleString();
+        $('v-cpu').innerText = cpuScore.toLocaleString();
+        $('v-gpu').innerText = gpuScore.toLocaleString();
+
+        setTimeout(() => {
+            $('b-cpu').style.width = Math.min(100, (cpuScore / refCPU) * 100) + "%";
+            $('b-gpu').style.width = Math.min(100, (gpuScore / refGPU) * 100) + "%";
+            $('b-total').style.width = Math.min(100, (total / refTotal) * 100) + "%";
+            $('v-total-pct').innerText = `${Math.floor((total/refTotal)*100)}% of World Record`;
+        }, 100);
+
+        const logic = (id, val, target, good, mid, bad) => {
+            const p = val / target;
+            const el = $(id);
+            el.innerText = p >= 1.0 ? good : (p >= 0.5 ? mid : bad);
+            el.style.color = p >= 1.0 ? "var(--good)" : (p >= 0.5 ? "var(--warn)" : "var(--bad)");
+        };
+
+        logic('e-web', total, 4500, "爆速 (タブ無制限)", "快適", "やや重い");
+        logic('e-video', gpuScore, 4500, "最高 (4K/HDR可)", "快適 (1080p)", "並 (読込注意)");
+        logic('e-lg', gpuScore, 3500, "神速 (144fps+)", "快適 (60fps)", "カクつく");
+        logic('e-hg', gpuScore, 12000, "神設定 (Ultra)", "中設定", "起動困難");
+        logic('e-edit', cpuScore, 7500, "プロ級 (4K可)", "一般編集可", "厳しい");
+
+        let g = "SILVER";
+        if(total > 20000) g = "A1 ULTRA (GOD)";
+        else if(total > 12000) g = "A1 PLATINUM";
+        else if(total > 6000) g = "A1 GOLD";
+        $('res-grade').innerText = "GRADE: " + g;
+    }
+</script>
+</body>
+</html>
+
