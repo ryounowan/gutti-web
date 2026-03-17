@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>超・精密 性格＆恋愛タイプ診断</title>
+    <style>
+        :root {
+            --primary: #ff7675;
+            --secondary: #6c5ce7;
+            --dark: #2d3436;
+            --light-bg: #f8f9fa;
+        }
+
+        body {
+            font-family: "Helvetica Neue", Arial, "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--dark);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            padding: 20px 0;
+        }
+
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 24px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 550px;
+            text-align: center;
+        }
+
+        /* プログレスバー */
+        .progress-bar {
+            height: 10px;
+            background: #eee;
+            border-radius: 5px;
+            margin-bottom: 25px;
+            overflow: hidden;
+        }
+        #progress {
+            height: 100%;
+            background: linear-gradient(90deg, var(--secondary), var(--primary));
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
+        h1 { font-size: 1.6rem; margin-bottom: 20px; color: var(--secondary); }
+        .category-label { font-size: 0.9rem; font-weight: bold; color: #999; margin-bottom: 5px; display: block; }
+
+        .question-box p {
+            font-size: 1.3rem;
+            font-weight: bold;
+            margin-bottom: 25px;
+            line-height: 1.5;
+        }
+
+        .options { display: flex; flex-direction: column; gap: 15px; }
+
+        button {
+            padding: 20px;
+            border: 2px solid #edf2f7;
+            border-radius: 15px;
+            background: white;
+            cursor: pointer;
+            font-size: 1.1rem;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+
+        button:hover {
+            border-color: var(--secondary);
+            background-color: #f3f0ff;
+            transform: translateY(-2px);
+        }
+
+        .hidden { display: none; }
+
+        /* 結果画面 */
+        .result-card { text-align: left; margin-top: 20px; }
+        .type-title { font-size: 2.5rem; color: var(--secondary); font-weight: 900; margin: 0; }
+        .type-nickname { font-size: 1.4rem; font-weight: bold; margin-bottom: 15px; display: block; }
+        
+        .detail-section {
+            background: var(--light-bg);
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            line-height: 1.7;
+        }
+        .detail-section h3 { margin-top: 0; font-size: 1.1rem; color: var(--secondary); border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+
+        .disclaimer {
+            font-size: 0.8rem;
+            color: #999;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+            line-height: 1.5;
+        }
+
+        .retry-btn {
+            background: var(--dark);
+            color: white;
+            width: 100%;
+            border: none;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1rem;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div id="quiz-screen">
+        <div class="progress-bar"><div id="progress"></div></div>
+        <span class="category-label" id="category-name">診断を開始します</span>
+        <div class="question-box">
+            <p id="question-text">準備はいいですか？</p>
+            <div class="options">
+                <button onclick="answer('A')" id="btn-a">はい</button>
+                <button onclick="answer('B')" id="btn-b">いいえ</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <span class="category-label">診断結果</span>
+        <div class="result-card">
+            <h2 id="res-mbti" class="type-title">----</h2>
+            <span id="res-nickname" class="type-nickname">性格名</span>
+            
+            <div class="detail-section">
+                <h3>あなたの特徴</h3>
+                <p id="res-desc"></p>
+            </div>
+
+            <div class="detail-section" style="background-color: #fff0f3;">
+                <h3>恋愛でのあなた</h3>
+                <p id="res-love"></p>
+            </div>
+        </div>
+
+        <button class="retry-btn" onclick="location.reload()">もう一度診断する</button>
+
+        <p class="disclaimer">
+            ※この診断は簡易的なアルゴリズムに基づいたものです。個人の性格は非常に複雑であり、この結果が必ずしもあなたの正確な性質を保証するものではありません。エンターテインメントとしてお楽しみください。
+        </p>
+    </div>
+</div>
+
+<script>
+    const questions = [
+        { q: "知らない人が多い場所に行くと？", a: "自分から話しかけて輪を広げたい", b: "自分からは話さず、知っている人といたい", trait: "EI" },
+        { q: "説明書やルールを読むときは？", a: "一言一句、書かれている通りに理解する", b: "全体像をパッと見て、直感で理解する", trait: "SN" },
+        { q: "友達がミスをして落ち込んでいたら？", a: "「次はこうしよう」と解決策を教えてあげる", b: "「大変だったね」とまずは気持ちに寄り添う", trait: "TF" },
+        { q: "机の上や部屋の状態は？", a: "物が置く場所が決まっていて、整理されている", b: "わりと自由に置いてあり、出しっぱなしが多い", trait: "JP" },
+        { q: "好きな人ができたらどうなる？", a: "分かりやすく態度に出てしまう・すぐ動く", b: "心の中で温めて、じっくり様子を見る", trait: "Active" },
+        { q: "デートをするならどっちがいい？", a: "賑やかな場所で新しい刺激を味わいたい", b: "落ち着いた場所で深い話をしたい", trait: "Vibe" },
+        { q: "恋人と意見が食い違ったときは？", a: "ハッキリ自分の意見を伝えて解決したい", b: "波風を立てないよう、穏やかに話し合いたい", trait: "Conflict" }
+    ];
+
+    const mbtiDetails = {
+        "ISTJ": { name: "誠実な努力家", desc: "責任感が非常に強く、一度決めたことは最後までやり遂げます。ルールを守り、コツコツと経験を積み上げるタイプです。" },
+        "ISFJ": { name: "心優しい守護者", desc: "人の役に立つことに喜びを感じます。記憶力が良く、周囲の変化に敏感で、細やかな気遣いができる人です。" },
+        "INFJ": { name: "静かな理想主義者", desc: "独自のビジョンを持っており、表面的なことより「本質」を大切にします。思慮深く、人の成長を助けるのが得意です。" },
+        "INTJ": { name: "冷静な戦略家", desc: "論理的で自立心が強く、複雑な問題を解決するのが得意です。常に効率や改善を求める完璧主義な一面もあります。" },
+        "ISTP": { name: "器用な自由人", desc: "冷静で観察力に優れ、問題が起きてもすぐに対処できます。実用的で無駄のない動きを好む、職人肌な性格です。" },
+        "ISFP": { name: "感性豊かな芸術家", desc: "穏やかで謙虚。今この瞬間を大切にし、自分や他人の感情をありのまま受け入れる心の広さを持っています。" },
+        "INFP": { name: "心優しい仲介者", desc: "理想を追い求める夢想家で、自分の価値観を何より大切にします。感受性が豊かで、共感力が非常に高いです。" },
+        "INTP": { name: "論理的な思考家", desc: "知的好奇心が旺盛で、仕組みを分析することが大好きです。常識にとらわれない独創的なアイデアを生み出します。" },
+        "ESTP": { name: "行動派の挑戦者", desc: "考えるより先に体が動くタイプ。スリルを楽しみ、目の前の問題をテキパキと片付けていくエネルギッシュな人です。" },
+        "ESFP": { name: "陽気なエンターテイナー", desc: "その場にいるだけで周りを明るくします。好奇心旺盛で、人生を楽しみ尽くすポジティブな精神の持ち主です。" },
+        "ENFP": { name: "自由な広報運動家", desc: "社交的でエネルギーに満ち溢れています。新しい可能性を見つけるのが得意で、情熱的に人を巻き込みます。" },
+        "ENTP": { name: "知的な挑戦者", desc: "頭の回転が速く、議論を通じて新しい発見をするのが好きです。変化を恐れず、常に面白いことを探しています。" },
+        "ESTJ": { name: "頼れる幹部", desc: "リーダーシップがあり、組織をまとめるのが得意。現実的で、やるべきことを効率よく終わらせる推進力があります。" },
+        "ESFJ": { name: "社交的なサポーター", desc: "誰にでも親切で、調和を大切にします。人のニーズにすぐ気づき、協力し合って物事を進めるのが上手です。" },
+        "ENFJ": { name: "導くカリスマ", desc: "強い共感力とカリスマ性を持ち、人々を励まします。みんなの成長のために、自分を犠牲にできる情熱家です。" },
+        "ENTJ": { name: "大胆なリーダー", desc: "決断力と自信に満ち、目標に向かって真っ直ぐ突き進みます。全体を見て戦略を立てるのが得意な実力派です。" }
+    };
+
+    let currentIndex = 0;
+    let scores = { E:0, I:0, S:0, N:0, T:0, F:0, J:0, P:0 };
+    let loveScore = 0;
+
+    function updateQuiz() {
+        const q = questions[currentIndex];
+        document.getElementById("progress").style.width = ((currentIndex / questions.length) * 100) + "%";
+        document.getElementById("category-name").innerText = currentIndex < 4 ? "【性格診断】" : "【恋愛診断】";
+        document.getElementById("question-text").innerText = q.q;
+        document.getElementById("btn-a").innerText = q.a;
+        document.getElementById("btn-b").innerText = q.b;
+    }
+
+    window.answer = function(choice) {
+        const q = questions[currentIndex];
+        if (currentIndex < 4) {
+            if (choice === 'A') scores[q.trait[0]]++;
+            else scores[q.trait[1]]++;
+        } else {
+            if (choice === 'A') loveScore++;
+        }
+
+        currentIndex++;
+        if (currentIndex < questions.length) {
+            updateQuiz();
+        } else {
+            showResult();
+        }
+    };
+
+    function showResult() {
+        document.getElementById("quiz-screen").classList.add("hidden");
+        document.getElementById("result-screen").classList.remove("hidden");
+
+        let type = "";
+        type += scores.E >= scores.I ? "E" : "I";
+        type += scores.S >= scores.N ? "S" : "N";
+        type += scores.T >= scores.F ? "T" : "F";
+        type += scores.J >= scores.P ? "J" : "P";
+
+        const mbti = mbtiDetails[type];
+        document.getElementById("res-mbti").innerText = type;
+        document.getElementById("res-nickname").innerText = mbti.name;
+        document.getElementById("res-desc").innerText = mbti.desc;
+
+        let loveText = "";
+        if (loveScore >= 2) {
+            loveText = "あなたは恋愛において非常に積極的で、情熱をストレートに伝えるタイプです。新しいデートスポットを提案するなど、二人で刺激的な時間を過ごすことを好みます。";
+        } else {
+            loveText = "あなたは恋愛において、安心感と信頼関係をじっくり築くことを大切にします。派手な演出よりも、二人で穏やかに過ごす時間や、心のつながりを重視する傾向があります。";
+        }
+        document.getElementById("res-love").innerText = loveText;
+    }
+
+    updateQuiz();
+</script>
+
+</body>
+</html>
+
