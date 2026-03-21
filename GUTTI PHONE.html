@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Phone v6</title>
+    <title>Gutti Phone</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --blue: #007aff; --red: #ff3b30; --green: #34c759; --gray: #8e8e93; --light: #f2f2f7; }
@@ -108,15 +108,15 @@
 
 <script>
     // --- 初期化 ---
-    let myId = localStorage.getItem('gutti_id_v6') || "090" + Math.floor(10000000 + Math.random() * 90000000).toString();
-    localStorage.setItem('gutti_id_v6', myId);
+    let myId = localStorage.getItem('gutti_id') || "090" + Math.floor(10000000 + Math.random() * 90000000).toString();
+    localStorage.setItem('gutti_id', myId);
     document.getElementById('my-num-display').innerText = formatPhone(myId);
 
     const peer = new Peer(myId);
     let localStream, currentCall, incomingCall, timerInterval;
     let secondsElapsed = 0;
-    let contacts = JSON.parse(localStorage.getItem('gutti_contacts_v6') || '{}');
-    let history = JSON.parse(localStorage.getItem('gutti_history_v6') || '[]');
+    let contacts = JSON.parse(localStorage.getItem('gutti_contacts') || '{}');
+    let history = JSON.parse(localStorage.getItem('gutti_history') || '[]');
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then(s => localStream = s);
 
@@ -159,7 +159,7 @@
         const timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
         history.unshift({ num: num, time: timeStr, name: contacts[num] || "不明" });
         if (history.length > 20) history.pop();
-        localStorage.setItem('gutti_history_v6', JSON.stringify(history));
+        localStorage.setItem('gutti_history', JSON.stringify(history));
     }
 
     function showHistory() {
@@ -193,10 +193,10 @@
     function saveCurrentContact() {
         if (!dialBuffer) return;
         const name = prompt("Name:", contacts[dialBuffer] || "");
-        if (name) { contacts[dialBuffer] = name; localStorage.setItem('gutti_contacts_v6', JSON.stringify(contacts)); updateDisplay(); }
+        if (name) { contacts[dialBuffer] = name; localStorage.setItem('gutti_contacts', JSON.stringify(contacts)); updateDisplay(); }
     }
 
-    function deleteContact(num) { if (confirm(`${contacts[num]} を削除しますか？`)) { delete contacts[num]; localStorage.setItem('gutti_contacts_v6', JSON.stringify(contacts)); showContacts(); updateDisplay(); } }
+    function deleteContact(num) { if (confirm(`${contacts[num]} を削除しますか？`)) { delete contacts[num]; localStorage.setItem('gutti_contacts', JSON.stringify(contacts)); showContacts(); updateDisplay(); } }
     function dialFromList(num) { dialBuffer = num; updateDisplay(); closeModal(); makeCall(); }
     function closeModal() { document.getElementById('contact-modal').style.display = 'none'; }
 
