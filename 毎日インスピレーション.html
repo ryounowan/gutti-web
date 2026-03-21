@@ -3,184 +3,155 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gutti Hub - Daily Archive</title>
+    <title>Gutti Hub - Native Japanese</title>
     <style>
-        :root { --accent: #00d2ff; --bg: #050505; --glass: rgba(255,255,255,0.05); }
+        :root { --accent-quote: #00d2ff; --accent-trivia: #ff9f43; --bg: #050505; }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif; background: var(--bg); color: white; overflow: hidden; }
-        
-        #bg-layer {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background-size: cover; background-position: center;
-            filter: brightness(0.35) blur(1px); z-index: -1; transition: 2s ease;
-        }
-
-        /* メインUI */
+        #bg-layer { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-size: cover; background-position: center; filter: brightness(0.25) blur(2px); z-index: -1; transition: 1.5s; }
         .container { display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; text-align: center; padding: 30px; }
-        #date-info { font-size: 1.1rem; letter-spacing: 5px; color: var(--accent); margin-bottom: 10px; font-weight: bold; }
+        #mode-badge { font-size: 0.7rem; padding: 4px 12px; border-radius: 20px; margin-bottom: 15px; letter-spacing: 2px; font-weight: bold; border: 1px solid; transition: 0.5s; }
+        #date-info { font-size: 1.1rem; letter-spacing: 5px; margin-bottom: 10px; opacity: 0.8; }
         #day-large { font-size: 5rem; font-weight: 900; margin-bottom: 20px; line-height: 0.9; }
-        #main-text { font-size: 2rem; font-weight: bold; max-width: 850px; margin-bottom: 15px; line-height: 1.4; text-shadow: 0 0 20px rgba(0,0,0,0.8); }
-        #sub-text { font-size: 1rem; opacity: 0.6; font-style: italic; margin-bottom: 40px; }
-
-        /* ボタン */
+        #main-text { font-size: 1.8rem; font-weight: bold; max-width: 850px; margin-bottom: 15px; line-height: 1.4; min-height: 4em; display: flex; align-items: center; justify-content: center; }
+        #sub-text { font-size: 1.1rem; font-weight: bold; margin-bottom: 40px; }
         .controls { position: fixed; bottom: 40px; display: flex; gap: 15px; }
-        button {
-            padding: 12px 24px; border: 1px solid rgba(255,255,255,0.2); background: var(--glass);
-            color: white; cursor: pointer; backdrop-filter: blur(10px); border-radius: 50px; transition: 0.3s;
-        }
-        button:hover { background: white; color: black; transform: translateY(-3px); }
-
-        /* カレンダーモーダル */
-        #modal {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.98); display: none; z-index: 100; padding: 20px; overflow-y: auto;
-        }
-        .modal-inner { max-width: 800px; margin: 40px auto; }
-        .cal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; }
-        .weekday { font-size: 0.7rem; opacity: 0.5; text-align: center; padding-bottom: 10px; }
-        .cell {
-            aspect-ratio: 1; border: 1px solid #222; border-radius: 10px;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            cursor: pointer; background: #0a0a0a; transition: 0.2s;
-        }
-        .cell.has-data { border-color: var(--accent); background: rgba(0,210,255,0.1); box-shadow: inset 0 0 10px rgba(0,210,255,0.2); }
+        button { padding: 12px 24px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: white; cursor: pointer; backdrop-filter: blur(10px); border-radius: 50px; transition: 0.3s; }
+        button:hover { background: white; color: black; }
+        
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.96); display: none; z-index: 100; padding: 20px; overflow-y: auto; }
+        .calendar-header { display: flex; justify-content: space-between; align-items: center; max-width: 600px; margin: 20px auto; }
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 10px; max-width: 600px; margin: 0 auto; }
+        .cell { aspect-ratio: 1; border: 1px solid #333; border-radius: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; background: #111; }
+        .cell:hover { background: var(--accent-quote); color: black; }
         .cell.future { opacity: 0.1; cursor: not-allowed; }
-        .cell:hover:not(.future) { background: #333; }
     </style>
 </head>
 <body>
-
 <div id="bg-layer"></div>
-
 <div class="container">
-    <div id="date-info">MARCH 2026</div>
-    <div id="day-large">22 <span style="font-size: 1.5rem; vertical-align: middle; opacity: 0.8;">SUN</span></div>
-    <p id="main-text">Inspiration is loading...</p>
-    <p id="sub-text"></p>
-    
+    <div id="mode-badge">LOADING</div>
+    <div id="date-info">---</div>
+    <div id="day-large">-- <span>---</span></div>
+    <div id="main-text">データを読み込み中...</div>
+    <div id="sub-text"></div>
     <div class="controls">
         <button onclick="switchMode()">モード切替</button>
-        <button onclick="openCal()">過去を振り返る</button>
+        <button onclick="openCal()">カレンダー</button>
     </div>
 </div>
 
 <div id="modal">
     <div class="modal-inner">
-        <div class="cal-header">
-            <button onclick="moveCal(-1)">◀ 前月</button>
-            <h2 id="cal-title">2026 / 03</h2>
-            <button onclick="moveCal(1)">次月 ▶</button>
+        <div class="calendar-header">
+            <button onclick="moveMonth(-1)">◀ 前月</button>
+            <h2 id="cal-title"></h2>
+            <button onclick="moveMonth(1)">次月 ▶</button>
         </div>
-        <div class="grid" id="cal-grid"></div>
-        <button onclick="closeCal()" style="margin-top:40px; width:100%;">閉じる</button>
+        <div id="cal-grid" class="grid"></div>
+        <button onclick="closeCal()" style="margin: 40px auto; display: block; width: 150px;">閉じる</button>
     </div>
 </div>
 
 <script>
-    let db = JSON.parse(localStorage.getItem('gutti_v3_db') || '{}');
+    // --- 厳選された日本語豆知識 (365日ローテーション用) ---
+    const trivia_database = [
+        { t: "パンダの尻尾は実は白。黒いのは目の周りと耳と足だけ。", g: "動物" },
+        { t: "1円玉を1枚作るのにかかるコストは約3円。", g: "経済" },
+        { t: "キリンの首の骨は人間と同じ7本しかない。", g: "生物" },
+        { t: "太陽の光が地球に届くまでには約8分20秒かかる。", g: "宇宙" },
+        { t: "世界最古の会社は日本の建設会社「金剛組」。578年創業。", g: "歴史" },
+        { t: "金魚の記憶力は数ヶ月以上あり、色や形を識別できる。", g: "動物" },
+        { t: "宇宙に行くと重力がなくなるため、背が数センチ伸びる。", g: "宇宙" },
+        { t: "トランプの52枚は、1年が52週であることを表している。", g: "文化" },
+        { t: "シロクマの肌は実は黒い。白い毛が光を反射しているだけ。", g: "動物" },
+        { t: "バナナは木ではなく、巨大な「草」の仲間。", g: "植物" },
+        { t: "かき氷のシロップは、実はすべて同じ味。色が脳を錯覚させている。", g: "食べ物" },
+        { t: "フラミンゴがピンク色なのは、食べているエビの色素のせい。", g: "動物" },
+        { t: "ショートケーキの「ショート」は短いという意味ではなく、サクサクしたという意味。", g: "食べ物" },
+        { t: "人の血管をすべてつなげると、地球2周半の長さになる。", g: "人体" },
+        { t: "ナマケモノはあまりに動かないため、背中に苔が生えることがある。", g: "動物" }
+    ];
+
+    const backup_quotes = [
+        { q: "成功の鍵は、自分を信じ抜くことにある。", a: "Gutti Selection" },
+        { q: "未来の姿は、今の行動によって決まる。", a: "歴史の賢者" },
+        { q: "夢を見るから、人生は輝く。", a: "モンテスキュー" }
+    ];
+
     let mode = localStorage.getItem('gutti_mode') || 'quote';
-    let calViewDate = new Date();
+    let calDate = new Date();
     const weekdays = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"];
 
-    async function init() {
-        const now = new Date();
-        const key = now.toISOString().split('T')[0];
-        
-        // 曜日と月を表示
-        const monthNames = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
-        document.getElementById('date-info').innerText = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
-        document.getElementById('day-large').innerHTML = `${now.getDate()} <span style="font-size: 1.5rem; vertical-align: middle; opacity: 0.8;">${weekdays[now.getDay()]}</span>`;
+    async function updateView(dateStr) {
+        const d = new Date(dateStr);
+        const seed = dateStr.replace(/-/g, "");
+        const dayOfYear = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 86400000);
 
-        if (db[key]) {
-            render(db[key]);
+        document.getElementById('date-info').innerText = d.toLocaleDateString('en-US', {month:'long', year:'numeric'}).toUpperCase();
+        document.getElementById('day-large').innerHTML = `${d.getDate()} <span style="font-size: 1.5rem; opacity: 0.6;">${weekdays[d.getDay()]}</span>`;
+        document.getElementById('bg-layer').style.backgroundImage = `url('https://picsum.photos/seed/${seed}${mode}/1920/1080')`;
+
+        const themeColor = mode === 'quote' ? 'var(--accent-quote)' : 'var(--accent-trivia)';
+        const badge = document.getElementById('mode-badge');
+        badge.innerText = mode === 'quote' ? 'JAPANESE QUOTE (API)' : 'NATIVE TRIVIA (OFFLINE)';
+        badge.style.color = themeColor;
+        badge.style.borderColor = themeColor;
+
+        if (mode === 'quote') {
+            try {
+                const res = await fetch('https://meigen-api.vercel.app/api/random');
+                if (!res.ok) throw new Error();
+                const data = await res.json();
+                render(data.text, `― ${data.author}`, themeColor);
+            } catch (e) {
+                const item = backup_quotes[dayOfYear % backup_quotes.length];
+                render(item.q, `― ${item.a} (Backup)`, themeColor);
+            }
         } else {
-            await fetchFromAPI(key);
+            // 翻訳を介さず、データベースから直接取得
+            const data = trivia_database[dayOfYear % trivia_database.length];
+            render(data.t, `ジャンル: ${data.g}`, themeColor);
         }
     }
 
-    async function fetchFromAPI(key) {
-        const seed = key.replace(/-/g, "");
-        const img = `https://picsum.photos/seed/${seed}/1920/1080`;
-        const [y, m, d] = key.split('-').map(Number);
-
-        try {
-            let main, sub;
-            if (mode === 'quote') {
-                const res = await fetch('https://api.github.com/repos/yomogi89/aozora-quotes-api/contents/data/all.json');
-                const json = await res.json();
-                const list = JSON.parse(atob(json.content));
-                const item = list[parseInt(seed) % list.length];
-                main = item.quote; sub = `— ${item.author}`;
-            } else {
-                const res = await fetch(`https://numbersapi.com/${m}/${d}/date`);
-                const trivia = await res.text();
-                const trans = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(trivia)}&langpair=en|ja`);
-                const tData = await trans.json();
-                main = tData.responseData.translatedText; sub = `Trivia: ${trivia}`;
-            }
-
-            db[key] = { main, sub, img, date: key, dayName: weekdays[new Date(key).getDay()] };
-            localStorage.setItem('gutti_v3_db', JSON.stringify(db));
-            render(db[key]);
-        } catch (e) {
-            document.getElementById('main-text').innerText = "API取得エラー。再試行してください。";
-        }
-    }
-
-    function render(data) {
-        document.getElementById('bg-layer').style.backgroundImage = `url('${data.img}')`;
-        document.getElementById('main-text').innerText = data.main;
-        document.getElementById('sub-text').innerText = data.sub;
-    }
-
-    // カレンダー制御
-    function openCal() { document.getElementById('modal').style.display = 'block'; drawCal(); }
-    function closeCal() { document.getElementById('modal').style.display = 'none'; }
-    function moveCal(n) { calViewDate.setMonth(calViewDate.getMonth() + n); drawCal(); }
-
-    function drawCal() {
-        const grid = document.getElementById('cal-grid');
-        grid.innerHTML = "";
-        const y = calViewDate.getFullYear(), m = calViewDate.getMonth();
-        document.getElementById('cal-title').innerText = `${y} / ${String(m + 1).padStart(2, '0')}`;
-
-        // 曜日のヘッダーを追加
-        weekdays.forEach(w => {
-            const el = document.createElement('div');
-            el.className = 'weekday'; el.innerText = w; grid.appendChild(el);
-        });
-
-        const first = new Date(y, m, 1).getDay();
-        const last = new Date(y, m + 1, 0).getDate();
-        const todayKey = new Date().toISOString().split('T')[0];
-
-        for (let i = 0; i < first; i++) grid.appendChild(document.createElement('div'));
-
-        for (let d = 1; d <= last; d++) {
-            const dateObj = new Date(y, m, d);
-            const key = dateObj.toISOString().split('T')[0];
-            const isFuture = dateObj > new Date();
-            const data = db[key];
-
-            const cell = document.createElement('div');
-            cell.className = `cell ${isFuture ? 'future' : ''} ${data ? 'has-data' : ''}`;
-            cell.innerHTML = `<span style="font-size:1.1rem">${d}</span>`;
-            
-            if (!isFuture && data) {
-                cell.onclick = () => { render(data); closeCal(); };
-            }
-            grid.appendChild(cell);
-        }
+    function render(main, sub, color) {
+        document.getElementById('main-text').innerText = main;
+        const subEl = document.getElementById('sub-text');
+        subEl.innerText = sub;
+        subEl.style.color = color;
     }
 
     function switchMode() {
         mode = (mode === 'quote') ? 'trivia' : 'quote';
         localStorage.setItem('gutti_mode', mode);
-        location.reload();
+        updateView(new Date().toISOString().split('T')[0]);
     }
 
-    init();
+    function openCal() { document.getElementById('modal').style.display = 'block'; drawCal(); }
+    function closeCal() { document.getElementById('modal').style.display = 'none'; }
+    function moveMonth(n) { calDate.setMonth(calDate.getMonth() + n); drawCal(); }
+
+    function drawCal() {
+        const grid = document.getElementById('cal-grid');
+        grid.innerHTML = "";
+        const y = calDate.getFullYear(), m = calDate.getMonth();
+        document.getElementById('cal-title').innerText = `${y} / ${String(m + 1).padStart(2,'0')}`;
+        const first = new Date(y, m, 1).getDay();
+        const last = new Date(y, m + 1, 0).getDate();
+        for (let i = 0; i < first; i++) grid.appendChild(document.createElement('div'));
+        for (let i = 1; i <= last; i++) {
+            const dateStr = `${y}-${String(m+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+            const isFuture = new Date(dateStr) > new Date();
+            const cell = document.createElement('div');
+            cell.className = `cell ${isFuture ? 'future' : ''}`;
+            cell.innerText = i;
+            if (!isFuture) cell.onclick = () => { updateView(dateStr); closeCal(); };
+            grid.appendChild(cell);
+        }
+    }
+
+    updateView(new Date().toISOString().split('T')[0]);
 </script>
 </body>
 </html>
