@@ -89,7 +89,9 @@
         "background": "linear-gradient(135deg, #0000ff 0%, #000054 100%)",
         "color": "#ffffff"
       },
-      "verified": false
+      "verified": false,
+      "icon": "",
+      "birthday": "2012-01-06"
     },
     {
       "code": "VMVA-ZN0A-2JV8",
