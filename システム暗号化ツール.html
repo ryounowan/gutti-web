@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Mobile-Ready Encryptor</title>
+    <style>
+        :root { --primary: #00f2fe; --bg: #0f172a; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .card { background: #1e293b; padding: 30px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; border: 1px solid #334155; width: 100%; max-width: 400px; }
+        h2 { color: var(--primary); margin-top: 0; font-size: 20px; }
+        .drop-zone { border: 2px dashed var(--primary); padding: 40px 20px; border-radius: 16px; margin: 20px 0; cursor: pointer; background: rgba(0, 242, 254, 0.05); font-size: 14px; }
+        #fileName { margin-bottom: 15px; font-size: 12px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        button { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #000; border: none; padding: 16px; border-radius: 12px; cursor: pointer; font-weight: bold; width: 100%; font-size: 16px; transition: 0.2s; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3); }
+        button:active { transform: scale(0.98); }
+        button:disabled { background: #475569; color: #94a3b8; cursor: not-allowed; box-shadow: none; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>HTML完全暗号化 <span style="font-size: 12px; vertical-align: middle; opacity: 0.7;">Mobile OK</span></h2>
+    <div class="drop-zone" onclick="document.getElementById('targetFile').click()">
+        タップしてファイルを選択
+        <input type="file" id="targetFile" accept=".html" style="display:none">
+    </div>
+    <div id="fileName">未選択</div>
+    <button id="genBtn" onclick="generate()" disabled>暗号化HTMLを保存</button>
+</div>
+
+<script>
+    const fileInput = document.getElementById('targetFile');
+    const genBtn = document.getElementById('genBtn');
+    const fileNameDisplay = document.getElementById('fileName');
+
+    fileInput.onchange = () => {
+        if(fileInput.files[0]) {
+            fileNameDisplay.innerText = fileInput.files[0].name;
+            genBtn.disabled = false;
+        }
+    };
+
+    async function generate() {
+        const file = fileInput.files[0];
+        const reader = new FileReader();
+        
+        reader.onload = async (e) => {
+            const content = e.target.result;
+            const enc = new TextEncoder();
+            const rawKey = window.crypto.getRandomValues(new Uint8Array(16));
+            const key = await window.crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["encrypt"]);
+            const iv = window.crypto.getRandomValues(new Uint8Array(12));
+            const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(content));
+
+            const payload = JSON.stringify({
+                ct: btoa(String.fromCharCode(...new Uint8Array(encrypted))),
+                iv: btoa(String.fromCharCode(...iv)),
+                key: btoa(String.fromCharCode(...rawKey))
+            });
+
+            // スマホ表示を強制するテンプレート
+            const output = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Loading...</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; background: #000; overflow: hidden; }
+        #l { position: fixed; top: 0; left: 0; width: 100%; height: 100dvh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; z-index: 9999; }
+    </style>
+</head>
+<body>
+    <div id="l">読み込み中...</div>
+    <script>
+    (async function(){
+        try {
+            const d = ${payload};
+            const key = await window.crypto.subtle.importKey("raw", new Uint8Array(atob(d.key).split("").map(c=>c.charCodeAt(0))), "AES-GCM", false, ["decrypt"]);
+            const pt = await window.crypto.subtle.decrypt({name:"AES-GCM",iv:new Uint8Array(atob(d.iv).split("").map(c=>c.charCodeAt(0)))}, key, new Uint8Array(atob(d.ct).split("").map(c=>c.charCodeAt(0))));
+            const fullHtml = new TextDecoder().decode(pt);
+            
+            const parser = new DOMParser();
+            const newDoc = parser.parseFromString(fullHtml, 'text/html');
+
+            // 1. Head内容をすべて移植（スマホ用meta設定を含む）
+            document.head.innerHTML = newDoc.head.innerHTML;
+            
+            // 2. Bodyの書き換え
+            document.body.innerHTML = newDoc.body.innerHTML;
+            
+            // 3. インラインおよび外部スクリプトの完全な再実行
+            const scripts = Array.from(newDoc.querySelectorAll("script"));
+            for (let oldScript of scripts) {
+                const newScript = document.createElement("script");
+                Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                if (oldScript.src) {
+                    newScript.src = oldScript.src;
+                    // 外部スクリプトの読み込み完了を待機するための処理（必要に応じて）
+                } else {
+                    newScript.textContent = oldScript.textContent;
+                }
+                document.body.appendChild(newScript);
+            }
+        } catch(e) {
+            document.body.innerHTML = "<div style='color:white;text-align:center;padding:50px;'>エラーが発生しました</div>";
+        }
+    })();
+    <\/script>
+</body>
+</html>`;
+
+            const blob = new Blob([output], {type: 'text/html'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = "m_" + file.name;
+            a.click();
+        };
+        reader.readAsText(file);
+    }
+</script>
+</body>
+</html>
+
