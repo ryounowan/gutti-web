@@ -89,7 +89,8 @@
         "background": "linear-gradient(135deg, #0000ff 0%, #000054 100%)",
         "color": "#ffffff"
       },
-      "verified": true
+      "verified": true,
+      "banUntil": 1774175131287
     },
     {
       "code": "VMVA-ZN0A-2JV8",
