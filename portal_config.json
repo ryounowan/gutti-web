@@ -166,5 +166,12 @@
     "background": "linear-gradient(135deg, #000000 0%, #000000 100%)",
     "color": "#ffffff"
   },
-  "mode": "normal"
+  "mode": "normal",
+  "requests": [
+    {
+      "user": "gutti PC",
+      "type": "verify",
+      "timestamp": 1774177273539
+    }
+  ]
 }
