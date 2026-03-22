@@ -97,7 +97,8 @@
     {
       "code": "VMVA-ZN0A-2JV8",
       "expiry": null,
-      "userName": "gutti PC"
+      "userName": "gutti PC",
+      "banUntil": "PERM"
     },
     {
       "code": "2012-0106-8686",
