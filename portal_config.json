@@ -90,7 +90,7 @@
         "background": "linear-gradient(135deg, #0000ff 0%, #000054 100%)",
         "color": "#ffffff"
       },
-      "verified": true,
+      "verified": false,
       "icon": "",
       "birthday": "2012-01-06"
     },
