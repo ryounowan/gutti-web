@@ -94,7 +94,8 @@
       },
       "verified": true,
       "icon": "",
-      "birthday": "2012-01-06"
+      "birthday": "2012-01-06",
+      "banUntil": 1774198958892
     },
     {
       "code": "VMVA-ZN0A-2JV8",
