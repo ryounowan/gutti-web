@@ -107,16 +107,17 @@
 <audio id="remote-audio" autoplay></audio>
 
 <script>
-    // --- 初期化 ---
     let myId = localStorage.getItem('gutti_id') || "090" + Math.floor(10000000 + Math.random() * 90000000).toString();
     localStorage.setItem('gutti_id', myId);
     document.getElementById('my-num-display').innerText = formatPhone(myId);
 
     const peer = new Peer(myId);
-    let localStream, currentCall, incomingCall, timerInterval;
+    let localStream, currentCall, incomingCall, timerInterval, callTimeout;
     let secondsElapsed = 0;
-    let contacts = JSON.parse(localStorage.getItem('gutti_contacts') || '{}');
-    let history = JSON.parse(localStorage.getItem('gutti_history') || '[]');
+    let isConnected = false; // 通話が繋がったかどうか
+
+    let contacts = JSON.parse(localStorage.getItem('gutti_contacts_v6') || '{}');
+    let history = JSON.parse(localStorage.getItem('gutti_history_v6') || '[]');
 
     navigator.mediaDevices.getUserMedia({ audio: true }).then(s => localStream = s);
 
@@ -135,7 +136,6 @@
         document.getElementById('contact-name').innerText = contacts[dialBuffer] || "ADD CONTACT";
     }
 
-    // --- タイマー機能 ---
     function startTimer() {
         secondsElapsed = 0;
         document.getElementById('call-timer').style.display = 'block';
@@ -153,13 +153,13 @@
         document.getElementById('call-timer').style.display = 'none';
     }
 
-    // --- 履歴 & 連絡先 ---
+    // --- 履歴 & 連絡先 (略) ---
     function addHistoryEntry(num) {
         const now = new Date();
         const timeStr = `${now.getFullYear()}/${now.getMonth()+1}/${now.getDate()} ${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
         history.unshift({ num: num, time: timeStr, name: contacts[num] || "不明" });
         if (history.length > 20) history.pop();
-        localStorage.setItem('gutti_history', JSON.stringify(history));
+        localStorage.setItem('gutti_history_v6', JSON.stringify(history));
     }
 
     function showHistory() {
@@ -180,7 +180,6 @@
         const list = document.getElementById('modal-list');
         list.innerHTML = "";
         const keys = Object.keys(contacts);
-        if(!keys.length) list.innerHTML = "<p style='text-align:center; color:gray;'>登録されていません</p>";
         keys.forEach(num => {
             const div = document.createElement('div');
             div.className = 'item-row';
@@ -193,19 +192,29 @@
     function saveCurrentContact() {
         if (!dialBuffer) return;
         const name = prompt("Name:", contacts[dialBuffer] || "");
-        if (name) { contacts[dialBuffer] = name; localStorage.setItem('gutti_contacts', JSON.stringify(contacts)); updateDisplay(); }
+        if (name) { contacts[dialBuffer] = name; localStorage.setItem('gutti_contacts_v6', JSON.stringify(contacts)); updateDisplay(); }
     }
 
-    function deleteContact(num) { if (confirm(`${contacts[num]} を削除しますか？`)) { delete contacts[num]; localStorage.setItem('gutti_contacts', JSON.stringify(contacts)); showContacts(); updateDisplay(); } }
+    function deleteContact(num) { if (confirm(`${contacts[num]} を削除しますか？`)) { delete contacts[num]; localStorage.setItem('gutti_contacts_v6', JSON.stringify(contacts)); showContacts(); updateDisplay(); } }
     function dialFromList(num) { dialBuffer = num; updateDisplay(); closeModal(); makeCall(); }
     function closeModal() { document.getElementById('contact-modal').style.display = 'none'; }
 
     // --- 通話制御 ---
     function makeCall() {
         if (!dialBuffer || dialBuffer === myId) return;
+        isConnected = false;
         addHistoryEntry(dialBuffer);
         const call = peer.call(dialBuffer, localStream);
         document.getElementById('contact-name').innerText = "CALLING...";
+
+        // 【10秒タイムアウト設定】
+        callTimeout = setTimeout(() => {
+            if (!isConnected) {
+                alert("相手が応答しません。お取り込み中のようです。");
+                endCall();
+            }
+        }, 10000);
+
         handleCall(call);
     }
 
@@ -236,6 +245,8 @@
         document.getElementById('main-keypad').style.visibility = 'hidden';
 
         call.on('stream', s => {
+            isConnected = true; // 繋がったのでタイムアウトを無効化する
+            clearTimeout(callTimeout); 
             document.getElementById('remote-audio').srcObject = s;
             document.getElementById('dial-view').innerText = formatPhone(call.peer);
             document.getElementById('contact-name').innerText = "Connected: " + (contacts[call.peer] || "");
@@ -250,6 +261,7 @@
 
     function endCall() {
         if (currentCall) currentCall.close();
+        clearTimeout(callTimeout);
         stopTimer();
         document.getElementById('call-btn').style.display = 'flex';
         document.getElementById('hangup-btn').style.display = 'none';
