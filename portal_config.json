@@ -104,7 +104,7 @@
         "background": "linear-gradient(135deg, #ff0000 0%, #000000 100%)",
         "color": "#ffffff"
       },
-      "verified": true,
+      "verified": false,
       "banUntil": 1774181510674
     },
     {
