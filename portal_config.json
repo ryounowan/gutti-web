@@ -101,7 +101,8 @@
       "design": {
         "background": "linear-gradient(135deg, #ff0000 0%, #000000 100%)",
         "color": "#ffffff"
-      }
+      },
+      "verified": true
     },
     {
       "code": "2012-0106-8686",
@@ -167,11 +168,5 @@
     "color": "#ffffff"
   },
   "mode": "normal",
-  "requests": [
-    {
-      "user": "gutti PC",
-      "type": "verify",
-      "timestamp": 1774177273539
-    }
-  ]
+  "requests": []
 }
