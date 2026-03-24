@@ -171,6 +171,6 @@
   "mode": "normal",
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
-  "maintenanceMode": false,
-  "sha": "2a27083b5721510c486d5398282bdae0bf7cc41e"
+  "maintenanceMode": true,
+  "sha": "7e4a9fdcda55e9c120a77ce6af2c8db85735ac56"
 }
