@@ -174,5 +174,6 @@
   "maintenanceMode": false,
   "sha": "ad8e8a5fb325d445275fe6bb3322750f0769f915",
   "mtMessage": "ああああああ",
-  "nexusMaintenance": true
+  "nexusMaintenance": false,
+  "mtMessage_Nexus": ""
 }
