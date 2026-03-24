@@ -163,7 +163,7 @@
     "Nexus(ネクサス).html"
   ],
   "password": "2012-0106-8686",
-  "isMaintenance": true,
+  "isMaintenance": false,
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #575aff 0%, #10707d 100%)",
@@ -173,5 +173,6 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "4ac8fb1f77944cd0233addedada0ebe7f1025ff2"
+  "sha": "57c91c5636a729a86545aa98beaaffe324ec8727",
+  "mtMessage": "ああああああ"
 }
