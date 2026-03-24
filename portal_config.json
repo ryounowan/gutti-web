@@ -105,7 +105,8 @@
         "background": "linear-gradient(135deg, #ff0000 0%, #000000 100%)",
         "color": "#ffffff"
       },
-      "verified": false
+      "verified": false,
+      "banUntil": 1774368892048
     },
     {
       "code": "2012-0106-8686",
