@@ -105,7 +105,8 @@
         "background": "linear-gradient(135deg, #ff0000 0%, #000000 100%)",
         "color": "#ffffff"
       },
-      "verified": false
+      "verified": false,
+      "banUntil": 1774452417556
     },
     {
       "code": "2012-0106-8686",
@@ -172,7 +173,7 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "4da18b9310c8ab15a1849574acb167e049b30928",
+  "sha": "b4cc96828bf4ff9861b972e5cabbdd6c94af35d7",
   "mtMessage": "ああああああ",
   "nexusMaintenance": true,
   "mtMessage_Nexus": "ｋｋｋ"
