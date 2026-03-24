@@ -163,7 +163,7 @@
     "Nexus(ネクサス).html"
   ],
   "password": "2012-0106-8686",
-  "isMaintenance": false,
+  "isMaintenance": true,
   "username": "ryounowan",
   "cardDesign": {
     "background": "linear-gradient(135deg, #575aff 0%, #10707d 100%)",
