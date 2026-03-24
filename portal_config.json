@@ -172,8 +172,8 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "c11328e0717ccc0eff40c145df43710cc76040ad",
+  "sha": "69ba61aad1f79b12347bdadefdb416ff5fbc97ab",
   "mtMessage": "ああああああ",
-  "nexusMaintenance": true,
+  "nexusMaintenance": false,
   "mtMessage_Nexus": "ｋｋｋ"
 }
