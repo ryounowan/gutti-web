@@ -105,7 +105,7 @@
         "background": "linear-gradient(135deg, #ff0000 0%, #000000 100%)",
         "color": "#ffffff"
       },
-      "verified": false,
+      "verified": true,
       "banUntil": 1774448088266
     },
     {
@@ -173,5 +173,5 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "880e4af81e6cfad48529a11aa1795df532cd5462"
+  "sha": "4ac8fb1f77944cd0233addedada0ebe7f1025ff2"
 }
