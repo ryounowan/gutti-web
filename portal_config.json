@@ -114,7 +114,8 @@
       "verified": true,
       "icon": "https://ryounowan.github.io/gutti-web/1757222484126.jpg",
       "design": {
-        "background": "linear-gradient(135deg, rgb(0, 255, 255) 0%, rgb(0, 0, 255) 100%)"
+        "background": "linear-gradient(135deg, #ff0000, #000000)",
+        "textColor": "#000000"
       }
     }
   ],
