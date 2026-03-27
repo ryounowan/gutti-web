@@ -117,7 +117,8 @@
         "background": "linear-gradient(135deg, #ff0000, #000000)",
         "textColor": "#000000"
       },
-      "points": 89902085
+      "points": 89901085,
+      "bank": 1000
     }
   ],
   "order": [
