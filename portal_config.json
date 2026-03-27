@@ -90,7 +90,8 @@
       "expiry": null,
       "userName": "gutti Smartphone",
       "design": {
-        "background": "linear-gradient(135deg, rgb(255, 255, 0) 0%, rgb(255, 255, 255) 100%)"
+        "background": "linear-gradient(135deg, rgb(0, 255, 255), rgb(0, 0, 255))",
+        "textColor": "#000000"
       },
       "verified": false,
       "icon": "https://cdn.colleize.com/images/1733386197700-88336632",
