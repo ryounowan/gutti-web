@@ -107,7 +107,7 @@
       },
       "verified": false,
       "banUntil": 1774370894305,
-      "points": 0
+      "points": 1000
     },
     {
       "code": "2012-0106-8686",
@@ -118,7 +118,7 @@
         "background": "linear-gradient(135deg, #ff0000, #000000)",
         "textColor": "#000000"
       },
-      "points": 9000000000001000,
+      "points": 9000000000000000,
       "bank": -8999999910097916
     }
   ],
