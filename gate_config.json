@@ -30,5 +30,13 @@
     "pts": 1,
     "msg": "あ",
     "camId": "60c6d825bbd1aea6ca62de559236f831ebd94db76709ceab4423eb3ef018642d"
+  },
+  {
+    "id": "1774632698068",
+    "name": "あ",
+    "type": "IN",
+    "pts": 0,
+    "msg": "あ",
+    "camId": "17d6782a147d8ff4ad6a0fb38af1e8c920843d73562f0390fea4cad3bf789a08"
   }
 ]
