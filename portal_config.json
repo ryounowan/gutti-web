@@ -126,6 +126,11 @@
       "code": "SM89-0ZQW-WT7H",
       "expiry": null,
       "userName": "新規ユーザー"
+    },
+    {
+      "code": "5P35-EY84-UQ8U",
+      "expiry": 1774714860000,
+      "userName": "test"
     }
   ],
   "order": [
@@ -187,7 +192,7 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "01e6cd75f1aa2241670027fa1cf9f5f17b70d6fb",
+  "sha": "d6ef485c8c2a5ae538de7de11e2e2e3119150042",
   "mtMessage": "ああああああ",
   "nexusMaintenance": true,
   "mtMessage_Nexus": "ｋｋｋ"
