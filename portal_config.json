@@ -106,7 +106,8 @@
         "background": "rgb(0, 0, 255)"
       },
       "verified": false,
-      "banUntil": 1774370894305
+      "banUntil": 1774370894305,
+      "points": null
     },
     {
       "code": "2012-0106-8686",
@@ -117,7 +118,7 @@
         "background": "linear-gradient(135deg, #ff0000, #000000)",
         "textColor": "#000000"
       },
-      "points": 100,
+      "points": 1100,
       "bank": 89901985
     }
   ],
