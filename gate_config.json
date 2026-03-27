@@ -6,5 +6,13 @@
     "pts": 0,
     "msg": "",
     "cam": "user"
+  },
+  {
+    "id": 1774632462596,
+    "name": "あ",
+    "type": "IN",
+    "pts": 1,
+    "msg": "あ",
+    "cam": "environment"
   }
 ]
