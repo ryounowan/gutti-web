@@ -14,5 +14,13 @@
     "pts": 1,
     "msg": "あ",
     "cam": "environment"
+  },
+  {
+    "id": 1774632477014,
+    "name": "な",
+    "type": "IN",
+    "pts": 1,
+    "msg": "な",
+    "cam": "user"
   }
 ]
