@@ -103,8 +103,7 @@
       "expiry": null,
       "userName": "gutti PC",
       "design": {
-        "background": "linear-gradient(135deg, #ff0000 0%, #000000 100%)",
-        "color": "#ffffff"
+        "background": "rgb(0, 0, 255)"
       },
       "verified": false,
       "banUntil": 1774370894305
