@@ -112,7 +112,7 @@
     },
     {
       "code": "2012-0106-8686",
-      "userName": "Nexus運営",
+      "userName": "Gutti Presents運営",
       "verified": true,
       "icon": "https://ryounowan.github.io/gutti-web/1757222484126.jpg",
       "design": {
@@ -182,7 +182,7 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "13c8e3699d03a5bbb388ed8a8accb108d2265ca0",
+  "sha": "ff32687aec316da3d53f46c4f3250a042da60d98",
   "mtMessage": "ああああああ",
   "nexusMaintenance": true,
   "mtMessage_Nexus": "ｋｋｋ"
