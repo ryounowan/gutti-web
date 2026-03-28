@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TAKAMATSU ORDER - FINAL</title>
+    <style>
+        :root { --cyan: #00f0ff; --pink: #ff00ff; --black: #050505; --gold: #ffd700; --white: #ffffff; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        html, body { margin: 0; padding: 0; background: var(--black); font-family: 'Hiragino Kaku Gothic ProN', sans-serif; height: 100%; width: 100%; overflow: hidden; color: #333; }
+        
+        #app { width: 100%; max-width: 500px; height: 100%; margin: 0 auto; background: #fff; display: flex; flex-direction: column; position: relative; }
+
+        /* --- エレベーター & 演出 --- */
+        #ev-gate { position: absolute; inset: 0; z-index: 2000; pointer-events: none; display: flex; }
+        .door { flex: 1; background: linear-gradient(135deg, #7f8c8d, #bdc3c7, #95a5a6); border: 2px solid #333; transition: transform 1.2s cubic-bezier(0.65, 0, 0.35, 1); position: relative; }
+        .door-left { transform: translateX(-100%); } .door-right { transform: translateX(100%); }
+        #ev-gate.closed .door-left, #ev-gate.closed .door-right { transform: translateX(0); pointer-events: auto; }
+
+        #ev-monitor { 
+            position: absolute; top: 8%; left: 50%; transform: translateX(-50%);
+            width: 120px; height: 70px; background: #000; border: 3px solid var(--cyan);
+            color: var(--cyan); font-family: 'Courier New', monospace; font-size: 2.5rem;
+            display: flex; align-items: center; justify-content: center; box-shadow: 0 0 15px var(--cyan);
+            opacity: 0; transition: 0.3s;
+        }
+        #ev-gate.closed #ev-monitor { opacity: 1; }
+
+        /* --- チップ装着演出 --- */
+        #chip-insert-anim {
+            position: absolute; top: 25%; left: 50%; transform: translateX(-50%);
+            width: 60px; height: 60px; border: 4px solid #fff; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            opacity: 0; z-index: 2200;
+        }
+        .chip-flying { animation: chipIn 1s forwards; }
+        @keyframes chipIn {
+            0% { transform: translate(-50%, -100px) scale(2); opacity: 0; filter: brightness(2); }
+            50% { transform: translate(-50%, 0) scale(1); opacity: 1; filter: brightness(1.5); }
+            70% { transform: translate(-50%, 0) scale(1.2); box-shadow: 0 0 30px #fff; }
+            100% { transform: translate(-50%, 0) scale(1); opacity: 1; }
+        }
+
+        #trivia-panel {
+            position: absolute; top: 55%; left: 50%; transform: translate(-50%, -50%);
+            width: 85%; background: rgba(0, 0, 0, 0.95); border: 2px solid var(--cyan);
+            border-radius: 20px; padding: 35px; color: #fff; text-align: center;
+            opacity: 0; transition: 0.5s 1.5s; z-index: 2100;
+        }
+        #ev-gate.closed #trivia-panel { opacity: 1; }
+
+        /* --- キャラメイクパーツ --- */
+        .avatar-container { width: 140px; height: 140px; margin: 0 auto; position: relative; }
+        .avatar-frame { width: 100%; height: 100%; border-radius: 50%; border: 4px solid #000; overflow: hidden; position: relative; background: #eee; box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
+        .skin { position: absolute; inset: 0; transition: 0.3s; background: #ffe0bd; }
+        .face-shadow { position: absolute; inset: 0; background: linear-gradient(transparent 60%, rgba(0,0,0,0.1)); }
+        .eyes { position: absolute; top: 45px; width: 100%; display: flex; justify-content: space-around; padding: 0 25px; }
+        .eye-ball { width: 28px; height: 28px; background: #fff; border-radius: 50%; border: 2px solid #000; position: relative; overflow: hidden; }
+        .pupil { width: 16px; height: 16px; background: #333; border-radius: 50%; position: absolute; top: 4px; left: 4px; transition: 0.3s; }
+        .pupil-light { position: absolute; top: 2px; left: 2px; width: 5px; height: 5px; background: #fff; border-radius: 50%; opacity: 0.8; }
+        .mouth { position: absolute; bottom: 30px; left: 50%; width: 34px; height: 12px; background: #ff7f7f; border-radius: 5px 5px 20px 20px; transform: translateX(-50%); border: 2px solid #000; transition: 0.3s; }
+
+        /* --- スクリーン & UI --- */
+        .screen { position: absolute; inset: 0; display: none; flex-direction: column; background: #fff; z-index: 10; }
+        .active { display: flex; }
+        header { height: 70px; border-bottom: 4px solid #000; display: flex; justify-content: space-between; align-items: center; padding: 0 25px; font-weight: 900; background: #fff; }
+        .main-scroll { flex: 1; overflow-y: auto; padding: 30px; }
+        .bottom-ui { padding: 25px; background: #f8f9fa; border-top: 3px solid #eee; }
+        
+        .btn { width: 100%; padding: 22px; border: 4px solid #000; background: #fff; font-weight: 900; font-size: 1.2rem; cursor: pointer; margin-bottom: 15px; box-shadow: 6px 6px 0 #000; transition: 0.1s; }
+        .btn:active { transform: translate(4px, 4px); box-shadow: 0px 0px 0 #000; background: #f0f0f0; }
+
+        /* --- カラフルチップ --- */
+        .chip-grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; margin-top: 20px; }
+        .chip-dot { aspect-ratio: 1; border: 2px solid #ddd; border-radius: 4px; background: #eee; transition: 0.5s; }
+        .chip-on { border-color: #000; box-shadow: 0 4px 8px rgba(0,0,0,0.2); transform: scale(1.05); }
+
+        .udon-na { width: 60px; height: 60px; background: #fff; border-radius: 50%; border: 3px solid #000; position: relative; }
+        .udon-noodles { position: absolute; top: -5px; width: 100%; height: 25px; background: #fdf5e6; border-radius: 20px 20px 0 0; border-bottom: 3px solid #eee; }
+
+        @keyframes scanline { 0% { top: 0%; } 100% { top: 100%; } }
+        .scanning-bar { position: absolute; width: 100%; height: 2px; background: var(--cyan); top: 0; left: 0; animation: scanline 2s linear infinite; opacity: 0.3; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <div id="ev-gate">
+        <div class="door door-left"></div>
+        <div class="door door-right"></div>
+        <div id="ev-monitor">01</div>
+        <div id="chip-insert-anim"></div>
+        <div id="trivia-panel">
+            <div style="color:var(--cyan); font-size:0.9rem; margin-bottom:15px; font-weight:bold;">MEMORIES_SYNCING</div>
+            <div id="trivia-text" style="font-size:1.2rem; line-height:1.7; font-weight:bold;"></div>
+            <div style="margin-top:25px; font-size:0.75rem; color:#666;">DECRYPTING... <span id="sync-val">0</span>%</div>
+        </div>
+    </div>
+
+    <div id="scr-opening" class="screen active" style="background:var(--black); color:#fff; text-align:center;">
+        <div class="main-scroll" style="display:flex; flex-direction:column; justify-content:center;">
+            <div class="scanning-bar"></div>
+            <h1 style="font-size:3rem; font-weight:900; letter-spacing:15px; color:var(--cyan); text-shadow: 0 0 20px var(--cyan);">ORDER</h1>
+            <p style="color:var(--pink); font-weight:bold; letter-spacing:4px; margin-bottom:40px;">TAKAMATSU RECOVERY SYSTEM</p>
+            <p style="line-height:2.2; font-size:1rem; opacity:0.8;">
+                記憶は30の断片に分かれた。<br>
+                全てのチップを回収し、街を復元せよ。
+            </p>
+        </div>
+        <div class="bottom-ui" style="background:transparent; border:none;"><button class="btn" style="background:var(--cyan); color:#000;" onclick="showScreen('scr-menu')">INITIALIZE_LINK</button></div>
+    </div>
+
+    <div id="scr-menu" class="screen">
+        <header><div>ORDER_HUB</div><div id="m-count" style="color:var(--pink)">Lv.0</div></header>
+        <div class="main-scroll">
+            <div class="avatar-container">
+                <div class="avatar-frame">
+                    <div class="skin"></div>
+                    <div class="face-shadow"></div>
+                    <div class="eyes"><div class="eye-ball"><div class="pupil"><div class="pupil-light"></div></div></div><div class="eye-ball"><div class="pupil"><div class="pupil-light"></div></div></div></div>
+                    <div class="mouth"></div>
+                </div>
+            </div>
+            <p style="text-align:center; font-weight:900; font-size:1.6rem; margin:10px 0;" id="m-name">GUTTI</p>
+            <div style="margin-top:40px;">
+                <p style="font-size:0.8rem; font-weight:bold; color:#555;">RECOVERY_STATUS (F01-F30)</p>
+                <div id="chip-list" class="chip-grid"></div>
+            </div>
+        </div>
+        <div class="bottom-ui">
+            <button class="btn" style="background:var(--cyan)" onclick="startGame()">ENTER_THE_TOWER</button>
+            <button class="btn" onclick="showScreen('scr-make')">CUSTOMIZE_AVATAR</button>
+        </div>
+    </div>
+
+    <div id="scr-make" class="screen">
+        <header><div>CUSTOMIZE</div></header>
+        <div class="main-scroll">
+            <div class="avatar-container" style="transform: scale(1.4); margin: 30px auto 60px;">
+                <div class="avatar-frame">
+                    <div class="skin"></div>
+                    <div class="face-shadow"></div>
+                    <div class="eyes"><div class="eye-ball"><div class="pupil"><div class="pupil-light"></div></div></div><div class="eye-ball"><div class="pupil"><div class="pupil-light"></div></div></div></div>
+                    <div class="mouth"></div>
+                </div>
+            </div>
+            <input type="text" id="in-name" placeholder="エージェント名" maxlength="8" style="width:100%; padding:20px; border:4px solid #000; margin-bottom:30px; font-size:1.2rem; font-weight:bold; text-align:center;">
+            <p style="font-weight:900;">SKIN COLOR</p><div id="skin-sel" style="display:flex; gap:15px; margin-bottom:25px;"></div>
+            <p style="font-weight:900;">EYE COLOR</p><div id="eye-sel" style="display:flex; gap:15px;"></div>
+        </div>
+        <div class="bottom-ui"><button class="btn" onclick="saveMake()">SAVE_PROFILE</button></div>
+    </div>
+
+    <div id="scr-game" class="screen">
+        <header><div style="color:var(--cyan); letter-spacing:2px; font-size:0.8rem;">SYNCING...</div><div id="f-timer">00:00</div><div id="f-life" style="color:var(--pink)">❤❤❤</div></header>
+        <div class="main-scroll">
+            <div style="display:flex; align-items:center; gap:15px; margin-bottom:30px;">
+                <div class="udon-na"><div class="udon-noodles"></div></div>
+                <div style="background:#f8f9fa; padding:15px; border-radius:15px; font-size:0.9rem; font-weight:900; border:3px solid #000; flex:1;">UDON-NA: 記憶のチップを掴んで！</div>
+            </div>
+            <div id="q-text" style="font-size:1.4rem; font-weight:900; line-height:1.6;"></div>
+        </div>
+        <div class="bottom-ui" id="q-btns"></div>
+    </div>
+
+    <div id="scr-end" class="screen" style="background:var(--black); color:#fff; text-align:center;">
+        <div class="main-scroll" style="display:flex; flex-direction:column; justify-content:center;">
+            <h1 style="color:var(--gold); font-size:2.5rem; letter-spacing:10px;">COMPLETE</h1>
+            <div class="avatar-container"><div class="avatar-frame"><div class="skin"></div><div class="face-shadow"></div><div class="eyes"><div class="eye-ball"><div class="pupil"><div class="pupil-light"></div></div></div><div class="eye-ball"><div class="pupil"><div class="pupil-light"></div></div></div></div><div class="mouth" style="height:18px; border-radius: 5px 5px 25px 25px;"></div></div></div>
+            <p style="margin:25px 0; font-size:1.2rem;">エージェント <span class="final-name" style="color:var(--cyan);"></span><br>高松は救われた。ありがとう。</p>
+            <p id="final-time" style="font-family:monospace; color:var(--pink);"></p>
+        </div>
+        <div class="bottom-ui" style="background:transparent; border:none;"><button class="btn" style="background:var(--cyan)" onclick="location.reload()">REBOOT</button></div>
+    </div>
+</div>
+
+<script>
+// --- チップ用30色セット ---
+const chipColors = [
+    '#FF6B6B','#4ECDC4','#45B7D1','#FFA07A','#98D8C8','#F06292','#AED581','#FFD54F','#4DB6AC','#7986CB',
+    '#91FF71','#FF71CE','#01CDFE','#05FFA1','#B967FF','#FFFb96','#FF355E','#AAF0D1','#EE82EE','#FF007F',
+    '#00FFEF','#7DF9FF','#E0FF2E','#FF4040','#00FA9A','#DA70D6','#FFD700','#FF4500','#00CED1','#9400D3'
+];
+
+const towerData = [
+    {q: "高松駅前『親切な青鬼くん』。モデルの童話の作者は？", a: "浜田廣介", c: ["浜田廣介", "芥川龍之介", "太宰治"]},
+    {q: "赤い灯台『せとしるべ』。何秒に1回光る？", a: "19秒", c: ["19秒", "10秒", "30秒"]},
+    {q: "高松中央商店街。アーケードの長さは日本で何位？", a: "1位", c: ["1位", "2位", "3位"]},
+    {q: "栗林公園。一歩歩くごとに景色が変わることを？", a: "一歩一景", c: ["一歩一景", "百花繚乱", "千変万化"]},
+    {q: "ことでん『ことちゃん』の好物は？", a: "釜揚げうどん", c: ["釜揚げうどん", "おにぎり", "ワカメ"]},
+    {q: "玉藻公園のお堀で泳いでいる魚は？", a: "タイ", c: ["タイ", "コイ", "フナ"]},
+    {q: "『釜玉うどん』を有名にしたお店は？", a: "山越うどん", c: ["山越うどん", "竹清", "バカ一代"]},
+    {q: "骨付鳥。歯ごたえが強いのは？", a: "おや", c: ["おや", "わか", "ひな"]},
+    {q: "山の上にある水族館は？", a: "新屋島水族館", c: ["新屋島水族館", "屋島アクア", "天空の海"]},
+    {q: "【10F】高松市の市花は？", a: "ツツジ", c: ["ツツジ", "サクラ", "ウメ"]},
+    {q: "『鬼ヶ島』のモデルは？", a: "女木島", c: ["女木島", "男木島", "直島"]},
+    {q: "男木島灯台の素材は？", a: "石造り", c: ["石造り", "鉄筋", "レンガ"]},
+    {q: "庵治石の別名は？", a: "石のダイヤモンド", c: ["石のダイヤモンド", "讃岐の真珠", "黒の宝石"]},
+    {q: "高松の盆栽。松の全国シェアは？", a: "約8割", c: ["約8割", "約5割", "約2割"]},
+    {q: "瓦町駅にある駅ビルの名前は？", a: "瓦町FLAG", c: ["瓦町FLAG", "ことでんモール", "パティオ"]},
+    {q: "高松を代表する秋の祭り。登場するのは？", a: "獅子舞", c: ["獅子舞", "山車", "御神輿"]},
+    {q: "飛行機を間近に見られる公園は？", a: "さぬきこどもの国", c: ["さぬきこどもの国", "エアポート公園", "スカイ"]},
+    {q: "しおのえ温泉郷を拓いたのは？", a: "行基", c: ["行基", "空海", "最澄"]},
+    {q: "うどんに乗せる定番の練り物は？", a: "ちくわ天", c: ["ちくわ天", "紅ショウガ天", "ゴボウ天"]},
+    {q: "【20F】那須与一が屋島で射抜いたのは？", a: "扇の的", c: ["扇の的", "敵の兜", "船の旗"]},
+    {q: "高松のメインストリートは？", a: "中央通り", c: ["中央通り", "サンフラワー", "レインボー"]},
+    {q: "レインボーロード。夜は何色に光る？", a: "7色", c: ["7色", "3色", "白一色"]},
+    {q: "高松まつりの花火の名称は？", a: "どんどん高松", c: ["どんどん高松", "さぬき花火", "海の花火"]},
+    {q: "牟礼にアトリエがあった彫刻家は？", a: "イサム・ノグチ", c: ["イサム・ノグチ", "流政之", "岡本太郎"]},
+    {q: "玉藻城の瓦を模した硬い煎餅は？", a: "瓦せんべい", c: ["瓦せんべい", "しょうゆ豆", "灸まん"]},
+    {q: "郷土料理『しょうゆ豆』の原料は？", a: "そら豆", c: ["そら豆", "大豆", "小豆"]},
+    {q: "自分で麺を温めるスタイルを？", a: "セルフ", c: ["セルフ", "フルサービス", "製麺所"]},
+    {q: "高松市のキャッチコピーは？", a: "うどん県", c: ["うどん県", "オリーブ県", "盆栽県"]},
+    {q: "うどんの弾力を表す言葉は？", a: "コシ", c: ["コシ", "ハリ", "弾力"]},
+    {q: "【30F FINAL】シンボルタワーがあるエリアは？", a: "サンポート高松", c: ["サンポート高松", "高松ベイ", "ウォーターフロント"]}
+];
+
+const triviaData = ["高松アーケードは日本一！", "ことちゃんは、イルカ。", "高松城のお堀は海水。", "栗林公園は3つ星。", "骨付鳥「おや」は硬い。", "空港にだし蛇口があった。", "「あん餅雑煮」は甘い。"];
+
+let save = JSON.parse(localStorage.getItem('udon_final_save')) || { name: 'GUTTI', skin: '#ffe0bd', eye: '#333', chips: [], clearCount: 0 };
+let floor = 1, hearts = 3, timer = 0, interval = null;
+
+function saveAll() { localStorage.setItem('udon_final_save', JSON.stringify(save)); }
+function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); document.getElementById(id).classList.add('active'); if(id==='scr-menu') updAvatar(); }
+
+function initUI() {
+    const sP = document.getElementById('skin-sel'); const eP = document.getElementById('eye-sel');
+    ['#ffe0bd','#eac086','#955e42','#ffdbac'].forEach(c => sP.innerHTML += `<div style="background:${c}; width:48px; height:48px; border-radius:50%; border:3px solid #000;" onclick="save.skin='${c}';updAvatar()"></div>`);
+    ['#333','#2ed573','#1e90ff','#ff4757','#ffa500'].forEach(c => eP.innerHTML += `<div style="background:${c}; width:48px; height:48px; border-radius:50%; border:3px solid #000;" onclick="save.eye='${c}';updAvatar()"></div>`);
+    updAvatar(); updChips();
+}
+
+function updAvatar() {
+    document.querySelectorAll('.skin').forEach(s => s.style.background = save.skin);
+    document.querySelectorAll('.pupil').forEach(p => p.style.background = save.eye);
+    document.getElementById('m-name').innerText = save.name;
+    document.getElementById('m-count').innerText = `Lv.${save.clearCount}`;
+    document.querySelectorAll('.final-name').forEach(e => e.innerText = save.name);
+}
+
+function updChips() {
+    const cL = document.getElementById('chip-list'); cL.innerHTML = '';
+    for(let i=1;i<=30;i++) {
+        const has = save.chips.includes(i);
+        cL.innerHTML += `<div class="chip-dot ${has?'chip-on':''}" style="background:${has?chipColors[i-1]:'#eee'}"></div>`;
+    }
+}
+
+function startGame() { floor = 1; hearts = 3; timer = 0; document.getElementById('ev-monitor').innerText = "01"; showScreen('scr-game'); interval = setInterval(() => { timer++; const m = String(Math.floor(timer/60)).padStart(2,'0'); const s = String(timer%60).padStart(2,'0'); document.getElementById('f-timer').innerText = `${m}:${s}`; }, 1000); loadFloor(); }
+
+function loadFloor() {
+    const d = towerData[floor-1];
+    document.getElementById('f-life').innerText = '❤'.repeat(hearts);
+    document.getElementById('q-text').innerText = d.q;
+    const bA = document.getElementById('q-btns'); bA.innerHTML = '';
+    [...d.c].sort(()=>Math.random()-0.5).forEach(c => {
+        const b = document.createElement('button'); b.className = 'btn'; b.innerText = c;
+        b.onclick = () => { if(c === d.a) correct(); else { hearts--; if(hearts<=0) location.reload(); else loadFloor(); } };
+        bA.appendChild(b);
+    });
+}
+// --- 追加するコード ---
+function saveMake() {
+    // 入力フォームから名前を取得（空ならデフォルト）
+    const nameInput = document.getElementById('in-name').value.trim();
+    if (nameInput) {
+        save.name = nameInput;
+    }
+    
+    // 現在選択されている色などは、クリック時に save 変数に入っているので
+    // そのまま localStorage に保存する
+    saveAll();
+    
+    // メニュー画面に戻る
+    showScreen('scr-menu');
+    
+    // メニュー画面の表示を最新状態に更新
+    updAvatar();
+    alert("プロファイルを保存しました！");
+}
+
+function correct() {
+    const gate = document.getElementById('ev-gate');
+    const mon = document.getElementById('ev-monitor');
+    const anim = document.getElementById('chip-insert-anim');
+    const sync = document.getElementById('sync-val');
+    
+    // チップ装着演出
+    anim.style.background = chipColors[floor-1];
+    anim.style.opacity = "1";
+    anim.classList.add('chip-flying');
+    
+    document.getElementById('trivia-text').innerText = triviaData[Math.floor(Math.random()*triviaData.length)];
+    gate.classList.add('closed');
+    
+    let s = 0;
+    const si = setInterval(() => { s += 2; sync.innerText = Math.floor(s); if(s >= 100) clearInterval(si); }, 60);
+
+    setTimeout(() => { mon.innerText = String(floor + 1).padStart(2,'0'); }, 4000); 
+
+    setTimeout(() => {
+        if(!save.chips.includes(floor)) save.chips.push(floor);
+        saveAll();
+        floor++;
+        if(floor > 30) {
+            clearInterval(interval);
+            save.clearCount++; saveAll();
+            document.getElementById('final-time').innerText = "TIME: " + document.getElementById('f-timer').innerText;
+            showScreen('scr-end');
+        } else {
+            gate.classList.remove('closed');
+            anim.classList.remove('chip-flying');
+            anim.style.opacity = "0";
+            updChips(); loadFloor(); sync.innerText = "0";
+        }
+    }, 8000);
+}
+
+initUI();
+</script>
+</body>
+</html>
+
