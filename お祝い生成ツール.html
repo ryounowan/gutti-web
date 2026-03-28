@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>アルティメット・サプライズ・メーカー</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Noto+Sans+JP:wght@300;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --accent: #ff4757; --panel-bg: white; --text-color: #444; }
+        body { font-family: 'Noto Sans JP', sans-serif; margin: 0; background: #f0f2f5; display: flex; flex-direction: column; min-height: 100vh; color: var(--text-color); }
+        @media (min-width: 900px) { body { flex-direction: row; } }
+
+        /* 設定パネル */
+        .sidebar { padding: 25px; background: var(--panel-bg); box-shadow: 2px 0 15px rgba(0,0,0,0.1); z-index: 200; overflow-y: auto; }
+        @media (min-width: 900px) { .sidebar { width: 420px; height: 100vh; } }
+        
+        h2 { color: var(--accent); font-size: 1.3em; border-left: 5px solid var(--accent); padding-left: 10px; margin-top: 0; margin-bottom: 25px; }
+        .form-group { margin-bottom: 18px; }
+        label { display: block; font-size: 0.85em; font-weight: bold; margin-bottom: 6px; color: #555; }
+        input, textarea, select { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 15px; }
+        .hint { font-size: 0.75em; color: #888; margin-top: 4px; }
+        
+        /* プレビューエリア */
+        .preview-area { flex-grow: 1; background: #222; display: flex; align-items: center; justify-content: center; padding: 20px; position: relative; }
+        .device-mock { width: 100%; max-width: 340px; height: 620px; background: #000; border-radius: 40px; border: 10px solid #333; overflow: hidden; position: relative; box-shadow: 0 30px 60px rgba(0,0,0,0.5); }
+        
+        /* リアルタイム・プレビュー画面 */
+        #realtime-preview { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; color: white; background-size: cover; background-position: center; position: relative; transition: 0.3s; }
+        #realtime-preview::before { content: ""; position: absolute; inset: 0; background: rgba(0,0,0,0.5); z-index: 1; } /* 画像時のオーバーレイ */
+        .p-content { z-index: 2; text-align: center; padding: 20px; }
+        #p-icon { width: 90px; height: 90px; border-radius: 50%; border: 3px solid white; margin: 0 auto 15px; background-size:cover; background-position:center; display:none; box-shadow: 0 10px 20px rgba(0,0,0,0.3); }
+
+        .gen-btn { width: 100%; background: linear-gradient(135deg, #ff416c, #ff4b2b); color: white; padding: 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1.1em; margin-top: 15px; transition: 0.3s; }
+        .gen-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+        #code-output { width: 100%; height: 80px; margin-top: 20px; display: none; font-size: 0.7em; }
+    </style>
+</head>
+<body>
+
+<div class="sidebar">
+    <h2>🛠️ 完全カスタムお祝いメーカー</h2>
+    
+    <div class="form-group">
+        <label>サイトの名前（タブ＆画面内）</label>
+        <input type="text" id="site-title" placeholder="Happy Wedding, Ken & Yuki" oninput="updatePreview()">
+    </div>
+
+    <div class="form-group">
+        <label>背景の設定タイプ</label>
+        <select id="bg-type" onchange="toggleBgInput()">
+            <option value="color">色（グラデーション）を選択</option>
+            <option value="image">画像URLを指定</option>
+        </select>
+    </div>
+
+    <div class="form-group" id="bg-color-group">
+        <label>テーマカラー</label>
+        <select id="bg-color-select" onchange="updatePreview()">
+            <option value="linear-gradient(135deg, #ff758c 0%, #ff7eb3 100%)">ロマンチックピンク</option>
+            <option value="linear-gradient(135deg, #f6d365 0%, #fda085 100%)">ウォームゴールド</option>
+            <option value="linear-gradient(135deg, #a1c4fd 0%, #c2e9fb 100%)">スカイブルー</option>
+            <option value="linear-gradient(135deg, #11998e 0%, #38ef7d 100%)">フレッシュグリーン</option>
+            <option value="linear-gradient(135deg, #2c3e50 0%, #000000 100%)">シックブラック</option>
+        </select>
+    </div>
+
+    <div class="form-group" id="bg-image-group" style="display:none;">
+        <label>背景画像のURL</label>
+        <input type="text" id="bg-image-url" placeholder="https://example.com/bg.jpg" oninput="updatePreview()">
+        <p class="hint">※Unsplashなどの直リンクURLを入力してください</p>
+    </div>
+
+    <div class="form-group">
+        <label>アイコン画像のURL</label>
+        <input type="text" id="icon-url" placeholder="https://example.com/icon.jpg" oninput="updatePreview()">
+    </div>
+
+    <div class="form-group">
+        <label>サプライズの演出（降らせるもの）</label>
+        <select id="effect-type">
+            <option value="confetti">🎉 カラフル紙吹雪</option>
+            <option value="sakura">🌸 桜吹雪 (ピンク)</option>
+            <option value="heart">❤️ 赤いハート</option>
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label>開封日時</label>
+        <input type="datetime-local" id="unlock-date">
+    </div>
+
+    <div class="form-group">
+        <label>寄せ書きメッセージ（改行区切り）</label>
+        <textarea id="msgs" rows="6" placeholder="名前：おめでとう！&#10;別の名前：最高の1日を！"></textarea>
+    </div>
+
+    <button class="gen-btn" onclick="generate()">お祝いサイトを生成する</button>
+    <textarea id="code-output" readonly></textarea>
+</div>
+
+<div class="preview-area">
+    <div class="device-mock">
+        <div id="realtime-preview">
+            <div class="p-content">
+                <div id="p-icon"></div>
+                <h3 id="p-title" style="margin:0; font-family: 'Dancing Script', cursive; font-size: 2em; line-height:1.2;">Preview</h3>
+                <p style="font-size:0.75em; opacity:0.7; margin-top:20px; font-weight:300;">当日は時間になるまで真っ黒です。<br>解凍するとこの画面になります。</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 設定パネルの入力切り替え
+    function toggleBgInput() {
+        const type = document.getElementById('bg-type').value;
+        document.getElementById('bg-color-group').style.display = (type === 'color' ? 'block' : 'none');
+        document.getElementById('bg-image-group').style.display = (type === 'image' ? 'block' : 'none');
+        updatePreview();
+    }
+
+    // プレビューのリアルタイム更新
+    function updatePreview() {
+        const title = document.getElementById('site-title').value || "Celebration Preview";
+        const icon = document.getElementById('icon-url').value;
+        const bgType = document.getElementById('bg-type').value;
+        const preview = document.getElementById('realtime-preview');
+        const pIcon = document.getElementById('p-icon');
+
+        document.getElementById('p-title').innerText = title;
+
+        // 背景設定
+        if (bgType === 'color') {
+            const grad = document.getElementById('bg-color-select').value;
+            preview.style.background = grad;
+        } else {
+            const imgUrl = document.getElementById('bg-image-url').value;
+            preview.style.background = imgUrl ? `url(${imgUrl}) center/cover` : '#333';
+        }
+
+        // アイコン設定
+        if(icon) {
+            pIcon.style.display = "block";
+            pIcon.style.backgroundImage = `url(${icon})`;
+        } else {
+            pIcon.style.display = "none";
+        }
+    }
+
+    // 初期実行
+    toggleBgInput();
+
+    // コード生成
+    function generate() {
+        const title = document.getElementById('site-title').value || "Congratulations!";
+        const bgType = document.getElementById('bg-type').value;
+        const bgUrl = document.getElementById('bg-image-url').value;
+        const bgGrad = document.getElementById('bg-color-select').value;
+        const icon = document.getElementById('icon-url').value;
+        const effect = document.getElementById('effect-type').value;
+        const unlock = new Date(document.getElementById('unlock-date').value).getTime();
+        const msgList = JSON.stringify(document.getElementById('msgs').value.split('\n').filter(m => m.trim() !== ""));
+
+        if(!unlock) { alert("開封日時を設定してください！"); return; }
+        if(bgType === 'image' && !bgUrl) { alert("背景画像のURLを入力してください！"); return; }
+
+        // 背景CSSの決定
+        const finalBgCss = (bgType === 'image') 
+            ? `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url('${bgUrl}') center/cover`
+            : bgGrad;
+
+        // エフェクト設定（JavaScriptコード）
+        let effectJs = "";
+        if (effect === 'confetti') {
+            effectJs = "confetti({particleCount:180, spread:80, origin:{y:0.6}})";
+        } else if (effect === 'sakura') {
+            effectJs = "confetti({particleCount:50, angle:60, spread:55, origin:{x:0}, colors:['#ffb7c5','#fbbec8','#ffc0cb']}); confetti({particleCount:50, angle:120, spread:55, origin:{x:1}, colors:['#ffb7c5','#fbbec8','#ffc0cb']});";
+        } else if (effect === 'heart') {
+            effectJs = `
+            var defaults = {spread: 360, ticks: 100, gravity: 0.5, decay: 0.94, startVelocity: 30, shapes: ['heart'], colors: ['#ff0000', '#ff6666']};
+            confetti({...defaults, particleCount: 30, scalar: 2});
+            confetti({...defaults, particleCount: 20, scalar: 3});
+            `;
+        }
+
+        const html = `
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Waiting for a surprise...</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"><\/script>
+    <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Noto+Sans+JP:wght@300;700&display=swap" rel="stylesheet">
+    <style>
+        body, html { margin:0; padding:0; height:100%; font-family: 'Noto Sans JP', sans-serif; overflow:hidden; background:#000; color:white; }
+        .screen { position:absolute; width:100%; height:100%; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; box-sizing:border-box; transition: 2.5s cubic-bezier(0.4, 0, 0.2, 1); }
+        #lock-screen { background:#000; z-index:100; opacity:1; }
+        #gift-screen { 
+            background: ${finalBgCss};
+            opacity:0; visibility:hidden; z-index:10; 
+        }
+        #gift-screen.active { opacity:1; visibility:visible; animation: zoomIn 2.2s ease forwards; }
+        @keyframes zoomIn { from { transform: scale(1.1); } to { transform: scale(1); } }
+        .timer { font-family:monospace; font-size:clamp(1.5em, 8vw, 2.8em); color:#ffd700; margin:20px 0; letter-spacing: 2px; }
+        .icon { width:110px; height:110px; border-radius:50%; border:3px solid white; object-fit:cover; margin-bottom:15px; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+        h1 { font-family: 'Dancing Script', cursive; font-size:clamp(2.5em, 10vw, 4.5em); margin:10px 0; }
+        .card { background:rgba(255,255,255,0.15); backdrop-filter:blur(15px); -webkit-backdrop-filter:blur(15px); border-radius:20px; padding:25px; width:90%; max-width:480px; min-height:160px; display:none; align-items:center; justify-content:center; border:1px solid rgba(255,255,255,0.2); font-size: clamp(1.1em, 3.5vw, 1.3em); }
+        .card.active { display:flex; animation: fadeInUp 1s ease forwards; }
+        @keyframes fadeInUp { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+        .btn { padding:12px 28px; border-radius:30px; border:none; background:white; color:#333; font-weight:bold; cursor:pointer; }
+        .nav-controls { display:flex; gap:15px; align-items:center; margin-top:20px; }
+    </style>
+</head>
+<body>
+    <div id="lock-screen" class="screen">
+        <div id="timer" class="timer">00d 00h 00m 00s</div>
+        <p style="opacity:0.3; letter-spacing:4px; font-weight:300">OPENING SOON</p>
+    </div>
+
+    <div id="gift-screen" class="screen">
+        ${icon ? `<img src="${icon}" class="icon">` : ''}
+        <h1>For ${title}</h1>
+        <div id="card-area" style="width:100%; display:flex; justify-content:center; margin:20px 0;"></div>
+        <div id="controls" class="nav-controls" style="display:none;">
+            <button class="btn" onclick="prev()">＜</button>
+            <span id="counter">1 / 1</span>
+            <button class="btn" onclick="next()">＞</button>
+        </div>
+        <button class="btn" onclick="launchCelebrate()" style="margin-top:30px; background:transparent; color:white; border:1px solid white;">Celebrate!</button>
+    </div>
+
+    <script>
+        const target = ${unlock};
+        const msgs = ${msgList};
+        const finalTitle = "${title}";
+        let cur = 0;
+
+        function update() {
+            const diff = target - new Date().getTime();
+            if(diff <= 0) { open(); return; }
+            const d = Math.floor(diff/86400000), h = Math.floor((diff%86400000)/3600000), m = Math.floor((diff%3600000)/60000), s = Math.floor((diff%60000)/1000);
+            document.getElementById('timer').innerText = d+"d "+h+"h "+m+"m "+s+"s";
+            setTimeout(update, 1000);
+        }
+
+        function open() {
+            document.title = finalTitle;
+            document.getElementById('lock-screen').style.opacity = '0';
+            setTimeout(() => {
+                document.getElementById('lock-screen').style.display = 'none';
+                document.getElementById('gift-screen').classList.add('active');
+                launchCelebrate();
+            }, 1000);
+        }
+
+        function launchCelebrate() {
+            // イベントに応じたエフェクトを実行
+            ${effectJs}
+        }
+
+        function render() {
+            const area = document.getElementById('card-area');
+            if(msgs.length > 1) document.getElementById('controls').style.display = 'flex';
+            msgs.forEach((m, i) => {
+                const div = document.createElement('div');
+                div.className = 'card' + (i===0?' active':'');
+                div.innerHTML = m.replace(/：/g, '<br><small style="opacity:0.8; font-size:0.8em;">') + '</small>';
+                area.appendChild(div);
+            });
+            document.getElementById('counter').innerText = \`1 / \${msgs.length}\`;
+        }
+
+        function next() { if(cur < msgs.length-1) { cur++; show(); } }
+        function prev() { if(cur > 0) { cur--; show(); } }
+        function show() {
+            document.querySelectorAll('.card').forEach((c, i) => c.classList.toggle('active', i===cur));
+            document.getElementById('counter').innerText = \`\${cur+1} / \${msgs.length}\`;
+        }
+
+        // ライブラリでハートの形を定義
+        if("${effect}" === "heart") {
+            var scalar = 2;
+            var heart = confetti.shapeFromPath({ path: 'M167 471c-40-38-167-166-167-251 0-71 52-127 125-127 41 0 78 20 102 55 24-35 61-55 102-55 73 0 125 56 125 127 0 85-127 213-167 251-12 11-28 11-40 0z' });
+            // ハートエフェクト用のデフォルト設定を上書き
+            window.confetti = (function(originalConfetti) {
+                return function(params) {
+                    if (params.shapes && params.shapes[0] === 'heart') {
+                        params.shapes = [heart];
+                    }
+                    return originalConfetti(params);
+                };
+            })(window.confetti);
+        }
+
+        render(); update();
+    <\/script>
+</body>
+</html>`;
+        const output = document.getElementById('code-output');
+        output.style.display = 'block';
+        output.value = html;
+        alert("究極のサプライズコードを生成しました！🎁");
+    }
+</script>
+
+</body>
+</html>
+
