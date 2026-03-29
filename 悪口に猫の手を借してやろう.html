@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CAT BUSTERS - FINAL VER.2</title>
+    <style>
+        :root { --main: #ff69b4; --accent: #ffd700; --dark: #111; }
+        body { font-family: sans-serif; background: #fff; margin: 0; height: 100vh; overflow: hidden; touch-action: manipulation; }
+        .page { display: none; width: 100%; height: 100%; position: absolute; flex-direction: column; align-items: center; box-sizing: border-box; }
+        .active { display: flex; }
+
+        /* 設定画面 */
+        #setup-page { padding: 20px; overflow-y: auto; background: white; text-align: center; }
+        .word-list { display: flex; flex-wrap: wrap; gap: 6px; margin: 15px 0; padding: 12px; border: 2px solid #eee; border-radius: 12px; background: #fafafa; max-height: 35vh; overflow-y: auto; }
+        .tag { background: #fff; padding: 5px 12px; border-radius: 20px; font-size: 13px; border: 1px solid #ddd; display: flex; align-items: center; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .tag b { color: #ff4d4d; margin-left: 8px; cursor: pointer; font-size: 18px; }
+
+        /* 実行画面 */
+        #play-page { background: #000; color: white; }
+        #live-transcript { position: fixed; top: 0; left: 0; width: 100%; background: rgba(255,255,255,0.1); color: #fff; padding: 15px; text-align: center; font-size: 1.5rem; font-weight: bold; z-index: 2000; border-bottom: 2px solid var(--main); pointer-events: none; }
+        .onscreen-cat { position: absolute; width: 140px; height: 140px; border-radius: 50%; border: 4px solid #fff; z-index: 100; animation: pop 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.2); pointer-events: none; box-shadow: 0 0 15px rgba(255,255,255,0.3); }
+
+        /* 結果画面 */
+        #result-page { background: var(--dark); color: white; overflow-y: auto; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 12px; width: 100%; margin-top: 25px; }
+        .card { border: 2px solid #444; border-radius: 12px; overflow: hidden; cursor: pointer; transition: transform 0.2s; }
+        .card:active { transform: scale(0.95); }
+        .card img { width: 100%; aspect-ratio: 1; object-fit: cover; display: block; }
+
+        /* ボタン・UI */
+        .btn { padding: 14px 28px; border-radius: 50px; border: none; font-weight: bold; cursor: pointer; margin: 6px; font-size: 1rem; }
+        .primary { background: var(--main); color: white; box-shadow: 0 4px 12px rgba(255,105,180,0.4); }
+        .footer-btn { position: fixed; bottom: 30px; width: 85%; max-width: 320px; background: var(--accent); color: #000; z-index: 3000; font-size: 1.3rem; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        
+        /* 拡大モーダル */
+        #modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+        #modal img { max-width: 95%; max-height: 80%; border: 3px solid white; border-radius: 15px; }
+        
+        @keyframes pop { from { transform: scale(0); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <div id="setup-page" class="page active">
+        <h2 style="color: var(--main); margin-bottom: 10px;">🎙️ 浄化ワード設定</h2>
+        <div>
+            <input type="text" id="word-input" placeholder="悪口を追加..." style="padding:12px; border-radius:8px; border:1px solid #ccc; width:160px;">
+            <button onclick="addWord()" class="btn primary">追加</button>
+        </div>
+        <div style="margin-top:15px; display:flex; gap:10px; justify-content:center;">
+            <button onclick="clearWords()" class="btn" style="background:#666; color:#fff;">全消去</button>
+            <button onclick="saveJson()" class="btn" style="background:#eee;">JSON保存</button>
+            <button onclick="document.getElementById('file-loader').click()" class="btn" style="background:#eee;">JSON読込</button>
+            <input type="file" id="file-loader" style="display:none" onchange="loadJson(event)">
+        </div>
+        <div class="word-list" id="ui-word-list"></div>
+        <button onclick="startApp()" class="btn primary" style="font-size:1.6rem; margin-top:20px; padding: 18px 60px;">浄化開始！ 🐾</button>
+    </div>
+
+    <div id="play-page" class="page">
+        <div id="live-transcript">マイク待機中...</div>
+        <button onclick="showResults()" class="btn footer-btn">結果発表！ 🏁</button>
+    </div>
+
+    <div id="result-page" class="page">
+        <h1 id="res-msg-main" style="color:var(--accent); margin-bottom:5px; font-size: 2.5rem;"></h1>
+        <p id="res-msg-sub" style="font-size:1.3rem; line-height: 1.6;"></p>
+        <div class="grid" id="res-grid"></div>
+        <button class="btn primary" onclick="location.reload()" style="margin-top:40px; margin-bottom: 40px;">設定に戻る</button>
+    </div>
+
+    <div id="modal" onclick="this.style.display='none'">
+        <img id="modal-img">
+        <p style="color:white; margin-top:25px; font-weight: bold;">タップで閉じる</p>
+    </div>
+
+    <script>
+        let ngWords = ["バカ","アホ","死ね","ゴミ","カス","うざい","クソ","消えろ","デブ","ブス","無能","役立たず","最低","キモい","最悪","ボケ","ろくでなし","くたばれ","ふざけるな","地獄","汚い","くさい","邪魔","死ねばいい","脳無し","気持ち悪い","ヘタクソ","ダサい","うぜぇ","むかつく","イライラ","不細工","カスニート","底辺","消え失せろ","ドブネズミ","間抜け","馬鹿","あほ","ゴミクズ","くそくらえ","能無し","キチガイ","人でなし","お荷物","社会のゴミ","ウスノロ","グズ","どけ"];
+        let capturedUrls = []; 
+        let recognition; 
+        let isSpawning = false;
+
+        function updateWordUI() {
+            document.getElementById('ui-word-list').innerHTML = ngWords.map((w,i)=>`
+                <span class="tag">${w}<b onclick="ngWords.splice(${i},1);updateWordUI()">×</b></span>
+            `).join('');
+        }
+
+        function addWord() {
+            const val = document.getElementById('word-input').value.trim();
+            if(!val) return;
+
+            // 【追加】重複チェック機能
+            if(ngWords.includes(val)) {
+                alert("その言葉はすでに登録されています！");
+                document.getElementById('word-input').value="";
+                return;
+            }
+
+            ngWords.push(val);
+            document.getElementById('word-input').value="";
+            updateWordUI();
+        }
+
+        function clearWords() { if(confirm("ワードをすべて消去しますか？")){ ngWords=[]; updateWordUI(); } }
+
+        function saveJson() {
+            const blob = new Blob([JSON.stringify(ngWords)], {type:'application/json'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = 'cat_浄化リスト.json'; a.click();
+        }
+
+        function loadJson(e) {
+            const reader = new FileReader();
+            reader.onload = (ev) => { 
+                try { 
+                    const data = JSON.parse(ev.target.result);
+                    // 読み込み時も重複を排除して統合
+                    ngWords = [...new Set([...ngWords, ...data])];
+                    updateWordUI(); 
+                } catch(err){alert("ファイル形式が違います");} 
+            };
+            reader.readAsText(e.target.files[0]);
+        }
+
+        function startApp() {
+            document.getElementById('setup-page').classList.remove('active');
+            document.getElementById('play-page').classList.add('active');
+            initRecognition();
+        }
+
+        function initRecognition() {
+            const Speech = window.webkitSpeechRecognition || window.SpeechRecognition;
+            if(!Speech) return alert("お使いのブラウザは音声認識に対応していません。");
+
+            recognition = new Speech();
+            recognition.lang = 'ja-JP';
+            recognition.continuous = true;
+            recognition.interimResults = true;
+
+            recognition.onresult = (e) => {
+                let currentText = '';
+                for (let i = e.resultIndex; i < e.results.length; i++) {
+                    currentText += e.results[i][0].transcript;
+                }
+                document.getElementById('live-transcript').innerText = currentText;
+
+                ngWords.forEach(word => {
+                    if (currentText.includes(word) && !isSpawning) {
+                        spawnCat();
+                        currentText = ""; 
+                    }
+                });
+            };
+
+            recognition.onend = () => { if(recognition) recognition.start(); };
+            recognition.onerror = () => { if(recognition) try { recognition.start(); } catch(err) {} };
+            recognition.start();
+
+            setInterval(() => { try { recognition.start(); } catch(err) {} }, 3000);
+        }
+
+        function spawnCat() {
+            isSpawning = true;
+            const url = `https://cataas.com/cat?t=${Date.now()}`;
+            capturedUrls.push(url);
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.className = 'onscreen-cat';
+            img.style.left = Math.random() * (window.innerWidth - 160) + 10 + 'px';
+            img.style.top = Math.random() * (window.innerHeight - 320) + 120 + 'px';
+            document.getElementById('play-page').appendChild(img);
+
+            setTimeout(() => { isSpawning = false; }, 500);
+        }
+
+        function showResults() {
+            if(recognition) { recognition.onend = null; recognition.stop(); recognition = null; }
+            document.getElementById('play-page').classList.remove('active');
+            document.getElementById('result-page').classList.add('active');
+
+            const mainMsg = document.getElementById('res-msg-main');
+            const subMsg = document.getElementById('res-msg-sub');
+            const grid = document.getElementById('res-grid');
+            grid.innerHTML = "";
+
+            if(capturedUrls.length === 0) {
+                mainMsg.innerText = "平和だね";
+                subMsg.innerText = "君には手を貸さなくてもよかったな";
+            } else {
+                mainMsg.innerText = "デデーン！！";
+                subMsg.innerText = `今回は ${capturedUrls.length}回、\n猫の手を借りました。`;
+                capturedUrls.forEach(url => {
+                    const div = document.createElement('div');
+                    div.className = 'card';
+                    div.innerHTML = `<img src="${url}">`;
+                    div.onclick = () => {
+                        document.getElementById('modal-img').src = url;
+                        document.getElementById('modal').style.display = 'flex';
+                    };
+                    grid.appendChild(div);
+                });
+            }
+        }
+        updateWordUI();
+    </script>
+</body>
+</html>
