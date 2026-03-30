@@ -272,14 +272,15 @@
                 document.getElementById('host-panel').style.display = 'flex';
                 setupControls(vEl);
                 goTo('scr-live');
-                peer = new Peer(`${rid}-0`, { config: PEER_CONFIG });
+                // ID衝突回避のためタイムスタンプを付与
+                peer = new Peer(`${rid}-0-${Date.now()}`, { config: PEER_CONFIG });
                 peer.on('connection', conn => {
                     childConn = conn;
                     conn.on('data', d => handleData(d));
                     setTimeout(() => {
                         conn.send({type:'meta', title:document.getElementById('h-title').value});
                         conn.send({type:'standby-state', time: standbyVisible});
-                    }, 500);
+                    }, 800);
                 });
                 peer.on('call', call => call.answer(localStream));
             } catch(e) { alert("エラー: " + e.message); }
@@ -305,19 +306,20 @@
             if(!rid) return;
             goTo('scr-live');
             const pInfo = await findSlot(rid, 0);
-            peer = new Peer(`${rid}-${pInfo.idx}`, { config: PEER_CONFIG });
+            // 視聴者側も一意のIDを使用
+            peer = new Peer(`${rid}-viewer-${Date.now()}`, { config: PEER_CONFIG });
             peer.on('open', () => {
                 parentConn = peer.connect(pInfo.pid);
                 parentConn.on('data', d => handleData(d));
-                const tryCall = () => {
+                // 接続直後ではなく少し待ってからコール
+                setTimeout(() => {
                     const call = peer.call(pInfo.pid, new MediaStream());
                     call.on('stream', s => {
                         const v = document.getElementById('main-video');
                         v.srcObject = s;
                         v.play().catch(() => { v.muted = true; v.play(); });
                     });
-                };
-                setTimeout(tryCall, 500);
+                }, 1000);
             });
             peer.on('call', call => {
                 call.answer();
@@ -361,11 +363,24 @@
         function sync(type, t) { if(childConn) childConn.send({type:type, time: t}); }
 
         async function findSlot(rid, d) {
-            const tid = `${rid}-${d}`, t = new Peer({ config: PEER_CONFIG });
+            // ホストを探すロジックの改善
+            const t = new Peer({ config: PEER_CONFIG });
             return new Promise(res => {
-                const c = t.connect(tid);
-                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 2500);
-                c.on('open', () => { clearTimeout(timer); t.destroy(); res({pid: tid, idx: d+1}); });
+                const check = (idx) => {
+                    const tid = `${rid}-${idx}`;
+                    const c = t.connect(tid);
+                    const timer = setTimeout(() => {
+                        c.close();
+                        if(idx > 5) res({pid: `${rid}-0`, idx: 1}); // 見つからなければ0を試す
+                        else check(idx + 1);
+                    }, 2000);
+                    c.on('open', () => {
+                        clearTimeout(timer);
+                        t.destroy();
+                        res({pid: tid, idx: idx + 1});
+                    });
+                };
+                check(0);
             });
         }
 
