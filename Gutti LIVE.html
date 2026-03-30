@@ -290,7 +290,9 @@
                         conn.send({type:'standby-state', time: standbyVisible});
                     }, 1000);
                 });
-                peer.on('call', call => call.answer(localStream));
+                peer.on('call', call => {
+                    if (localStream) call.answer(localStream);
+                });
             } catch(e) { alert("エラー: " + e.message); }
         }
 
@@ -321,15 +323,20 @@
             peer = new Peer(`${rid}-${pInfo.idx}`);
             peer.on('open', () => {
                 parentConn = peer.connect(pInfo.pid);
+                parentConn.on('open', () => {
+                    peer.call(pInfo.pid, new MediaStream()); // 接続確立後にコール
+                });
                 parentConn.on('data', d => handleData(d));
-                peer.call(pInfo.pid, new MediaStream());
             });
             peer.on('call', call => {
                 call.answer();
                 call.on('stream', s => { 
                     const v = document.getElementById('main-video'); 
                     v.srcObject = s; 
-                    v.play().catch(() => { v.muted = true; v.play(); }); 
+                    v.play().catch(() => { 
+                        v.muted = true; 
+                        v.play(); 
+                    }); 
                 });
             });
             peer.on('connection', c => { childConn = c; c.on('data', d => handleData(d)); });
@@ -372,7 +379,7 @@
             const tid = `${rid}-${d}`, t = new Peer();
             return new Promise(res => {
                 const c = t.connect(tid);
-                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 1500);
+                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 2000);
                 c.on('open', () => { clearTimeout(timer); t.destroy(); res({pid: tid, idx: d+1}); });
             });
         }
@@ -382,7 +389,6 @@
             if (!document.fullscreenElement) {
                 if (container.requestFullscreen) container.requestFullscreen();
                 else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-                else if (container.msRequestFullscreen) container.msRequestFullscreen();
                 if (screen.orientation && screen.orientation.lock) {
                     screen.orientation.lock('landscape').catch(() => {});
                 }
