@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gutti Live Ultra Pro</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --bg: #000; --panel: #0a0a0a; --accent: #00d4ff; --text: #fff; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); color: var(--text); margin: 0; height: 100vh; display: flex; flex-direction: column; overflow: hidden; touch-action: manipulation; }
+        .screen { display: none; height: 100%; width: 100%; flex-direction: column; align-items: center; justify-content: center; position: absolute; z-index: 10; background: var(--bg); }
+        .active { display: flex; }
+        .btn { padding: 12px 25px; border: none; border-radius: 12px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; border: 1px solid transparent; }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
+        .btn-main { background: linear-gradient(135deg, #00d4ff, #0055ff); color: white; }
+        .btn-danger { background: #ff4444; color: white; }
+        .btn-toggle { background: #333; color: #ccc; padding: 6px 12px; font-size: 11px; border-radius: 6px; }
+        .btn-toggle.on { background: var(--accent); color: #000; font-weight: bold; }
+        input, select { padding: 12px; background: #1a1a1a; border: 1px solid #333; color: white; border-radius: 10px; margin: 6px 0; width: 85%; max-width: 320px; font-size: 16px; }
+        label { font-size: 11px; color: #888; margin-top: 4px; }
+        .live-wrapper { display: flex; flex-direction: column; width: 100%; height: 100%; }
+        .live-header { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #000; border-bottom: 1px solid #222; flex-shrink: 0; z-index: 20; }
+        .video-box { width: 100%; height: 45vh; background: #000; position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        #main-video { width: 100%; height: 100%; object-fit: contain; }
+        #standby-overlay { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 5; transition: opacity 0.5s; opacity: 1; pointer-events: none; }
+        #standby-overlay.hidden { opacity: 0 !important; }
+        #standby-media-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
+        #standby-img, #standby-vid { width: 100%; height: 100%; object-fit: cover; display: none; }
+        .host-controls { background: #111; padding: 8px 12px; display: none; flex-direction: column; gap: 8px; border-bottom: 1px solid #333; flex-shrink: 0; }
+        .control-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .file-label { font-size: 9px; color: #aaa; display: flex; flex-direction: column; gap: 2px; }
+        #seek-bar { flex: 1; min-width: 120px; height: 12px; accent-color: var(--accent); cursor: pointer; }
+        #time-display { font-family: monospace; font-size: 11px; color: #aaa; min-width: 80px; text-align: right; }
+        .vol-group { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #ccc; }
+        .vol-slider { width: 60px; height: 4px; accent-color: var(--accent); cursor: pointer; }
+        .comment-panel { flex: 1; display: flex; flex-direction: column; background: var(--panel); overflow: hidden; }
+        .comment-list { flex: 1; overflow-y: auto; padding: 12px; scroll-behavior: smooth; }
+        .chat-item { display: flex; gap: 10px; margin-bottom: 14px; animation: fadeIn 0.3s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+        .chat-icon { width: 32px; height: 32px; border-radius: 6px; flex-shrink: 0; background: #333; object-fit: cover; }
+        .chat-name { font-size: 11px; color: var(--accent); font-weight: bold; }
+        .chat-msg { background: #1a1a1a; color: #fff; padding: 8px 12px; border-radius: 0 12px 12px 12px; font-size: 13px; border: 1px solid #222; margin-top: 2px; word-break: break-all; }
+        .chat-input-area { padding: 8px; display: flex; gap: 8px; background: #000; border-top: 1px solid #333; }
+        .chat-input-area input { flex: 1; margin: 0; padding: 8px 15px; background: #111; border: 1px solid #444; }
+        #end-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
+        :fullscreen .video-box { height: 100vh; }
+        :-webkit-full-screen .video-box { height: 100vh; }
+    </style>
+</head>
+<body>
+
+    <div id="end-overlay">
+        <h1 style="color:var(--accent);">配信終了</h1>
+        <button class="btn btn-main" onclick="location.reload()">ホームに戻る</button>
+    </div>
+
+    <div id="scr-menu" class="screen active">
+        <h1 style="font-weight: 900; font-style: italic; font-size: 28px; margin-bottom: 20px;">GUTTI <span style="color:var(--accent)">LIVE</span></h1>
+        <div style="display:flex; flex-direction:column; gap:10px; width:260px;">
+            <button class="btn btn-main" onclick="goTo('scr-view-prep')">視聴する</button>
+            <button class="btn" style="background:#222; color:white;" onclick="goTo('scr-host-prep')">配信する</button>
+            <button onclick="goTo('scr-settings')" style="background:none; border:none; color:#555; margin-top:10px;">プロフィール設定</button>
+        </div>
+    </div>
+
+    <div id="scr-settings" class="screen">
+        <div style="width:100%; padding:15px;"><span onclick="goTo('scr-menu')" style="cursor:pointer; color:var(--accent);">← 戻る</span></div>
+        <img id="prev-icon" src="" style="width:90px; height:90px; border-radius:15px; border:2px solid var(--accent); margin-bottom:10px;">
+        <input type="text" id="in-name" placeholder="名前">
+        <input type="text" id="in-icon" placeholder="アイコンURL">
+        <button class="btn btn-main" onclick="saveSettings()" style="width:180px; margin-top:10px;">保存</button>
+    </div>
+
+    <div id="scr-host-prep" class="screen">
+        <div style="width:100%; padding:15px;"><span onclick="goTo('scr-menu')" style="cursor:pointer; color:var(--accent);">← 戻る</span></div>
+        <h2 style="margin:0 0 10px 0;">配信設定</h2>
+        <input type="text" id="h-id" placeholder="合言葉 (Room ID)">
+        <input type="text" id="h-title" placeholder="配信タイトル">
+        <div style="display:flex; gap:10px; align-items:center; width: 85%; max-width: 320px;">
+            <div style="flex:1;"><label>本編ループ</label><select id="h-loop"><option value="no">なし</option><option value="yes">あり</option></select></div>
+            <div style="flex:1;"><label>待機ループ</label><select id="h-st-loop"><option value="yes">あり</option><option value="no">なし</option></select></div>
+        </div>
+        <label>メインコンテンツ</label>
+        <select id="h-mode" onchange="document.getElementById('file-box').style.display=(this.value=='file'?'block':'none')">
+            <option value="screen">画面共有 (PC全体)</option>
+            <option value="file">動画ファイル (MP4)</option>
+        </select>
+        <div id="file-box" style="display:none;"><input type="file" id="h-file" accept="video/*"></div>
+        <label>待機画面メディア (動画も可)</label>
+        <input type="file" id="h-standby-media" accept="image/*,video/*">
+        <button class="btn btn-main" onclick="startHost()" style="width:280px; margin-top:10px;">LIVE配信開始</button>
+    </div>
+
+    <div id="scr-view-prep" class="screen">
+        <div style="width:100%; padding:15px;"><span onclick="goTo('scr-menu')" style="cursor:pointer; color:var(--accent);">← 戻る</span></div>
+        <input type="text" id="v-id" placeholder="合言葉を入力">
+        <button class="btn btn-main" onclick="startViewer()" style="width:200px;">視聴開始</button>
+    </div>
+
+    <div id="scr-live" class="screen" style="padding:0; background:#000;">
+        <div class="live-wrapper" id="live-container">
+            <div class="live-header">
+                <div id="disp-title" style="font-size:12px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">LIVE</div>
+                <button id="end-btn" class="btn btn-danger" style="padding:4px 10px; font-size:10px; display:none;" onclick="endLive()">終了</button>
+            </div>
+            <div class="video-box" id="v-box">
+                <video id="main-video" playsinline webkit-playsinline></video>
+                <div id="standby-overlay">
+                    <div id="standby-media-container">
+                        <img id="standby-img">
+                        <video id="standby-vid" playsinline loop></video>
+                    </div>
+                </div>
+                <div style="position:absolute; top:8px; left:8px; background:rgba(255,0,0,0.8); padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; z-index:7;">● LIVE</div>
+                <button onclick="toggleFullScreen()" style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.5); border:none; color:white; border-radius:4px; padding:5px; z-index:10; font-size:10px;">全画面</button>
+            </div>
+            <div id="host-panel" class="host-controls">
+                <div class="control-row">
+                    <button id="p-btn" style="background:none; border:none; color:white; font-size:20px; width:40px; cursor:pointer;">▶</button>
+                    <input type="range" id="seek-bar" value="0" step="0.1" min="0">
+                    <div id="time-display">00:00 / 00:00</div>
+                </div>
+                <div class="control-row" style="justify-content:space-between;">
+                    <div style="display:flex; gap:8px; align-items:center;">
+                        <button id="standby-toggle" class="btn btn-toggle on" onclick="toggleStandby()">待機中</button>
+                        <div class="file-label">待機変更<input type="file" id="st-change-live" accept="image/*,video/*" style="width:65px; font-size:9px; padding:2px; margin:0;" onchange="changeStandbyMedia(this)"></div>
+                        <div class="file-label">本編変更<input type="file" id="mv-change-live" accept="video/*" style="width:65px; font-size:9px; padding:2px; margin:0;" onchange="changeMainMedia(this)"></div>
+                    </div>
+                    <div style="display:flex; gap:8px;">
+                        <div class="vol-group"><span>Mic</span><input type="range" id="vol-mic" class="vol-slider" min="0" max="1" step="0.01" value="0.5"></div>
+                        <div class="vol-group"><span>Vid</span><input type="range" id="vol-vid" class="vol-slider" min="0" max="1" step="0.01" value="0.8"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="comment-panel">
+                <div id="chat-list" class="comment-list"></div>
+                <div class="chat-input-area">
+                    <input type="text" id="chat-input" placeholder="コメント...">
+                    <button class="btn btn-main" onclick="sendChat()">送信</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let peer, parentConn, childConn, localStream, audioCtx, gainV, gainM, gainST, isHost=false, profile={name:"Gutti", icon:""};
+        let standbyVisible = true;
+
+        function goTo(id) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+        }
+
+        window.onload = () => {
+            const d = localStorage.getItem('gutti_v3');
+            if(d) {
+                profile = JSON.parse(d);
+                document.getElementById('in-name').value = profile.name;
+                document.getElementById('in-icon').value = profile.icon;
+            }
+            updateProfilePreview();
+        };
+
+        function updateProfilePreview() {
+            const n = document.getElementById('in-name').value || "Gutti";
+            const i = document.getElementById('in-icon').value || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(n)}`;
+            document.getElementById('prev-icon').src = i;
+        }
+
+        document.getElementById('in-name').oninput = updateProfilePreview;
+        document.getElementById('in-icon').oninput = updateProfilePreview;
+
+        function saveSettings() {
+            const n = document.getElementById('in-name').value || "Gutti";
+            const i = document.getElementById('in-icon').value || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(n)}`;
+            profile = {name:n, icon:i};
+            localStorage.setItem('gutti_v3', JSON.stringify(profile));
+            goTo('scr-menu');
+        }
+
+        function toggleStandby() {
+            standbyVisible = !standbyVisible;
+            updateStandbyUI();
+            if(isHost) sync('standby-state', standbyVisible);
+        }
+
+        function updateStandbyUI() {
+            const over = document.getElementById('standby-overlay');
+            const btn = document.getElementById('standby-toggle');
+            const sv = document.getElementById('standby-vid');
+            if(standbyVisible) {
+                over.classList.remove('hidden');
+                if(btn) btn.classList.add('on');
+                if(sv.src) sv.play().catch(()=>{});
+                if(gainST) gainST.gain.setTargetAtTime(0.8, audioCtx.currentTime, 0.1);
+            } else {
+                over.classList.add('hidden');
+                if(btn) btn.classList.remove('on');
+                sv.pause();
+                if(gainST) gainST.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
+            }
+        }
+
+        function formatTime(sec) {
+            if (!sec || isNaN(sec)) return "00:00";
+            const m = Math.floor(sec / 60);
+            const s = Math.floor(sec % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function changeStandbyMedia(input) {
+            const file = input.files[0];
+            if(!file) return;
+            const url = URL.createObjectURL(file);
+            const si = document.getElementById('standby-img');
+            const sv = document.getElementById('standby-vid');
+            si.style.display = 'none'; sv.style.display = 'none'; sv.pause();
+            if(file.type.startsWith('video')) {
+                sv.src = url;
+                sv.loop = (document.getElementById('h-st-loop').value === 'yes');
+                sv.style.display = 'block';
+                if(isHost && audioCtx && !sv.hasSource) {
+                    gainST = audioCtx.createGain();
+                    audioCtx.createMediaElementSource(sv).connect(gainST).connect(audioCtx.destination);
+                    if(window.broadcastDest) gainST.connect(window.broadcastDest);
+                    sv.hasSource = true;
+                }
+                if(standbyVisible) sv.play().catch(()=>{});
+            } else {
+                si.src = url; si.style.display = 'block';
+            }
+        }
+
+        function changeMainMedia(input) {
+            const file = input.files[0];
+            if(!file || !isHost) return;
+            const vEl = document.getElementById('main-video');
+            vEl.src = URL.createObjectURL(file);
+            vEl.play();
+        }
+
+        async function startHost() {
+            const rid = document.getElementById('h-id').value;
+            if(!rid) return alert("Room IDを入力してください");
+            const vEl = document.getElementById('main-video');
+            const mode = document.getElementById('h-mode').value;
+            try {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                window.broadcastDest = audioCtx.createMediaStreamDestination();
+                if(document.getElementById('h-standby-media').files[0]) changeStandbyMedia(document.getElementById('h-standby-media'));
+                let vs;
+                if(mode === 'screen') {
+                    vs = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+                    vEl.srcObject = vs; vEl.play();
+                } else {
+                    const f = document.getElementById('h-file').files[0];
+                    if(!f) throw new Error("動画を選択してください");
+                    vEl.src = URL.createObjectURL(f); vEl.pause();
+                    vs = (vEl.captureStream || vEl.mozCaptureStream).call(vEl);
+                }
+                if(vs.getAudioTracks().length > 0) {
+                    gainV = audioCtx.createGain();
+                    audioCtx.createMediaStreamSource(new MediaStream([vs.getAudioTracks()[0]])).connect(gainV).connect(window.broadcastDest);
+                }
+                const ms = await navigator.mediaDevices.getUserMedia({audio:true}).catch(() => null);
+                if(ms) {
+                    gainM = audioCtx.createGain();
+                    audioCtx.createMediaStreamSource(ms).connect(gainM).connect(window.broadcastDest);
+                }
+                localStream = new MediaStream([vs.getVideoTracks()[0], window.broadcastDest.stream.getAudioTracks()[0]]);
+                vEl.loop = (document.getElementById('h-loop').value === 'yes');
+                isHost = true;
+                document.getElementById('disp-title').innerText = document.getElementById('h-title').value || "Gutti Live";
+                document.getElementById('end-btn').style.display = 'block';
+                document.getElementById('host-panel').style.display = 'flex';
+                const vMic = document.getElementById('vol-mic');
+                const vVid = document.getElementById('vol-vid');
+                if(gainM) gainM.gain.value = vMic.value;
+                if(gainV) gainV.gain.value = vVid.value;
+                vMic.oninput = (e) => { if(gainM) gainM.gain.setTargetAtTime(parseFloat(e.target.value), audioCtx.currentTime, 0.01); };
+                vVid.oninput = (e) => { if(gainV) gainV.gain.setTargetAtTime(parseFloat(e.target.value), audioCtx.currentTime, 0.01); };
+                setupControls(vEl);
+                goTo('scr-live');
+                peer = new Peer(`${rid}-0`);
+                peer.on('connection', conn => {
+                    childConn = conn;
+                    conn.on('data', d => handleData(d));
+                    setTimeout(() => {
+                        conn.send({type:'meta', title:document.getElementById('h-title').value});
+                        conn.send({type:'standby-state', time: standbyVisible});
+                    }, 1000);
+                });
+                peer.on('call', call => call.answer(localStream));
+            } catch(e) { alert("エラー: " + e.message); }
+        }
+
+        function setupControls(v) {
+            const seek = document.getElementById('seek-bar');
+            const timeDisp = document.getElementById('time-display');
+            const pBtn = document.getElementById('p-btn');
+            v.onloadedmetadata = () => { seek.max = v.duration; };
+            v.ontimeupdate = () => {
+                if(!seek.lock) {
+                    if(isFinite(v.duration)) seek.max = v.duration;
+                    seek.value = v.currentTime;
+                    timeDisp.innerText = `${formatTime(v.currentTime)} / ${formatTime(v.duration)}`;
+                }
+            };
+            v.onplay = () => pBtn.innerText = "▮▮";
+            v.onpause = () => pBtn.innerText = "▶";
+            seek.oninput = () => { seek.lock = true; timeDisp.innerText = `${formatTime(seek.value)} / ${formatTime(v.duration)}`; };
+            seek.onchange = () => { v.currentTime = seek.value; seek.lock = false; sync('seek', v.currentTime); };
+            pBtn.onclick = () => { v.paused ? (v.play(), sync('play')) : (v.pause(), sync('pause')); };
+        }
+
+        async function startViewer() {
+            const rid = document.getElementById('v-id').value;
+            if(!rid) return;
+            goTo('scr-live');
+            const pInfo = await findSlot(rid, 0);
+            peer = new Peer(`${rid}-${pInfo.idx}`);
+            peer.on('open', () => {
+                parentConn = peer.connect(pInfo.pid);
+                parentConn.on('data', d => handleData(d));
+                peer.call(pInfo.pid, new MediaStream());
+            });
+            peer.on('call', call => {
+                call.answer();
+                call.on('stream', s => { 
+                    const v = document.getElementById('main-video'); 
+                    v.srcObject = s; 
+                    v.play().catch(() => { v.muted = true; v.play(); }); 
+                });
+            });
+            peer.on('connection', c => { childConn = c; c.on('data', d => handleData(d)); });
+        }
+
+        function handleData(d) {
+            const v = document.getElementById('main-video');
+            if(d.type === 'chat') addChat(d);
+            if(d.type === 'play') v.play();
+            if(d.type === 'pause') v.pause();
+            if(d.type === 'seek') v.currentTime = d.time;
+            if(d.type === 'meta') document.getElementById('disp-title').innerText = d.title;
+            if(d.type === 'standby-state') { standbyVisible = d.time; updateStandbyUI(); }
+            if(d.type === 'end') { document.getElementById('end-overlay').style.display = 'flex'; }
+            if(childConn) childConn.send(d);
+        }
+
+        function endLive() { if(isHost) sync('end'); location.reload(); }
+
+        function sendChat() {
+            const inp = document.getElementById('chat-input'); if(!inp.value) return;
+            const d = { type:'chat', name: profile.name, icon: profile.icon, msg: inp.value };
+            addChat(d); 
+            isHost ? (childConn && childConn.send(d)) : (parentConn && parentConn.send(d));
+            inp.value = "";
+        }
+
+        function addChat(d) {
+            const list = document.getElementById('chat-list');
+            const item = document.createElement('div');
+            item.className = 'chat-item';
+            item.innerHTML = `<img src="${d.icon}" class="chat-icon"><div><div class="chat-name">${d.name}</div><div class="chat-msg">${d.msg}</div></div>`;
+            list.appendChild(item);
+            list.scrollTop = list.scrollHeight;
+        }
+
+        function sync(type, t) { if(childConn) childConn.send({type:type, time: t}); }
+
+        async function findSlot(rid, d) {
+            const tid = `${rid}-${d}`, t = new Peer();
+            return new Promise(res => {
+                const c = t.connect(tid);
+                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 1500);
+                c.on('open', () => { clearTimeout(timer); t.destroy(); res({pid: tid, idx: d+1}); });
+            });
+        }
+
+        function toggleFullScreen() {
+            const container = document.getElementById('v-box');
+            if (!document.fullscreenElement) {
+                if (container.requestFullscreen) container.requestFullscreen();
+                else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
+                else if (container.msRequestFullscreen) container.msRequestFullscreen();
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock('landscape').catch(() => {});
+                }
+            } else {
+                if (document.exitFullscreen) document.exitFullscreen();
+            }
+        }
+    </script>
+</body>
+</html>
