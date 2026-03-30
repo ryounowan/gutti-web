@@ -22,7 +22,6 @@
         #main-video { width: 100%; height: 100%; object-fit: contain; }
         .host-controls { background: #111; padding: 8px 12px; display: none; flex-direction: column; gap: 8px; border-bottom: 1px solid #333; flex-shrink: 0; }
         .control-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-        .file-label { font-size: 9px; color: #aaa; display: flex; flex-direction: column; gap: 2px; }
         #seek-bar { flex: 1; min-width: 120px; height: 12px; accent-color: var(--accent); cursor: pointer; }
         #time-display { font-family: monospace; font-size: 11px; color: #aaa; min-width: 80px; text-align: right; }
         .vol-group { display: flex; align-items: center; gap: 5px; font-size: 10px; color: #ccc; }
@@ -37,8 +36,6 @@
         .chat-input-area { padding: 8px; display: flex; gap: 8px; background: #000; border-top: 1px solid #333; }
         .chat-input-area input { flex: 1; margin: 0; padding: 8px 15px; background: #111; border: 1px solid #444; }
         #end-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 1000; flex-direction: column; align-items: center; justify-content: center; }
-        :fullscreen .video-box { height: 100vh; }
-        :-webkit-full-screen .video-box { height: 100vh; }
     </style>
 </head>
 <body>
@@ -257,7 +254,7 @@
             if(!rid) return;
             goTo('scr-live');
             
-            const pInfo = await findSlot(rid, 0);
+            const pInfo = await findSlot(rid);
             peer = new Peer(`${rid}-${pInfo.idx}`);
             
             peer.on('open', () => {
@@ -311,13 +308,7 @@
         function sendChat() {
             const inp = document.getElementById('chat-input'); 
             if(!inp.value) return;
-            const d = { 
-                type:'chat', 
-                name: profile.name, 
-                icon: profile.icon, 
-                msg: inp.value,
-                isOrigin: true 
-            };
+            const d = { type:'chat', name: profile.name, icon: profile.icon, msg: inp.value, isOrigin: true };
             handleData(d, null); 
             inp.value = "";
         }
@@ -337,13 +328,37 @@
             if(!isHost && parentConn) parentConn.send(data);
         }
 
-        async function findSlot(rid, d) {
-            const tid = `${rid}-${d}`, t = new Peer();
-            return new Promise(res => {
-                const c = t.connect(tid);
-                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 1500);
-                c.on('open', () => { clearTimeout(timer); t.destroy(); res({pid: tid, idx: d+1}); });
-            });
+        // --- 修正箇所：負荷を抑えたスロット探索 ---
+        async function findSlot(rid) {
+            let d = 0;
+            while (d < 15) { // 最大15ステップまで探索
+                const tid = `${rid}-${d}`;
+                const tempPeer = new Peer();
+                
+                const result = await new Promise(res => {
+                    const c = tempPeer.connect(tid);
+                    const timer = setTimeout(() => { 
+                        tempPeer.destroy(); 
+                        res(null); 
+                    }, 1000); // 1秒でタイムアウト
+
+                    c.on('open', () => { 
+                        clearTimeout(timer); 
+                        tempPeer.destroy(); 
+                        res({pid: tid, idx: d + 1}); 
+                    });
+                    c.on('error', () => {
+                        clearTimeout(timer);
+                        tempPeer.destroy();
+                        res(null);
+                    });
+                });
+
+                if (result) return result;
+                d++;
+                await new Promise(resolve => setTimeout(resolve, 50)); // ブラウザに休憩時間を与える
+            }
+            return {pid: `${rid}-0`, idx: 99};
         }
 
         function toggleFullScreen() {
