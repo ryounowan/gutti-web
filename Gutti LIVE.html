@@ -248,6 +248,7 @@
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 window.broadcastDest = audioCtx.createMediaStreamDestination();
                 if(document.getElementById('h-standby-media').files[0]) changeStandbyMedia(document.getElementById('h-standby-media'));
+                
                 let vs;
                 if(mode === 'screen') {
                     vs = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
@@ -258,29 +259,37 @@
                     vEl.src = URL.createObjectURL(f); vEl.pause();
                     vs = (vEl.captureStream || vEl.mozCaptureStream).call(vEl);
                 }
+                
                 if(vs.getAudioTracks().length > 0) {
                     gainV = audioCtx.createGain();
                     audioCtx.createMediaStreamSource(new MediaStream([vs.getAudioTracks()[0]])).connect(gainV).connect(window.broadcastDest);
                 }
+                
                 const ms = await navigator.mediaDevices.getUserMedia({audio:true}).catch(() => null);
                 if(ms) {
                     gainM = audioCtx.createGain();
                     audioCtx.createMediaStreamSource(ms).connect(gainM).connect(window.broadcastDest);
                 }
+                
                 localStream = new MediaStream([vs.getVideoTracks()[0], window.broadcastDest.stream.getAudioTracks()[0]]);
                 vEl.loop = (document.getElementById('h-loop').value === 'yes');
                 isHost = true;
+                
                 document.getElementById('disp-title').innerText = document.getElementById('h-title').value || "Gutti Live";
                 document.getElementById('end-btn').style.display = 'block';
                 document.getElementById('host-panel').style.display = 'flex';
+                
                 const vMic = document.getElementById('vol-mic');
                 const vVid = document.getElementById('vol-vid');
                 if(gainM) gainM.gain.value = vMic.value;
                 if(gainV) gainV.gain.value = vVid.value;
+                
                 vMic.oninput = (e) => { if(gainM) gainM.gain.setTargetAtTime(parseFloat(e.target.value), audioCtx.currentTime, 0.01); };
                 vVid.oninput = (e) => { if(gainV) gainV.gain.setTargetAtTime(parseFloat(e.target.value), audioCtx.currentTime, 0.01); };
+                
                 setupControls(vEl);
                 goTo('scr-live');
+                
                 peer = new Peer(`${rid}-0`);
                 peer.on('connection', conn => {
                     childConn = conn;
@@ -291,6 +300,7 @@
                     }, 1000);
                 });
                 peer.on('call', call => call.answer(localStream));
+                
             } catch(e) { alert("エラー: " + e.message); }
         }
 
@@ -317,26 +327,42 @@
             const rid = document.getElementById('v-id').value;
             if(!rid) return;
             goTo('scr-live');
+            
             const pInfo = await findSlot(rid, 0);
             peer = new Peer(`${rid}-${pInfo.idx}`);
+            
             peer.on('open', () => {
                 parentConn = peer.connect(pInfo.pid);
                 parentConn.on('data', d => handleData(d));
-                peer.call(pInfo.pid, new MediaStream());
-            });
-            peer.on('call', call => {
-                call.answer();
+                // ホストへのストリーム要求
+                const call = peer.call(pInfo.pid, new MediaStream());
                 call.on('stream', s => { 
                     const v = document.getElementById('main-video'); 
                     v.srcObject = s; 
                     v.play().catch(() => { v.muted = true; v.play(); }); 
                 });
             });
-            peer.on('connection', c => { childConn = c; c.on('data', d => handleData(d)); });
+            
+            peer.on('call', call => {
+                // 孫へのリレー
+                if(localStream) {
+                    call.answer(localStream);
+                } else {
+                    // まだ自分が受信できていない場合は、受信次第リレー
+                    call.answer();
+                }
+            });
+
+            peer.on('connection', c => { 
+                childConn = c; 
+                c.on('data', d => handleData(d)); 
+            });
         }
 
         function handleData(d) {
             const v = document.getElementById('main-video');
+            
+            // 1. 自身のUIを更新
             if(d.type === 'chat') addChat(d);
             if(d.type === 'play') v.play();
             if(d.type === 'pause') v.pause();
@@ -344,16 +370,42 @@
             if(d.type === 'meta') document.getElementById('disp-title').innerText = d.title;
             if(d.type === 'standby-state') { standbyVisible = d.time; updateStandbyUI(); }
             if(d.type === 'end') { document.getElementById('end-overlay').style.display = 'flex'; }
-            if(childConn) childConn.send(d);
+
+            // 2. データの転送 (P2Pリレー)
+            if(isHost) {
+                // ホストの場合は子に送る
+                if(childConn) childConn.send(d);
+            } else {
+                // 視聴者の場合
+                if(d.type === 'chat') {
+                    // チャット発信者の場合は親(ホスト側)へ送る
+                    if(d.isOrigin) {
+                        delete d.isOrigin;
+                        parentConn.send(d);
+                    } else {
+                        // 受信したチャットなら子へ流す
+                        if(childConn) childConn.send(d);
+                    }
+                } else {
+                    // ホストからの制御信号なら子へ流す
+                    if(childConn) childConn.send(d);
+                }
+            }
         }
 
         function endLive() { if(isHost) sync('end'); location.reload(); }
 
         function sendChat() {
-            const inp = document.getElementById('chat-input'); if(!inp.value) return;
-            const d = { type:'chat', name: profile.name, icon: profile.icon, msg: inp.value };
-            addChat(d); 
-            isHost ? (childConn && childConn.send(d)) : (parentConn && parentConn.send(d));
+            const inp = document.getElementById('chat-input'); 
+            if(!inp.value) return;
+            const d = { 
+                type:'chat', 
+                name: profile.name, 
+                icon: profile.icon, 
+                msg: inp.value,
+                isOrigin: true // 自身が発信したことをマーク
+            };
+            handleData(d); // 自身の画面に出す
             inp.value = "";
         }
 
