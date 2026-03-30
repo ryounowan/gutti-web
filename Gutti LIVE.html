@@ -14,18 +14,12 @@
         .btn:active { transform: scale(0.95); opacity: 0.8; }
         .btn-main { background: linear-gradient(135deg, #00d4ff, #0055ff); color: white; }
         .btn-danger { background: #ff4444; color: white; }
-        .btn-toggle { background: #333; color: #ccc; padding: 6px 12px; font-size: 11px; border-radius: 6px; }
-        .btn-toggle.on { background: var(--accent); color: #000; font-weight: bold; }
         input, select { padding: 12px; background: #1a1a1a; border: 1px solid #333; color: white; border-radius: 10px; margin: 6px 0; width: 85%; max-width: 320px; font-size: 16px; }
         label { font-size: 11px; color: #888; margin-top: 4px; }
         .live-wrapper { display: flex; flex-direction: column; width: 100%; height: 100%; }
         .live-header { height: 40px; display: flex; align-items: center; justify-content: space-between; padding: 0 12px; background: #000; border-bottom: 1px solid #222; flex-shrink: 0; z-index: 20; }
         .video-box { width: 100%; height: 45vh; background: #000; position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         #main-video { width: 100%; height: 100%; object-fit: contain; }
-        #standby-overlay { position: absolute; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 5; transition: opacity 0.5s; opacity: 1; pointer-events: none; }
-        #standby-overlay.hidden { opacity: 0 !important; }
-        #standby-media-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; }
-        #standby-img, #standby-vid { width: 100%; height: 100%; object-fit: cover; display: none; }
         .host-controls { background: #111; padding: 8px 12px; display: none; flex-direction: column; gap: 8px; border-bottom: 1px solid #333; flex-shrink: 0; }
         .control-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
         .file-label { font-size: 9px; color: #aaa; display: flex; flex-direction: column; gap: 2px; }
@@ -76,19 +70,14 @@
         <h2 style="margin:0 0 10px 0;">配信設定</h2>
         <input type="text" id="h-id" placeholder="合言葉 (Room ID)">
         <input type="text" id="h-title" placeholder="配信タイトル">
-        <div style="display:flex; gap:10px; align-items:center; width: 85%; max-width: 320px;">
-            <div style="flex:1;"><label>本編ループ</label><select id="h-loop"><option value="no">なし</option><option value="yes">あり</option></select></div>
-            <div style="flex:1;"><label>待機ループ</label><select id="h-st-loop"><option value="yes">あり</option><option value="no">なし</option></select></div>
-        </div>
+        <div style="width: 85%; max-width: 320px;"><label>本編ループ</label><select id="h-loop"><option value="no">なし</option><option value="yes">あり</option></select></div>
         <label>メインコンテンツ</label>
         <select id="h-mode" onchange="document.getElementById('file-box').style.display=(this.value=='file'?'block':'none')">
             <option value="screen">画面共有 (PC全体)</option>
             <option value="file">動画ファイル (MP4)</option>
         </select>
         <div id="file-box" style="display:none;"><input type="file" id="h-file" accept="video/*"></div>
-        <label>待機画面メディア (動画も可)</label>
-        <input type="file" id="h-standby-media" accept="image/*,video/*">
-        <button class="btn btn-main" onclick="startHost()" style="width:280px; margin-top:10px;">LIVE配信開始</button>
+        <button class="btn btn-main" onclick="startHost()" style="width:280px; margin-top:20px;">LIVE配信開始</button>
     </div>
 
     <div id="scr-view-prep" class="screen">
@@ -100,17 +89,11 @@
     <div id="scr-live" class="screen" style="padding:0; background:#000;">
         <div class="live-wrapper" id="live-container">
             <div class="live-header">
-                <div id="disp-title" style="font-size:12px; font-weight:bold; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">LIVE</div>
+                <div id="disp-title" style="font-size:12px; font-weight:bold;">LIVE</div>
                 <button id="end-btn" class="btn btn-danger" style="padding:4px 10px; font-size:10px; display:none;" onclick="endLive()">終了</button>
             </div>
             <div class="video-box" id="v-box">
                 <video id="main-video" playsinline webkit-playsinline></video>
-                <div id="standby-overlay">
-                    <div id="standby-media-container">
-                        <img id="standby-img">
-                        <video id="standby-vid" playsinline loop></video>
-                    </div>
-                </div>
                 <div style="position:absolute; top:8px; left:8px; background:rgba(255,0,0,0.8); padding:2px 6px; border-radius:4px; font-size:9px; font-weight:bold; z-index:7;">● LIVE</div>
                 <button onclick="toggleFullScreen()" style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.5); border:none; color:white; border-radius:4px; padding:5px; z-index:10; font-size:10px;">全画面</button>
             </div>
@@ -121,11 +104,7 @@
                     <div id="time-display">00:00 / 00:00</div>
                 </div>
                 <div class="control-row" style="justify-content:space-between;">
-                    <div style="display:flex; gap:8px; align-items:center;">
-                        <button id="standby-toggle" class="btn btn-toggle on" onclick="toggleStandby()">待機中</button>
-                        <div class="file-label">待機変更<input type="file" id="st-change-live" accept="image/*,video/*" style="width:65px; font-size:9px; padding:2px; margin:0;" onchange="changeStandbyMedia(this)"></div>
-                        <div class="file-label">本編変更<input type="file" id="mv-change-live" accept="video/*" style="width:65px; font-size:9px; padding:2px; margin:0;" onchange="changeMainMedia(this)"></div>
-                    </div>
+                    <div class="file-label">本編変更<input type="file" id="mv-change-live" accept="video/*" style="width:80px; font-size:9px; padding:2px;" onchange="changeMainMedia(this)"></div>
                     <div style="display:flex; gap:8px;">
                         <div class="vol-group"><span>Mic</span><input type="range" id="vol-mic" class="vol-slider" min="0" max="1" step="0.01" value="0.5"></div>
                         <div class="vol-group"><span>Vid</span><input type="range" id="vol-vid" class="vol-slider" min="0" max="1" step="0.01" value="0.8"></div>
@@ -143,8 +122,7 @@
     </div>
 
     <script>
-        let peer, parentConn, childConn, localStream, audioCtx, gainV, gainM, gainST, isHost=false, profile={name:"Gutti", icon:""};
-        let standbyVisible = true;
+        let peer, parentConn, childConn, localStream, audioCtx, gainV, gainM, isHost=false, profile={name:"Gutti", icon:""};
 
         function goTo(id) {
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
@@ -178,57 +156,11 @@
             goTo('scr-menu');
         }
 
-        function toggleStandby() {
-            standbyVisible = !standbyVisible;
-            updateStandbyUI();
-            if(isHost) sync('standby-state', standbyVisible);
-        }
-
-        function updateStandbyUI() {
-            const over = document.getElementById('standby-overlay');
-            const btn = document.getElementById('standby-toggle');
-            const sv = document.getElementById('standby-vid');
-            if(standbyVisible) {
-                over.classList.remove('hidden');
-                if(btn) btn.classList.add('on');
-                if(sv.src) sv.play().catch(()=>{});
-                if(gainST) gainST.gain.setTargetAtTime(0.8, audioCtx.currentTime, 0.1);
-            } else {
-                over.classList.add('hidden');
-                if(btn) btn.classList.remove('on');
-                sv.pause();
-                if(gainST) gainST.gain.setTargetAtTime(0, audioCtx.currentTime, 0.1);
-            }
-        }
-
         function formatTime(sec) {
             if (!sec || isNaN(sec)) return "00:00";
             const m = Math.floor(sec / 60);
             const s = Math.floor(sec % 60);
             return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
-        }
-
-        function changeStandbyMedia(input) {
-            const file = input.files[0];
-            if(!file) return;
-            const url = URL.createObjectURL(file);
-            const si = document.getElementById('standby-img');
-            const sv = document.getElementById('standby-vid');
-            si.style.display = 'none'; sv.style.display = 'none'; sv.pause();
-            if(file.type.startsWith('video')) {
-                sv.src = url;
-                sv.loop = (document.getElementById('h-st-loop').value === 'yes');
-                sv.style.display = 'block';
-                if(isHost && audioCtx && !sv.hasSource) {
-                    gainST = audioCtx.createGain();
-                    audioCtx.createMediaElementSource(sv).connect(gainST).connect(audioCtx.destination);
-                    if(window.broadcastDest) gainST.connect(window.broadcastDest);
-                    sv.hasSource = true;
-                }
-                if(standbyVisible) sv.play().catch(()=>{});
-            } else {
-                si.src = url; si.style.display = 'block';
-            }
         }
 
         function changeMainMedia(input) {
@@ -247,7 +179,6 @@
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 window.broadcastDest = audioCtx.createMediaStreamDestination();
-                if(document.getElementById('h-standby-media').files[0]) changeStandbyMedia(document.getElementById('h-standby-media'));
                 
                 let vs;
                 if(mode === 'screen') {
@@ -256,7 +187,7 @@
                 } else {
                     const f = document.getElementById('h-file').files[0];
                     if(!f) throw new Error("動画を選択してください");
-                    vEl.src = URL.createObjectURL(f); vEl.pause();
+                    vEl.src = URL.createObjectURL(f); vEl.play();
                     vs = (vEl.captureStream || vEl.mozCaptureStream).call(vEl);
                 }
                 
@@ -294,7 +225,6 @@
                 peer.on('connection', conn => {
                     conn.on('open', () => {
                         conn.send({type:'meta', title:document.getElementById('h-title').value});
-                        conn.send({type:'standby-state', time: standbyVisible});
                     });
                     conn.on('data', d => handleData(d, conn));
                 });
@@ -336,7 +266,7 @@
                 
                 const call = peer.call(pInfo.pid, new MediaStream());
                 call.on('stream', s => { 
-                    localStream = s; // リレー用に保存
+                    localStream = s;
                     const v = document.getElementById('main-video'); 
                     v.srcObject = s; 
                     v.play().catch(() => { v.muted = true; v.play(); }); 
@@ -356,32 +286,22 @@
 
         function handleData(d, senderConn) {
             const v = document.getElementById('main-video');
-            
-            // 自身のUI更新
             if(d.type === 'chat') addChat(d);
             if(d.type === 'play') v.play();
             if(d.type === 'pause') v.pause();
             if(d.type === 'seek') v.currentTime = d.time;
             if(d.type === 'meta') document.getElementById('disp-title').innerText = d.title;
-            if(d.type === 'standby-state') { standbyVisible = d.time; updateStandbyUI(); }
             if(d.type === 'end') { document.getElementById('end-overlay').style.display = 'flex'; }
 
-            // P2Pリレー処理
             if(isHost) {
-                // ホストは受け取ったチャットを子へ転送
                 if(d.type === 'chat' && childConn) childConn.send(d);
             } else {
                 if(d.type === 'chat' && d.isOrigin) {
-                    // 自分が書いたチャットなら親へ
                     delete d.isOrigin;
                     if(parentConn) parentConn.send(d);
                 } else {
-                    // 親から来た全データ、または子から来たチャットをリレー
-                    if(senderConn === parentConn) {
-                        if(childConn) childConn.send(d);
-                    } else if(senderConn === childConn) {
-                        if(parentConn) parentConn.send(d);
-                    }
+                    if(senderConn === parentConn && childConn) childConn.send(d);
+                    if(senderConn === childConn && parentConn) parentConn.send(d);
                 }
             }
         }
