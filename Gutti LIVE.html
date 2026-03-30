@@ -143,6 +143,7 @@
     </div>
 
     <script>
+        const PEER_CONFIG = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] };
         let peer, parentConn, childConn, localStream, audioCtx, gainV, gainM, gainST, isHost=false, profile={name:"Gutti", icon:""};
         let standbyVisible = true;
 
@@ -166,9 +167,6 @@
             const i = document.getElementById('in-icon').value || `https://api.dicebear.com/7.x/notionists/svg?seed=${encodeURIComponent(n)}`;
             document.getElementById('prev-icon').src = i;
         }
-
-        document.getElementById('in-name').oninput = updateProfilePreview;
-        document.getElementById('in-icon').oninput = updateProfilePreview;
 
         function saveSettings() {
             const n = document.getElementById('in-name').value || "Gutti";
@@ -243,13 +241,12 @@
             const rid = document.getElementById('h-id').value;
             if(!rid) return alert("Room IDを入力してください");
             const vEl = document.getElementById('main-video');
-            const mode = document.getElementById('h-mode').value;
             try {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
                 window.broadcastDest = audioCtx.createMediaStreamDestination();
                 if(document.getElementById('h-standby-media').files[0]) changeStandbyMedia(document.getElementById('h-standby-media'));
                 let vs;
-                if(mode === 'screen') {
+                if(document.getElementById('h-mode').value === 'screen') {
                     vs = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
                     vEl.srcObject = vs; vEl.play();
                 } else {
@@ -273,26 +270,18 @@
                 document.getElementById('disp-title').innerText = document.getElementById('h-title').value || "Gutti Live";
                 document.getElementById('end-btn').style.display = 'block';
                 document.getElementById('host-panel').style.display = 'flex';
-                const vMic = document.getElementById('vol-mic');
-                const vVid = document.getElementById('vol-vid');
-                if(gainM) gainM.gain.value = vMic.value;
-                if(gainV) gainV.gain.value = vVid.value;
-                vMic.oninput = (e) => { if(gainM) gainM.gain.setTargetAtTime(parseFloat(e.target.value), audioCtx.currentTime, 0.01); };
-                vVid.oninput = (e) => { if(gainV) gainV.gain.setTargetAtTime(parseFloat(e.target.value), audioCtx.currentTime, 0.01); };
                 setupControls(vEl);
                 goTo('scr-live');
-                peer = new Peer(`${rid}-0`);
+                peer = new Peer(`${rid}-0`, { config: PEER_CONFIG });
                 peer.on('connection', conn => {
                     childConn = conn;
                     conn.on('data', d => handleData(d));
                     setTimeout(() => {
                         conn.send({type:'meta', title:document.getElementById('h-title').value});
                         conn.send({type:'standby-state', time: standbyVisible});
-                    }, 1000);
+                    }, 500);
                 });
-                peer.on('call', call => {
-                    if (localStream) call.answer(localStream);
-                });
+                peer.on('call', call => call.answer(localStream));
             } catch(e) { alert("エラー: " + e.message); }
         }
 
@@ -303,16 +292,12 @@
             v.onloadedmetadata = () => { seek.max = v.duration; };
             v.ontimeupdate = () => {
                 if(!seek.lock) {
-                    if(isFinite(v.duration)) seek.max = v.duration;
                     seek.value = v.currentTime;
                     timeDisp.innerText = `${formatTime(v.currentTime)} / ${formatTime(v.duration)}`;
                 }
             };
-            v.onplay = () => pBtn.innerText = "▮▮";
-            v.onpause = () => pBtn.innerText = "▶";
-            seek.oninput = () => { seek.lock = true; timeDisp.innerText = `${formatTime(seek.value)} / ${formatTime(v.duration)}`; };
-            seek.onchange = () => { v.currentTime = seek.value; seek.lock = false; sync('seek', v.currentTime); };
             pBtn.onclick = () => { v.paused ? (v.play(), sync('play')) : (v.pause(), sync('pause')); };
+            seek.onchange = () => { v.currentTime = seek.value; sync('seek', v.currentTime); };
         }
 
         async function startViewer() {
@@ -320,23 +305,25 @@
             if(!rid) return;
             goTo('scr-live');
             const pInfo = await findSlot(rid, 0);
-            peer = new Peer(`${rid}-${pInfo.idx}`);
+            peer = new Peer(`${rid}-${pInfo.idx}`, { config: PEER_CONFIG });
             peer.on('open', () => {
                 parentConn = peer.connect(pInfo.pid);
-                parentConn.on('open', () => {
-                    peer.call(pInfo.pid, new MediaStream()); // 接続確立後にコール
-                });
                 parentConn.on('data', d => handleData(d));
+                const tryCall = () => {
+                    const call = peer.call(pInfo.pid, new MediaStream());
+                    call.on('stream', s => {
+                        const v = document.getElementById('main-video');
+                        v.srcObject = s;
+                        v.play().catch(() => { v.muted = true; v.play(); });
+                    });
+                };
+                setTimeout(tryCall, 500);
             });
             peer.on('call', call => {
                 call.answer();
                 call.on('stream', s => { 
                     const v = document.getElementById('main-video'); 
-                    v.srcObject = s; 
-                    v.play().catch(() => { 
-                        v.muted = true; 
-                        v.play(); 
-                    }); 
+                    v.srcObject = s; v.play().catch(() => { v.muted = true; v.play(); });
                 });
             });
             peer.on('connection', c => { childConn = c; c.on('data', d => handleData(d)); });
@@ -348,19 +335,17 @@
             if(d.type === 'play') v.play();
             if(d.type === 'pause') v.pause();
             if(d.type === 'seek') v.currentTime = d.time;
-            if(d.type === 'meta') document.getElementById('disp-title').innerText = d.title;
             if(d.type === 'standby-state') { standbyVisible = d.time; updateStandbyUI(); }
             if(d.type === 'end') { document.getElementById('end-overlay').style.display = 'flex'; }
             if(childConn) childConn.send(d);
         }
 
-        function endLive() { if(isHost) sync('end'); location.reload(); }
-
         function sendChat() {
             const inp = document.getElementById('chat-input'); if(!inp.value) return;
             const d = { type:'chat', name: profile.name, icon: profile.icon, msg: inp.value };
-            addChat(d); 
-            isHost ? (childConn && childConn.send(d)) : (parentConn && parentConn.send(d));
+            addChat(d);
+            if(isHost && childConn) childConn.send(d);
+            if(!isHost && parentConn) parentConn.send(d);
             inp.value = "";
         }
 
@@ -376,10 +361,10 @@
         function sync(type, t) { if(childConn) childConn.send({type:type, time: t}); }
 
         async function findSlot(rid, d) {
-            const tid = `${rid}-${d}`, t = new Peer();
+            const tid = `${rid}-${d}`, t = new Peer({ config: PEER_CONFIG });
             return new Promise(res => {
                 const c = t.connect(tid);
-                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 2000);
+                const timer = setTimeout(() => { t.destroy(); res(findSlot(rid, d+1)); }, 2500);
                 c.on('open', () => { clearTimeout(timer); t.destroy(); res({pid: tid, idx: d+1}); });
             });
         }
@@ -389,13 +374,11 @@
             if (!document.fullscreenElement) {
                 if (container.requestFullscreen) container.requestFullscreen();
                 else if (container.webkitRequestFullscreen) container.webkitRequestFullscreen();
-                if (screen.orientation && screen.orientation.lock) {
-                    screen.orientation.lock('landscape').catch(() => {});
-                }
             } else {
                 if (document.exitFullscreen) document.exitFullscreen();
             }
         }
+        function endLive() { if(isHost) sync('end'); location.reload(); }
     </script>
 </body>
 </html>
