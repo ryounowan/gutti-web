@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Web Text Editor</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+        }
+
+        /* ツールバーのスタイル */
+        .toolbar {
+            background-color: #333;
+            padding: 10px;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            border-bottom: 1px solid #444;
+        }
+
+        button {
+            background-color: #444;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background-color: #555;
+        }
+
+        .file-info {
+            margin-left: auto;
+            font-size: 0.9em;
+            color: #aaa;
+        }
+
+        /* エディタエリア */
+        #editor {
+            flex-grow: 1;
+            width: 100%;
+            padding: 20px;
+            box-sizing: border-box;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+            font-size: 16px;
+            line-height: 1.5;
+            border: none;
+            outline: none;
+            resize: none;
+            tab-size: 4;
+        }
+
+        /* ステータスバー */
+        .status-bar {
+            background-color: #007acc;
+            color: white;
+            padding: 3px 10px;
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="toolbar">
+        <button onclick="newFile()">新規作成</button>
+        <button onclick="openFile()">ファイルを開く</button>
+        <button onclick="saveFile()">上書き保存</button>
+        <button onclick="saveFileAs()">名前を付けて保存</button>
+        <div class="file-info" id="fileNameDisplay">新規ファイル</div>
+    </div>
+
+    <textarea id="editor" spellcheck="false" placeholder="ここにテキストを入力..."></textarea>
+
+    <div class="status-bar">
+        <div id="fileTypeDisplay">形式: text/plain</div>
+        <div id="charCount">文字数: 0</div>
+    </div>
+
+    <script>
+        const editor = document.getElementById('editor');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
+        const fileTypeDisplay = document.getElementById('fileTypeDisplay');
+        const charCount = document.getElementById('charCount');
+
+        let fileHandle;
+
+        // 文字数カウント
+        editor.addEventListener('input', () => {
+            charCount.textContent = `文字数: ${editor.value.length}`;
+        });
+
+        // Tabキーを使えるようにする
+        editor.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault();
+                const start = editor.selectionStart;
+                const end = editor.selectionEnd;
+                editor.value = editor.value.substring(0, start) + "\t" + editor.value.substring(end);
+                editor.selectionStart = editor.selectionEnd = start + 1;
+            }
+        });
+
+        // 新規作成
+        function newFile() {
+            if (confirm('現在の内容を破棄して新規作成しますか？')) {
+                editor.value = '';
+                fileHandle = null;
+                fileNameDisplay.textContent = '新規ファイル';
+                fileTypeDisplay.textContent = '形式: text/plain';
+            }
+        }
+
+        // ファイルを開く
+        async function openFile() {
+            try {
+                [fileHandle] = await window.showOpenFilePicker({
+                    types: [
+                        {
+                            description: 'テキスト/HTMLファイル',
+                            accept: {
+                                'text/plain': ['.txt', '.md', '.csv'],
+                                'text/html': ['.html', '.htm'],
+                                'text/javascript': ['.js'],
+                                'text/css': ['.css']
+                            }
+                        },
+                    ],
+                });
+
+                const file = await fileHandle.getFile();
+                const contents = await file.text();
+                editor.value = contents;
+                fileNameDisplay.textContent = file.name;
+                fileTypeDisplay.textContent = `形式: ${file.type || '不明'}`;
+                charCount.textContent = `文字数: ${contents.length}`;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        // 上書き保存
+        async function saveFile() {
+            if (!fileHandle) {
+                return saveFileAs();
+            }
+            try {
+                const writable = await fileHandle.createWritable();
+                await writable.write(editor.value);
+                await writable.close();
+                alert('保存しました');
+            } catch (err) {
+                alert('保存に失敗しました: ' + err.name);
+            }
+        }
+
+        // 名前を付けて保存
+        async function saveFileAs() {
+            try {
+                fileHandle = await window.showSaveFilePicker({
+                    suggestedName: 'memo.txt',
+                    types: [
+                        { description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } },
+                        { description: 'HTMLファイル', accept: { 'text/html': ['.html'] } },
+                        { description: 'Markdown', accept: { 'text/markdown': ['.md'] } },
+                        { description: 'JavaScript', accept: { 'text/javascript': ['.js'] } },
+                        { description: 'CSS', accept: { 'text/css': ['.css'] } },
+                    ],
+                });
+                saveFile();
+                fileNameDisplay.textContent = (await fileHandle.getFile()).name;
+            } catch (err) {
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+</html>
