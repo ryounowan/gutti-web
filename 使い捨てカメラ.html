@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Gutti Cam Ultimate</title>
+    <title>Gutti Cam Final Elite</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -19,7 +19,8 @@
 
         /* Camera UI */
         #v-container { position: absolute; top: 12%; height: 68%; width: 100%; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; z-index: 5; }
-        #v-preview { width: 100%; height: 100%; object-fit: cover; }
+        #v-preview { width: 100%; height: 100%; object-fit: cover; transition: aspect-ratio 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        
         .cam-top { position: absolute; top: 0; width: 100%; height: 12%; display: flex; justify-content: space-around; align-items: center; background: #000; z-index: 50; padding-top: env(safe-area-inset-top); }
         .cam-bottom { position: absolute; bottom: 0; width: 100%; height: 20%; background: #000; z-index: 50; display: flex; flex-direction: column; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
         
@@ -35,51 +36,48 @@
         .thumb-box { width: 45px; height: 45px; border-radius: 8px; overflow: hidden; background: #222; border: 1px solid #444; }
         .flip-btn { width: 45px; height: 45px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; }
 
-        /* Album & Full View */
+        /* Admin & Album */
+        #screen-host { background: #111; overflow-y: auto; padding: 20px; z-index: 150; }
+        .card { background: #222; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
         #album-view { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
         .album-top { position: absolute; top: 0; width: 100%; padding: 40px 20px 20px; display: flex; justify-content: space-between; z-index: 1100; background: rgba(0,0,0,0.5); }
         .swiper { width: 100%; height: 100%; }
         .swiper-slide { display: flex; align-items: center; justify-content: center; }
         .swiper-slide img, .swiper-slide video { max-width: 100%; max-height: 100%; object-fit: contain; }
-
-        /* Admin */
-        #screen-host { background: #111; overflow-y: auto; padding: 20px; z-index: 150; }
-        .card { background: #222; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
-        .host-item { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
 <div id="screen-main" class="screen active">
-    <div style="margin: auto; width: 80%; text-align: center;">
-        <h2 style="font-weight: 200; letter-spacing: 4px; color:var(--accent);">GUTTI CAM</h2>
+    <div style="margin: auto; width: 85%; text-align: center;">
+        <h1 style="font-weight: 200; letter-spacing: 5px; color:var(--accent);">GUTTI CAM</h1>
         <div class="card">
-            <input type="text" id="in-host-id" placeholder="ID" style="width:100%; padding:12px; border-radius:8px; border:none; background:#333; color:#fff; margin-bottom:10px;">
-            <button onclick="startHost()" style="width:100%; padding:12px; border-radius:20px; border:none; background:#fff; font-weight:bold;">ホストを開始</button>
+            <input type="text" id="in-host-id" placeholder="ID (空欄で自動生成)" style="width:100%; padding:15px; border-radius:10px; border:none; background:#333; color:#fff; margin-bottom:10px;">
+            <button onclick="startHost()" style="width:100%; padding:15px; border-radius:30px; border:none; background:#fff; font-weight:bold;">ホストを開始</button>
         </div>
         <div class="card">
-            <input type="text" id="in-join-id" placeholder="参加IDを入力" style="width:100%; padding:12px; border-radius:8px; border:none; background:#333; color:#fff; margin-bottom:10px;">
-            <button onclick="startPlayer(document.getElementById('in-join-id').value)" style="width:100%; padding:12px; border-radius:20px; border:none; background:#444; color:#fff;">カメラに参加</button>
+            <input type="text" id="in-join-id" placeholder="参加IDを入力" style="width:100%; padding:15px; border-radius:10px; border:none; background:#333; color:#fff; margin-bottom:10px;">
+            <button onclick="startPlayer(document.getElementById('in-join-id').value)" style="width:100%; padding:15px; border-radius:30px; border:none; background:#444; color:#fff;">カメラに参加</button>
         </div>
     </div>
 </div>
 
 <div id="screen-player" class="screen">
     <div class="cam-top">
-        <span style="font-size:18px;">⚡️</span>
+        <span style="font-size:20px;">⚡️</span>
         <span id="p-status" style="font-size:11px; color:#ff3b30;">● OFFLINE</span>
-        <button id="admin-btn" style="display:none; background:none; border:1px solid #fff; color:#fff; border-radius:10px; font-size:10px; padding:2px 8px;" onclick="openHostPanel()">ADMIN</button>
-        <span style="font-size:18px;" onclick="toggleFilter()">◎</span>
+        <button id="admin-btn" style="display:none; background:none; border:1px solid #fff; color:#fff; border-radius:15px; font-size:10px; padding:3px 12px;" onclick="openHostPanel()">ADMIN</button>
+        <span style="font-size:20px;" onclick="toggleFilter()">◎</span>
     </div>
     <div id="v-container">
-        <video id="v-preview" autoplay playsinline muted></video>
-        <div id="flash" style="position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none;"></div>
+        <video id="v-preview" autoplay playsinline muted style="aspect-ratio: 9/16;"></video>
+        <div id="flash" style="position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none; transition:0.1s;"></div>
     </div>
     <div class="cam-bottom">
         <div class="mode-slider">
             <span id="m-video" onclick="setMode('video')">ビデオ</span>
             <span id="m-photo" class="active" onclick="setMode('photo')">写真</span>
-            <span style="opacity:0.2">スクエア</span>
+            <span style="opacity:0.2">スロー</span>
         </div>
         <div class="shutter-row">
             <div class="thumb-box" onclick="openAlbum()">
@@ -98,22 +96,29 @@
 
 <div id="screen-host" class="screen">
     <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h3>Admin Panel</h3>
-        <button onclick="closeHostPanel()" style="padding:5px 15px; border-radius:10px; border:none;">閉じる</button>
+        <h3 style="margin:0;">Settings</h3>
+        <button onclick="closeHostPanel()" style="padding:6px 15px; border-radius:10px; border:none; background:#fff;">Close</button>
     </div>
     <div class="card">
-        <div id="qrcode" style="text-align:center; padding:10px; background:#fff; border-radius:10px; display:inline-block; width:100%;"></div>
-        <div id="host-url" style="font-size:9px; color:var(--accent); word-break:break-all; margin:10px 0;"></div>
-        <div style="font-size:13px; display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-            <div>写真制限: <input type="number" id="h-max" value="30" style="width:40px; background:#111; color:#fff; border:1px solid #444;"></div>
-            <div>動画制限: <input type="number" id="h-vmax" value="5" style="width:40px; background:#111; color:#fff; border:1px solid #444;"></div>
-            <div>日付表示: <input type="checkbox" id="h-date" checked></div>
-            <div>接続数: <b id="conn-count">0</b></div>
+        <div id="qrcode" style="text-align:center; padding:10px; background:#fff; border-radius:10px; margin-bottom:10px;"></div>
+        <div id="host-url" style="font-size:9px; color:var(--accent); text-align:center; word-break:break-all; margin-bottom:15px;"></div>
+        
+        <div style="font-size:14px; display:grid; grid-template-columns:1fr; gap:12px;">
+            <div style="display:flex; justify-content:space-between;">比率: 
+                <select id="h-ratio" onchange="pushSettings()" style="background:#111; color:#fff; border:1px solid #444; padding:2px 8px; border-radius:5px;">
+                    <option value="9/16">9:16 (Full)</option>
+                    <option value="3/4">3:4 (Standard)</option>
+                    <option value="1/1">1:1 (Square)</option>
+                </select>
+            </div>
+            <div style="display:flex; justify-content:space-between;">写真上限: <input type="number" id="h-max" value="30" onchange="pushSettings()" style="width:50px; background:#111; color:#fff; border:1px solid #444;"></div>
+            <div style="display:flex; justify-content:space-between;">動画上限: <input type="number" id="h-vmax" value="5" onchange="pushSettings()" style="width:50px; background:#111; color:#fff; border:1px solid #444;"></div>
+            <div style="display:flex; justify-content:space-between;">日付スタンプ: <input type="checkbox" id="h-date" checked onchange="pushSettings()"></div>
+            <div style="display:flex; justify-content:space-between;">現在の接続: <b id="conn-count">0</b></div>
         </div>
-        <button onclick="pushSettings()" style="width:100%; margin-top:10px; padding:10px; background:var(--accent); border:none; border-radius:10px; font-weight:bold;">設定を同期</button>
     </div>
-    <div id="host-gallery" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:10px;"></div>
-    <button onclick="downloadAll()" style="width:100%; padding:15px; background:#fff; color:#000; border-radius:10px; border:none; font-weight:bold;">ZIPで一括保存</button>
+    <div id="host-gallery" style="display:grid; grid-template-columns:repeat(3,1fr); gap:5px; margin-bottom:15px;"></div>
+    <button onclick="downloadAll()" style="width:100%; padding:15px; background:#fff; color:#000; border-radius:10px; border:none; font-weight:bold;">全てのデータを保存 (.zip)</button>
 </div>
 
 <div id="album-view">
@@ -126,28 +131,10 @@
 </div>
 
 <script>
-let peer, conn, stream, recorder, chunks = [], myPhotos = [], state = { role:'', id:'', pRem:30, vRem:5, mode:'photo', isRec:false, hostId:'', facingMode:'environment', useDate:true };
+let peer, conn, stream, recorder, chunks = [], myPhotos = [], state = { role:'', id:'', pRem:30, vRem:5, mode:'photo', isRec:false, hostId:'', facingMode:'environment', useDate:true, ratio:'9/16' };
 let swiperInst = null;
 
-// --- カメラ制御 ---
-async function startCam() {
-    if(stream) stream.getTracks().forEach(t => t.stop());
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: state.facingMode, width: { ideal: 1920 } }, 
-            audio: true 
-        });
-        document.getElementById('v-preview').srcObject = stream;
-        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
-    } catch(e) { console.error(e); }
-}
-
-function toggleCamera() {
-    state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
-    startCam();
-}
-
-// --- ホスト ---
+// --- 通信コア ---
 function startHost() {
     const id = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2,7).toUpperCase();
     peer = new Peer(id);
@@ -155,30 +142,25 @@ function startHost() {
         state.id = resId; state.role = 'host';
         const url = window.location.origin + window.location.pathname + '?j=' + resId;
         document.getElementById('host-url').innerText = url;
-        new QRCode(document.getElementById('qrcode'), { text: url, width: 140, height: 140 });
+        new QRCode(document.getElementById('qrcode'), { text: url, width: 150, height: 150 });
         document.getElementById('admin-btn').style.display = 'block';
-        startCam(); showScreen('screen-player');
+        initCam(); showScreen('screen-player');
     });
     peer.on('connection', c => {
         conn = c;
-        document.getElementById('conn-count').innerText = "1";
-        conn.on('data', data => { if(data.type==='file') { myPhotos.push(data); addHostThumb(data); } });
+        document.getElementById('conn-count').innerText = "ONLINE";
+        // 接続直後に現在の設定を同期
+        setTimeout(() => pushSettings(), 800);
+        conn.on('data', data => {
+            if(data.type==='file') { myPhotos.push(data); addHostThumb(data); }
+        });
     });
 }
 
-function pushSettings() {
-    state.pRem = document.getElementById('h-max').value;
-    state.vRem = document.getElementById('h-vmax').value;
-    state.useDate = document.getElementById('h-date').checked;
-    updateStatus();
-    if(conn && conn.open) conn.send({ type:'config', pMax: state.pRem, vMax: state.vRem, useDate: state.useDate });
-}
-
-// --- プレイヤー ---
 function startPlayer(hid) {
     if(!hid) return;
     state.role = 'player'; state.hostId = hid;
-    startCam(); showScreen('screen-player');
+    initCam(); showScreen('screen-player');
     peer = new Peer();
     peer.on('open', () => {
         conn = peer.connect(hid);
@@ -188,32 +170,72 @@ function startPlayer(hid) {
         });
         conn.on('data', data => {
             if(data.type==='config') {
-                state.pRem = data.pMax; state.vRem = data.vMax; state.useDate = data.useDate;
-                updateStatus();
+                state.pRem = data.pMax; state.vRem = data.vMax; state.useDate = data.useDate; state.ratio = data.ratio;
+                updateUI();
             }
         });
     });
 }
 
-// --- 撮影 ---
+function pushSettings() {
+    state.pRem = document.getElementById('h-max').value;
+    state.vRem = document.getElementById('h-vmax').value;
+    state.useDate = document.getElementById('h-date').checked;
+    state.ratio = document.getElementById('h-ratio').value;
+    updateUI();
+    if(conn && conn.open) conn.send({ type:'config', pMax: state.pRem, vMax: state.vRem, useDate: state.useDate, ratio: state.ratio });
+}
+
+function updateUI() {
+    document.getElementById('p-rem-p').innerText = state.pRem;
+    document.getElementById('p-rem-v').innerText = state.vRem;
+    document.getElementById('v-preview').style.aspectRatio = state.ratio;
+}
+
+// --- カメラ制御 ---
+async function initCam() {
+    if(stream) stream.getTracks().forEach(t => t.stop());
+    stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: state.facingMode, width: { ideal: 1920 } }, 
+        audio: true 
+    });
+    document.getElementById('v-preview').srcObject = stream;
+}
+
+function toggleCamera() {
+    state.facingMode = state.facingMode === 'user' ? 'environment' : 'user';
+    initCam();
+}
+
+function toggleFilter() {
+    const filters = ['', 'contrast(1.2) sepia(0.3)', 'saturate(2)', 'grayscale(1)', 'invert(0.9)'];
+    let v = document.getElementById('v-preview');
+    let idx = filters.indexOf(v.style.filter);
+    v.style.filter = filters[(idx + 1) % filters.length];
+}
+
+// --- アクション ---
 function handleAction() {
     if(state.mode==='photo') capture();
     else record();
 }
 
 function capture() {
-    if(state.pRem <= 0) return alert("上限です");
+    if(state.pRem <= 0) return alert("制限枚数終了");
     const v = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
+    const [rw, rh] = state.ratio.split('/').map(Number);
+    canvas.width = 1080; canvas.height = 1080 * (rh/rw);
     const ctx = canvas.getContext('2d');
+    
+    // フィルター適用
     if(v.style.filter) ctx.filter = v.style.filter;
-    ctx.drawImage(v, 0, 0);
+    ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
     
     if(state.useDate) {
         const d = new Date();
-        ctx.filter = 'none'; ctx.font = "bold 60px monospace"; ctx.fillStyle = "rgba(255,140,0,0.8)";
-        ctx.fillText(`'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`, canvas.width*0.65, canvas.height*0.95);
+        ctx.filter = 'none'; ctx.font = "bold 45px monospace"; ctx.fillStyle = "rgba(255,140,0,0.8)";
+        ctx.fillText(`'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`, canvas.width*0.6, canvas.height*0.95);
     }
     
     const data = canvas.toDataURL('image/jpeg', 0.8);
@@ -221,7 +243,7 @@ function capture() {
     myPhotos.push(file);
     if(conn && conn.open) conn.send(file);
     
-    state.pRem--; updateStatus();
+    state.pRem--; updateUI();
     document.getElementById('last-img').src = data; document.getElementById('last-img').style.display='block';
     const flash = document.getElementById('flash'); flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',100);
 }
@@ -229,7 +251,7 @@ function capture() {
 function record() {
     if(state.isRec) recorder.stop();
     else {
-        if(state.vRem <= 0) return alert("上限です");
+        if(state.vRem <= 0) return alert("制限数終了");
         chunks = []; recorder = new MediaRecorder(stream);
         recorder.ondataavailable = e => chunks.push(e.data);
         recorder.onstop = () => {
@@ -239,7 +261,7 @@ function record() {
                 const file = { type:'file', fType:'vid', data: reader.result };
                 myPhotos.push(file);
                 if(conn && conn.open) conn.send(file);
-                state.vRem--; updateStatus();
+                state.vRem--; updateUI();
             };
             reader.readAsDataURL(blob);
             state.isRec = false; document.getElementById('shutter-btn').classList.remove('is-recording');
@@ -249,39 +271,12 @@ function record() {
     }
 }
 
-// --- 共通UI・アルバム ---
-function updateStatus() {
-    document.getElementById('p-rem-p').innerText = state.pRem;
-    document.getElementById('p-rem-v').innerText = state.vRem;
-}
-
-function openAlbum(targetList = null) {
-    const list = targetList || myPhotos;
-    if(!list.length) return;
-    const wrapper = document.getElementById('swiper-content'); wrapper.innerHTML = '';
-    list.forEach(item => {
-        const slide = document.createElement('div'); slide.className = 'swiper-slide';
-        const el = document.createElement(item.fType==='img'?'img':'video');
-        el.src = item.data; if(item.fType==='vid') el.controls = true;
-        slide.appendChild(el); wrapper.appendChild(slide);
-    });
-    document.getElementById('album-view').style.display = 'flex';
-    if(swiperInst) swiperInst.destroy();
-    swiperInst = new Swiper('.swiper', { initialSlide: list.length-1, on:{ slideChange: function(){ document.getElementById('album-index').innerText = `${this.activeIndex+1} / ${list.length}`; } } });
-    document.getElementById('album-index').innerText = `${list.length} / ${list.length}`;
-}
-
-function closeAlbum() { document.getElementById('album-view').style.display = 'none'; }
-function downloadCurrent() {
-    const item = myPhotos[swiperInst.activeIndex];
-    const a = document.createElement('a'); a.href = item.data; a.download = `gcam_${Date.now()}.${item.fType==='img'?'jpg':'webm'}`; a.click();
-}
-
+// --- ホスト用プレビュー & ダウンロード ---
 function addHostThumb(f) {
     const img = document.createElement('img');
     img.src = f.fType==='img' ? f.data : "https://cdn-icons-png.flaticon.com/512/1179/1179069.png";
-    img.className = 'host-item';
-    img.onclick = () => openAlbum(); // 全体アルバムを開く
+    img.style.width='100%'; img.style.aspectRatio='1'; img.style.objectFit='cover';
+    img.onclick = () => openAlbum();
     document.getElementById('host-gallery').prepend(img);
 }
 
@@ -289,16 +284,32 @@ async function downloadAll() {
     const zip = new JSZip();
     myPhotos.forEach((d, i) => zip.file(`${d.fType}_${i+1}.${d.fType==='img'?'jpg':'webm'}`, d.data.split(',')[1], {base64: true}));
     const c = await zip.generateAsync({type:"blob"});
-    const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "all_photos.zip"; l.click();
+    const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "cam_archive.zip"; l.click();
 }
 
-function toggleFilter() {
-    const filters = ['', 'contrast(1.2) sepia(0.3)', 'saturate(2)', 'grayscale(1)', 'hue-rotate(90deg)'];
-    let current = document.getElementById('v-preview').style.filter;
-    let next = filters[(filters.indexOf(current) + 1) % filters.length];
-    document.getElementById('v-preview').style.filter = next;
+// --- アルバム ---
+function openAlbum() {
+    if(!myPhotos.length) return;
+    const wrapper = document.getElementById('swiper-content'); wrapper.innerHTML = '';
+    myPhotos.forEach(item => {
+        const slide = document.createElement('div'); slide.className = 'swiper-slide';
+        const el = document.createElement(item.fType==='img'?'img':'video');
+        el.src = item.data; if(item.fType==='vid') el.controls = true;
+        slide.appendChild(el); wrapper.appendChild(slide);
+    });
+    document.getElementById('album-view').style.display = 'flex';
+    if(swiperInst) swiperInst.destroy();
+    swiperInst = new Swiper('.swiper', { initialSlide: myPhotos.length-1, on:{ slideChange: function(){ document.getElementById('album-index').innerText = `${this.activeIndex+1} / ${myPhotos.length}`; } } });
+    document.getElementById('album-index').innerText = `${myPhotos.length} / ${myPhotos.length}`;
 }
 
+function closeAlbum() { document.getElementById('album-view').style.display = 'none'; }
+function downloadCurrent() {
+    const item = myPhotos[swiperInst.activeIndex];
+    const a = document.createElement('a'); a.href = item.data; a.download = `photo_${Date.now()}.${item.fType==='img'?'jpg':'webm'}`; a.click();
+}
+
+// --- UI操作 ---
 function setMode(m) {
     state.mode = m;
     document.getElementById('m-photo').className = m==='photo'?'active':'';
