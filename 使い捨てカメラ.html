@@ -3,85 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Cam Ultimate</title>
+    <title>Gutti Cam Ultimate Full</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root { --bg: #000; --accent: #ffae00; --ui-bg: rgba(20, 20, 20, 0.9); }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; }
-        .screen { display: none; height: 100vh; flex-direction: column; box-sizing: border-box; }
+        :root { --bg: #000; --accent: #ffae00; --ui-bg: rgba(0, 0, 0, 0.7); }
+        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
+        .screen { display: none; height: 100%; width: 100%; flex-direction: column; box-sizing: border-box; overflow: hidden; position: absolute; inset: 0; }
         .active { display: flex; }
 
         /* セットアップ画面 */
-        #screen-main { padding: 40px 20px; background: #1a1a1a; justify-content: center; }
-        .card { background: #2a2a2a; padding: 20px; border-radius: 20px; margin-bottom: 20px; text-align: center; border: 1px solid #333; }
+        #screen-main { padding: 20px; background: #1a1a1a; justify-content: center; align-items: center; z-index: 100; }
+        .card { background: #2a2a2a; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; border: 1px solid #333; }
         input { width: 85%; padding: 12px; border-radius: 10px; border: none; background: #444; color: #fff; margin: 10px 0; font-size: 16px; }
-        .btn { background: var(--accent); color: #000; border: none; padding: 15px 30px; border-radius: 30px; font-weight: bold; cursor: pointer; }
-        
-        /* ホスト画面 */
-        #screen-host { overflow-y: auto; padding: 20px; background: #1a1a1a; }
-        #qrcode { background: #fff; padding: 15px; display: inline-block; margin: 15px 0; border-radius: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 20px; }
-        .grid img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 8px; border: 1px solid #333; }
+        .btn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; }
 
-        /* カメラ画面 */
-        .cam-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; background: var(--ui-bg); font-size: 14px; }
-        #v-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #000; position: relative; }
-        #v-preview { width: 100%; height: 100%; object-fit: cover; transition: all 0.3s; }
+        /* ホスト画面 */
+        #screen-host { overflow-y: auto; padding: 20px; background: #1a1a1a; display: none; }
+        #qrcode { background: #fff; padding: 10px; display: inline-block; margin: 10px 0; border-radius: 10px; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 15px; }
+        .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; }
+
+        /* カメラ画面：全画面化 */
+        #screen-player { background: #000; }
+        .cam-header { position: absolute; top: 0; left: 0; right: 0; padding: 15px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 20; font-size: 12px; }
+        #v-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+        #v-preview { width: 100%; height: 100%; object-fit: cover; }
         
-        /* 操作パネル */
-        .cam-controls { background: var(--ui-bg); padding: 25px 20px; display: flex; flex-direction: column; align-items: center; gap: 15px; }
-        .shutter-row { display: flex; align-items: center; justify-content: space-around; width: 100%; }
-        .shutter { width: 75px; height: 75px; background: #fff; border: 5px solid #555; border-radius: 50%; outline: none; }
-        .shutter:active { transform: scale(0.92); background: #ddd; }
-        .mini-thumb { width: 50px; height: 50px; border-radius: 8px; border: 2px solid #fff; background: #222; overflow: hidden; }
+        .cam-controls { position: absolute; bottom: 0; left: 0; right: 0; padding: 30px 20px 40px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 20; }
+        .shutter-row { display: flex; align-items: center; justify-content: space-around; width: 100%; max-width: 400px; }
+        .shutter { width: 70px; height: 70px; background: #fff; border: 5px solid rgba(255,255,255,0.3); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        .mini-thumb { width: 45px; height: 45px; border-radius: 5px; border: 2px solid #fff; overflow: hidden; background: #222; }
         .mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
-        /* フィルター設定 */
-        .f-retro { filter: contrast(1.2) saturate(1.4) sepia(0.3); }
+        /* フィルター */
+        .f-retro { filter: contrast(1.1) saturate(1.3) sepia(0.2); }
         .f-mono { filter: grayscale(1); }
         .f-sepia { filter: sepia(1); }
 
         /* ビューアー */
-        #viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
-        #viewer-img { width: 100%; height: auto; flex-grow: 1; object-fit: contain; }
-        .v-tools { padding: 20px; display: flex; justify-content: space-around; background: #1a1a1a; }
-        
-        .status-online { color: #4caf50; font-weight: bold; }
+        #viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 2000; flex-direction: column; }
+        #viewer-img { width: 100%; height: 80%; object-fit: contain; }
     </style>
 </head>
 <body>
 
 <div id="screen-main" class="screen active">
     <div class="card">
-        <h1 style="color:var(--accent); margin:0 0 20px 0;">Gutti Cam Pro</h1>
-        <input type="text" id="in-host-id" placeholder="好きなID (空欄で短縮ID生成)">
+        <h2 style="color:var(--accent); margin:0 0 15px 0;">Gutti Cam Pro</h2>
+        <input type="text" id="in-host-id" placeholder="ID (空欄で自動)">
         <button class="btn" onclick="startHost()">ホストを開始</button>
-    </div>
-    <div class="card">
+        <div style="margin: 15px 0; border-top: 1px solid #444;"></div>
         <input type="text" id="in-join-id" placeholder="参加IDを入力">
         <button class="btn" onclick="startPlayer(document.getElementById('in-join-id').value)" style="background:#555; color:#fff;">参加する</button>
     </div>
 </div>
 
 <div id="screen-host" class="screen">
-    <h2>Host Control</h2>
-    <div class="card" style="text-align:left;">
-        <p>ROOM ID: <strong id="host-id-display" style="color:var(--accent); font-size:1.4rem;">--</strong></p>
-        <div style="text-align:center;"><div id="qrcode"></div></div>
-        <hr style="border:0.5px solid #444;">
-        <div style="line-height:2;">
-            枚数: <input type="number" id="h-max" value="10" style="width:50px"><br>
-            比率: <select id="h-ratio">
-                <option value="1/1">1:1 (Square)</option>
-                <option value="3/4" selected>3:4 (Standard)</option>
-                <option value="9/16">9:16 (Full)</option>
-            </select><br>
-            <label><input type="checkbox" id="h-date" checked> 日付スタンプ</label>
+    <div style="display:flex; justify-content:space-between;">
+        <h3>Host Panel</h3>
+        <button onclick="location.reload()" style="background:none; color:#fff; border:1px solid #fff; border-radius:5px;">Home</button>
+    </div>
+    <div class="card" style="width:100%; box-sizing:border-box;">
+        <p>ROOM ID: <strong id="host-id-display" style="color:var(--accent);">--</strong></p>
+        <div id="qrcode"></div>
+        <div style="font-size:12px; line-height:2;">
+            枚数:<input type="number" id="h-max" value="10" style="width:40px">
+            日付:<input type="checkbox" id="h-date" checked>
+            比率:<select id="h-ratio"><option value="3/4">3:4</option><option value="9/16" selected>9:16</option><option value="1/1">1:1</option></select>
+            <button class="btn" onclick="pushSettings()" style="padding:5px 10px; font-size:10px;">適用</button>
         </div>
-        <button class="btn" onclick="pushSettings()" style="width:100%; margin-top:10px;">設定を同期</button>
-        <button class="btn" onclick="downloadAll()" style="width:100%; margin-top:10px; background:#fff;">Zipで全保存</button>
+        <button class="btn" onclick="downloadAll()" style="width:100%; margin-top:10px; background:#fff;">Zip保存</button>
     </div>
     <div id="host-gallery" class="grid"></div>
 </div>
@@ -89,68 +82,58 @@
 <div id="screen-player" class="screen">
     <div class="cam-header">
         <span id="p-status">● DISCONNECTED</span>
-        <span>LIMIT: <span id="p-remain" style="color:var(--accent); font-weight:bold;">--</span></span>
+        <button onclick="toggleFullScreen()" style="background:rgba(255,255,255,0.2); color:#fff; border:none; border-radius:5px; padding:5px 10px;">全画面</button>
+        <span>LIMIT: <strong id="p-remain">--</strong></span>
     </div>
     <div id="v-container">
         <video id="v-preview" autoplay playsinline muted></video>
     </div>
     <div class="cam-controls">
-        <div style="display:flex; gap:10px; overflow-x:auto; width:100%; padding:5px;">
-            <button class="btn" style="padding:5px 15px; font-size:12px;" onclick="setFilter('none')">Normal</button>
-            <button class="btn" style="padding:5px 15px; font-size:12px; background:#444; color:#fff;" onclick="setFilter('retro')">Retro</button>
-            <button class="btn" style="padding:5px 15px; font-size:12px; background:#444; color:#fff;" onclick="setFilter('mono')">Mono</button>
-            <button class="btn" style="padding:5px 15px; font-size:12px; background:#444; color:#fff;" onclick="setFilter('sepia')">Sepia</button>
+        <div style="display:flex; gap:8px; overflow-x:auto; width:100%; padding:5px;">
+            <button class="btn" style="padding:5px 10px; font-size:10px; background:#444; color:#fff;" onclick="setFilter('none')">通常</button>
+            <button class="btn" style="padding:5px 10px; font-size:10px; background:#444; color:#fff;" onclick="setFilter('retro')">レトロ</button>
+            <button class="btn" style="padding:5px 10px; font-size:10px; background:#444; color:#fff;" onclick="setFilter('mono')">モノクロ</button>
         </div>
         <div class="shutter-row">
             <div class="mini-thumb" onclick="openAlbum()"><img id="last-img" src=""></div>
             <button class="shutter" onclick="capture()"></button>
-            <div style="width:50px; font-size:24px;" onclick="location.href=window.location.pathname">🏠</div>
+            <div style="width:45px; font-size:20px;" onclick="if(confirm('終了しますか？')) location.href=window.location.pathname">🏠</div>
         </div>
     </div>
 </div>
 
 <div id="viewer">
-    <div style="padding:20px; text-align:right; font-size:20px;" onclick="closeViewer()">✕</div>
+    <div style="padding:20px; text-align:right;" onclick="closeViewer()">✕ 戻る</div>
     <img id="viewer-img" src="">
-    <div class="v-tools">
-        <button class="btn" onclick="downloadSingle()">画像を保存</button>
+    <div style="padding:20px; text-align:center;">
+        <button class="btn" onclick="downloadSingle()">この画像を保存</button>
     </div>
 </div>
 
 <script>
-let peer, conn;
-let myPhotos = [];
-let state = { id:'', max:10, remain:10, ratio:'3/4', useDate:true };
+let peer, conn, myPhotos = [], state = { id:'', max:10, remain:10, ratio:'9/16', useDate:true };
 
-// 短いIDを生成 (5桁)
-function generateShortId() {
-    return Math.random().toString(36).substring(2, 7).toUpperCase();
+// ID生成
+const genId = () => Math.random().toString(36).substring(2, 7).toUpperCase();
+
+function toggleFullScreen() {
+    if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(e => alert("全画面表示に失敗しました"));
+    } else {
+        document.exitFullscreen();
+    }
 }
 
-// --- ホスト処理 ---
 async function startHost() {
-    const inputId = document.getElementById('in-host-id').value.trim();
-    const finalId = inputId || generateShortId(); // 入力なければ短縮ID
-    
-    peer = new Peer(finalId);
-    
-    peer.on('open', id => {
-        state.id = id;
-        document.getElementById('host-id-display').innerText = id;
+    const id = document.getElementById('in-host-id').value.trim() || genId();
+    peer = new Peer(id);
+    peer.on('open', resId => {
+        state.id = resId;
+        document.getElementById('host-id-display').innerText = resId;
         showScreen('screen-host');
-        
-        // QR生成: URLを極限まで短く (?j=)
-        const shortUrl = window.location.origin + window.location.pathname + '?j=' + id;
-        const qrContainer = document.getElementById('qrcode');
-        qrContainer.innerHTML = '';
-        new QRCode(qrContainer, {
-            text: shortUrl,
-            width: 200,
-            height: 200,
-            correctLevel: QRCode.CorrectLevel.M // 密度を下げる
-        });
+        const url = window.location.origin + window.location.pathname + '?j=' + resId;
+        new QRCode(document.getElementById('qrcode'), { text: url, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
     });
-
     peer.on('connection', c => {
         conn = c;
         conn.on('data', data => {
@@ -164,10 +147,6 @@ async function startHost() {
         });
         setTimeout(pushSettings, 1000);
     });
-
-    peer.on('error', err => {
-        if(err.type === 'unavailable-id') alert("IDが既に使われています。別のIDにするか空欄にしてください。");
-    });
 }
 
 function pushSettings() {
@@ -177,37 +156,33 @@ function pushSettings() {
     if(conn && conn.open) conn.send({ type:'config', ...state });
 }
 
-// --- カメラ処理 ---
 function startPlayer(hid) {
     if(!hid) return;
-    state.id = hid;
     showScreen('screen-player');
-    
     peer = new Peer();
     peer.on('open', () => {
         conn = peer.connect(hid);
         conn.on('open', () => {
-            const status = document.getElementById('p-status');
-            status.innerText = "● ONLINE";
-            status.className = "status-online";
+            document.getElementById('p-status').innerText = "● ONLINE";
+            document.getElementById('p-status').style.color = "#4caf50";
         });
         conn.on('data', data => {
             if(data.type === 'config') {
-                state.max = data.max;
-                state.remain = data.max;
-                state.useDate = data.useDate;
+                state.max = data.max; state.remain = data.max; state.useDate = data.useDate;
                 document.getElementById('p-remain').innerText = state.remain;
                 document.getElementById('v-preview').style.aspectRatio = data.ratio;
             }
         });
     });
 
-    navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment', width:{ideal:1920} } })
+    // カメラ起動の安定化：制約を最小限に
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
     .then(s => {
         const v = document.getElementById('v-preview');
         v.srcObject = s;
+        v.setAttribute("playsinline", true); // iOS対策
         v.play();
-    }).catch(e => alert("カメラを許可してください"));
+    }).catch(e => alert("カメラを起動できませんでした。ブラウザの設定でカメラを許可してください。"));
 }
 
 function setFilter(f) {
@@ -215,82 +190,66 @@ function setFilter(f) {
 }
 
 function capture() {
-    if(state.remain <= 0) return alert("フィルムがありません");
+    if(state.remain <= 0) return alert("フィルム切れ！");
     const video = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    
-    const [rw, rh] = document.getElementById('v-preview').style.aspectRatio.split('/').map(Number);
-    canvas.width = 1080;
-    canvas.height = 1080 * (rh/rw);
-    
+    const [rw, rh] = (video.style.aspectRatio || "9/16").split('/').map(Number);
+    canvas.width = 1080; canvas.height = 1080 * (rh/rw);
     const ctx = canvas.getContext('2d');
-    const filterClass = video.className;
-    if(filterClass === 'f-retro') ctx.filter = 'contrast(1.2) saturate(1.4) sepia(0.3)';
-    if(filterClass === 'f-mono') ctx.filter = 'grayscale(1)';
-    if(filterClass === 'f-sepia') ctx.filter = 'sepia(1)';
     
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    if(video.className === 'f-retro') ctx.filter = 'contrast(1.1) saturate(1.3) sepia(0.2)';
+    if(video.className === 'f-mono') ctx.filter = 'grayscale(1)';
+    if(video.className === 'f-sepia') ctx.filter = 'sepia(1)';
+    
+    // カバー（全体表示）を考慮して描画
+    const vWidth = video.videoWidth;
+    const vHeight = video.videoHeight;
+    const vRatio = vWidth / vHeight;
+    const cRatio = canvas.width / canvas.height;
+    let sx, sy, sw, sh;
+    if (vRatio > cRatio) { sh = vHeight; sw = vHeight * cRatio; sx = (vWidth - sw) / 2; sy = 0; }
+    else { sw = vWidth; sh = vWidth / cRatio; sx = 0; sy = (vHeight - sh) / 2; }
+    
+    ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     
     if(state.useDate) {
         const d = new Date();
         const dstr = `'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`;
-        ctx.filter = 'none';
-        ctx.font = "bold 45px monospace";
-        ctx.fillStyle = "rgba(255,140,0,0.9)";
-        ctx.fillText(dstr, canvas.width * 0.65, canvas.height * 0.93);
+        ctx.filter = 'none'; ctx.font = "bold 45px monospace"; ctx.fillStyle = "rgba(255,140,0,0.9)";
+        ctx.fillText(dstr, canvas.width * 0.65, canvas.height * 0.95);
     }
-
     const data = canvas.toDataURL('image/jpeg', 0.8);
     state.remain--;
     document.getElementById('p-remain').innerText = state.remain;
     document.getElementById('last-img').src = data;
     myPhotos.push(data);
-    if(conn && conn.open) conn.send({ type:'photo', data: data });
+    if(conn && conn.open) conn.send({ type:'photo', data });
     
-    // シャッター演出
-    const v = document.getElementById('v-container');
-    v.style.opacity = "0";
-    setTimeout(()=> v.style.opacity="1", 80);
+    // フラッシュ演出
+    const vc = document.getElementById('v-container');
+    vc.style.filter = "brightness(3)";
+    setTimeout(() => vc.style.filter = "none", 100);
 }
 
-// --- アルバム/Zip処理 ---
-async function downloadAll() {
-    if(myPhotos.length === 0) return alert("画像がありません");
-    const zip = new JSZip();
-    myPhotos.forEach((data, i) => {
-        zip.file(`pic_${i+1}.jpg`, data.split(',')[1], {base64: true});
-    });
-    const content = await zip.generateAsync({type:"blob"});
-    const link = document.createElement('a');
-    link.href = URL.createObjectURL(content);
-    link.download = `cam_${state.id}.zip`;
-    link.click();
-}
-
-function openViewer(src) {
-    document.getElementById('viewer-img').src = src;
-    document.getElementById('viewer').style.display = 'flex';
-}
-function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
-function openAlbum() {
-    if(myPhotos.length > 0) openViewer(myPhotos[myPhotos.length-1]);
-}
-function downloadSingle() {
-    const a = document.createElement('a');
-    a.href = document.getElementById('viewer-img').src;
-    a.download = `photo_${Date.now()}.jpg`;
-    a.click();
-}
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
+function openViewer(src) { document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'flex'; }
+function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
+function openAlbum() { if(myPhotos.length) openViewer(myPhotos[myPhotos.length-1]); }
+function downloadSingle() { const a = document.createElement('a'); a.href = document.getElementById('viewer-img').src; a.download = `cam_${Date.now()}.jpg`; a.click(); }
+async function downloadAll() {
+    if(!myPhotos.length) return alert("写真なし");
+    const zip = new JSZip();
+    myPhotos.forEach((d, i) => zip.file(`img_${i+1}.jpg`, d.split(',')[1], {base64: true}));
+    const c = await zip.generateAsync({type:"blob"});
+    const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "cam_all.zip"; l.click();
+}
 
-// URLパラメータ解析 (?j=)
 const params = new URLSearchParams(window.location.search);
-const jid = params.get('j') || params.get('join');
-if(jid) startPlayer(jid);
-
+const j = params.get('j') || params.get('join');
+if(j) startPlayer(j);
 </script>
 </body>
 </html>
