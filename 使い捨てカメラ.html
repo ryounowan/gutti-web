@@ -2,293 +2,321 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Cam Max Pro Ultra</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Camera Pro Max</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.css" />
+    <script src="https://cdn.jsdelivr.net/npm/swiper@11/swiper-bundle.min.js"></script>
     <style>
-        :root { --bg: #000; --accent: #ffae00; --ui-bg: rgba(0, 0, 0, 0.85); }
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        :root { --accent: #ffcc00; --bg: #000; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; user-select: none; }
         body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; height: 100dvh; }
-        
+
         .screen { display: none; height: 100dvh; width: 100vw; flex-direction: column; position: fixed; inset: 0; z-index: 10; }
         .screen.active { display: flex !important; }
 
-        /* ホスト画面 */
-        #screen-host { background: #1a1a1a; overflow-y: auto; padding: 20px; z-index: 150; }
-        .card { background: #2a2a2a; padding: 20px; border-radius: 20px; border: 1px solid #333; margin-bottom: 20px; }
-        .url-box { background: #111; padding: 10px; border-radius: 10px; font-size: 11px; word-break: break-all; margin: 10px 0; border: 1px solid #444; color: var(--accent); }
-        .setting-row { display: flex; align-items: center; justify-content: space-between; margin: 10px 0; font-size: 14px; }
-
-        /* カメラ画面 */
-        .cam-header { position: absolute; top: 0; width: 100%; padding: 20px; display: flex; justify-content: space-between; z-index: 50; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); }
-        #v-container { position: absolute; inset: 0; z-index: 5; background: #000; display: flex; align-items: center; justify-content: center; transition: filter 0.1s; }
+        /* iPhone UI Layout */
+        #v-container { position: absolute; top: 12%; height: 68%; width: 100%; display: flex; align-items: center; justify-content: center; background: #000; overflow: hidden; z-index: 5; }
         #v-preview { width: 100%; height: 100%; object-fit: cover; }
         
-        .cam-controls { position: absolute; bottom: 0; width: 100%; padding: 20px 20px 50px; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); z-index: 50; display: flex; flex-direction: column; align-items: center; gap: 15px; }
-        .shutter { width: 80px; height: 80px; background: #fff; border: 6px solid rgba(255,255,255,0.3); border-radius: 50%; outline: none; transition: transform 0.1s; }
-        .shutter:active { transform: scale(0.9); }
-        .shutter.rec { background: #ff4444; border-radius: 15px; animation: pulse 1.5s infinite; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7); } 70% { box-shadow: 0 0 0 15px rgba(255, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 68, 68, 0); } }
+        .cam-top { position: absolute; top: 0; width: 100%; height: 12%; display: flex; justify-content: space-around; align-items: center; background: #000; z-index: 50; padding-top: env(safe-area-inset-top); }
+        .cam-bottom { position: absolute; bottom: 0; width: 100%; height: 20%; background: #000; z-index: 50; display: flex; flex-direction: column; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
+        
+        .mode-slider { display: flex; gap: 20px; margin-top: 5px; font-size: 13px; font-weight: 600; color: #888; }
+        .mode-item.active { color: var(--accent); }
 
-        /* アルバム */
-        #album-overlay { display: none; position: fixed; inset: 0; background: #000; z-index: 500; flex-direction: column; }
-        .album-scroll { flex-grow: 1; overflow-y: auto; padding: 15px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
-        .album-item { width: 100%; aspect-ratio: 1; border-radius: 10px; object-fit: cover; background: #222; border: 1px solid #333; }
+        .shutter-row { width: 100%; display: flex; justify-content: space-around; align-items: center; margin-top: 10px; }
+        .shutter-outer { width: 70px; height: 70px; border-radius: 50%; border: 4px solid #fff; display: flex; align-items: center; justify-content: center; }
+        .shutter-inner { width: 58px; height: 58px; border-radius: 50%; background: #fff; transition: 0.2s; }
+        .shutter-inner.video-mode { background: #ff3b30; }
+        .shutter-inner.is-recording { border-radius: 8px; transform: scale(0.6); }
 
-        .btn-mini { background: #444; border: none; color: #fff; padding: 5px 10px; border-radius: 5px; font-size: 11px; }
+        .thumb-box { width: 45px; height: 45px; border-radius: 8px; overflow: hidden; background: #222; border: 1px solid #444; }
+        .flip-btn { width: 45px; height: 45px; border-radius: 50%; background: rgba(255,255,255,0.1); display: flex; align-items: center; justify-content: center; font-size: 20px; }
+
+        /* Album */
+        #album-view { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
+        .album-top { position: absolute; top: 0; width: 100%; padding: 40px 20px 20px; display: flex; justify-content: space-between; z-index: 1100; background: rgba(0,0,0,0.5); }
+        .swiper { width: 100%; height: 100%; }
+
+        /* Admin */
+        #screen-host { background: #111; overflow-y: auto; padding: 20px; z-index: 150; }
+        .card { background: #222; border-radius: 15px; padding: 15px; margin-bottom: 15px; border: 1px solid #333; }
     </style>
 </head>
 <body>
 
 <div id="screen-main" class="screen active">
-    <div style="text-align:center; padding:40px 20px;">
-        <h1 style="color:var(--accent); letter-spacing: 2px;">GUTTI CAM MAX</h1>
+    <div style="margin: auto; width: 80%; text-align: center;">
+        <h2 style="font-weight: 200; letter-spacing: 4px; color:var(--accent);">GUTTI CAM</h2>
         <div class="card">
-            <input type="text" id="in-host-id" placeholder="ID (空欄で生成)">
-            <button onclick="startHost()" style="width:100%; padding:15px; border-radius:30px; border:none; background:var(--accent); font-weight:bold;">ホストを開始</button>
+            <input type="text" id="in-host-id" placeholder="ホストID(空欄で生成)" style="width:100%; padding:12px; border-radius:8px; border:none; background:#333; color:#fff; margin-bottom:10px;">
+            <button onclick="startHost()" style="width:100%; padding:12px; border-radius:20px; border:none; background:#fff; font-weight:bold;">ホストを開始</button>
         </div>
         <div class="card">
-            <input type="text" id="in-join-id" placeholder="参加ID">
-            <button onclick="startPlayer(document.getElementById('in-join-id').value)" style="width:100%; padding:15px; border-radius:30px; border:none; background:#555; color:#fff; font-weight:bold;">カメラを起動</button>
+            <input type="text" id="in-join-id" placeholder="参加IDを入力" style="width:100%; padding:12px; border-radius:8px; border:none; background:#333; color:#fff; margin-bottom:10px;">
+            <button onclick="startPlayer(document.getElementById('in-join-id').value)" style="width:100%; padding:12px; border-radius:20px; border:none; background:#444; color:#fff;">カメラに参加</button>
+        </div>
+    </div>
+</div>
+
+<div id="screen-player" class="screen">
+    <div class="cam-top">
+        <span style="font-size:18px;">⚡️</span>
+        <span id="p-status" style="font-size:11px; color:#ff3b30;">● OFFLINE</span>
+        <button id="admin-btn" style="display:none; background:none; border:1px solid #fff; color:#fff; border-radius:10px; font-size:10px; padding:2px 8px;" onclick="openHostPanel()">ADMIN</button>
+        <span style="font-size:18px;" onclick="toggleFilter()">◎</span>
+    </div>
+    <div id="v-container">
+        <video id="v-preview" autoplay playsinline muted></video>
+        <div id="flash" style="position:absolute; inset:0; background:#fff; opacity:0; pointer-events:none;"></div>
+    </div>
+    <div class="cam-bottom">
+        <div class="mode-slider">
+            <span id="m-video" onclick="setMode('video')">ビデオ</span>
+            <span id="m-photo" class="active" onclick="setMode('photo')">写真</span>
+            <span style="opacity:0.2">スクエア</span>
+        </div>
+        <div class="shutter-row">
+            <div class="thumb-box" onclick="openAlbum()">
+                <img id="last-img" src="" style="width:100%; height:100%; object-fit:cover; display:none;">
+            </div>
+            <div class="shutter-outer" onclick="handleAction()">
+                <div id="shutter-btn" class="shutter-inner"></div>
+            </div>
+            <div class="flip-btn">🔄</div>
+        </div>
+        <div style="font-size:10px; margin-top:8px; color:#666;">
+            📷 <span id="p-rem-p">0</span> / 🎥 <span id="p-rem-v">0</span>
         </div>
     </div>
 </div>
 
 <div id="screen-host" class="screen">
-    <h3 style="margin-top:0;">Admin Control</h3>
-    <div class="card">
-        <div style="text-align:center;"><div id="qrcode" style="display:inline-block; padding:10px; background:#fff; border-radius:10px;"></div></div>
-        <div class="url-box" id="host-url-display">URL generating...</div>
-        <div class="setting-row">ROOM ID: <b id="host-id-display" style="color:var(--accent)"></b></div>
-        <div class="setting-row">写真上限: <input type="number" id="h-max" value="20" style="width:60px"></div>
-        <div class="setting-row">動画上限: <input type="number" id="h-vmax" value="5" style="width:60px"></div>
-        <div class="setting-row">日付スタンプ: <input type="checkbox" id="h-date" checked></div>
-        <div class="setting-row">比率: <select id="h-ratio"><option value="9/16">9:16</option><option value="3/4">3:4</option><option value="1/1">1:1</option></select></div>
-        <button onclick="pushSettings()" style="width:100%; padding:12px; margin-top:10px; background:var(--accent); border:none; border-radius:10px; font-weight:bold;">設定を全参加者に適用</button>
-        <button onclick="downloadAll()" style="width:100%; padding:12px; margin-top:10px; background:#fff; border:none; border-radius:10px;">全データをZip保存</button>
-        <button onclick="closeHostPanel()" style="width:100%; padding:10px; margin-top:10px; background:#444; border:none; color:#fff; border-radius:10px;">管理を閉じる</button>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Admin Panel</h3>
+        <button onclick="closeHostPanel()" style="padding:5px 15px; border-radius:10px; border:none;">閉じる</button>
     </div>
-    <div id="host-gallery" style="display:grid; grid-template-columns:repeat(3,1fr); gap:5px;"></div>
+    <div class="card" style="text-align:center;">
+        <div id="qrcode" style="display:inline-block; padding:10px; background:#fff; border-radius:10px; margin-bottom:10px;"></div>
+        <div id="host-url" style="font-size:10px; color:var(--accent); word-break:break-all; margin-bottom:10px;"></div>
+        <div style="text-align:left; font-size:13px; border-top:1px solid #333; padding-top:10px;">
+            接続数: <b id="conn-count">0</b> | 写真上限: <input type="number" id="h-max" value="30" style="width:40px; background:none; color:#fff; border:1px solid #444;">
+        </div>
+        <button onclick="pushSettings()" style="width:100%; margin-top:10px; padding:10px; background:var(--accent); border:none; border-radius:10px; font-weight:bold;">設定を同期</button>
+    </div>
+    <div id="host-gallery" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:20px;"></div>
+    <button onclick="downloadAll()" style="width:100%; padding:15px; background:#fff; color:#000; border-radius:10px; border:none; font-weight:bold;">ZIPで一括保存</button>
 </div>
 
-<div id="screen-player" class="screen">
-    <div class="cam-header">
-        <div style="display:flex; align-items:center; gap:8px;">
-            <div id="rec-dot" style="width:10px; height:10px; background:red; border-radius:50%; display:none;"></div>
-            <span id="p-status" style="font-size:10px;">● READY</span>
-        </div>
-        <button id="admin-btn" style="display:none; background:rgba(255,255,255,0.2); border:none; color:#fff; padding:5px 12px; border-radius:20px; font-size:12px;" onclick="openHostPanel()">ADMIN</button>
-        <div style="font-size:11px;">📷 <span id="p-rem-p">0</span> | 🎥 <span id="p-rem-v">0</span></div>
+<div id="album-view">
+    <div class="album-top">
+        <span onclick="closeAlbum()">＜ 戻る</span>
+        <span id="album-index">0 / 0</span>
+        <span onclick="downloadCurrent()">保存</span>
     </div>
-    <div id="v-container"><video id="v-preview" autoplay playsinline muted></video></div>
-    <div class="cam-controls">
-        <div style="display:flex; gap:10px; overflow-x:auto; width:100%; padding:5px;">
-            <button class="btn-mini" onclick="setFilter('none')">通常</button>
-            <button class="btn-mini" onclick="setFilter('retro')">レトロ</button>
-            <button class="btn-mini" onclick="setFilter('vivid')">鮮やか</button>
-            <button class="btn-mini" onclick="setFilter('mono')">モノクロ</button>
-        </div>
-        <div style="display:flex; gap:30px; font-size:12px; font-weight:bold; color:#888;">
-            <span id="m-photo" style="color:var(--accent)" onclick="setMode('photo')">PHOTO</span>
-            <span id="m-video" onclick="setMode('video')">VIDEO</span>
-        </div>
-        <div class="shutter-row">
-            <div class="mini-thumb" style="width:50px; height:50px; border-radius:10px; border:2px solid #fff; overflow:hidden;" onclick="openAlbum()"><img id="last-img" src="" style="width:100%; height:100%; object-fit:cover;"></div>
-            <button id="main-shutter" class="shutter" onclick="handleAction()"></button>
-            <div style="width:50px; text-align:center; opacity:0.3;">🔒</div>
-        </div>
-    </div>
-</div>
-
-<div id="album-overlay">
-    <div style="padding:20px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #222;">
-        <span style="font-weight:bold;">ALBUM</span>
-        <button class="btn-mini" style="padding:10px 20px; background:var(--accent); color:#000;" onclick="closeAlbum()">とじる</button>
-    </div>
-    <div id="album-scroll" class="album-scroll"></div>
+    <div class="swiper"><div class="swiper-wrapper" id="swiper-content"></div></div>
 </div>
 
 <script>
-let peer, conn, stream, recorder, chunks = [], myPhotos = [], state = { role:'', id:'', pMax:20, vMax:5, pRem:20, vRem:5, ratio:'9/16', useDate:true, mode:'photo', isRec:false };
+let peer, conn, stream, recorder, chunks = [], myPhotos = [], sendQueue = [], state = { role:'', id:'', pRem:30, vRem:5, mode:'photo', isRec:false, hostId:'' };
+let swiperInst = null;
 
-// --- 自動フルスクリーン ---
-function goFullScreen() {
-    const doc = window.document.documentElement;
-    if (doc.requestFullscreen) doc.requestFullscreen().catch(()=>{});
-    else if (doc.webkitRequestFullscreen) doc.webkitRequestFullscreen().catch(()=>{});
-}
-
-const showScreen = (id) => {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-};
-
-function saveLocal() { localStorage.setItem('gutti_data', JSON.stringify({ photos: myPhotos, pRem: state.pRem, vRem: state.vRem })); }
-function loadLocal() {
-    const saved = localStorage.getItem('gutti_data');
-    if (saved) {
-        const d = JSON.parse(saved);
-        myPhotos = d.photos; state.pRem = d.pRem; state.vRem = d.vRem;
-        updateStatus();
-        if(myPhotos.length) document.getElementById('last-img').src = myPhotos[myPhotos.length-1].type === 'img' ? myPhotos[myPhotos.length-1].data : '';
+// --- 通信強化: 確実にデータを送るための関数 ---
+function reliableSend(data) {
+    if (conn && conn.open) {
+        conn.send(data);
+    } else {
+        console.log("Queueing data...");
+        sendQueue.push(data); // 接続が切れていたらキューに溜める
+        reconnect();
     }
 }
 
-function updateStatus() {
-    document.getElementById('p-rem-p').innerText = state.pRem;
-    document.getElementById('p-rem-v').innerText = state.vRem;
+function reconnect() {
+    if (state.role === 'player' && state.hostId) {
+        console.log("Attempting to reconnect...");
+        conn = peer.connect(state.hostId);
+        conn.on('open', () => {
+            console.log("Reconnected! Sending queue...");
+            while(sendQueue.length > 0) conn.send(sendQueue.shift());
+            document.getElementById('p-status').innerText = '● ONLINE';
+            document.getElementById('p-status').style.color = '#4caf50';
+        });
+    }
 }
 
-// --- カメラ設定 ---
+// --- カメラ起動 ---
 async function startCam() {
-    try {
-        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 } }, audio: true });
-        document.getElementById('v-preview').srcObject = stream;
-        loadLocal();
-        goFullScreen();
-    } catch (e) { alert("カメラ許可が必要です"); }
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment', width:{ideal:1920} }, audio:true });
+    document.getElementById('v-preview').srcObject = stream;
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(()=>{});
 }
 
-// --- ホスト処理 ---
+// --- ホスト ---
 function startHost() {
-    const id = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2, 7).toUpperCase();
+    const id = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2,7).toUpperCase();
     peer = new Peer(id);
     peer.on('open', resId => {
         state.id = resId; state.role = 'host';
-        document.getElementById('host-id-display').innerText = resId;
         const url = window.location.origin + window.location.pathname + '?j=' + resId;
-        document.getElementById('host-url-display').innerText = url;
+        document.getElementById('host-url').innerText = url;
+        new QRCode(document.getElementById('qrcode'), { text: url, width: 150, height: 150 });
         document.getElementById('admin-btn').style.display = 'block';
-        new QRCode(document.getElementById('qrcode'), { text: url, width: 180, height: 180 });
         startCam(); showScreen('screen-player');
     });
     peer.on('connection', c => {
         conn = c;
-        conn.on('data', data => { if(data.type === 'file') { myPhotos.push(data); saveLocal(); addHostGallery(data); }});
-        setTimeout(pushSettings, 1000);
-    });
-}
-
-function pushSettings() {
-    state.pMax = document.getElementById('h-max').value;
-    state.vMax = document.getElementById('h-vmax').value;
-    state.ratio = document.getElementById('h-ratio').value;
-    state.useDate = document.getElementById('h-date').checked;
-    state.pRem = state.pMax; state.vRem = state.vMax;
-    updateStatus();
-    document.getElementById('v-preview').style.aspectRatio = state.ratio;
-    if(conn && conn.open) conn.send({ type:'config', ...state });
-}
-
-// --- プレイヤー処理 ---
-function startPlayer(hid) {
-    if(!hid) return;
-    state.role = 'player';
-    startCam(); showScreen('screen-player');
-    peer = new Peer();
-    peer.on('open', () => {
-        conn = peer.connect(hid);
-        conn.on('open', () => { document.getElementById('p-status').style.color = "#4caf50"; document.getElementById('p-status').innerText = "● ONLINE"; });
+        let count = parseInt(document.getElementById('conn-count').innerText);
+        document.getElementById('conn-count').innerText = count + 1;
         conn.on('data', data => {
-            if(data.type === 'config') {
-                state.pMax = data.pMax; state.vMax = data.vMax; state.pRem = data.pMax; state.vRem = data.vMax;
-                state.useDate = data.useDate; updateStatus();
-                document.getElementById('v-preview').style.aspectRatio = data.ratio;
-            }
+            if(data.type === 'file') { myPhotos.push(data); addHostGallery(data); }
         });
     });
 }
 
-// --- アクション ---
+function pushSettings() {
+    state.pRem = document.getElementById('h-max').value;
+    document.getElementById('p-rem-p').innerText = state.pRem;
+    if(conn && conn.open) conn.send({ type:'config', pMax: state.pRem });
+}
+
+// --- プレイヤー ---
+function startPlayer(hid) {
+    if(!hid) return;
+    state.role = 'player'; state.hostId = hid;
+    startCam(); showScreen('screen-player');
+    peer = new Peer();
+    peer.on('open', () => {
+        conn = peer.connect(hid);
+        conn.on('open', () => {
+            document.getElementById('p-status').innerText = '● ONLINE';
+            document.getElementById('p-status').style.color = '#4caf50';
+            // 溜まっていたデータを送信
+            while(sendQueue.length > 0) conn.send(sendQueue.shift());
+        });
+        conn.on('data', data => {
+            if(data.type==='config') {
+                state.pRem = data.pMax; document.getElementById('p-rem-p').innerText = data.pMax;
+            }
+        });
+        conn.on('close', () => {
+            document.getElementById('p-status').innerText = '● RECONNECTING';
+            document.getElementById('p-status').style.color = '#ffcc00';
+            reconnect();
+        });
+    });
+}
+
+// --- 撮影処理 ---
 function setMode(m) {
     state.mode = m;
-    document.getElementById('m-photo').style.color = m === 'photo' ? 'var(--accent)' : '#888';
-    document.getElementById('m-video').style.color = m === 'video' ? 'var(--accent)' : '#888';
-    document.getElementById('main-shutter').style.background = m === 'photo' ? '#fff' : '#ff4444';
+    document.getElementById('m-photo').className = m==='photo'?'active':'';
+    document.getElementById('m-video').className = m==='video'?'active':'';
+    document.getElementById('shutter-btn').className = 'shutter-inner ' + (m==='video'?'video-mode':'');
 }
 
 function handleAction() {
-    if (state.mode === 'photo') capturePhoto();
-    else handleVideo();
+    if(state.mode==='photo') capture();
+    else record();
 }
 
-function capturePhoto() {
-    if(state.pRem <= 0) return alert("写真上限");
+function capture() {
+    if(state.pRem <= 0) return alert("上限です");
     const v = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    const [rw, rh] = (v.style.aspectRatio || "9/16").split('/').map(Number);
-    canvas.width = 1080; canvas.height = 1080 * (rh/rw);
+    canvas.width = v.videoWidth; canvas.height = v.videoHeight;
     const ctx = canvas.getContext('2d');
+    if(v.className) ctx.filter = getComputedStyle(v).filter;
+    ctx.drawImage(v, 0, 0);
     
-    if(v.className === 'f-retro') ctx.filter = 'contrast(1.1) saturate(1.4) sepia(0.3)';
-    if(v.className === 'f-mono') ctx.filter = 'grayscale(1)';
-    if(v.className === 'f-vivid') ctx.filter = 'saturate(2) contrast(1.1)';
+    // 日付スタンプ
+    const d = new Date();
+    ctx.filter = 'none'; ctx.font = "bold 60px monospace"; ctx.fillStyle = "rgba(255,140,0,0.8)";
+    ctx.fillText(`'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`, canvas.width*0.7, canvas.height*0.95);
     
-    ctx.drawImage(v, 0, 0, canvas.width, canvas.height);
-    if(state.useDate) {
-        const d = new Date();
-        const dstr = `'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`;
-        ctx.filter = 'none'; ctx.font = "bold 45px monospace"; ctx.fillStyle = "rgba(255,140,0,0.9)";
-        ctx.fillText(dstr, canvas.width * 0.65, canvas.height * 0.95);
-    }
-    const data = canvas.toDataURL('image/jpeg', 0.8);
-    completeFile({ type:'img', data: data });
-    state.pRem--; updateStatus();
+    const data = canvas.toDataURL('image/jpeg', 0.7);
+    const fileObj = { type:'file', fType:'img', data };
+    myPhotos.push(fileObj);
+    reliableSend(fileObj);
     
-    const vc = document.getElementById('v-container');
-    vc.style.filter = "brightness(3)"; setTimeout(() => vc.style.filter = "none", 100);
+    state.pRem--; document.getElementById('p-rem-p').innerText = state.pRem;
+    document.getElementById('last-img').src = data; document.getElementById('last-img').style.display='block';
+    const flash = document.getElementById('flash'); flash.style.opacity='1'; setTimeout(()=>flash.style.opacity='0',100);
 }
 
-function handleVideo() {
+function record() {
     if(state.isRec) recorder.stop();
     else {
-        if(state.vRem <= 0) return alert("動画上限");
         chunks = []; recorder = new MediaRecorder(stream);
         recorder.ondataavailable = e => chunks.push(e.data);
         recorder.onstop = () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const reader = new FileReader();
-            reader.onload = () => { completeFile({ type:'vid', data: reader.result }); state.vRem--; updateStatus(); };
+            reader.onload = () => {
+                const fileObj = { type:'file', fType:'vid', data: reader.result };
+                myPhotos.push(fileObj);
+                reliableSend(fileObj);
+                state.vRem--; document.getElementById('p-rem-v').innerText = state.vRem;
+            };
             reader.readAsDataURL(blob);
-            state.isRec = false; document.getElementById('main-shutter').classList.remove('rec'); document.getElementById('rec-dot').style.display='none';
+            state.isRec = false; document.getElementById('shutter-btn').classList.remove('is-recording');
         };
-        recorder.start(); state.isRec = true; document.getElementById('main-shutter').classList.add('rec'); document.getElementById('rec-dot').style.display='block';
+        recorder.start(); state.isRec = true; document.getElementById('shutter-btn').classList.add('is-recording');
         setTimeout(() => { if(state.isRec) recorder.stop(); }, 180000);
     }
 }
 
-function completeFile(obj) {
-    myPhotos.push(obj); saveLocal();
-    if(obj.type === 'img') document.getElementById('last-img').src = obj.data;
-    if(conn && conn.open) conn.send({ type:'file', ...obj });
+// --- アルバム Swiper ---
+function openAlbum() {
+    if(!myPhotos.length) return;
+    const wrapper = document.getElementById('swiper-content'); wrapper.innerHTML = '';
+    myPhotos.forEach(item => {
+        const slide = document.createElement('div'); slide.className = 'swiper-slide';
+        const el = document.createElement(item.fType==='img'?'img':'video');
+        el.src = item.data; if(item.fType==='vid') el.controls = true;
+        slide.appendChild(el); wrapper.appendChild(slide);
+    });
+    document.getElementById('album-view').style.display = 'flex';
+    if(swiperInst) swiperInst.destroy();
+    swiperInst = new Swiper('.swiper', { initialSlide: myPhotos.length-1, on:{ slideChange: function(){ document.getElementById('album-index').innerText = `${this.activeIndex+1} / ${myPhotos.length}`; } } });
+    document.getElementById('album-index').innerText = `${myPhotos.length} / ${myPhotos.length}`;
 }
 
-// --- アルバム・管理 ---
-function openAlbum() {
-    const box = document.getElementById('album-scroll'); box.innerHTML = '';
-    myPhotos.forEach(item => {
-        let el = document.createElement(item.type === 'img' ? 'img' : 'video');
-        el.src = item.data; el.className = 'album-item'; if(item.type==='vid') el.controls = true;
-        box.prepend(el);
-    });
-    document.getElementById('album-overlay').style.display = 'flex';
+function closeAlbum() { document.getElementById('album-view').style.display = 'none'; }
+function downloadCurrent() {
+    const item = myPhotos[swiperInst.activeIndex];
+    const a = document.createElement('a'); a.href = item.data; a.download = `cam_${Date.now()}.${item.fType==='img'?'jpg':'webm'}`; a.click();
 }
-function closeAlbum() { document.getElementById('album-overlay').style.display = 'none'; }
+
+// --- フィルター ---
+let fIdx = 0;
+const filters = ['', 'contrast(1.2) sepia(0.3)', 'saturate(1.8)', 'grayscale(1)'];
+function toggleFilter() {
+    fIdx = (fIdx + 1) % filters.length;
+    document.getElementById('v-preview').style.filter = filters[fIdx];
+}
+
 function openHostPanel() { document.getElementById('screen-host').classList.add('active'); }
 function closeHostPanel() { document.getElementById('screen-host').classList.remove('active'); }
-function setFilter(f) { document.getElementById('v-preview').className = f === 'none' ? '' : 'f-'+f; }
 function addHostGallery(f) {
-    const el = document.createElement(f.type === 'img' ? 'img' : 'video');
+    const g = document.getElementById('host-gallery');
+    const el = document.createElement(f.fType==='img'?'img':'video');
     el.src = f.data; el.style.width='100%'; el.style.aspectRatio='1'; el.style.objectFit='cover';
-    document.getElementById('host-gallery').prepend(el);
+    g.prepend(el);
 }
 async function downloadAll() {
     const zip = new JSZip();
-    myPhotos.forEach((d, i) => zip.file(`${d.type}_${i+1}.${d.type==='img'?'jpg':'webm'}`, d.data.split(',')[1], {base64: true}));
+    myPhotos.forEach((d, i) => zip.file(`${d.fType}_${i+1}.${d.fType==='img'?'jpg':'webm'}`, d.data.split(',')[1], {base64: true}));
     const c = await zip.generateAsync({type:"blob"});
     const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "cam_all.zip"; l.click();
+}
+
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
 }
 
 const params = new URLSearchParams(window.location.search);
