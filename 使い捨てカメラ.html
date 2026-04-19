@@ -49,7 +49,7 @@
         <h1 style="font-weight: 200; letter-spacing: 5px; color:var(--accent);">GUTTI CAM</h1>
         <div class="card">
             <input type="text" id="in-host-id" placeholder="ホスト名" style="width:100%; padding:15px; border-radius:10px; border:none; background:#333; color:#fff; margin-bottom:10px;">
-            <button onclick="startHost()" style="width:100%; padding:15px; border-radius:30px; border:none; background:#fff; font-weight:bold;">ホストを開始</button>
+            <button onclick="startHost()" style="width:100%; padding:15px; border-radius:30px; border:none; background:#fff; font-weight:bold; color:#000;">ホストを開始</button>
         </div>
         <div class="card">
             <input type="text" id="in-join-id" placeholder="参加IDを入力" style="width:100%; padding:15px; border-radius:10px; border:none; background:#333; color:#fff; margin-bottom:10px;">
@@ -93,7 +93,7 @@
 <div id="screen-host" class="screen">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h3 style="margin:0;">Settings</h3>
-        <button onclick="closeHostPanel()" style="padding:6px 15px; border-radius:10px; border:none; background:#fff;">Close</button>
+        <button onclick="closeHostPanel()" style="padding:6px 15px; border-radius:10px; border:none; background:#fff; color:#000;">Close</button>
     </div>
     <div class="card">
         <div id="qrcode" style="text-align:center; padding:10px; background:#fff; border-radius:10px; margin-bottom:10px; width:100%;"></div>
@@ -138,10 +138,10 @@ async function saveState() {
 }
 
 async function loadState() {
-    const pRem = await db.config.get('pRem');
-    const vRem = await db.config.get('vRem');
-    if (pRem) state.pRem = pRem.value;
-    if (vRem) state.vRem = vRem.value;
+    const p1 = await db.config.get('pRem');
+    const v1 = await db.config.get('vRem');
+    if (p1) state.pRem = p1.value;
+    if (v1) state.vRem = v1.value;
     myPhotos = await db.files.toArray();
     if (myPhotos.length > 0) {
         updateThumb(myPhotos[myPhotos.length-1]);
@@ -156,25 +156,27 @@ function goFull() {
 }
 
 async function clearAllData() {
-    if(!confirm("全ての写真と動画を削除しますか？")) return;
+    if(!confirm("全て削除しますか？")) return;
     await db.files.clear(); await db.config.clear(); location.reload();
 }
 
-// --- カメラ & 撮影 ---
 async function initCam() {
     if(stream) stream.getTracks().forEach(t => t.stop());
-    stream = await navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: state.facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }, 
-        audio: true 
-    });
-    document.getElementById('v-preview').srcObject = stream;
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({ 
+            video: { facingMode: state.facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } }, 
+            audio: true 
+        });
+        document.getElementById('v-preview').srcObject = stream;
+    } catch(e) { alert("カメラの起動に失敗しました"); }
 }
 
 function capture() {
     if(state.pRem <= 0) return alert("枚数上限です");
     const v = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    const [rw, rh] = state.ratio.split('/').map(Number);
+    const rSplit = state.ratio.split('/');
+    const rw = Number(rSplit[0]), rh = Number(rSplit[1]);
     const targetAspect = rw / rh;
     const videoAspect = v.videoWidth / v.videoHeight;
     
@@ -205,12 +207,12 @@ function capture() {
 }
 
 function record() {
-    if(state.isRec) recorder.stop();
-    else {
+    if(state.isRec) {
+        recorder.stop();
+    } else {
         if(state.vRem <= 0) return alert("動画の上限です");
         chunks = []; 
-        // フィルターを録画に乗せるための暫定処理（Stream取得）
-        recorder = new MediaRecorder(stream, { mimeType: 'video/webm;codecs=vp8' });
+        recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
         recorder.ondataavailable = e => chunks.push(e.data);
         recorder.onstop = () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
@@ -232,13 +234,13 @@ async function saveFile(file) {
     if(conn && conn.open) conn.send({ type:'file', ...saved });
 }
 
-// --- 通信 ---
 function startHost() {
-    const id = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2,7).toUpperCase();
-    peer = new Peer(id);
+    const hid = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2,7).toUpperCase();
+    peer = new Peer(hid);
     peer.on('open', resId => {
         state.role = 'host';
         const url = window.location.origin + window.location.pathname + '?j=' + resId;
+        document.getElementById('qrcode').innerHTML = "";
         new QRCode(document.getElementById('qrcode'), { text: url, width: 140, height: 140 });
         document.getElementById('admin-btn').style.display = 'block';
         initCam(); showScreen('screen-player');
@@ -251,6 +253,7 @@ function startHost() {
 }
 
 function startPlayer(hid) {
+    if(!hid) return alert("IDを入力してください");
     state.role = 'player'; state.hostId = hid;
     initCam(); showScreen('screen-player');
     peer = new Peer();
@@ -283,19 +286,16 @@ function updateUI() {
     document.getElementById('p-rem-v').innerText = state.vRem;
     const v = document.getElementById('v-preview');
     v.style.aspectRatio = state.ratio;
-    v.style.objectFit = "cover";
 }
 
-// --- UI その他 ---
 function handleAction() { if(state.mode==='photo') capture(); else record(); }
 
 function toggleFilter() {
-    const filters = ['', 'contrast(1.2) sepia(0.3)', 'saturate(2)', 'grayscale(1)', 'hue-rotate(90deg)'];
+    const flist = ['', 'contrast(1.2) sepia(0.3)', 'saturate(2)', 'grayscale(1)', 'hue-rotate(90deg)'];
     let v = document.getElementById('v-preview');
-    let current = v.style.filter || '';
-    let idx = filters.indexOf(current);
-    v.style.filter = filters[(idx + 1) % filters.length];
-    document.getElementById('filter-icon').style.color = v.style.filter ? var(--accent) : '#fff';
+    let cur = v.style.filter || '';
+    let nextIdx = (flist.indexOf(cur) + 1) % flist.length;
+    v.style.filter = flist[nextIdx];
 }
 
 function updateThumb(f) {
@@ -314,22 +314,21 @@ function addHostThumb(f) {
 
 function openAlbum() {
     if(!myPhotos.length) return;
-    const wrapper = document.getElementById('swiper-content'); wrapper.innerHTML = '';
+    const wrap = document.getElementById('swiper-content'); wrap.innerHTML = '';
     myPhotos.forEach(item => {
         const slide = document.createElement('div'); slide.className = 'swiper-slide';
         const el = document.createElement(item.fType==='img' ? 'img' : 'video');
         el.src = item.data; if(item.fType==='vid') el.controls = true;
-        slide.appendChild(el); wrapper.appendChild(slide);
+        slide.appendChild(el); wrap.appendChild(slide);
     });
     document.getElementById('album-view').style.display = 'flex';
     if(swiperInst) swiperInst.destroy();
-    swiperInst = new Swiper('.swiper', { initialSlide: myPhotos.length-1, on:{ slideChange: function(){ document.getElementById('album-index').innerText = `${this.activeIndex+1} / ${myPhotos.length}`; } } });
-    document.getElementById('album-index').innerText = `${myPhotos.length} / ${myPhotos.length}`;
+    swiperInst = new Swiper('.swiper', { initialSlide: myPhotos.length-1, on:{ slideChange: function(){ document.getElementById('album-index').innerText = (this.activeIndex+1) + " / " + myPhotos.length; } } });
 }
 
 async function downloadAll() {
     const zip = new JSZip();
-    myPhotos.forEach((d, i) => zip.file(`${d.fType}_${i+1}.${d.fType==='img'?'jpg':'webm'}`, d.data.split(',')[1], {base64: true}));
+    myPhotos.forEach((d, i) => zip.file(d.fType + "_" + i + (d.fType==='img'?'.jpg':'.webm'), d.data.split(',')[1], {base64: true}));
     const c = await zip.generateAsync({type:"blob"});
     const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "cam_archive.zip"; l.click();
 }
@@ -340,11 +339,11 @@ function showScreen(id) { document.querySelectorAll('.screen').forEach(s => s.cl
 function closeAlbum() { document.getElementById('album-view').style.display = 'none'; }
 function openHostPanel() { document.getElementById('screen-host').classList.add('active'); }
 function closeHostPanel() { document.getElementById('screen-host').classList.remove('active'); }
-function downloadCurrent() { const item = myPhotos[swiperInst.activeIndex]; const a = document.createElement('a'); a.href = item.data; a.download = `file_${Date.now()}.${item.fType==='img'?'jpg':'webm'}`; a.click(); }
+function downloadCurrent() { const item = myPhotos[swiperInst.activeIndex]; const a = document.createElement('a'); a.href = item.data; a.download = "file_" + Date.now() + (item.fType==='img'?'.jpg':'.webm'); a.click(); }
 
 window.onload = loadState;
-const params = new URLSearchParams(window.location.search);
-if(params.get('j')) startPlayer(params.get('j'));
+const urlP = new URLSearchParams(window.location.search);
+if(urlP.get('j')) startPlayer(urlP.get('j'));
 </script>
 </body>
 </html>
