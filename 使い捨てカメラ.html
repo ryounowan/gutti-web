@@ -45,14 +45,14 @@
 
 <div id="screen-main" class="screen active">
     <div style="margin: auto; width: 85%; text-align: center;">
-        <h1 id="user-display" style="font-weight: 200; letter-spacing: 5px; color:#ffcc00;">GUTTI CAM</h1>
+        <h1 style="font-weight: 200; letter-spacing: 5px; color:#ffcc00;">GUTTI CAM</h1>
         <div class="card">
             <input type="text" id="in-host-id" placeholder="ID" style="width:100%; padding:15px; border-radius:10px; border:none; background:#333; color:#fff; margin-bottom:10px;">
-            <button onclick="startHost()" style="width:100%; padding:15px; border-radius:30px; border:none; background:#fff; font-weight:bold; color:#000;">ホストを開始</button>
+            <button onclick="checkIdAndStart('host')" style="width:100%; padding:15px; border-radius:30px; border:none; background:#fff; font-weight:bold; color:#000;">ホストを開始</button>
         </div>
         <div class="card">
             <input type="text" id="in-join-id" placeholder="参加IDを入力" style="width:100%; padding:15px; border-radius:10px; border:none; background:#333; color:#fff; margin-bottom:10px;">
-            <button onclick="startPlayer(document.getElementById('in-join-id').value)" style="width:100%; padding:15px; border-radius:30px; border:none; background:#444; color:#fff;">カメラに参加</button>
+            <button onclick="checkIdAndStart('player')" style="width:100%; padding:15px; border-radius:30px; border:none; background:#444; color:#fff;">カメラに参加</button>
         </div>
     </div>
 </div>
@@ -107,7 +107,7 @@
             <div style="display:flex; justify-content:space-between;">写真上限: <input type="number" id="h-max" value="30" onchange="pushSettings()" style="width:50px; background:#111; color:#fff; border:1px solid #444;"></div>
             <div style="display:flex; justify-content:space-between;">動画上限: <input type="number" id="h-vmax" value="5" onchange="pushSettings()" style="width:50px; background:#111; color:#fff; border:1px solid #444;"></div>
             <div style="display:flex; justify-content:space-between;">日付スタンプ: <input type="checkbox" id="h-date" checked onchange="pushSettings()"></div>
-            <button onclick="clearData()" style="color:#ff3b30; background:none; border:none; font-size:12px; text-decoration:underline;">全データを消去してリセット</button>
+            <button onclick="clearAllDataManually()" style="color:#ff3b30; background:none; border:none; font-size:12px; text-decoration:underline;">手動で全データを消去</button>
         </div>
     </div>
     <div id="host-gallery" style="display:grid; grid-template-columns:repeat(3,1fr); gap:4px; margin-bottom:15px;"></div>
@@ -130,25 +130,43 @@ db.version(1).stores({ files: "++id, fType, data", config: "key, value" });
 let peer, conn, stream, recorder, chunks = [], myPhotos = [], state = { role:'', id:'', pRem:30, vRem:5, mode:'photo', isRec:false, hostId:'', facingMode:'environment', useDate:true, ratio:'9/16' };
 let swiperInst = null;
 
-// 枚数とデータを保存
+// IDが変わったかチェックして開始
+async function checkIdAndStart(role) {
+    const inputId = (role === 'host') ? 
+        (document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2,7).toUpperCase()) : 
+        document.getElementById('in-join-id').value.trim();
+
+    if (!inputId && role === 'player') return alert("参加IDを入力してください");
+
+    const lastIdData = await db.config.get('lastSessionId');
+    const lastId = lastIdData ? lastIdData.value : null;
+
+    // IDが前回と違う場合、データを全消去
+    if (lastId && lastId !== inputId) {
+        console.log("IDが変わったためデータをリセットします");
+        await db.files.clear();
+        await db.config.clear();
+        state.pRem = 30; state.vRem = 5; // 枚数も初期値へ
+    }
+
+    // 新しいIDを保存
+    await db.config.put({ key: 'lastSessionId', value: inputId });
+    
+    if (role === 'host') startHost(inputId);
+    else startPlayer(inputId);
+}
+
 async function saveProgress() {
     await db.config.put({ key: 'pRem', value: state.pRem });
     await db.config.put({ key: 'vRem', value: state.vRem });
 }
 
-// 起動時に枚数と写真データを復元
 async function loadSavedData() {
     const pSave = await db.config.get('pRem');
     const vSave = await db.config.get('vRem');
-    
-    // 前回の残り枚数があれば復元。なければデフォルト
     if (pSave !== undefined) state.pRem = pSave.value;
     if (vSave !== undefined) state.vRem = vSave.value;
     
-    // ホスト側の入力欄に前回の値をセットしておく（同期用）
-    document.getElementById('h-max').value = state.pRem;
-    document.getElementById('h-vmax').value = state.vRem;
-
     myPhotos = await db.files.toArray();
     if (myPhotos.length > 0) {
         updateThumb(myPhotos[myPhotos.length-1]);
@@ -157,8 +175,8 @@ async function loadSavedData() {
     updateUI();
 }
 
-function clearData() {
-    if(confirm("全ての写真・動画データと残り枚数カウントを初期化しますか？")) {
+function clearAllDataManually() {
+    if(confirm("手動で全データを削除しますか？")) {
         db.files.clear(); db.config.clear(); location.reload();
     }
 }
@@ -171,7 +189,7 @@ async function initCam() {
             audio: true 
         });
         document.getElementById('v-preview').srcObject = stream;
-    } catch(e) { alert("カメラの起動に失敗しました。設定を確認してください。"); }
+    } catch(e) { alert("カメラエラー。ブラウザの権限を確認してください。"); }
 }
 
 function capture() {
@@ -241,8 +259,7 @@ async function saveFile(file) {
     if(conn && conn.open) conn.send({ type:'file', fType:file.fType, data:file.data });
 }
 
-function startHost() {
-    const hid = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2,7).toUpperCase();
+function startHost(hid) {
     peer = new Peer(hid);
     peer.on('open', id => {
         state.role = 'host';
@@ -265,7 +282,6 @@ function startHost() {
 }
 
 function startPlayer(hid) {
-    if(!hid) return alert("IDを入力してください");
     state.role = 'player'; state.hostId = hid;
     initCam(); showScreen('screen-player');
     peer = new Peer();
@@ -291,7 +307,7 @@ function pushSettings() {
     state.vRem = document.getElementById('h-vmax').value;
     state.useDate = document.getElementById('h-date').checked;
     updateUI();
-    saveProgress(); // ホストが設定変更した際も保存
+    saveProgress();
     if(conn && conn.open) conn.send({ type:'config', pMax:state.pRem, vMax:state.vRem, useDate:state.useDate, ratio:state.ratio });
 }
 
@@ -364,8 +380,16 @@ function closeHostPanel() { document.getElementById('screen-host').classList.rem
 function downloadCurrent() { const item = myPhotos[swiperInst.activeIndex]; const a = document.createElement('a'); a.href = item.data; a.download = "file_" + Date.now() + (item.fType==='img'?'.jpg':'.webm'); a.click(); }
 
 window.onload = loadSavedData;
+
+// URLに?j=IDが含まれている場合、自動的にIDチェックに回す
 const urlP = new URLSearchParams(window.location.search);
-if(urlP.get('j')) startPlayer(urlP.get('j'));
+const joinId = urlP.get('j');
+if(joinId) {
+    setTimeout(() => {
+        document.getElementById('in-join-id').value = joinId;
+        checkIdAndStart('player');
+    }, 500);
+}
 </script>
 </body>
 </html>
