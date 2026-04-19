@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Disposable Cam P2P - Pro</title>
+    <title>Disposable Cam P2P - Pro Fix</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
@@ -11,27 +11,18 @@
         body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow-x: hidden; }
         .screen { display: none; min-height: 100vh; flex-direction: column; padding: 20px; box-sizing: border-box; }
         .active { display: flex; }
-        
-        /* UI Elements */
         .btn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; margin: 10px 0; }
         .btn:disabled { background: #555; cursor: not-allowed; }
         input, select { background: #333; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 8px; margin: 5px 0; }
         .card { background: var(--panel); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-bottom: 20px; }
-        
-        /* Camera */
         #v-container { position: relative; width: 100%; aspect-ratio: 3/4; background: #000; border-radius: 10px; overflow: hidden; }
         #v-preview { width: 100%; height: 100%; object-fit: cover; }
         .filter-mono { filter: grayscale(1); }
         .filter-sepia { filter: sepia(1); }
         .filter-retro { filter: contrast(1.2) saturate(1.5) sepia(0.2); }
-        
         .shutter { width: 70px; height: 70px; background: #fff; border: 5px solid #ff5722; border-radius: 50%; align-self: center; margin: 20px 0; }
-        .shutter:active { transform: scale(0.9); background: #ff5722; }
-
-        /* Gallery */
         .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
         .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; border: 1px solid #444; }
-        
         #qrcode { background: #fff; padding: 10px; display: inline-block; margin: 10px 0; border-radius: 10px; }
         .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #666; margin-right: 5px; }
         .online { background: #4caf50; box-shadow: 0 0 8px #4caf50; }
@@ -98,42 +89,18 @@
 
 <script>
 let peer, conn;
-let state = {
-    role: null,
-    id: '',
-    max: 5,
-    remain: 5,
-    useDate: true,
-    photos: []
-};
+let state = { role: null, id: '', max: 5, remain: 5, useDate: true, photos: [] };
 
-// 起動時チェック
 window.onload = () => {
     const params = new URLSearchParams(window.location.search);
     const joinId = params.get('join');
     if (joinId) startPlayer(joinId);
-    else loadState();
 };
 
-function saveState() { localStorage.setItem('cam_p2p_state', JSON.stringify(state)); }
-function loadState() {
-    const saved = localStorage.getItem('cam_p2p_state');
-    if (saved) {
-        state = JSON.parse(saved);
-        if (state.role === 'player' && state.id) {
-            if(confirm(`前回のルーム「${state.id}」に戻りますか？`)) startPlayer(state.id);
-            else state = { role: null, id: '', max: 5, remain: 5, useDate: true, photos: [] };
-        }
-    }
-}
-
-// --- ホスト処理 ---
 function startHost() {
     const customId = document.getElementById('input-host-id').value.trim();
     document.getElementById('btn-host').disabled = true;
-    
     peer = customId ? new Peer(customId) : new Peer();
-    
     peer.on('open', id => {
         state.role = 'host';
         state.id = id;
@@ -143,13 +110,8 @@ function startHost() {
         document.getElementById('qrcode').innerHTML = '';
         new QRCode(document.getElementById('qrcode'), url);
     });
-
     peer.on('connection', c => {
         conn = c;
-        conn.on('open', () => {
-            updateSettings(false);
-            alert("カメラが接続されました！");
-        });
         conn.on('data', data => {
             if (data.type === 'photo') {
                 addGallery('host-gallery', data.data);
@@ -157,30 +119,23 @@ function startHost() {
             }
         });
     });
-
     peer.on('error', err => {
         alert("エラー: " + err.type);
         document.getElementById('btn-host').disabled = false;
     });
 }
 
-function updateSettings(shout = true) {
+function updateSettings() {
     state.max = parseInt(document.getElementById('set-max').value);
     state.useDate = document.getElementById('set-date').checked;
-    if (conn && conn.open) {
-        conn.send({ type: 'settings', max: state.max, useDate: state.useDate });
-        if(shout) alert("設定を送信しました。");
-    }
+    if (conn && conn.open) conn.send({ type: 'settings', max: state.max, useDate: state.useDate });
 }
 
-// --- カメラ処理 ---
 function startPlayer(hostId) {
     if (!hostId) return alert("IDを入力してください。");
     state.id = hostId;
     state.role = 'player';
     showScreen('screen-player');
-    renderLocalPhotos();
-
     peer = new Peer();
     peer.on('open', () => {
         conn = peer.connect(hostId);
@@ -192,46 +147,26 @@ function startPlayer(hostId) {
             if (data.type === 'settings') {
                 state.max = data.max;
                 state.useDate = data.useDate;
-                // 初回接続またはホスト側でのリセット時のみ枚数を更新
-                if(state.remain > state.max || state.remain === 5) {
-                    state.remain = state.max;
-                }
+                state.remain = data.max;
                 document.getElementById('p-remain').innerText = state.remain;
-                saveState();
             }
         });
     });
-
     navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(stream => { document.getElementById('v-preview').srcObject = stream; })
-    .catch(() => alert("カメラを許可してください。"));
-}
-
-function changeFilter() {
-    const f = document.getElementById('p-filter').value;
-    document.getElementById('v-preview').className = f === 'none' ? '' : 'filter-' + f;
+    .then(stream => { document.getElementById('v-preview').srcObject = stream; });
 }
 
 function capturePhoto() {
-    if (state.remain <= 0) return alert("フィルム切れです！");
-    if (!conn || !conn.open) return alert("ホストと未接続です。");
-
+    if (state.remain <= 0) return alert("フィルム切れ！");
     const video = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
     const ctx = canvas.getContext('2d');
-
-    // フィルター反映
     const f = document.getElementById('p-filter').value;
     if(f === 'retro') ctx.filter = 'contrast(1.2) saturate(1.5) sepia(0.2)';
     if(f === 'mono') ctx.filter = 'grayscale(1)';
     if(f === 'sepia') ctx.filter = 'sepia(1)';
-
     ctx.drawImage(video, 0, 0);
-    ctx.filter = 'none';
-
-    // 日付スタンプ
     if (state.useDate) {
         const now = new Date();
         const dateStr = `'${now.getFullYear().toString().slice(-2)} ${now.getMonth()+1} ${now.getDate()}`;
@@ -239,22 +174,16 @@ function capturePhoto() {
         ctx.fillStyle = "rgba(255,100,0,0.8)";
         ctx.fillText(dateStr, canvas.width*0.7, canvas.height*0.95);
     }
-
     const data = canvas.toDataURL('image/jpeg', 0.7);
     state.photos.push(data);
     state.remain--;
     document.getElementById('p-remain').innerText = state.remain;
-    
-    conn.send({ type: 'photo', data: data });
+    if (conn && conn.open) conn.send({ type: 'photo', data: data });
     addGallery('p-gallery', data);
-    saveState();
-
-    // 撮影エフェクト
     document.body.style.background = "#fff";
-    setTimeout(() => document.body.style.background = var(--bg), 50);
+    setTimeout(() => document.body.style.background = "#121212", 50);
 }
 
-// --- 共通UI ---
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
@@ -267,15 +196,8 @@ function addGallery(id, src) {
     g.prepend(img);
 }
 
-function renderLocalPhotos() {
-    const g = document.getElementById('p-gallery');
-    g.innerHTML = '';
-    state.photos.forEach(p => addGallery('p-gallery', p));
-}
-
 function toggleAlbum() {
-    const s = document.getElementById('screen-album');
-    s.classList.toggle('active');
+    document.getElementById('screen-album').classList.toggle('active');
 }
 </script>
 </body>
