@@ -3,202 +3,261 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Disposable Cam P2P - Pro Fix</title>
+    <title>Ultimate Disposable Cam</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root { --bg: #121212; --panel: #1e1e1e; --accent: #ff9800; --text: #e0e0e0; }
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow-x: hidden; }
-        .screen { display: none; min-height: 100vh; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        :root { --bg: #000; --accent: #ffae00; --ui-bg: rgba(20, 20, 20, 0.8); }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; }
+        .screen { display: none; height: 100vh; flex-direction: column; box-sizing: border-box; }
         .active { display: flex; }
-        .btn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; margin: 10px 0; }
-        .btn:disabled { background: #555; cursor: not-allowed; }
-        input, select { background: #333; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 8px; margin: 5px 0; }
-        .card { background: var(--panel); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-bottom: 20px; }
-        #v-container { position: relative; width: 100%; aspect-ratio: 3/4; background: #000; border-radius: 10px; overflow: hidden; }
-        #v-preview { width: 100%; height: 100%; object-fit: cover; }
-        .filter-mono { filter: grayscale(1); }
-        .filter-sepia { filter: sepia(1); }
-        .filter-retro { filter: contrast(1.2) saturate(1.5) sepia(0.2); }
-        .shutter { width: 70px; height: 70px; background: #fff; border: 5px solid #ff5722; border-radius: 50%; align-self: center; margin: 20px 0; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-        .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; border: 1px solid #444; }
-        #qrcode { background: #fff; padding: 10px; display: inline-block; margin: 10px 0; border-radius: 10px; }
-        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #666; margin-right: 5px; }
-        .online { background: #4caf50; box-shadow: 0 0 8px #4caf50; }
+
+        /* Setup Screen */
+        #screen-main { padding: 40px 20px; background: #1a1a1a; justify-content: center; }
+        .card { background: #2a2a2a; padding: 20px; border-radius: 20px; margin-bottom: 20px; text-align: center; }
+        input { width: 80%; padding: 12px; border-radius: 10px; border: none; background: #444; color: #fff; margin: 10px 0; }
+        .btn { background: var(--accent); color: #000; border: none; padding: 15px 30px; border-radius: 30px; font-weight: bold; font-size: 1rem; cursor: pointer; }
+
+        /* Camera UI */
+        #screen-player { justify-content: space-between; padding-bottom: 40px; }
+        .cam-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; background: var(--ui-bg); z-index: 10; }
+        #v-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #111; position: relative; }
+        #v-preview { width: 100%; height: 100%; object-fit: cover; transition: aspect-ratio 0.3s; }
+        
+        .cam-controls { background: var(--ui-bg); padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+        .shutter-row { display: flex; align-items: center; justify-content: space-around; width: 100%; }
+        .shutter { width: 80px; height: 80px; background: #fff; border: 6px solid #444; border-radius: 50%; outline: none; transition: 0.1s; }
+        .shutter:active { transform: scale(0.9); background: #ccc; }
+        .mini-thumb { width: 50px; height: 50px; border-radius: 10px; border: 2px solid #fff; background: #333; overflow: hidden; }
+        .mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Filter & Ratio Effects */
+        .f-retro { filter: contrast(1.2) saturate(1.4) sepia(0.3); }
+        .f-mono { filter: grayscale(1); }
+        .f-sepia { filter: sepia(1); }
+
+        /* Host Panel */
+        #screen-host { overflow-y: auto; padding: 20px; background: #1a1a1a; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+        .grid img { width: 100%; aspect-ratio: 1/1; object-fit: cover; border-radius: 10px; }
+
+        /* Modal / Viewer */
+        #viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
+        #viewer img { width: 100%; height: auto; flex-grow: 1; object-fit: contain; }
+        .v-tools { padding: 20px; display: flex; justify-content: space-around; background: rgba(30,30,30,0.9); }
     </style>
 </head>
 <body>
 
 <div id="screen-main" class="screen active">
-    <h1 style="text-align:center; color:var(--accent);">Gutti Disposable Cam</h1>
     <div class="card">
-        <h3>ホスト(管理側)</h3>
-        <input type="text" id="input-host-id" placeholder="ルームID(空欄で自動生成)" style="width: 100%; box-sizing: border-box;">
-        <button class="btn" id="btn-host" onclick="startHost()" style="width: 100%;">ルームを作成する</button>
+        <h1 style="color:var(--accent); margin-top:0;">Gutti Cam Pro</h1>
+        <input type="text" id="in-host-id" placeholder="ルームID（空欄で自動）">
+        <button class="btn" onclick="startHost()">ホストを開始</button>
     </div>
     <div class="card">
-        <h3>参加(カメラ側)</h3>
-        <input type="text" id="input-join-id" placeholder="ホストIDを入力" style="width: 100%; box-sizing: border-box;">
-        <button class="btn" onclick="startPlayer(document.getElementById('input-join-id').value)" style="width: 100%; background: #555; color: #fff;">参加する</button>
+        <input type="text" id="in-join-id" placeholder="参加IDを入力">
+        <button class="btn" onclick="startPlayer(document.getElementById('in-join-id').value)" style="background:#666; color:#fff;">参加する</button>
     </div>
 </div>
 
 <div id="screen-host" class="screen">
-    <h2>HOST PANEL</h2>
-    <div class="card">
-        <p>ROOM ID: <strong id="display-id" style="color:var(--accent);">---</strong></p>
+    <h2>Host Control</h2>
+    <div class="card" style="text-align:left;">
+        <p>ID: <strong id="host-id-display">--</strong></p>
         <div id="qrcode"></div>
-        <div>
-            枚数: <input type="number" id="set-max" value="5" style="width:50px"> 
-            日付: <input type="checkbox" id="set-date" checked>
-            <button class="btn" onclick="updateSettings()" style="padding: 5px 15px;">設定反映</button>
-        </div>
+        <hr>
+        <label>枚数: <input type="number" id="h-max" value="10" style="width:50px"></label><br>
+        <label>比率: 
+            <select id="h-ratio">
+                <option value="1/1">1:1 (正方形)</option>
+                <option value="3/4" selected>3:4 (標準)</option>
+                <option value="9/16">9:16 (縦長)</option>
+            </select>
+        </label><br>
+        <label><input type="checkbox" id="h-date" checked> 日付刻印</label>
+        <button class="btn" onclick="pushSettings()" style="width:100%; margin-top:10px;">設定を全カメラに適用</button>
+        <button class="btn" onclick="downloadAll()" style="width:100%; margin-top:10px; background:#fff;">全画像をZip保存</button>
     </div>
-    <h3>集計アルバム (<span id="host-count">0</span>枚)</h3>
     <div id="host-gallery" class="grid"></div>
 </div>
 
 <div id="screen-player" class="screen">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <div><span id="dot" class="status-dot"></span><span id="p-status">接続中...</span></div>
-        <div style="font-weight:bold;">REMAINING: <span id="p-remain" style="color:var(--accent);">--</span></div>
+    <div class="cam-header">
+        <span id="p-status">● DISCONNECTED</span>
+        <span style="font-weight:bold;">LIMIT: <span id="p-remain">--</span></span>
     </div>
     <div id="v-container">
         <video id="v-preview" autoplay playsinline muted></video>
     </div>
-    <div style="display:flex; justify-content:space-around; align-items:center; margin-top:10px;">
-        <select id="p-filter" onchange="changeFilter()">
-            <option value="none">Normal</option>
-            <option value="retro">Retro</option>
-            <option value="mono">Mono</option>
-            <option value="sepia">Sepia</option>
-        </select>
-        <div class="shutter" onclick="capturePhoto()"></div>
-        <button class="btn" onclick="toggleAlbum()" style="background:#444; color:#fff; border-radius:10px;">Album</button>
+    <div class="cam-controls">
+        <div style="display:flex; gap:10px; overflow-x:auto; width:100%; padding-bottom:5px;">
+            <button onclick="setFilter('none')">Normal</button>
+            <button onclick="setFilter('retro')">Retro</button>
+            <button onclick="setFilter('mono')">Mono</button>
+            <button onclick="setFilter('sepia')">Sepia</button>
+        </div>
+        <div class="shutter-row">
+            <div class="mini-thumb" onclick="openAlbum()"><img id="last-img" src=""></div>
+            <button class="shutter" onclick="capture()"></button>
+            <div style="width:50px; text-align:center;" onclick="location.reload()">🔄</div>
+        </div>
     </div>
 </div>
 
-<div id="screen-album" class="screen">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
-        <h2>YOUR PHOTOS</h2>
-        <button class="btn" onclick="toggleAlbum()" style="background:#fff; color:#000;">戻る</button>
+<div id="viewer">
+    <div style="padding:15px; text-align:right;" onclick="closeViewer()">✕ 閉じる</div>
+    <img id="viewer-img" src="">
+    <div class="v-tools">
+        <button class="btn" id="dl-link" onclick="downloadSingle()">保存する</button>
     </div>
-    <div id="p-gallery" class="grid"></div>
 </div>
 
 <script>
 let peer, conn;
-let state = { role: null, id: '', max: 5, remain: 5, useDate: true, photos: [] };
+let myPhotos = [];
+let state = { id:'', max:10, remain:10, ratio:'3/4', useDate:true };
 
-window.onload = () => {
-    const params = new URLSearchParams(window.location.search);
-    const joinId = params.get('join');
-    if (joinId) startPlayer(joinId);
-};
-
-function startHost() {
-    const customId = document.getElementById('input-host-id').value.trim();
-    document.getElementById('btn-host').disabled = true;
-    peer = customId ? new Peer(customId) : new Peer();
+// --- ホスト処理 ---
+async function startHost() {
+    const cid = document.getElementById('in-host-id').value.trim();
+    peer = cid ? new Peer(cid) : new Peer();
     peer.on('open', id => {
-        state.role = 'host';
         state.id = id;
+        document.getElementById('host-id-display').innerText = id;
         showScreen('screen-host');
-        document.getElementById('display-id').innerText = id;
-        const url = window.location.href.split('?')[0] + '?join=' + id;
-        document.getElementById('qrcode').innerHTML = '';
-        new QRCode(document.getElementById('qrcode'), url);
+        new QRCode(document.getElementById('qrcode'), window.location.href.split('?')[0]+'?join='+id);
     });
     peer.on('connection', c => {
         conn = c;
         conn.on('data', data => {
-            if (data.type === 'photo') {
-                addGallery('host-gallery', data.data);
-                document.getElementById('host-count').innerText = ++state.photos.length;
+            if(data.type === 'photo') {
+                myPhotos.push(data.data);
+                const img = document.createElement('img');
+                img.src = data.data;
+                img.onclick = () => openViewer(data.data);
+                document.getElementById('host-gallery').prepend(img);
             }
         });
-    });
-    peer.on('error', err => {
-        alert("エラー: " + err.type);
-        document.getElementById('btn-host').disabled = false;
+        setTimeout(pushSettings, 1000);
     });
 }
 
-function updateSettings() {
-    state.max = parseInt(document.getElementById('set-max').value);
-    state.useDate = document.getElementById('set-date').checked;
-    if (conn && conn.open) conn.send({ type: 'settings', max: state.max, useDate: state.useDate });
+function pushSettings() {
+    state.max = document.getElementById('h-max').value;
+    state.ratio = document.getElementById('h-ratio').value;
+    state.useDate = document.getElementById('h-date').checked;
+    if(conn && conn.open) conn.send({ type:'config', ...state });
 }
 
-function startPlayer(hostId) {
-    if (!hostId) return alert("IDを入力してください。");
-    state.id = hostId;
-    state.role = 'player';
+async function downloadAll() {
+    if(myPhotos.length === 0) return alert("画像がありません");
+    const zip = new JSZip();
+    myPhotos.forEach((data, i) => {
+        zip.file(`photo_${i+1}.jpg`, data.split(',')[1], {base64: true});
+    });
+    const content = await zip.generateAsync({type:"blob"});
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = `gutti_cam_${state.id}.zip`;
+    link.click();
+}
+
+// --- カメラ処理 ---
+function startPlayer(hid) {
+    if(!hid) return;
+    state.id = hid;
     showScreen('screen-player');
     peer = new Peer();
     peer.on('open', () => {
-        conn = peer.connect(hostId);
+        conn = peer.connect(hid);
         conn.on('open', () => {
-            document.getElementById('dot').classList.add('online');
-            document.getElementById('p-status').innerText = "ONLINE";
+            document.getElementById('p-status').innerText = "● ONLINE";
+            document.getElementById('p-status').style.color = "#4caf50";
         });
         conn.on('data', data => {
-            if (data.type === 'settings') {
+            if(data.type === 'config') {
                 state.max = data.max;
-                state.useDate = data.useDate;
                 state.remain = data.max;
                 document.getElementById('p-remain').innerText = state.remain;
+                document.getElementById('v-preview').style.aspectRatio = data.ratio;
             }
         });
     });
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(stream => { document.getElementById('v-preview').srcObject = stream; });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode:'environment', width:1280 } })
+    .then(s => document.getElementById('v-preview').srcObject = s);
 }
 
-function capturePhoto() {
-    if (state.remain <= 0) return alert("フィルム切れ！");
+function setFilter(f) {
+    document.getElementById('v-preview').className = f === 'none' ? '' : 'f-'+f;
+}
+
+function capture() {
+    if(state.remain <= 0) return alert("フィルム切れ");
     const video = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    // 比率に合わせて描画サイズを調整
+    const [rw, rh] = document.getElementById('v-preview').style.aspectRatio.split('/').map(Number);
+    canvas.width = 1080; 
+    canvas.height = 1080 * (rh/rw);
+    
     const ctx = canvas.getContext('2d');
-    const f = document.getElementById('p-filter').value;
-    if(f === 'retro') ctx.filter = 'contrast(1.2) saturate(1.5) sepia(0.2)';
-    if(f === 'mono') ctx.filter = 'grayscale(1)';
-    if(f === 'sepia') ctx.filter = 'sepia(1)';
-    ctx.drawImage(video, 0, 0);
-    if (state.useDate) {
-        const now = new Date();
-        const dateStr = `'${now.getFullYear().toString().slice(-2)} ${now.getMonth()+1} ${now.getDate()}`;
-        ctx.font = `${canvas.width/15}px monospace`;
-        ctx.fillStyle = "rgba(255,100,0,0.8)";
-        ctx.fillText(dateStr, canvas.width*0.7, canvas.height*0.95);
+    // フィルター反映
+    const cf = video.className;
+    if(cf === 'f-retro') ctx.filter = 'contrast(1.2) saturate(1.4) sepia(0.3)';
+    if(cf === 'f-mono') ctx.filter = 'grayscale(1)';
+    if(cf === 'f-sepia') ctx.filter = 'sepia(1)';
+    
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    
+    if(state.useDate) {
+        const d = new Date();
+        const dstr = `'${d.getFullYear().toString().slice(-2)} ${d.getMonth()+1} ${d.getDate()}`;
+        ctx.filter = 'none';
+        ctx.font = "bold 40px sans-serif";
+        ctx.fillStyle = "rgba(255,140,0,0.9)";
+        ctx.fillText(dstr, canvas.width - 250, canvas.height - 50);
     }
-    const data = canvas.toDataURL('image/jpeg', 0.7);
-    state.photos.push(data);
+
+    const data = canvas.toDataURL('image/jpeg', 0.8);
     state.remain--;
     document.getElementById('p-remain').innerText = state.remain;
-    if (conn && conn.open) conn.send({ type: 'photo', data: data });
-    addGallery('p-gallery', data);
-    document.body.style.background = "#fff";
-    setTimeout(() => document.body.style.background = "#121212", 50);
+    document.getElementById('last-img').src = data;
+    myPhotos.push(data);
+    if(conn && conn.open) conn.send({ type:'photo', data: data });
+    
+    // フラッシュ演出
+    const v = document.getElementById('v-container');
+    v.style.background = "#fff";
+    setTimeout(()=> v.style.background="#111", 50);
 }
 
+// --- ビューアー/共通 ---
+function openViewer(src) {
+    document.getElementById('viewer-img').src = src;
+    document.getElementById('viewer').style.display = 'flex';
+}
+function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
+function openAlbum() {
+    if(myPhotos.length === 0) return;
+    openViewer(myPhotos[myPhotos.length-1]);
+}
+function downloadSingle() {
+    const link = document.createElement('a');
+    link.href = document.getElementById('viewer-img').src;
+    link.download = `photo_${Date.now()}.jpg`;
+    link.click();
+}
 function showScreen(id) {
     document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
     document.getElementById(id).classList.add('active');
 }
 
-function addGallery(id, src) {
-    const g = document.getElementById(id);
-    const img = document.createElement('img');
-    img.src = src;
-    g.prepend(img);
-}
+// URLパラメータ確認
+const params = new URLSearchParams(window.location.search);
+if(params.get('join')) startPlayer(params.get('join'));
 
-function toggleAlbum() {
-    document.getElementById('screen-album').classList.toggle('active');
-}
 </script>
 </body>
 </html>
