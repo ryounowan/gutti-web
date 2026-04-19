@@ -3,391 +3,279 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>P2P Disposable Cam Pro</title>
+    <title>Disposable Cam P2P - Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <style>
-        :root { --bg: #1a1a1a; --text: #eee; --accent: #00d1b2; --brutal-border: 4px solid #000; }
-        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); margin: 0; padding: 0; overflow-x: hidden; }
-        button, input, select { font-family: inherit; padding: 10px; border: var(--brutal-border); box-shadow: 4px 4px 0 #000; outline: none; }
-        button:active { transform: translate(2px, 2px); box-shadow: 2px 2px 0 #000; }
+        :root { --bg: #121212; --panel: #1e1e1e; --accent: #ff9800; --text: #e0e0e0; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: var(--bg); color: var(--text); margin: 0; overflow-x: hidden; }
+        .screen { display: none; min-height: 100vh; flex-direction: column; padding: 20px; box-sizing: border-box; }
+        .active { display: flex; }
         
-        .screen { display: none; width: 100vw; height: 100vh; position: absolute; top: 0; left: 0; box-sizing: border-box; padding: 20px; flex-direction: column; }
-        .active-screen { display: flex; }
-        .hidden { display: none !important; }
-
-        /* Welcome */
-        #mode-select { align-items: center; justify-content: center; background: #333; }
-        .menu-card { background: #fff; color: #000; padding: 20px; border: var(--brutal-border); box-shadow: 8px 8px 0 #000; text-align: center; margin-bottom: 20px;}
-
-        /* Host */
-        #host-screen { background: #222; overflow-y: auto; }
-        .config-panel { background: #444; padding: 15px; border-radius: 8px; margin-bottom: 20px;}
-        #qrcode { background: #fff; padding: 10px; display: inline-block; margin-top: 10px; border: var(--brutal-border); }
-        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
-        .gallery img { width: 100%; aspect-ratio: 1; object-fit: cover; border: 2px solid #fff; }
-
-        /* Camera (Player) */
-        #player-screen { padding: 0; background: #000; justify-content: space-between; }
-        #viewfinder-container { relative; width: 100%; flex-grow: 1; background: #000; display: flex; align-items: center; justify-content: center; overflow: hidden;}
-        #viewfinder { width: 100%; object-fit: cover; }
+        /* UI Elements */
+        .btn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; margin: 10px 0; }
+        .btn:disabled { background: #555; cursor: not-allowed; }
+        input, select { background: #333; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 8px; margin: 5px 0; }
+        .card { background: var(--panel); padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.5); margin-bottom: 20px; }
         
-        /* CSS Filters */
-        .filter-none { filter: none; }
+        /* Camera */
+        #v-container { position: relative; width: 100%; aspect-ratio: 3/4; background: #000; border-radius: 10px; overflow: hidden; }
+        #v-preview { width: 100%; height: 100%; object-fit: cover; }
         .filter-mono { filter: grayscale(1); }
-        .filter-instant { filter: sepia(0.3) saturate(1.4) contrast(1.1) hue-rotate(-10deg); }
         .filter-sepia { filter: sepia(1); }
-
-        .camera-hud { position: absolute; width: 100%; padding: 20px; box-sizing: border-box; pointer-events: none; z-index: 10; color: #fff; text-shadow: 1px 1px 0 #000;}
-        .hud-top { top: 0; display: flex; justify-content: space-between; }
-        .hud-bottom { bottom: 0; display: flex; justify-content: space-between; align-items: center; pointer-events: auto;}
+        .filter-retro { filter: contrast(1.2) saturate(1.5) sepia(0.2); }
         
-        #film-counter { font-size: 1.5rem; font-weight: bold; background: rgba(0,0,0,0.5); padding: 5px 10px; }
-        .shutter-btn { width: 70px; height: 70px; background: red; border-radius: 50%; border: 5px solid #fff; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5); pointer-events: auto;}
-        .shutter-btn:active { transform: scale(0.95); }
-        .side-btn { background: #fff; color: #000; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; cursor: pointer; pointer-events: auto;}
+        .shutter { width: 70px; height: 70px; background: #fff; border: 5px solid #ff5722; border-radius: 50%; align-self: center; margin: 20px 0; }
+        .shutter:active { transform: scale(0.9); background: #ff5722; }
 
-        /* Player Album */
-        #player-album { background: rgba(0,0,0,0.9); z-index: 100; overflow-y: auto;}
-
+        /* Gallery */
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; }
+        .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; border: 1px solid #444; }
+        
+        #qrcode { background: #fff; padding: 10px; display: inline-block; margin: 10px 0; border-radius: 10px; }
+        .status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: #666; margin-right: 5px; }
+        .online { background: #4caf50; box-shadow: 0 0 8px #4caf50; }
     </style>
 </head>
 <body>
 
-<div id="mode-select" class="screen active-screen">
-    <div class="menu-card">
-        <h1>Gutti Cam P2P</h1>
-        <p>使い捨てカメラ共有システム</p>
+<div id="screen-main" class="screen active">
+    <h1 style="text-align:center; color:var(--accent);">Gutti Disposable Cam</h1>
+    <div class="card">
+        <h3>ホスト(管理側)</h3>
+        <input type="text" id="input-host-id" placeholder="ルームID(空欄で自動生成)" style="width: 100%; box-sizing: border-box;">
+        <button class="btn" id="btn-host" onclick="startHost()" style="width: 100%;">ルームを作成する</button>
     </div>
-    
-    <div class="config-panel" style="color:#000; text-align:center;">
-        <h3>ホストとして開始</h3>
-        <input type="text" id="custom-host-id" placeholder="IDを入力(任意)">
-        <p style="font-size:0.8rem; color:#666;">空欄なら自動生成</p>
-        <button onclick="initHost()" style="background:var(--accent); color:#fff; width:100%;">ルームを作成</button>
-    </div>
-
-    <div style="margin-top:20px; text-align:center;">
-        <p style="font-size:0.8rem;">カメラとして参加するには<br>QRコードを読み込んでください</p>
+    <div class="card">
+        <h3>参加(カメラ側)</h3>
+        <input type="text" id="input-join-id" placeholder="ホストIDを入力" style="width: 100%; box-sizing: border-box;">
+        <button class="btn" onclick="startPlayer(document.getElementById('input-join-id').value)" style="width: 100%; background: #555; color: #fff;">参加する</button>
     </div>
 </div>
 
-<div id="host-screen" class="screen">
+<div id="screen-host" class="screen">
     <h2>HOST PANEL</h2>
-    <div class="config-panel">
-        <p>ROOM ID: <strong id="my-id" style="color:var(--accent); font-size:1.2rem;">...</strong></p>
+    <div class="card">
+        <p>ROOM ID: <strong id="display-id" style="color:var(--accent);">---</strong></p>
         <div id="qrcode"></div>
-        <p style="font-size:0.8rem;">このQRをカメラ役に読み込ませてください</p>
-        <hr style="border:1px solid #555;">
-        <label>フィルム枚数: <input type="number" id="cfg-max" value="5" style="width:50px"></label>
-        <label><input type="checkbox" id="cfg-date" checked> 日付スタンプ</label>
-        <button onclick="sendSettings()" style="background:#555; color:#fff; margin-left:10px;">設定反映</button>
+        <div>
+            枚数: <input type="number" id="set-max" value="5" style="width:50px"> 
+            日付: <input type="checkbox" id="set-date" checked>
+            <button class="btn" onclick="updateSettings()" style="padding: 5px 15px;">設定反映</button>
+        </div>
     </div>
-    
-    <h3>集計アルバム (<span id="photo-count">0</span>枚)</h3>
-    <div id="host-gallery" class="gallery"></div>
+    <h3>集計アルバム (<span id="host-count">0</span>枚)</h3>
+    <div id="host-gallery" class="grid"></div>
 </div>
 
-<div id="player-screen" class="screen">
-    <div class="camera-hud hud-top">
-        <div id="conn-status">接続中...</div>
-        <div id="film-counter">--</div>
+<div id="screen-player" class="screen">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div><span id="dot" class="status-dot"></span><span id="p-status">接続中...</span></div>
+        <div style="font-weight:bold;">REMAINING: <span id="p-remain" style="color:var(--accent);">--</span></div>
     </div>
-
-    <div id="viewfinder-container">
-        <video id="viewfinder" autoplay playsinline muted class="filter-none"></video>
+    <div id="v-container">
+        <video id="v-preview" autoplay playsinline muted></video>
     </div>
-
-    <div class="camera-hud hud-bottom">
-        <div class="side-btn" onclick="toggleAlbum()">🖼️</div>
-        <button id="shutter" class="shutter-btn" onclick="takePhoto()"></button>
-        <select id="filter-select" onchange="applyFilter()" style="pointer-events:auto; padding:5px; box-shadow:none;">
-            <option value="none">No Filter</option>
+    <div style="display:flex; justify-content:space-around; align-items:center; margin-top:10px;">
+        <select id="p-filter" onchange="changeFilter()">
+            <option value="none">Normal</option>
+            <option value="retro">Retro</option>
             <option value="mono">Mono</option>
-            <option value="instant">Instant</option>
             <option value="sepia">Sepia</option>
         </select>
+        <div class="shutter" onclick="capturePhoto()"></div>
+        <button class="btn" onclick="toggleAlbum()" style="background:#444; color:#fff; border-radius:10px;">Album</button>
     </div>
-    
-    <canvas id="cap-canvas" class="hidden"></canvas>
 </div>
 
-<div id="player-album" class="screen">
+<div id="screen-album" class="screen">
     <div style="display:flex; justify-content:space-between; align-items:center;">
         <h2>YOUR PHOTOS</h2>
-        <button onclick="toggleAlbum()" style="background:#fff; color:#000;">閉じる</button>
+        <button class="btn" onclick="toggleAlbum()" style="background:#fff; color:#000;">戻る</button>
     </div>
-    <p style="font-size:0.8rem; color:#aaa;">※写真は削除できません。</p>
-    <div id="player-gallery" class="gallery"></div>
+    <div id="p-gallery" class="grid"></div>
 </div>
 
 <script>
-// --- グローバル変数 ---
 let peer, conn;
-let isHost = false;
-let peerId = null;
-
-// カメラ・設定状態 (localStorage保存用)
-let gameState = {
-    role: null, // 'host' or 'player'
-    roomId: null,
-    maxPhotos: 5,
-    remainingPhotos: 5,
+let state = {
+    role: null,
+    id: '',
+    max: 5,
+    remain: 5,
     useDate: true,
-    capturedPhotos: [] // DataURLs
+    photos: []
 };
 
-// --- 初期化処理 (URLパラメータチェック) ---
+// 起動時チェック
 window.onload = () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const joinId = urlParams.get('join');
+    const params = new URLSearchParams(window.location.search);
+    const joinId = params.get('join');
+    if (joinId) startPlayer(joinId);
+    else loadState();
+};
 
-    if (joinId) {
-        // URLに joinパラメータがあれば自動でカメラ起動
-        gameState.roomId = joinId;
-        initPlayer();
-    } else {
-        // なければlocalStorageを確認して復元を試みる
-        loadState();
-        if (gameState.role === 'player' && gameState.roomId) {
-            if(confirm(`前回のルーム(${gameState.roomId})に再接続しますか？`)) {
-                initPlayer();
-            } else {
-                clearState();
-            }
+function saveState() { localStorage.setItem('cam_p2p_state', JSON.stringify(state)); }
+function loadState() {
+    const saved = localStorage.getItem('cam_p2p_state');
+    if (saved) {
+        state = JSON.parse(saved);
+        if (state.role === 'player' && state.id) {
+            if(confirm(`前回のルーム「${state.id}」に戻りますか？`)) startPlayer(state.id);
+            else state = { role: null, id: '', max: 5, remain: 5, useDate: true, photos: [] };
         }
     }
-};
-
-// --- ユーティリティ ---
-function saveState() { localStorage.setItem('gutti_cam_state', JSON.stringify(gameState)); }
-function loadState() {
-    const saved = localStorage.getItem('gutti_cam_state');
-    if (saved) gameState = JSON.parse(saved);
 }
-function clearState() { localStorage.removeItem('gutti_cam_state'); location.href = window.location.pathname; }
 
-// --- ホスト側ロジック ---
-function initHost() {
-    isHost = true;
-    gameState.role = 'host';
-    switchScreen('host-screen');
+// --- ホスト処理 ---
+function startHost() {
+    const customId = document.getElementById('input-host-id').value.trim();
+    document.getElementById('btn-host').disabled = true;
     
-    // IDの設定
-    const customId = document.getElementById('custom-host-id').value.trim();
     peer = customId ? new Peer(customId) : new Peer();
     
     peer.on('open', id => {
-        peerId = id;
-        gameState.roomId = id;
-        document.getElementById('my-id').innerText = id;
-        generateQRCode(id);
-        saveState();
-    });
-    
-    peer.on('error', err => {
-        if(err.type === 'unavailable-id') {
-            alert('そのIDは既に使用されています。別のIDにするか空欄にしてください。');
-            location.reload();
-        } else {
-            console.error(err);
-        }
+        state.role = 'host';
+        state.id = id;
+        showScreen('screen-host');
+        document.getElementById('display-id').innerText = id;
+        const url = window.location.href.split('?')[0] + '?join=' + id;
+        document.getElementById('qrcode').innerHTML = '';
+        new QRCode(document.getElementById('qrcode'), url);
     });
 
     peer.on('connection', c => {
-        // ホストは複数のカメラを受け入れる構成にする（簡易的に最新の接続を保持）
         conn = c;
-        setupCommonConn();
-        // 接続してきたカメラに現在の設定を送る
         conn.on('open', () => {
-            sendSettings(false); // サイレントに送信
+            updateSettings(false);
             alert("カメラが接続されました！");
         });
+        conn.on('data', data => {
+            if (data.type === 'photo') {
+                addGallery('host-gallery', data.data);
+                document.getElementById('host-count').innerText = ++state.photos.length;
+            }
+        });
+    });
+
+    peer.on('error', err => {
+        alert("エラー: " + err.type);
+        document.getElementById('btn-host').disabled = false;
     });
 }
 
-function generateQRCode(id) {
-    const joinUrl = `${window.location.href.split('?')[0]}?join=${id}`;
-    document.getElementById('qrcode').innerHTML = ""; // Clear
-    new QRCode(document.getElementById('qrcode'), {
-        text: joinUrl,
-        width: 128,
-        height: 128
-    });
-}
-
-function sendSettings(alertUser = true) {
-    gameState.maxPhotos = parseInt(document.getElementById('cfg-max').value);
-    gameState.useDate = document.getElementById('cfg-date').checked;
-    
+function updateSettings(shout = true) {
+    state.max = parseInt(document.getElementById('set-max').value);
+    state.useDate = document.getElementById('set-date').checked;
     if (conn && conn.open) {
-        conn.send({ type: 'settings', data: { max: gameState.maxPhotos, useDate: gameState.useDate } });
-        if(alertUser) alert("設定を送信しました。※既存の参加者の残り枚数はリセットされます。");
+        conn.send({ type: 'settings', max: state.max, useDate: state.useDate });
+        if(shout) alert("設定を送信しました。");
     }
-    saveState();
 }
 
-// --- カメラ（プレイヤー）側ロジック ---
-function initPlayer() {
-    isHost = false;
-    gameState.role = 'player';
-    switchScreen('player-screen');
-    
-    // 過去の写真をアルバムに復元
-    restorePlayerAlbum();
+// --- カメラ処理 ---
+function startPlayer(hostId) {
+    if (!hostId) return alert("IDを入力してください。");
+    state.id = hostId;
+    state.role = 'player';
+    showScreen('screen-player');
+    renderLocalPhotos();
 
     peer = new Peer();
-    
-    peer.on('open', (id) => {
-        console.log('My peer ID:', id);
-        conn = peer.connect(gameState.roomId);
-        setupCommonConn();
+    peer.on('open', () => {
+        conn = peer.connect(hostId);
+        conn.on('open', () => {
+            document.getElementById('dot').classList.add('online');
+            document.getElementById('p-status').innerText = "ONLINE";
+        });
+        conn.on('data', data => {
+            if (data.type === 'settings') {
+                state.max = data.max;
+                state.useDate = data.useDate;
+                // 初回接続またはホスト側でのリセット時のみ枚数を更新
+                if(state.remain > state.max || state.remain === 5) {
+                    state.remain = state.max;
+                }
+                document.getElementById('p-remain').innerText = state.remain;
+                saveState();
+            }
+        });
     });
 
-    // カメラ起動
-    navigator.mediaDevices.getUserMedia({ 
-        video: { facingMode: "environment", width: { ideal: 1280 }, height: { ideal: 720 } } 
-    })
-    .then(stream => {
-        const video = document.getElementById('viewfinder');
-        video.srcObject = stream;
-        video.play();
-    }).catch(err => {
-        alert("カメラの起動に失敗しました。許可してください。");
-        console.error(err);
-    });
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
+    .then(stream => { document.getElementById('v-preview').srcObject = stream; })
+    .catch(() => alert("カメラを許可してください。"));
 }
 
-// フィルター適用
-function applyFilter() {
-    const filter = document.getElementById('filter-select').value;
-    const vf = document.getElementById('viewfinder');
-    vf.className = `filter-${filter}`;
+function changeFilter() {
+    const f = document.getElementById('p-filter').value;
+    document.getElementById('v-preview').className = f === 'none' ? '' : 'filter-' + f;
 }
 
-// 撮影処理
-function takePhoto() {
-    if (gameState.remainingPhotos <= 0) return alert("フィルム切れです！ホストに頼んで増やしてもらってください。");
-    if (!conn || !conn.open) return alert("ホストと接続されていません。");
+function capturePhoto() {
+    if (state.remain <= 0) return alert("フィルム切れです！");
+    if (!conn || !conn.open) return alert("ホストと未接続です。");
 
-    const video = document.getElementById('viewfinder');
-    const canvas = document.getElementById('cap-canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // ビデオの解像度に合わせてキャンバスサイズを設定
+    const video = document.getElementById('v-preview');
+    const canvas = document.createElement('canvas');
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
 
-    // --- 描画処理 ---
-    // 1. フィルターを適用して描画
-    const currentFilter = document.getElementById('filter-select').value;
-    if(currentFilter === 'mono') ctx.filter = 'grayscale(1)';
-    if(currentFilter === 'instant') ctx.filter = 'sepia(0.3) saturate(1.4) contrast(1.1) hue-rotate(-10deg)';
-    if(currentFilter === 'sepia') ctx.filter = 'sepia(1)';
-    
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-    ctx.filter = 'none'; // フィルター解除
+    // フィルター反映
+    const f = document.getElementById('p-filter').value;
+    if(f === 'retro') ctx.filter = 'contrast(1.2) saturate(1.5) sepia(0.2)';
+    if(f === 'mono') ctx.filter = 'grayscale(1)';
+    if(f === 'sepia') ctx.filter = 'sepia(1)';
 
-    // 2. 日付スタンプ (ホスト設定)
-    if (gameState.useDate) {
+    ctx.drawImage(video, 0, 0);
+    ctx.filter = 'none';
+
+    // 日付スタンプ
+    if (state.useDate) {
         const now = new Date();
-        const dateStr = `'${now.getFullYear().toString().slice(-2)} ${ (now.getMonth()+1).toString().padStart(2,'0') } ${ now.getDate().toString().padStart(2,'0') }`;
-        const fontSize = Math.floor(canvas.width / 20);
-        ctx.font = `${fontSize}px 'Courier New', monospace`;
-        ctx.fillStyle = "rgba(255, 130, 0, 0.9)"; // オレンジ
-        ctx.textAlign = "right";
-        // 縁取り
-        ctx.strokeText(dateStr, canvas.width * 0.95, canvas.height * 0.93);
-        ctx.fillText(dateStr, canvas.width * 0.95, canvas.height * 0.93);
+        const dateStr = `'${now.getFullYear().toString().slice(-2)} ${now.getMonth()+1} ${now.getDate()}`;
+        ctx.font = `${canvas.width/15}px monospace`;
+        ctx.fillStyle = "rgba(255,100,0,0.8)";
+        ctx.fillText(dateStr, canvas.width*0.7, canvas.height*0.95);
     }
 
-    // 画像データ化
-    const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+    const data = canvas.toDataURL('image/jpeg', 0.7);
+    state.photos.push(data);
+    state.remain--;
+    document.getElementById('p-remain').innerText = state.remain;
     
-    // --- 保存と送信 ---
-    // 1. ローカルに保存
-    gameState.capturedPhotos.push(dataUrl);
-    gameState.remainingPhotos--;
-    updatePlayerUI();
-    addPhotoToGallery('player-gallery', dataUrl); // 自分用アルバムに追加
+    conn.send({ type: 'photo', data: data });
+    addGallery('p-gallery', data);
     saveState();
 
-    // 2. ホストへ送信
-    conn.send({ type: 'photo', data: dataUrl });
-
-    // 撮影演出（画面を一瞬白く）
-    const vfCon = document.getElementById('viewfinder-container');
-    vfCon.style.background = "white";
-    setTimeout(() => vfCon.style.background = "black", 100);
+    // 撮影エフェクト
+    document.body.style.background = "#fff";
+    setTimeout(() => document.body.style.background = var(--bg), 50);
 }
 
-function updatePlayerUI() {
-    document.getElementById('film-counter').innerText = gameState.remainingPhotos;
+// --- 共通UI ---
+function showScreen(id) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
 }
 
-function restorePlayerAlbum() {
-    const gallery = document.getElementById('player-gallery');
-    gallery.innerHTML = '';
-    gameState.capturedPhotos.forEach(src => {
-        addPhotoToGallery('player-gallery', src);
-    });
+function addGallery(id, src) {
+    const g = document.getElementById(id);
+    const img = document.createElement('img');
+    img.src = src;
+    g.prepend(img);
+}
+
+function renderLocalPhotos() {
+    const g = document.getElementById('p-gallery');
+    g.innerHTML = '';
+    state.photos.forEach(p => addGallery('p-gallery', p));
 }
 
 function toggleAlbum() {
-    const album = document.getElementById('player-album');
-    album.classList.toggle('active-screen');
-}
-
-// --- 共通通信処理 ---
-function setupCommonConn() {
-    conn.on('open', () => {
-        if (!isHost) {
-            document.getElementById('conn-status').innerText = "⚡ONLINE";
-            document.getElementById('conn-status').style.color = var(--accent);
-        }
-    });
-
-    conn.on('data', data => {
-        console.log("Data received:", data.type);
-        
-        // カメラ側：ホストからの設定受信
-        if (!isHost && data.type === 'settings') {
-            gameState.maxPhotos = data.data.max;
-            gameState.useDate = data.data.useDate;
-            // 残り枚数をリセット（ホストが主導権を持つ）
-            gameState.remainingPhotos = data.data.max; 
-            updatePlayerUI();
-            saveState();
-        }
-        
-        // ホスト側：カメラからの写真受信
-        if (isHost && data.type === 'photo') {
-            addPhotoToGallery('host-gallery', data.data);
-            const countSpan = document.getElementById('photo-count');
-            countSpan.innerText = parseInt(countSpan.innerText) + 1;
-        }
-    });
-    
-    conn.on('close', () => {
-        if (!isHost) {
-            document.getElementById('conn-status').innerText = "❌OFFLINE";
-            document.getElementById('conn-status').style.color = "red";
-        }
-    });
-}
-
-// --- UI操作 ---
-function switchScreen(screenId) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active-screen'));
-    document.getElementById(screenId).classList.add('active-screen');
-}
-
-function addPhotoToGallery(galleryId, src) {
-    const gallery = document.getElementById(galleryId);
-    const img = document.createElement('img');
-    img.src = src;
-    // タップで拡大表示する機能などはここに追加可能
-    gallery.prepend(img); // 新しい順
+    const s = document.getElementById('screen-album');
+    s.classList.toggle('active');
 }
 </script>
 </body>
