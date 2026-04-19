@@ -3,137 +3,159 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Cam Ultimate Full</title>
+    <title>Gutti Cam Ultra Full</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
-        :root { --bg: #000; --accent: #ffae00; --ui-bg: rgba(0, 0, 0, 0.7); }
-        body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; height: 100vh; width: 100vw; }
-        .screen { display: none; height: 100%; width: 100%; flex-direction: column; box-sizing: border-box; overflow: hidden; position: absolute; inset: 0; }
-        .active { display: flex; }
+        :root { --bg: #000; --accent: #ffae00; --ui-bg: rgba(0, 0, 0, 0.75); }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); color: #fff; margin: 0; overflow: hidden; height: 100dvh; width: 100vw; }
+        
+        /* 画面制御 */
+        .screen { display: none; height: 100dvh; width: 100vw; flex-direction: column; position: fixed; inset: 0; z-index: 10; }
+        .screen.active { display: flex !important; }
 
         /* セットアップ画面 */
-        #screen-main { padding: 20px; background: #1a1a1a; justify-content: center; align-items: center; z-index: 100; }
-        .card { background: #2a2a2a; padding: 20px; border-radius: 20px; width: 90%; max-width: 400px; text-align: center; border: 1px solid #333; }
-        input { width: 85%; padding: 12px; border-radius: 10px; border: none; background: #444; color: #fff; margin: 10px 0; font-size: 16px; }
-        .btn { background: var(--accent); color: #000; border: none; padding: 12px 24px; border-radius: 30px; font-weight: bold; cursor: pointer; }
+        #screen-main { background: #1a1a1a; justify-content: center; align-items: center; z-index: 100; }
+        .card { background: #2a2a2a; padding: 25px; border-radius: 24px; width: 90%; max-width: 380px; text-align: center; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #444; color: #fff; margin: 10px 0; font-size: 16px; }
+        .btn { background: var(--accent); color: #000; border: none; padding: 14px 28px; border-radius: 30px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn:active { transform: scale(0.95); opacity: 0.8; }
 
-        /* ホスト画面 */
-        #screen-host { overflow-y: auto; padding: 20px; background: #1a1a1a; display: none; }
-        #qrcode { background: #fff; padding: 10px; display: inline-block; margin: 10px 0; border-radius: 10px; }
-        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin-top: 15px; }
-        .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 5px; }
+        /* ホスト管理画面（オーバーレイ） */
+        #screen-host { background: #1a1a1a; overflow-y: auto; padding: 20px; z-index: 150; }
+        #qrcode { background: #fff; padding: 10px; display: inline-block; margin: 15px 0; border-radius: 12px; }
+        .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 20px; }
+        .grid img { width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 8px; background: #333; }
 
-        /* カメラ画面：全画面化 */
-        #screen-player { background: #000; }
-        .cam-header { position: absolute; top: 0; left: 0; right: 0; padding: 15px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 20; font-size: 12px; }
-        #v-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+        /* カメラUI */
+        .cam-header { position: absolute; top: 0; width: 100%; padding: env(safe-area-inset-top) 20px 15px; display: flex; justify-content: space-between; align-items: center; background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent); z-index: 50; }
+        #v-container { position: absolute; inset: 0; background: #000; z-index: 5; display: flex; align-items: center; justify-content: center; }
         #v-preview { width: 100%; height: 100%; object-fit: cover; }
         
-        .cam-controls { position: absolute; bottom: 0; left: 0; right: 0; padding: 30px 20px 40px; background: linear-gradient(to top, rgba(0,0,0,0.8), transparent); display: flex; flex-direction: column; align-items: center; gap: 15px; z-index: 20; }
+        .cam-controls { position: absolute; bottom: 0; width: 100%; padding: 20px 20px calc(env(safe-area-inset-bottom) + 30px); background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); display: flex; flex-direction: column; align-items: center; gap: 20px; z-index: 50; }
         .shutter-row { display: flex; align-items: center; justify-content: space-around; width: 100%; max-width: 400px; }
-        .shutter { width: 70px; height: 70px; background: #fff; border: 5px solid rgba(255,255,255,0.3); border-radius: 50%; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
-        .mini-thumb { width: 45px; height: 45px; border-radius: 5px; border: 2px solid #fff; overflow: hidden; background: #222; }
+        .shutter { width: 80px; height: 80px; background: #fff; border: 6px solid rgba(255,255,255,0.3); border-radius: 50%; box-shadow: 0 0 15px rgba(0,0,0,0.4); }
+        .mini-thumb { width: 50px; height: 50px; border-radius: 10px; border: 2px solid #fff; overflow: hidden; background: #222; }
         .mini-thumb img { width: 100%; height: 100%; object-fit: cover; }
 
         /* フィルター */
-        .f-retro { filter: contrast(1.1) saturate(1.3) sepia(0.2); }
+        .f-retro { filter: contrast(1.1) saturate(1.4) sepia(0.25); }
         .f-mono { filter: grayscale(1); }
         .f-sepia { filter: sepia(1); }
 
         /* ビューアー */
-        #viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 2000; flex-direction: column; }
-        #viewer-img { width: 100%; height: 80%; object-fit: contain; }
+        #viewer { display: none; position: fixed; inset: 0; background: #000; z-index: 1000; flex-direction: column; }
+        #viewer-img { width: 100%; height: 100%; object-fit: contain; }
+        .v-close { position: absolute; top: 40px; right: 20px; font-size: 30px; text-shadow: 0 0 10px #000; z-index: 1010; }
     </style>
 </head>
 <body>
 
 <div id="screen-main" class="screen active">
     <div class="card">
-        <h2 style="color:var(--accent); margin:0 0 15px 0;">Gutti Cam Pro</h2>
-        <input type="text" id="in-host-id" placeholder="ID (空欄で自動)">
-        <button class="btn" onclick="startHost()">ホストを開始</button>
-        <div style="margin: 15px 0; border-top: 1px solid #444;"></div>
-        <input type="text" id="in-join-id" placeholder="参加IDを入力">
-        <button class="btn" onclick="startPlayer(document.getElementById('in-join-id').value)" style="background:#555; color:#fff;">参加する</button>
+        <h2 style="color:var(--accent); margin:0 0 20px 0;">Gutti Cam Pro</h2>
+        <div style="margin-bottom:20px;">
+            <input type="text" id="in-host-id" placeholder="ID (空欄でランダム)">
+            <button class="btn" style="width:100%" onclick="startHost()">ホストを開始</button>
+        </div>
+        <div style="border-top: 1px solid #444; padding-top:20px;">
+            <input type="text" id="in-join-id" placeholder="参加IDを入力">
+            <button class="btn" style="width:100%; background:#666; color:#fff;" onclick="startPlayer(document.getElementById('in-join-id').value)">参加する</button>
+        </div>
     </div>
 </div>
 
 <div id="screen-host" class="screen">
-    <div style="display:flex; justify-content:space-between;">
-        <h3>Host Panel</h3>
-        <button onclick="location.reload()" style="background:none; color:#fff; border:1px solid #fff; border-radius:5px;">Home</button>
+    <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3>Admin Panel</h3>
+        <button class="btn" style="padding:5px 15px; background:#fff;" onclick="closeHostPanel()">閉じる</button>
     </div>
-    <div class="card" style="width:100%; box-sizing:border-box;">
-        <p>ROOM ID: <strong id="host-id-display" style="color:var(--accent);">--</strong></p>
-        <div id="qrcode"></div>
-        <div style="font-size:12px; line-height:2;">
-            枚数:<input type="number" id="h-max" value="10" style="width:40px">
-            日付:<input type="checkbox" id="h-date" checked>
-            比率:<select id="h-ratio"><option value="3/4">3:4</option><option value="9/16" selected>9:16</option><option value="1/1">1:1</option></select>
-            <button class="btn" onclick="pushSettings()" style="padding:5px 10px; font-size:10px;">適用</button>
+    <div class="card" style="width:100%; max-width:none; text-align:left;">
+        <p>ROOM ID: <strong id="host-id-display" style="color:var(--accent); font-size:1.4rem;">--</strong></p>
+        <div style="text-align:center;"><div id="qrcode"></div></div>
+        <div style="line-height:2.5; font-size:14px;">
+            枚数: <input type="number" id="h-max" value="10" style="width:50px; padding:5px;">
+            日付: <input type="checkbox" id="h-date" checked>
+            比率: <select id="h-ratio" style="background:#444; color:#fff; border:none; padding:5px; border-radius:5px;">
+                <option value="9/16">9:16 (縦長)</option>
+                <option value="3/4">3:4 (標準)</option>
+                <option value="1/1">1:1 (スクエア)</option>
+            </select>
         </div>
-        <button class="btn" onclick="downloadAll()" style="width:100%; margin-top:10px; background:#fff;">Zip保存</button>
+        <button class="btn" style="width:100%; margin-top:10px;" onclick="pushSettings()">設定を保存・同期</button>
+        <button class="btn" style="width:100%; margin-top:10px; background:#fff;" onclick="downloadAll()">全員の写真をZip保存</button>
     </div>
     <div id="host-gallery" class="grid"></div>
 </div>
 
 <div id="screen-player" class="screen">
     <div class="cam-header">
-        <span id="p-status">● DISCONNECTED</span>
-        <button onclick="toggleFullScreen()" style="background:rgba(255,255,255,0.2); color:#fff; border:none; border-radius:5px; padding:5px 10px;">全画面</button>
-        <span>LIMIT: <strong id="p-remain">--</strong></span>
+        <span id="p-status" style="font-weight:bold; color:#ff4444;">● OFFLINE</span>
+        <button id="admin-btn" style="display:none; background:rgba(255,255,255,0.2); color:#fff; border:none; border-radius:8px; padding:8px 12px;" onclick="openHostPanel()">管理設定</button>
+        <button onclick="toggleFullScreen()" style="background:rgba(255,255,255,0.2); color:#fff; border:none; border-radius:8px; padding:8px 12px;">全画面</button>
+        <div style="font-size:14px;">LIMIT: <strong id="p-remain" style="color:var(--accent); font-size:1.2rem;">--</strong></div>
     </div>
     <div id="v-container">
         <video id="v-preview" autoplay playsinline muted></video>
     </div>
     <div class="cam-controls">
-        <div style="display:flex; gap:8px; overflow-x:auto; width:100%; padding:5px;">
-            <button class="btn" style="padding:5px 10px; font-size:10px; background:#444; color:#fff;" onclick="setFilter('none')">通常</button>
-            <button class="btn" style="padding:5px 10px; font-size:10px; background:#444; color:#fff;" onclick="setFilter('retro')">レトロ</button>
-            <button class="btn" style="padding:5px 10px; font-size:10px; background:#444; color:#fff;" onclick="setFilter('mono')">モノクロ</button>
+        <div style="display:flex; gap:10px; overflow-x:auto; width:100%; padding:5px;">
+            <button class="btn" style="padding:6px 12px; font-size:12px; background:#333; color:#fff;" onclick="setFilter('none')">Normal</button>
+            <button class="btn" style="padding:6px 12px; font-size:12px; background:#333; color:#fff;" onclick="setFilter('retro')">Retro</button>
+            <button class="btn" style="padding:6px 12px; font-size:12px; background:#333; color:#fff;" onclick="setFilter('mono')">Mono</button>
         </div>
         <div class="shutter-row">
             <div class="mini-thumb" onclick="openAlbum()"><img id="last-img" src=""></div>
             <button class="shutter" onclick="capture()"></button>
-            <div style="width:45px; font-size:20px;" onclick="if(confirm('終了しますか？')) location.href=window.location.pathname">🏠</div>
+            <div style="width:50px; font-size:24px; text-align:center;" onclick="if(confirm('ホームに戻りますか？')) location.href=window.location.pathname">🏠</div>
         </div>
     </div>
 </div>
 
 <div id="viewer">
-    <div style="padding:20px; text-align:right;" onclick="closeViewer()">✕ 戻る</div>
+    <div class="v-close" onclick="closeViewer()">✕</div>
     <img id="viewer-img" src="">
-    <div style="padding:20px; text-align:center;">
+    <div style="position:absolute; bottom:40px; width:100%; text-align:center;">
         <button class="btn" onclick="downloadSingle()">この画像を保存</button>
     </div>
 </div>
 
 <script>
-let peer, conn, myPhotos = [], state = { id:'', max:10, remain:10, ratio:'9/16', useDate:true };
+let peer, conn, myPhotos = [], state = { role:'', id:'', max:10, remain:10, ratio:'9/16', useDate:true };
 
-// ID生成
-const genId = () => Math.random().toString(36).substring(2, 7).toUpperCase();
+// --- 共通処理 ---
+const showScreen = (id) => {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+};
+const toggleFullScreen = () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(() => {});
+    else document.exitFullscreen();
+};
 
-function toggleFullScreen() {
-    if (!document.fullscreenElement) {
-        document.documentElement.requestFullscreen().catch(e => alert("全画面表示に失敗しました"));
-    } else {
-        document.exitFullscreen();
-    }
-}
-
+// --- ホスト処理 ---
 async function startHost() {
-    const id = document.getElementById('in-host-id').value.trim() || genId();
+    const id = document.getElementById('in-host-id').value.trim() || Math.random().toString(36).substring(2, 7).toUpperCase();
     peer = new Peer(id);
     peer.on('open', resId => {
-        state.id = resId;
+        state.id = resId; state.role = 'host';
         document.getElementById('host-id-display').innerText = resId;
-        showScreen('screen-host');
+        document.getElementById('admin-btn').style.display = 'block';
+        
+        // QR生成
         const url = window.location.origin + window.location.pathname + '?j=' + resId;
-        new QRCode(document.getElementById('qrcode'), { text: url, width: 160, height: 160, correctLevel: QRCode.CorrectLevel.M });
+        const qrBox = document.getElementById('qrcode');
+        qrBox.innerHTML = '';
+        new QRCode(qrBox, { text: url, width: 180, height: 180, correctLevel: QRCode.CorrectLevel.M });
+        
+        initCamera();
+        showScreen('screen-player');
+        document.getElementById('p-status').innerText = "● HOSTING";
+        document.getElementById('p-status').style.color = "#ffae00";
     });
+
     peer.on('connection', c => {
         conn = c;
         conn.on('data', data => {
@@ -149,16 +171,26 @@ async function startHost() {
     });
 }
 
+function openHostPanel() { document.getElementById('screen-host').classList.add('active'); }
+function closeHostPanel() { document.getElementById('screen-host').classList.remove('active'); }
+
 function pushSettings() {
     state.max = document.getElementById('h-max').value;
     state.ratio = document.getElementById('h-ratio').value;
     state.useDate = document.getElementById('h-date').checked;
+    state.remain = state.max;
+    document.getElementById('p-remain').innerText = state.remain;
+    document.getElementById('v-preview').style.aspectRatio = state.ratio;
     if(conn && conn.open) conn.send({ type:'config', ...state });
 }
 
+// --- プレイヤー処理 ---
 function startPlayer(hid) {
-    if(!hid) return;
+    if(!hid) return alert("IDを入力してください");
+    state.role = 'player';
+    initCamera();
     showScreen('screen-player');
+    
     peer = new Peer();
     peer.on('open', () => {
         conn = peer.connect(hid);
@@ -174,15 +206,17 @@ function startPlayer(hid) {
             }
         });
     });
+}
 
-    // カメラ起動の安定化：制約を最小限に
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-    .then(s => {
-        const v = document.getElementById('v-preview');
-        v.srcObject = s;
-        v.setAttribute("playsinline", true); // iOS対策
-        v.play();
-    }).catch(e => alert("カメラを起動できませんでした。ブラウザの設定でカメラを許可してください。"));
+async function initCamera() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 } } });
+        const video = document.getElementById('v-preview');
+        video.srcObject = stream;
+        video.play();
+    } catch (e) {
+        alert("カメラを起動できません。設定で許可してください。");
+    }
 }
 
 function setFilter(f) {
@@ -190,25 +224,27 @@ function setFilter(f) {
 }
 
 function capture() {
-    if(state.remain <= 0) return alert("フィルム切れ！");
+    if(state.remain <= 0) return alert("フィルム切れです！");
     const video = document.getElementById('v-preview');
     const canvas = document.createElement('canvas');
-    const [rw, rh] = (video.style.aspectRatio || "9/16").split('/').map(Number);
-    canvas.width = 1080; canvas.height = 1080 * (rh/rw);
+    const ratioStr = video.style.aspectRatio || "9/16";
+    const [rw, rh] = ratioStr.split('/').map(Number);
+    
+    canvas.width = 1080; 
+    canvas.height = 1080 * (rh/rw);
     const ctx = canvas.getContext('2d');
     
-    if(video.className === 'f-retro') ctx.filter = 'contrast(1.1) saturate(1.3) sepia(0.2)';
+    // フィルター反映
+    if(video.className === 'f-retro') ctx.filter = 'contrast(1.1) saturate(1.4) sepia(0.25)';
     if(video.className === 'f-mono') ctx.filter = 'grayscale(1)';
     if(video.className === 'f-sepia') ctx.filter = 'sepia(1)';
     
-    // カバー（全体表示）を考慮して描画
-    const vWidth = video.videoWidth;
-    const vHeight = video.videoHeight;
-    const vRatio = vWidth / vHeight;
-    const cRatio = canvas.width / canvas.height;
+    // カバー描画
+    const vW = video.videoWidth; const vH = video.videoHeight;
+    const vR = vW / vH; const cR = canvas.width / canvas.height;
     let sx, sy, sw, sh;
-    if (vRatio > cRatio) { sh = vHeight; sw = vHeight * cRatio; sx = (vWidth - sw) / 2; sy = 0; }
-    else { sw = vWidth; sh = vWidth / cRatio; sx = 0; sy = (vHeight - sh) / 2; }
+    if (vR > cR) { sh = vH; sw = vH * cR; sx = (vW - sw) / 2; sy = 0; }
+    else { sw = vW; sh = vW / cR; sx = 0; sy = (vH - sh) / 2; }
     
     ctx.drawImage(video, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
     
@@ -218,11 +254,13 @@ function capture() {
         ctx.filter = 'none'; ctx.font = "bold 45px monospace"; ctx.fillStyle = "rgba(255,140,0,0.9)";
         ctx.fillText(dstr, canvas.width * 0.65, canvas.height * 0.95);
     }
+    
     const data = canvas.toDataURL('image/jpeg', 0.8);
     state.remain--;
     document.getElementById('p-remain').innerText = state.remain;
     document.getElementById('last-img').src = data;
     myPhotos.push(data);
+    
     if(conn && conn.open) conn.send({ type:'photo', data });
     
     // フラッシュ演出
@@ -231,20 +269,17 @@ function capture() {
     setTimeout(() => vc.style.filter = "none", 100);
 }
 
-function showScreen(id) {
-    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-}
+// --- ビューアー/その他 ---
 function openViewer(src) { document.getElementById('viewer-img').src = src; document.getElementById('viewer').style.display = 'flex'; }
 function closeViewer() { document.getElementById('viewer').style.display = 'none'; }
 function openAlbum() { if(myPhotos.length) openViewer(myPhotos[myPhotos.length-1]); }
-function downloadSingle() { const a = document.createElement('a'); a.href = document.getElementById('viewer-img').src; a.download = `cam_${Date.now()}.jpg`; a.click(); }
+function downloadSingle() { const a = document.createElement('a'); a.href = document.getElementById('viewer-img').src; a.download = `pic_${Date.now()}.jpg`; a.click(); }
 async function downloadAll() {
-    if(!myPhotos.length) return alert("写真なし");
+    if(!myPhotos.length) return alert("写真がありません");
     const zip = new JSZip();
-    myPhotos.forEach((d, i) => zip.file(`img_${i+1}.jpg`, d.split(',')[1], {base64: true}));
+    myPhotos.forEach((d, i) => zip.file(`photo_${i+1}.jpg`, d.split(',')[1], {base64: true}));
     const c = await zip.generateAsync({type:"blob"});
-    const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "cam_all.zip"; l.click();
+    const l = document.createElement('a'); l.href = URL.createObjectURL(c); l.download = "cam_party.zip"; l.click();
 }
 
 const params = new URLSearchParams(window.location.search);
