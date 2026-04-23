@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gutti Search Portal</title>
+    <style>
+        body { background: #121212; color: white; font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+        h1 { margin-bottom: 30px; font-size: 2.5rem; letter-spacing: -1px; }
+        .search-area { width: 90%; max-width: 550px; position: relative; }
+        input { width: 100%; padding: 15px 25px; border-radius: 30px; border: 1px solid #444; background: #222; color: white; font-size: 16px; box-sizing: border-box; outline: none; box-shadow: 0 4px 15px rgba(0,0,0,0.5); }
+        .hint { margin-top: 20px; color: #777; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
+
+    <h1>Gutti Search</h1>
+    
+    <div class="search-area">
+        <input type="text" id="q" placeholder="曲名検索 または https://..." onkeypress="if(event.key==='Enter') doAction()">
+    </div>
+
+    <div class="hint">URLを入力すればプロキシ閲覧、文字ならYouTube検索になります。</div>
+
+    <script>
+        // 🛠️ ここに自分のWorkersのURLを入れてください
+        const MY_WORKER_URL = 'https://twilight-sky-e227.ryounowan.workers.dev';
+
+        function doAction() {
+            const val = document.getElementById('q').value;
+            if (!val) return;
+
+            if (val.startsWith('http') || val.includes('.')) {
+                // プロキシ閲覧モード
+                let target = val;
+                if (!target.startsWith('http')) target = 'https://' + target;
+                window.location.href = MY_WORKER_URL + '/?proxy=' + encodeURIComponent(target);
+            } else {
+                // YouTube検索モード
+                window.location.href = MY_WORKER_URL + '/?q=' + encodeURIComponent(val);
+            }
+        }
+    </script>
+</body>
+</html>
+
