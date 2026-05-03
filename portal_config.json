@@ -117,7 +117,7 @@
       "design": {
         "background": "rgb(0, 0, 255)"
       },
-      "verified": false,
+      "verified": true,
       "banUntil": 1774370894305,
       "points": 0
     },
@@ -199,12 +199,7 @@
     "color": "#ffffff"
   },
   "mode": "normal",
-  "requests": [
-    {
-      "user": "gutti PC",
-      "timestamp": 1777796273630
-    }
-  ],
+  "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
   "sha": "46d29e39f1f64f02841297523229e3f5a321e122",
