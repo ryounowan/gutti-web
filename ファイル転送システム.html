@@ -3,29 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Share Tool</title>
+    <title>Web Share Tool - Pro</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
     <style>
         body { font-family: 'Segoe UI', sans-serif; background: #f4f7f9; display: flex; justify-content: center; padding: 20px; }
-        .card { background: white; width: 100%; max-width: 400px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .card { background: white; width: 100%; max-width: 450px; padding: 25px; border-radius: 20px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
         h2 { color: #007bff; text-align: center; margin-top: 0; }
         .section { margin-bottom: 20px; padding: 15px; border: 1px solid #eee; border-radius: 12px; }
-        .id-display { font-size: 24px; font-weight: bold; color: #333; text-align: center; letter-spacing: 2px; }
-        input[type="text"] { width: 100%; padding: 10px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .id-display { font-size: 20px; font-weight: bold; color: #333; text-align: center; letter-spacing: 2px; word-break: break-all; }
+        input[type="text"], input[type="file"] { width: 100%; padding: 10px; box-sizing: border-box; border: 2px solid #ddd; border-radius: 8px; margin-bottom: 10px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-bottom: 5px; }
         .btn-send { background: #007bff; color: white; }
         .btn-send:hover { background: #0056b3; }
+        .btn-scan { background: #28a745; color: white; }
+        .btn-scan:hover { background: #218838; }
         #qrcode { display: flex; justify-content: center; margin-top: 10px; }
+        #reader { width: 100%; max-width: 400px; margin: 10px auto; display: none; }
         .progress-container { display: none; margin-top: 15px; }
         .progress-bar { width: 100%; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
-        .progress-fill { width: 0%; height: 100%; background: #00c853; transition: width 0.3s; }
+        .progress-fill { width: 0%; height: 100%; background: #00c853; transition: width 0.1s linear; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <h2>ShareMe Lite</h2>
+    <h2>ShareMe Pro</h2>
 
     <div class="section">
         <label>あなたの受信ID</label>
@@ -34,82 +38,200 @@
     </div>
 
     <div class="section">
+        <button class="btn-scan" onclick="toggleScanner()">QRコードをスキャン</button>
+        <div id="reader"></div>
+    </div>
+
+    <div class="section">
         <input type="text" id="peer-id" placeholder="相手のIDを入力">
         <input type="file" id="file-input">
         <button class="btn-send" onclick="sendFile()">ファイルを送信</button>
     </div>
 
-    <div id="status" style="text-align: center; font-size: 14px; color: #666;"></div>
+    <div id="status" style="text-align: center; font-size: 14px; color: #666; margin-bottom: 10px;"></div>
     <div class="progress-container" id="prog-box">
         <div class="progress-bar"><div class="progress-fill" id="prog-fill"></div></div>
     </div>
 </div>
 
 <script>
+    // 接続の遅延を抑えるためのDataChannel設定オプション強化
     const peer = new Peer(undefined, {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { urls: 'stun:stun2.l.google.com:19302' }
+                { urls: 'stun:stun1.l.google.com:19302' }
             ]
         }
-    }); // Peerオブジェクトの作成
-    let conn;
+    });
 
-    // 1. 自分のIDを取得してQRコードを表示
+    let conn;
+    let html5QrCode = null;
+    let receivedChunks = [];
+    let receivedFileSize = 0;
+    let receivedFileName = "";
+    let receivedFileType = "";
+
+    // 1. 自分のIDを取得
     peer.on('open', (id) => {
         document.getElementById('my-id').innerText = id;
         new QRCode(document.getElementById("qrcode"), { text: id, width: 128, height: 128 });
     });
 
-    // 2. 受信側の処理
+    // 2. 受信側処理 (データチャネルのイベントリスナー設定)
     peer.on('connection', (c) => {
         conn = c;
         setupConn();
-        document.getElementById('status').innerText = "接続されました。受信を待機中...";
+        document.getElementById('status').innerText = "接続されました。受信待機中...";
     });
 
     function setupConn() {
+        // DataChannelの送受信バッファを広げる (ブラウザ規定値だが明示的に扱う)
+        if (conn.dataConnection) {
+            conn.dataConnection.peerConnection.sctp.maxMessageSize = 1024 * 1024 * 100;
+        }
+
         conn.on('data', (data) => {
-            if (data.file) {
-                // ファイルを受信してダウンロード
-                const blob = new Blob([data.file], { type: data.type });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = data.name;
-                a.click();
-                document.getElementById('status').innerText = "受信完了: " + data.name;
+            // メタデータ（開始シグナル）の処理
+            if (data.type === 'start') {
+                receivedChunks = [];
+                receivedFileSize = data.size;
+                receivedFileName = data.name;
+                receivedFileType = data.mime;
+                document.getElementById('prog-box').style.display = 'block';
+                document.getElementById('status').innerText = "受信中: 0%";
+            } 
+            // チャンクデータの処理
+            else if (data.type === 'chunk') {
+                // Base64からArrayBufferへ変換
+                const binaryString = window.atob(data.chunk);
+                const bytes = new Uint8Array(binaryString.length);
+                for (let i = 0; i < binaryString.length; i++) {
+                    bytes[i] = binaryString.charCodeAt(i);
+                }
+                receivedChunks.push(bytes.buffer);
+
+                // プログレスバーの更新
+                let totalReceived = receivedChunks.reduce((acc, curr) => acc + curr.byteLength, 0);
+                let percentage = (totalReceived / receivedFileSize) * 100;
+                document.getElementById('prog-fill').style.width = percentage + '%';
+                document.getElementById('status').innerText = `受信中: ${Math.floor(percentage)}%`;
+                
+                if (totalReceived >= receivedFileSize) {
+                    finalizeFile();
+                }
             }
         });
     }
 
-    // 3. 送信側の処理
-    function sendFile() {
+    function finalizeFile() {
+        const blob = new Blob(receivedChunks, { type: receivedFileType });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = receivedFileName;
+        a.click();
+        
+        document.getElementById('status').innerText = "受信完了: " + receivedFileName;
+        document.getElementById('prog-box').style.display = 'none';
+        document.getElementById('prog-fill').style.width = '0%';
+    }
+
+    // 3. 大容量ファイル用・分割送信処理
+    async function sendFile() {
         const peerId = document.getElementById('peer-id').value;
         const file = document.getElementById('file-input').files[0];
         
-        if (!peerId || !file) return alert("IDとファイルを選択してください");
+        if (!peerId || !file) return alert("相手のIDと送信するファイルを選択してください");
 
         document.getElementById('status').innerText = "接続中...";
         conn = peer.connect(peerId);
 
-        conn.on('open', () => {
-            document.getElementById('status').innerText = "送信中...";
+        conn.on('open', async () => {
+            document.getElementById('status').innerText = "送信準備中...";
             document.getElementById('prog-box').style.display = 'block';
-            document.getElementById('prog-fill').style.width = '100%'; // 簡易表示
 
-            // ファイルをバイナリとして送信
+            // メタデータの送信
             conn.send({
-                file: file,
+                type: 'start',
                 name: file.name,
-                type: file.type
+                size: file.size,
+                mime: file.type
             });
+
+            // 1MBごとにチャンク分割して送信 (DataChannelの負荷を抑える)
+            const chunkSize = 1024 * 512; 
+            const reader = new FileReader();
+
+            let offset = 0;
+            const totalSize = file.size;
+
+            while (offset < totalSize) {
+                const chunk = file.slice(offset, offset + chunkSize);
+                const arrayBuffer = await chunk.arrayBuffer();
+                
+                // ArrayBufferからBase64へエンコードして確実にデータを送る
+                let binary = '';
+                const bytes = new Uint8Array(arrayBuffer);
+                for (var i = 0; i < bytes.byteLength; i++) {
+                    binary += String.fromCharCode(bytes[i]);
+                }
+                const base64Flag = window.btoa(binary);
+
+                conn.send({
+                    type: 'chunk',
+                    chunk: base64Flag
+                });
+
+                offset += chunkSize;
+                
+                let percentage = (offset / totalSize) * 100;
+                if (percentage > 100) percentage = 100;
+                document.getElementById('prog-fill').style.width = percentage + '%';
+                document.getElementById('status').innerText = `送信中: ${Math.floor(percentage)}%`;
+            }
 
             setTimeout(() => {
                 document.getElementById('status').innerText = "送信完了！";
             }, 1000);
+        });
+    }
+
+    // 4. QRコードスキャナ機能
+    function toggleScanner() {
+        const reader = document.getElementById('reader');
+        if (reader.style.display === 'block') {
+            reader.style.display = 'none';
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => html5QrCode.clear()).catch(err => console.log(err));
+            }
+        } else {
+            reader.style.display = 'block';
+            html5QrCode = new Html5Qrcode("reader");
+            
+            html5QrCodeStart();
+        }
+    }
+
+    function htmlQrCodeStart() {
+        html5QrCode.start(
+            { facingMode: "environment" }, // 背面カメラを使用
+            {
+                fps: 10,
+                qrbox: 250
+            },
+            (decodedText, decodedResult) => {
+                // スキャン成功時
+                document.getElementById('peer-id').value = decodedText;
+                document.getElementById('status').innerText = "IDを読み取りました: " + decodedText;
+                toggleScanner(); // スキャナを閉じる
+            },
+            (errorMessage) => {
+                // スキャン中・失敗時
+            }
+        ).catch(err => {
+            console.error("スキャナの起動に失敗しました: " + err);
+            document.getElementById('status').innerText = "カメラの起動に失敗しました。権限を確認してください。";
         });
     }
 </script>
