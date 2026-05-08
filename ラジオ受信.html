@@ -1,134 +1,106 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radio Listener - Mobile Ready</title>
+    <title>Retro Radio Tuner</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: #1e293b; padding: 30px; border-radius: 24px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { margin-bottom: 20px; font-size: 24px; }
-        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.2s; }
-        button:active { transform: scale(0.95); background: #059669; }
-        button:disabled { background: #334155; cursor: not-allowed; }
-        .btn-reset { background: #64748b; margin-top: 20px; display: none; font-size: 14px; padding: 12px; }
-        #status { margin-top: 25px; color: #94a3b8; font-weight: bold; line-height: 1.6; }
-        .status-on { color: #10b981; animation: blink 2s infinite; }
-        .status-off { color: #f87171; }
-        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        body { background: #241e1a; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: 'Georgia', serif; }
+        .radio-body { background: #5d4037; width: 320px; height: 460px; border-radius: 40px; border: 10px solid #3e2723; position: relative; box-shadow: 0 20px 0 #2a1b18, 0 30px 50px rgba(0,0,0,0.5); padding: 25px; box-sizing: border-box; }
         
-        /* スマホ用通知バッジ */
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; background: #334155; margin-bottom: 10px; }
+        /* スピーカー部分 */
+        .grill { background: repeating-linear-gradient(90deg, #3e2723, #3e2723 4px, #5d4037 4px, #5d4037 8px); height: 100px; border-radius: 20px; margin-bottom: 25px; border: 3px solid #2a1b18; }
+        
+        /* チューニング窓 */
+        .tuner-display { background: #fdf5e6; height: 90px; border-radius: 8px; border: 5px solid #3e2723; position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: center; align-items: center; box-shadow: inset 0 0 10px rgba(0,0,0,0.2); }
+        .freq-num { font-size: 32px; font-weight: bold; color: #222; letter-spacing: -1px; }
+        .needle { width: 3px; height: 100%; background: #d32f2f; position: absolute; left: 50%; transition: 0.2s; box-shadow: 0 0 5px rgba(0,0,0,0.3); }
+        
+        /* 操作系 */
+        .dial-label { text-align: center; font-size: 12px; color: #fdf5e6; margin-top: 20px; font-weight: bold; text-transform: uppercase; }
+        input[type="range"] { width: 100%; margin-top: 10px; accent-color: #3e2723; cursor: pointer; }
+        
+        .power-btn { background: #8e0000; color: #fff; border: 5px solid #3e2723; border-radius: 50%; width: 90px; height: 90px; margin: 25px auto; display: block; font-weight: bold; cursor: pointer; font-size: 14px; box-shadow: 0 6px 0 #4a0000; transition: 0.1s; }
+        .power-btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #4a0000; }
+        .power-btn.on { background: #d32f2f; box-shadow: 0 0 15px #ff5252; }
+        
+        #status-msg { text-align: center; color: #fdf5e6; font-size: 11px; margin-top: 10px; font-style: italic; }
     </style>
 </head>
 <body>
-<div class="box">
-    <div class="badge">LISTEN MODE</div>
-    <h2>📻 リスナー</h2>
+
+<div class="radio-body">
+    <div class="grill"></div>
     
-    <div id="setup-ui">
-        <input type="text" id="room" value="apple7" placeholder="ルームIDを入力">
-        <button id="listenBtn" onclick="listen()">受信開始</button>
+    <div class="tuner-display">
+        <div class="freq-num" id="freq-out">80.0</div>
+        <div style="font-size:10px; color:#888;">FM MHz BAND</div>
+        <div class="needle" id="needle"></div>
     </div>
 
-    <div id="status">待機中</div>
-    
-    <button id="resetBtn" class="btn-reset" onclick="location.reload()">再接続 / リセット</button>
+    <div class="dial-label">Tuning Dial</div>
+    <input type="range" min="76.0" max="95.0" step="0.1" value="80.0" oninput="updateTuner(this.value)">
+
+    <button class="power-btn" id="powerBtn" onclick="togglePower()">START<br>RECEIVE</button>
+    <div id="status-msg">READY TO TUNE</div>
     
     <audio id="audio" playsinline></audio>
 </div>
 
 <script>
     let peer = null;
+    let isConnected = false;
 
-    // 通信を中継するTURNサーバーの設定（違うWi-Fi同士でも繋がるようにする）
-    const PEER_CONFIG = {
-        config: {
-            'iceServers': [
-                { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { 
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ],
-            'iceTransportPolicy': 'all'
-        }
-    };
+    function updateTuner(v) {
+        const f = parseFloat(v).toFixed(1);
+        document.getElementById('freq-out').innerText = f;
+        const percent = ((v - 76) / (95 - 76)) * 100;
+        document.getElementById('needle').style.left = percent + "%";
+    }
 
-    function listen() {
-        const room = document.getElementById('room').value;
-        const status = document.getElementById('status');
-        const resetBtn = document.getElementById('resetBtn');
+    function togglePower() {
         const audio = document.getElementById('audio');
-
-        if(!room) { alert("IDを入力してください"); return; }
-
-        document.getElementById('listenBtn').disabled = true;
-        status.innerText = "🔍 放送を探しています...";
-
-        // スマホの「自動再生ブロック」を解除するために、ボタンを押した瞬間に空の音を再生させる
+        const status = document.getElementById('status-msg');
+        const btn = document.getElementById('powerBtn');
+        
+        // ブラウザの音量制限解除
         audio.play().catch(() => {});
 
-        // リスナーIDをランダム生成
-        const myId = `${room}-listener-${Math.floor(Math.random() * 9999)}`;
-        peer = new Peer(myId, PEER_CONFIG);
+        if(isConnected) { location.reload(); return; }
+
+        const freq = document.getElementById('freq-out').innerText.replace('.', '-');
+        const stationId = `radio-station-${freq}`;
+        const myId = `listener-${Math.floor(Math.random()*100000)}`;
+
+        status.innerText = "TUNING IN PROGRESS...";
+        btn.classList.add('on');
+
+        peer = new Peer(myId, {
+            config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }] }
+        });
 
         peer.on('open', () => {
-            status.innerText = "📡 接続を確立中...";
-            // 配信者に接続
-            const conn = peer.connect(`${room}-host`);
-            
+            const conn = peer.connect(stationId);
             conn.on('open', () => {
-                status.innerText = "✅ 接続完了！配信を待機しています...";
+                status.innerText = "SIGNAL RECEPTION STABLE";
+                isConnected = true;
             });
-
-            conn.on('close', () => { showEnd(); });
         });
 
         peer.on('call', call => {
-            status.innerText = "🔴 受信中...";
-            status.classList.add('status-on');
-            resetBtn.style.display = "block";
-            
             call.answer();
-            
-            call.on('stream', s => {
-                audio.srcObject = s;
-                // スマホ対策：ユーザー操作直後でないとplay()が失敗するためエラーハンドリング
-                audio.play().catch(e => {
-                    status.innerHTML = "⚠️ ブラウザが音をブロックしました<br>ここをタップして再生を許可してください";
-                    status.style.cursor = "pointer";
-                    status.onclick = () => {
-                        audio.play();
-                        status.innerHTML = "🔴 受信中...";
-                        status.onclick = null;
-                    };
-                });
+            call.on('stream', stream => {
+                status.innerText = "ON AIR - NOW PLAYING";
+                audio.srcObject = stream;
+                audio.play();
             });
-
-            call.on('close', () => { showEnd(); });
         });
 
-        peer.on('error', (err) => {
-            console.error(err);
-            status.innerText = "❌ 配信が見つからないか、接続が切れました";
-            status.classList.add('status-off');
-            resetBtn.style.display = "block";
+        peer.on('error', () => {
+            status.innerText = "NO SIGNAL / STATION NOT FOUND";
+            btn.classList.remove('on');
         });
-    }
-
-    function showEnd() {
-        const status = document.getElementById('status');
-        status.innerText = "📴 放送は終了しました";
-        status.classList.remove('status-on');
-        status.classList.add('status-off');
-        document.getElementById('resetBtn').style.display = "block";
-        const a = document.getElementById('audio');
-        a.srcObject = null;
     }
 </script>
 </body>
