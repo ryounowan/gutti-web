@@ -2,188 +2,244 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Web Text Editor</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Mobile Web Editor</title>
     <style>
-        body {
-            margin: 0;
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
+        :root {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --accent-color: #007acc;
+            --text-color: #d4d4d4;
+            --border-color: #444;
         }
 
-        /* ツールバーのスタイル */
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            height: 100dvh; /* スマホのアドレスバーを考慮した高さ */
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        /* ツールバー：スマホでは折り返しを許可 */
         .toolbar {
             background-color: #333;
-            padding: 10px;
+            padding: 8px;
             display: flex;
-            gap: 10px;
+            gap: 6px;
             align-items: center;
-            border-bottom: 1px solid #444;
+            border-bottom: 1px solid var(--border-color);
+            flex-wrap: wrap; /* ボタンが多い時に改行 */
         }
 
         button {
             background-color: #444;
             color: white;
-            border: none;
-            padding: 8px 15px;
+            border: 1px solid #555;
+            padding: 8px 12px; /* タップしやすいサイズ */
             cursor: pointer;
             border-radius: 4px;
-            transition: background 0.2s;
+            font-size: 14px;
+            touch-action: manipulation; /* タップの反応を改善 */
         }
 
-        button:hover {
-            background-color: #555;
+        button:active {
+            background-color: var(--accent-color);
         }
 
         .file-info {
-            margin-left: auto;
-            font-size: 0.9em;
+            font-size: 12px;
             color: #aaa;
+            flex-basis: 100%; /* スマホではファイル名を一行占有させる */
+            margin-top: 4px;
         }
 
-        /* エディタエリア */
+        /* 検索パネル：スマホ向けにスリム化 */
+        #searchPanel {
+            background-color: var(--panel-bg);
+            padding: 8px;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .search-row {
+            display: flex;
+            gap: 5px;
+        }
+
+        #searchPanel input {
+            background-color: #3c3c3c;
+            border: 1px solid #555;
+            color: white;
+            padding: 6px;
+            border-radius: 4px;
+            flex-grow: 1;
+            font-size: 14px;
+        }
+
+        /* エディタ：フォントサイズ16pxでズーム防止 */
         #editor {
             flex-grow: 1;
             width: 100%;
-            padding: 20px;
+            padding: 12px;
             box-sizing: border-box;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
-            font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-            font-size: 16px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 16px; 
             line-height: 1.5;
             border: none;
             outline: none;
             resize: none;
-            tab-size: 4;
         }
 
         /* ステータスバー */
         .status-bar {
-            background-color: #007acc;
+            background-color: var(--accent-color);
             color: white;
-            padding: 3px 10px;
-            font-size: 12px;
+            padding: 4px 10px;
+            font-size: 11px;
             display: flex;
             justify-content: space-between;
+        }
+
+        /* デスクトップ向けの調整 */
+        @media (min-width: 600px) {
+            .file-info { flex-basis: auto; margin-top: 0; margin-left: auto; }
+            #searchPanel { flex-direction: row; }
         }
     </style>
 </head>
 <body>
 
     <div class="toolbar">
-        <button onclick="newFile()">新規作成</button>
-        <button onclick="openFile()">ファイルを開く</button>
-        <button onclick="saveFile()">上書き保存</button>
-        <button onclick="saveFileAs()">名前を付けて保存</button>
+        <button onclick="newFile()">新規</button>
+        <button onclick="openFile()">開く</button>
+        <button onclick="saveFile()">保存</button>
+        <button onclick="toggleSearch()">検索/置換</button>
         <div class="file-info" id="fileNameDisplay">新規ファイル</div>
     </div>
 
-    <textarea id="editor" spellcheck="false" placeholder="ここにテキストを入力..."></textarea>
+    <div id="searchPanel">
+        <div class="search-row">
+            <input type="text" id="searchInput" placeholder="検索...">
+            <button onclick="findNext()">次へ</button>
+        </div>
+        <div class="search-row">
+            <input type="text" id="replaceInput" placeholder="置換...">
+            <button onclick="replaceText()">置換</button>
+            <button onclick="replaceAll()">全置換</button>
+            <button onclick="toggleSearch()">閉じる</button>
+        </div>
+    </div>
+
+    <textarea id="editor" spellcheck="false" placeholder="ここに入力..."></textarea>
 
     <div class="status-bar">
-        <div id="fileTypeDisplay">形式: text/plain</div>
-        <div id="charCount">文字数: 0</div>
+        <div id="cursorPos">行 1, 列 1</div>
+        <div id="charCount">0 文字</div>
+        <div id="fileTypeDisplay">text/plain</div>
     </div>
 
     <script>
         const editor = document.getElementById('editor');
         const fileNameDisplay = document.getElementById('fileNameDisplay');
-        const fileTypeDisplay = document.getElementById('fileTypeDisplay');
+        const cursorPosDisplay = document.getElementById('cursorPos');
         const charCount = document.getElementById('charCount');
+        const searchPanel = document.getElementById('searchPanel');
 
         let fileHandle;
 
-        // 文字数カウント
-        editor.addEventListener('input', () => {
-            charCount.textContent = `文字数: ${editor.value.length}`;
-        });
+        // 状態更新
+        function updateStatus() {
+            charCount.textContent = `${editor.value.length} 文字`;
+            const textBefore = editor.value.substring(0, editor.selectionStart);
+            const lines = textBefore.split('\n');
+            cursorPosDisplay.textContent = `行 ${lines.length}, 列 ${lines[lines.length - 1].length + 1}`;
+        }
 
-        // Tabキーを使えるようにする
-        editor.addEventListener('keydown', (e) => {
-            if (e.key === 'Tab') {
-                e.preventDefault();
-                const start = editor.selectionStart;
-                const end = editor.selectionEnd;
-                editor.value = editor.value.substring(0, start) + "\t" + editor.value.substring(end);
-                editor.selectionStart = editor.selectionEnd = start + 1;
-            }
-        });
+        editor.addEventListener('input', updateStatus);
+        editor.addEventListener('keyup', updateStatus);
+        editor.addEventListener('click', updateStatus);
 
-        // 新規作成
-        function newFile() {
-            if (confirm('現在の内容を破棄して新規作成しますか？')) {
-                editor.value = '';
-                fileHandle = null;
-                fileNameDisplay.textContent = '新規ファイル';
-                fileTypeDisplay.textContent = '形式: text/plain';
+        // 検索パネル切り替え
+        function toggleSearch() {
+            const isVisible = searchPanel.style.display === 'flex';
+            searchPanel.style.display = isVisible ? 'none' : 'flex';
+            if (!isVisible) document.getElementById('searchInput').focus();
+        }
+
+        // 検索・置換ロジック（前回のものをスマホ向けに維持）
+        function findNext() {
+            const query = document.getElementById('searchInput').value;
+            if (!query) return;
+            const content = editor.value;
+            let nextPos = content.indexOf(query, editor.selectionEnd);
+            if (nextPos === -1) nextPos = content.indexOf(query, 0);
+            
+            if (nextPos !== -1) {
+                editor.focus();
+                editor.setSelectionRange(nextPos, nextPos + query.length);
+                // スマホで選択範囲が見えるようにスクロール
+                const lineHeight = parseFloat(getComputedStyle(editor).lineHeight);
+                const lines = content.substring(0, nextPos).split('\n').length;
+                editor.scrollTop = (lines - 2) * lineHeight;
             }
         }
 
-        // ファイルを開く
+        function replaceText() {
+            const query = document.getElementById('searchInput').value;
+            const replacement = document.getElementById('replaceInput').value;
+            if (editor.value.substring(editor.selectionStart, editor.selectionEnd) === query) {
+                editor.setRangeText(replacement, editor.selectionStart, editor.selectionEnd, 'select');
+            }
+            findNext();
+        }
+
+        function replaceAll() {
+            const query = document.getElementById('searchInput').value;
+            const replacement = document.getElementById('replaceInput').value;
+            if (!query) return;
+            editor.value = editor.value.split(query).join(replacement);
+            updateStatus();
+        }
+
+        // ファイル操作（※スマホのブラウザによっては一部制限があります）
         async function openFile() {
             try {
-                [fileHandle] = await window.showOpenFilePicker({
-                    types: [
-                        {
-                            description: 'テキスト/HTMLファイル',
-                            accept: {
-                                'text/plain': ['.txt', '.md', '.csv'],
-                                'text/html': ['.html', '.htm'],
-                                'text/javascript': ['.js'],
-                                'text/css': ['.css']
-                            }
-                        },
-                    ],
-                });
-
+                [fileHandle] = await window.showOpenFilePicker();
                 const file = await fileHandle.getFile();
-                const contents = await file.text();
-                editor.value = contents;
+                editor.value = await file.text();
                 fileNameDisplay.textContent = file.name;
-                fileTypeDisplay.textContent = `形式: ${file.type || '不明'}`;
-                charCount.textContent = `文字数: ${contents.length}`;
-            } catch (err) {
-                console.error(err);
-            }
+                updateStatus();
+            } catch (err) { console.error(err); }
         }
 
-        // 上書き保存
         async function saveFile() {
             if (!fileHandle) {
-                return saveFileAs();
+                try {
+                    fileHandle = await window.showSaveFilePicker({ suggestedName: 'memo.txt' });
+                } catch (err) { return; }
             }
             try {
                 const writable = await fileHandle.createWritable();
                 await writable.write(editor.value);
                 await writable.close();
-                alert('保存しました');
-            } catch (err) {
-                alert('保存に失敗しました: ' + err.name);
-            }
+                fileNameDisplay.textContent = (await fileHandle.getFile()).name;
+            } catch (err) { alert('保存に失敗しました。'); }
         }
 
-        // 名前を付けて保存
-        async function saveFileAs() {
-            try {
-                fileHandle = await window.showSaveFilePicker({
-                    suggestedName: 'memo.txt',
-                    types: [
-                        { description: 'テキストファイル', accept: { 'text/plain': ['.txt'] } },
-                        { description: 'HTMLファイル', accept: { 'text/html': ['.html'] } },
-                        { description: 'Markdown', accept: { 'text/markdown': ['.md'] } },
-                        { description: 'JavaScript', accept: { 'text/javascript': ['.js'] } },
-                        { description: 'CSS', accept: { 'text/css': ['.css'] } },
-                    ],
-                });
-                saveFile();
-                fileNameDisplay.textContent = (await fileHandle.getFile()).name;
-            } catch (err) {
-                console.error(err);
+        function newFile() {
+            if (confirm('新規作成しますか？')) {
+                editor.value = '';
+                fileHandle = null;
+                fileNameDisplay.textContent = '新規ファイル';
+                updateStatus();
             }
         }
     </script>
