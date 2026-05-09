@@ -5,45 +5,52 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Gutti FileManager</title>
+    <title>Gutti FileManager Pro</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --accent: #00e5ff; --grad: linear-gradient(135deg, #00e5ff, #0072ff); --glass: rgba(255, 255, 255, 0.1); }
         body, html { margin: 0; padding: 0; height: 100dvh; font-family: -apple-system, sans-serif; background: #000 no-repeat center/cover; color: #fff; overflow: hidden; -webkit-user-select: none; user-select: none; transition: background 0.5s ease; }
 
-        /* --- Desktop Widgets --- */
+        /* --- Desktop --- */
         #desktop { height: 100%; display: flex; flex-direction: column; position: relative; z-index: 10; }
         #clock-widget { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: -1; }
         #clock-time { font-size: 5rem; font-weight: 300; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
         #clock-date { font-size: 1.2rem; opacity: 0.8; }
 
-        /* --- Header & MiniPlayer --- */
+        /* --- UI Elements --- */
         .top-bar { padding: calc(65px + env(safe-area-inset-top)) 15px 10px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); display: flex; gap: 8px; }
         #search-box { flex: 1; padding: 10px; border-radius: 8px; border: none; background: var(--glass); color: #fff; outline: none; font-size: 14px; }
         
         #mini-player { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); width: 85%; height: 40px; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); border-radius: 20px; z-index: 5500; display: none; align-items: center; padding: 0 15px; border: 1px solid rgba(255,255,255,0.1); }
         #mini-player span { flex: 1; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 10px; }
 
-        /* --- Explorer Grid --- */
         #explorer { flex: 1; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 12px; align-content: start; overflow-y: auto; }
-        .node { text-align: center; padding: 8px; border-radius: 10px; position: relative; }
+        
+        /* Node & Sort State */
+        .node { text-align: center; padding: 8px; border-radius: 10px; position: relative; transition: transform 0.2s; }
         .node.selected { background: rgba(0, 229, 255, 0.2); border: 1px solid var(--accent); }
-        .node i { font-size: 2.5rem; display: block; margin-bottom: 5px; }
-        .node-name { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .node.dragging { opacity: 0.4; scale: 0.8; }
+        .node.drag-over { border: 2px dashed var(--accent); background: rgba(0,229,255,0.1); }
+        body.sort-mode .node:not(.no-edit) { animation: shake 0.3s infinite; cursor: move; }
+        @keyframes shake { 0% { transform: rotate(-1deg); } 50% { transform: rotate(1.5deg); } 100% { transform: rotate(-1deg); } }
 
-        /* --- Action Sheet (Long Tap) --- */
-        #action-sheet { position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; color: #111; border-radius: 20px 20px 0 0; display: none; flex-direction: column; z-index: 7000; padding: 20px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
+        .node i { font-size: 2.5rem; display: block; margin-bottom: 5px; pointer-events: none; }
+        .node-name { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+
+        /* --- Action Sheet --- */
+        #action-sheet { position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; color: #111; border-radius: 20px 20px 0 0; display: none; flex-direction: column; z-index: 9000; padding: 20px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
         #action-sheet.open { transform: translateY(0); }
-        .act-item { padding: 14px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; }
-        .act-item.disabled { opacity: 0.3; }
+        .act-item { padding: 14px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; cursor: pointer; }
 
-        /* --- Window System --- */
+        /* --- Sort Bar --- */
+        #sort-done-bar { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 10px 30px; border-radius: 20px; font-weight: bold; display: none; z-index: 9500; box-shadow: 0 4px 15px rgba(0,229,255,0.5); }
+
+        /* --- Windows --- */
         .win { position: fixed; inset: 0; background: #000; z-index: 8000; display: none; flex-direction: column; padding-top: env(safe-area-inset-top); }
         .win-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass); }
-        #media-player { background: linear-gradient(180deg, #05050a 0%, #1a1a2e 100%); align-items: center; justify-content: center; }
-        .player-disk { width: 200px; height: 200px; border-radius: 50%; background: var(--grad); display: flex; align-items: center; justify-content: center; animation: rotate 12s linear infinite; animation-play-state: paused; }
-        .player-disk.playing { animation-play-state: running; }
-        @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        
+        #img-viewer { background: rgba(0,0,0,0.95); justify-content: center; align-items: center; }
+        #img-display { max-width: 100%; max-height: 80vh; object-fit: contain; }
 
         /* --- Taskbar --- */
         .taskbar { height: 70px; background: rgba(0,0,0,0.6); backdrop-filter: blur(20px); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
@@ -58,6 +65,8 @@
         <div id="clock-time">00:00</div>
         <div id="clock-date">2026.01.01</div>
     </div>
+
+    <div id="sort-done-bar" onclick="toggleSortMode(false)">並べ替え完了</div>
 
     <div id="mini-player" onclick="openPlayerUI()"><i class="fas fa-music"></i><span id="mini-t">Select Track</span><i class="fas fa-wave-square"></i></div>
 
@@ -75,6 +84,8 @@
         <div id="act-name" style="text-align:center; font-weight:bold; color:#888; font-size:12px; margin-bottom:10px;"></div>
         <div class="act-item" onclick="handleAct('open')"><i class="fas fa-play"></i> 開く / 実行</div>
         <div class="act-item" id="act-edit-btn" onclick="handleAct('edit')"><i class="fas fa-edit"></i> 編集</div>
+        <div class="act-item" onclick="handleAct('sort')"><i class="fas fa-arrows-alt" style="color: #5856d6;"></i> 並べ替え（配置変更）</div>
+        <div class="act-item" onclick="handleAct('change-icon')"><i class="fas fa-icons" style="color: #ff9500;"></i> アイコン変更</div>
         <div class="act-item" onclick="handleAct('dl')"><i class="fas fa-download"></i> ダウンロード</div>
         <div class="act-item" onclick="handleAct('del')" style="color:#ff3b30; border:none;"><i class="fas fa-trash"></i> 削除</div>
     </div>
@@ -83,13 +94,13 @@
         <div onclick="closePlayerUI()" style="position:absolute; top:50px; left:25px; font-size:1.8rem;"><i class="fas fa-chevron-down"></i></div>
         <div class="player-disk" id="disk"><i class="fas fa-music" style="font-size:4rem;"></i></div>
         <h2 id="m-title" style="margin:20px 0 0 0; font-size:1.2rem;">Title</h2>
-        <div class="seek-container">
-            <input type="range" id="seek" class="seek-bar" value="0" oninput="manualSeek()">
+        <div style="width:85%; max-width:400px; margin-top:20px;">
+            <input type="range" id="seek" style="width:100%; accent-color:var(--accent);" value="0" oninput="manualSeek()">
             <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-top:5px; font-family:monospace;">
                 <span id="t-curr">0:00</span><span id="t-total">0:00</span>
             </div>
         </div>
-        <div style="width:100%; max-width:280px; display:flex; justify-content:space-around; align-items:center;">
+        <div style="width:100%; max-width:280px; display:flex; justify-content:space-around; align-items:center; margin-top:20px;">
             <i class="fas fa-redo-alt" id="loop" onclick="toggleLoop()" style="color:#666;"></i>
             <i class="fas fa-step-backward" onclick="prev()"></i>
             <i class="fas fa-play-circle" id="p-main" onclick="togglePlay()" style="font-size:3.5rem; color:var(--accent);"></i>
@@ -97,6 +108,13 @@
             <i class="fas fa-cog" style="color:#666;"></i>
         </div>
         <audio id="audio"></audio>
+    </div>
+
+    <div id="img-viewer" class="win">
+        <div class="win-header"><button onclick="closeWin('img-viewer')">閉じる</button><span id="img-title">画像</span><div></div></div>
+        <div style="flex:1; display:flex; justify-content:center; align-items:center; overflow:hidden;">
+            <img id="img-display" src="">
+        </div>
     </div>
 
     <div id="win-settings" class="win">
@@ -127,15 +145,14 @@
 <input type="file" id="f-up" multiple onchange="handleImport(this.files)" style="display:none;">
 
 <script>
-    const DB_NAME = 'GUTTI_OS_V9', STORE = 'FS';
-    let db, currentPath = 'root', selected = new Set(), isSelMode = false, active = null, timer, playlist = [], idx = 0, isLoop = false;
+    const DB_NAME = 'GUTTI_OS_V13', STORE = 'FS';
+    let db, currentPath = 'root', selected = new Set(), isSelMode = false, isSortMode = false, active = null, timer, playlist = [], idx = 0, isLoop = false;
     const audio = document.getElementById('audio');
 
     const req = indexedDB.open(DB_NAME, 1);
     req.onupgradeneeded = e => e.target.result.createObjectStore(STORE, { keyPath: 'id' });
     req.onsuccess = e => { db = e.target.result; loadConfig(); render(); updateClock(); };
 
-    // --- System Core ---
     function updateClock() {
         const now = new Date();
         document.getElementById('clock-time').innerText = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
@@ -160,36 +177,93 @@
         const view = document.getElementById('explorer');
         view.innerHTML = '';
 
-        playlist = all.filter(f => f.parent === currentPath && f.name.match(/\.(mp3|wav|m4a|ogg)$/i));
+        const items = all
+            .filter(i => q ? i.name.toLowerCase().includes(q) : i.parent === currentPath)
+            .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        playlist = items.filter(f => f.name.match(/\.(mp3|wav|m4a|ogg)$/i));
 
         if(currentPath !== 'root' && !q) {
-            const b = document.createElement('div'); b.className='node'; b.innerHTML=`<i class="fas fa-chevron-left" style="color:#aaa"></i><div class="node-name">戻る</div>`;
+            const b = document.createElement('div'); b.className='node no-edit'; b.innerHTML=`<i class="fas fa-chevron-left" style="color:#aaa"></i><div class="node-name">戻る</div>`;
             b.onclick = () => { const p = all.find(f=>f.id===currentPath); currentPath = p ? p.parent : 'root'; render(); };
             view.appendChild(b);
         }
 
-        all.filter(i => q ? i.name.toLowerCase().includes(q) : i.parent === currentPath).forEach(item => {
-            const ext = item.name.split('.').pop().toLowerCase();
-            const isMusic = ['mp3','wav','m4a','ogg'].includes(ext);
-            const isVideo = ['mp4','webm'].includes(ext);
+        items.forEach(item => {
             const div = document.createElement('div');
             div.className = `node ${selected.has(item.id) ? 'selected' : ''}`;
-            div.innerHTML = `<i class="fas fa-${item.type==='folder'?'folder':(isMusic?'music':(isVideo?'play-circle':'file-alt'))}" style="color:${item.color || (item.type==='folder'?'#fcc419':(isMusic?'#ff00e5':(isVideo?'#00e5ff':'#fff')))}"></i><div class="node-name">${item.name}</div>`;
+            div.dataset.id = item.id;
+            if(isSortMode) div.setAttribute('draggable', 'true');
+            
+            const info = getIconInfo(item);
+            div.innerHTML = `<i class="${item.customIcon || info.icon}" style="color:${item.customColor || info.color}"></i><div class="node-name">${item.name}</div>`;
 
-            div.onmousedown = div.ontouchstart = (e) => { if(!isSelMode) timer = setTimeout(() => openSheet(item), 600); };
+            div.onmousedown = div.ontouchstart = (e) => { if(!isSelMode && !isSortMode) timer = setTimeout(() => openSheet(item), 600); };
             div.onmouseup = div.ontouchend = () => clearTimeout(timer);
-            div.onclick = (e) => { e.stopPropagation(); if(isSelMode){ if(selected.has(item.id)) selected.delete(item.id); else selected.add(item.id); render(); document.getElementById('bulk-bar').style.display=selected.size>0?'flex':'none'; } else { launch(item); } };
+            
+            div.onclick = (e) => { 
+                if(isSortMode) return;
+                e.stopPropagation(); 
+                if(isSelMode){ if(selected.has(item.id)) selected.delete(item.id); else selected.add(item.id); render(); document.getElementById('bulk-bar').style.display=selected.size>0?'flex':'none'; } 
+                else { launch(item); } 
+            };
+
+            // Drag Events
+            div.ondragstart = (e) => { div.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.id); };
+            div.ondragend = () => { div.classList.remove('dragging'); document.querySelectorAll('.node').forEach(n => n.classList.remove('drag-over')); };
+            div.ondragover = (e) => { e.preventDefault(); if(isSortMode) div.classList.add('drag-over'); };
+            div.ondragleave = () => div.classList.remove('drag-over');
+            div.ondrop = (e) => { e.preventDefault(); if(isSortMode) handleDrop(e.dataTransfer.getData('text/plain'), item.id); };
+
             view.appendChild(div);
         });
+    }
+
+    function getIconInfo(item) {
+        if(item.type === 'folder') return { icon: 'fas fa-folder', color: '#fcc419' };
+        const ext = item.name.split('.').pop().toLowerCase();
+        if(['mp3','wav','m4a','ogg'].includes(ext)) return { icon: 'fas fa-music', color: '#ff00e5' };
+        if(['jpg','jpeg','png','gif','webp'].includes(ext)) return { icon: 'fas fa-file-image', color: '#4ade80' };
+        if(['mp4','webm'].includes(ext)) return { icon: 'fas fa-play-circle', color: '#00e5ff' };
+        if(['html','js','css','json'].includes(ext)) return { icon: 'fas fa-file-code', color: '#0072ff' };
+        return { icon: 'fas fa-file-alt', color: '#fff' };
+    }
+
+    async function handleDrop(draggedId, targetId) {
+        if(draggedId === targetId) return;
+        const tx = db.transaction(STORE, 'readwrite');
+        const os = tx.objectStore(STORE);
+        const all = await new Promise(r => { const req = os.getAll(); req.onsuccess = () => r(req.result); });
+        let folderItems = all.filter(i => i.parent === currentPath).sort((a,b) => (a.order||0) - (b.order||0));
+        const dIdx = folderItems.findIndex(i => i.id === draggedId);
+        const tIdx = folderItems.findIndex(i => i.id === targetId);
+        folderItems.splice(tIdx, 0, folderItems.splice(dIdx, 1)[0]);
+        folderItems.forEach((item, index) => { item.order = index; os.put(item); });
+        tx.oncomplete = render;
+    }
+
+    function toggleSortMode(val) {
+        isSortMode = val;
+        document.body.classList.toggle('sort-mode', val);
+        document.getElementById('sort-done-bar').style.display = val ? 'block' : 'none';
+        render();
     }
 
     function launch(item) {
         if(item.type === 'folder') { currentPath = item.id; render(); return; }
         const ext = item.name.split('.').pop().toLowerCase();
-        if(['mp3','wav','m4a','ogg'].includes(ext)) { idx=playlist.findIndex(f=>f.id===item.id); load(item); openPlayerUI(); togglePlay(true); }
-        else if(ext === 'html') { const w=window.open(); w.document.write(atob(item.content.split(',')[1])); }
-        else if(ext === 'mp4') { const w=document.getElementById('media-player'); w.style.display='flex'; w.innerHTML=`<div onclick="location.reload()" style="position:fixed;top:20px;left:20px;z-index:9999;">✕</div><video src="${item.content}" controls autoplay style="width:100%;height:100%;"></video>`; }
+        if(['mp3','wav','m4a','ogg'].includes(ext)) { idx=playlist.findIndex(f=>f.id===item.id); loadMusic(item); openPlayerUI(); togglePlay(true); }
+        else if(['jpg','jpeg','png','gif','webp'].includes(ext)) { document.getElementById('img-display').src=item.content; document.getElementById('img-title').innerText=item.name; document.getElementById('img-viewer').style.display='flex'; }
+        else if(ext === 'html') { const w=window.open(); w.document.write(decodeContent(item.content)); }
+        else if(ext === 'mp4' || ext === 'webm') { const w=document.getElementById('media-player'); w.style.display='flex'; w.innerHTML=`<div onclick="location.reload()" style="position:fixed;top:50px;left:25px;z-index:9999;font-size:2rem;">✕</div><video src="${item.content}" controls autoplay style="width:100%;height:100%;background:#000;"></video>`; }
         else { openEditor(item); }
+    }
+
+    function decodeContent(c) { 
+        try { 
+            const base64 = c.split(',')[1] || "";
+            return new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))); 
+        } catch(e) { return ""; } 
     }
 
     function openSheet(item) {
@@ -197,57 +271,27 @@
         const ext = item.name.split('.').pop().toLowerCase();
         const editable = ['html','txt','js','css','json'].includes(ext) || !item.name.includes('.');
         document.getElementById('act-name').innerText = item.name;
-        document.getElementById('act-edit-btn').className = editable ? 'act-item' : 'act-item disabled';
+        document.getElementById('act-edit-btn').style.display = editable ? 'flex' : 'none';
         const s = document.getElementById('action-sheet'); s.style.display='flex'; setTimeout(()=>s.classList.add('open'),10);
     }
 
     function handleAct(type) {
-        if(type==='edit' && document.getElementById('act-edit-btn').classList.contains('disabled')) return;
         closePopups();
         if(type==='open') launch(active);
         if(type==='edit') openEditor(active);
-        if(type==='dl') { const a=document.createElement('a'); a.href=active.content; a.download=active.name; a.click(); }
-        if(type==='del') { const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).delete(active.id); tx.oncomplete=render; }
-    }
-
-    // --- Media Logic ---
-    function load(item) { audio.src=item.content; audio.preservesPitch=false; document.getElementById('m-title').innerText=item.name; document.getElementById('mini-t').innerText=item.name; audio.onloadedmetadata=()=>{ document.getElementById('seek').max=Math.floor(audio.duration); document.getElementById('t-total').innerText=formatTime(audio.duration); }; }
-    function togglePlay(f) { const b=document.getElementById('p-main'), d=document.getElementById('disk'); if(audio.paused||f){ audio.play(); b.className='fas fa-pause-circle'; d.classList.add('playing'); document.getElementById('mini-player').style.display='flex'; } else { audio.pause(); b.className='fas fa-play-circle'; d.classList.remove('playing'); } }
-    audio.ontimeupdate=()=>{ document.getElementById('seek').value=Math.floor(audio.currentTime); document.getElementById('t-curr').innerText=formatTime(audio.currentTime); };
-    audio.onended=()=>{ if(isLoop){audio.currentTime=0; audio.play();} else next(); };
-    function next(){ if(playlist.length>0){ idx=(idx+1)%playlist.length; load(playlist[idx]); togglePlay(true); } }
-    function prev(){ if(playlist.length>0){ idx=(idx-1+playlist.length)%playlist.length; load(playlist[idx]); togglePlay(true); } }
-    function manualSeek(){ audio.currentTime=document.getElementById('seek').value; }
-    function toggleLoop(){ isLoop=!isLoop; document.getElementById('loop').style.color=isLoop?'var(--accent)':'#666'; }
-    function formatTime(s){ const m=Math.floor(s/60), r=Math.floor(s%60); return `${m}:${r<10?'0':''}${r}`; }
-
-    // --- Settings & Utils ---
-    function openSettings() { document.getElementById('win-settings').style.display='flex'; }
-    function closeWin(id) { 
-        if(id === 'win-settings') {
-            localStorage.setItem('GUTTI_BG', document.getElementById('cfg-bg').value);
-            localStorage.setItem('GUTTI_CLOCK_COLOR', document.getElementById('cfg-clock-color').value);
-            loadConfig();
+        if(type==='sort') toggleSortMode(true);
+        if(type==='change-icon') {
+            const newIcon = prompt("アイコン名 (fa-star 等):", active.customIcon || "");
+            if(newIcon) {
+                active.customIcon = newIcon.includes('fa-') ? "fas " + newIcon : newIcon;
+                active.customColor = prompt("色 (red, #00ff00等):", active.customColor || "white");
+                const tx = db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(active); tx.oncomplete = render;
+            }
         }
-        document.getElementById(id).style.display='none'; 
+        if(type==='dl') { const a=document.createElement('a'); a.href=active.content; a.download=active.name; a.click(); }
+        if(type==='del') { if(confirm("削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).delete(active.id); tx.oncomplete=render; } }
     }
-    async function resetSystem() { if(confirm("全データを削除して初期化しますか？")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).clear(); tx.oncomplete=()=>location.reload(); } }
-    async function exportData() {
-        const tx=db.transaction(STORE,'readonly');
-        const all=await new Promise(r=>{const req=tx.objectStore(STORE).getAll(); req.onsuccess=()=>r(req.result);});
-        const blob=new Blob([JSON.stringify(all)], {type:'application/json'});
-        const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='GUTTI_OS_BACKUP.json'; a.click();
-    }
-    function openEditor(item) { active=item; document.getElementById('ed-file').innerText=item.name; document.getElementById('ed-text').value=item.content.includes(',')?atob(item.content.split(',')[1]):item.content; document.getElementById('win-editor').style.display='flex'; }
-    function saveFile() { const text=document.getElementById('ed-text').value; active.content="data:text/plain;base64,"+btoa(unescape(encodeURIComponent(text))); const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(active); tx.oncomplete=()=>{alert("Saved"); closeWin('win-editor'); render();}; }
-    function toggleSelect() { isSelMode=!isSelMode; selected.clear(); document.getElementById('bulk-bar').style.display='none'; document.getElementById('sel-btn').style.background=isSelMode?'var(--accent)':'var(--glass)'; render(); }
-    function bulkDel() { if(confirm("Delete?")){ const tx=db.transaction(STORE,'readwrite'); selected.forEach(id=>tx.objectStore(STORE).delete(id)); tx.oncomplete=()=>{toggleSelect(); render();}; } }
-    function bulkDl() { const tx=db.transaction(STORE,'readonly'); tx.objectStore(STORE).getAll().onsuccess=e=>{e.target.result.filter(f=>selected.has(f.id)).forEach(f=>{const a=document.createElement('a');a.href=f.content;a.download=f.name;a.click();}); toggleSelect();}; }
-    function openPlayerUI(){ document.getElementById('media-player').style.display='flex'; }
-    function closePlayerUI(){ document.getElementById('media-player').style.display='none'; }
-    function closePopups(){ const s=document.getElementById('action-sheet'); s.classList.remove('open'); setTimeout(()=>s.style.display='none',300); }
-    function handleImport(files) { Array.from(files).forEach(f=>{ const r=new FileReader(); r.onload=e=>{ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).add({id:Date.now()+Math.random().toString(),name:f.name,parent:currentPath,content:e.target.result}); tx.oncomplete=render; }; r.readAsDataURL(f); }); }
-    function newNode(t) { const n=prompt("名前:"); if(n){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).add({id:Date.now().toString(),name:n+(t==='file'&&!n.includes('.')?'.html':''),type:t,parent:currentPath,content:''}); tx.oncomplete=render; } }
-</script>
-</body>
-</html>
+
+    // --- Media Player Logic ---
+    function loadMusic(item) { audio.src=item.content; document.getElementById('m-title').innerText=item.name; document.getElementById('mini-t').innerText=item.name; audio.onloadedmetadata=()=>{ document.getElementById('seek').max=Math.floor(audio.duration); document.getElementById('t-total').innerText=formatTime(audio.duration); }; }
+    function togglePlay(f) { const b=document.getElementById('p-main'), d=document.getElementById('disk'); if(audio.paused||f){ audio.play(); b.className='fas fa-pause-circle'; d.classList.add('playing'); document.g
