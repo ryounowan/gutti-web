@@ -9,58 +9,68 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root { --accent: #00e5ff; --grad: linear-gradient(135deg, #00e5ff, #0072ff); --glass: rgba(255, 255, 255, 0.1); }
-        body, html { margin: 0; padding: 0; height: 100dvh; font-family: -apple-system, sans-serif; background: #000 no-repeat center/cover; color: #fff; overflow: hidden; -webkit-user-select: none; user-select: none; transition: background 0.5s ease; }
+        body, html { margin: 0; padding: 0; height: 100dvh; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #000 no-repeat center/cover; color: #fff; overflow: hidden; -webkit-user-select: none; user-select: none; transition: background 0.5s ease; }
+
+        /* カスタムスクロールバー */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--glass); border-radius: 10px; }
 
         /* --- Desktop --- */
         #desktop { height: 100%; display: flex; flex-direction: column; position: relative; z-index: 10; }
-        #clock-widget { position: absolute; top: 40%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: -1; }
-        #clock-time { font-size: 5rem; font-weight: 300; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        #clock-date { font-size: 1.2rem; opacity: 0.8; }
+        #clock-widget { position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: -1; width: 100%; }
+        #clock-time { font-size: clamp(3rem, 15vw, 6rem); font-weight: 300; text-shadow: 0 0 20px rgba(0,0,0,0.5); }
+        #clock-date { font-size: clamp(1rem, 4vw, 1.4rem); opacity: 0.8; }
 
         /* --- UI Elements --- */
-        .top-bar { padding: calc(65px + env(safe-area-inset-top)) 15px 10px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); display: flex; gap: 8px; }
-        #search-box { flex: 1; padding: 10px; border-radius: 8px; border: none; background: var(--glass); color: #fff; outline: none; font-size: 14px; }
+        .top-bar { padding: calc(65px + env(safe-area-inset-top)) 20px 10px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); display: flex; gap: 10px; align-items: center; }
+        #search-box { flex: 1; padding: 12px 15px; border-radius: 10px; border: none; background: var(--glass); color: #fff; outline: none; font-size: 16px; /* iOSズーム防止 */ }
         
-        #mini-player { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); width: 85%; height: 40px; background: rgba(0,0,0,0.8); backdrop-filter: blur(15px); border-radius: 20px; z-index: 5500; display: none; align-items: center; padding: 0 15px; border: 1px solid rgba(255,255,255,0.1); }
-        #mini-player span { flex: 1; font-size: 0.8rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 10px; }
+        #mini-player { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; height: 44px; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); border-radius: 22px; z-index: 5500; display: none; align-items: center; padding: 0 20px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
+        #mini-player span { flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 12px; }
 
-        #explorer { flex: 1; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(75px, 1fr)); gap: 12px; align-content: start; overflow-y: auto; }
+        #explorer { flex: 1; padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(85px, 1fr)); gap: 15px; align-content: start; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         
         /* Node & Sort State */
-        .node { text-align: center; padding: 8px; border-radius: 10px; position: relative; transition: transform 0.2s; }
+        .node { text-align: center; padding: 10px 5px; border-radius: 12px; position: relative; transition: all 0.2s; cursor: pointer; border: 1px solid transparent; }
+        @media (hover: hover) { .node:hover { background: rgba(255,255,255,0.1); } }
         .node.selected { background: rgba(0, 229, 255, 0.2); border: 1px solid var(--accent); }
         .node.dragging { opacity: 0.4; scale: 0.8; }
         .node.drag-over { border: 2px dashed var(--accent); background: rgba(0,229,255,0.1); }
         body.sort-mode .node:not(.no-edit) { animation: shake 0.3s infinite; cursor: move; }
         @keyframes shake { 0% { transform: rotate(-1deg); } 50% { transform: rotate(1.5deg); } 100% { transform: rotate(-1deg); } }
 
-        .node i { font-size: 2.5rem; display: block; margin-bottom: 5px; pointer-events: none; }
-        .node-name { font-size: 0.7rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; }
+        .node i { font-size: clamp(2.2rem, 8vw, 2.8rem); display: block; margin-bottom: 8px; pointer-events: none; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
+        .node-name { font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; pointer-events: none; padding: 0 2px; }
 
         /* --- Action Sheet --- */
-        #action-sheet { position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; color: #111; border-radius: 20px 20px 0 0; display: none; flex-direction: column; z-index: 9000; padding: 20px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); }
-        #action-sheet.open { transform: translateY(0); }
-        .act-item { padding: 14px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 12px; font-weight: bold; font-size: 14px; cursor: pointer; }
+        #action-sheet { position: fixed; bottom: 0; left: 0; width: 100%; background: #fff; color: #111; border-radius: 25px 25px 0 0; display: none; flex-direction: column; z-index: 9000; padding: 20px; box-sizing: border-box; transform: translateY(100%); transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1); max-width: 600px; left: 50%; transform: translate(-50%, 100%); }
+        #action-sheet.open { transform: translate(-50%, 0); }
+        .act-item { padding: 16px; border-bottom: 1px solid #eee; display: flex; align-items: center; gap: 15px; font-weight: bold; font-size: 15px; cursor: pointer; border-radius: 10px; }
+        @media (hover: hover) { .act-item:hover { background: #f5f5f5; } }
 
         /* --- Sort Bar --- */
-        #sort-done-bar { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 10px 30px; border-radius: 20px; font-weight: bold; display: none; z-index: 9500; box-shadow: 0 4px 15px rgba(0,229,255,0.5); }
+        #sort-done-bar { position: fixed; top: calc(env(safe-area-inset-top) + 15px); left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 12px 40px; border-radius: 30px; font-weight: bold; display: none; z-index: 9500; box-shadow: 0 4px 20px rgba(0,229,255,0.4); cursor: pointer; }
 
         /* --- Windows --- */
         .win { position: fixed; inset: 0; background: #000; z-index: 8000; display: none; flex-direction: column; padding-top: env(safe-area-inset-top); }
-        .win-header { padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass); }
+        .win-header { padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--glass); }
+        .win-header button { background: var(--glass); border: none; color: #fff; padding: 8px 15px; border-radius: 8px; cursor: pointer; }
         
-        #img-viewer { background: rgba(0,0,0,0.95); justify-content: center; align-items: center; }
-        #img-display { max-width: 100%; max-height: 80vh; object-fit: contain; }
+        #img-viewer { background: rgba(0,0,0,0.98); justify-content: center; align-items: center; }
+        #img-display { max-width: 95%; max-height: 85vh; object-fit: contain; }
 
         /* --- Taskbar --- */
-        .taskbar { height: 70px; background: rgba(0,0,0,0.6); backdrop-filter: blur(20px); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); }
-        .task-icon { font-size: 1.4rem; color: #fff; opacity: 0.8; }
-        #bulk-bar { position: fixed; bottom: 85px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 10px 20px; border-radius: 20px; display: none; gap: 15px; font-weight: bold; z-index: 5000; }
+        .taskbar { height: 75px; background: rgba(0,0,0,0.6); backdrop-filter: blur(25px); display: flex; justify-content: space-around; align-items: center; padding-bottom: env(safe-area-inset-bottom); border-top: 1px solid rgba(255,255,255,0.1); }
+        .task-icon { font-size: 1.6rem; color: #fff; opacity: 0.8; cursor: pointer; transition: transform 0.2s; }
+        .task-icon:active { transform: scale(0.8); }
+        @media (hover: hover) { .task-icon:hover { opacity: 1; transform: scale(1.1); } }
+        
+        #bulk-bar { position: fixed; bottom: 90px; left: 50%; transform: translateX(-50%); background: var(--accent); color: #000; padding: 12px 25px; border-radius: 25px; display: none; gap: 20px; font-weight: bold; z-index: 5000; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        #bulk-bar span { cursor: pointer; }
     </style>
 </head>
-<body>
-
-<div id="desktop">
+<body oncontextmenu="return false;"> <div id="desktop">
     <div id="clock-widget">
         <div id="clock-time">00:00</div>
         <div id="clock-date">2026.01.01</div>
@@ -71,74 +81,93 @@
     <div id="mini-player" onclick="openPlayerUI()"><i class="fas fa-music"></i><span id="mini-t">Select Track</span><i class="fas fa-wave-square"></i></div>
 
     <div class="top-bar">
-        <input type="text" id="search-box" placeholder="Search..." oninput="render()">
-        <button onclick="toggleSelect()" id="sel-btn" style="background:var(--glass); border:none; color:#fff; border-radius:8px; padding:0 12px; font-size:12px;">選択</button>
-        <button onclick="openSettings()" style="background:var(--glass); border:none; color:#fff; border-radius:8px; padding:0 12px;"><i class="fas fa-cog"></i></button>
+        <input type="text" id="search-box" placeholder="ファイルを検索..." oninput="render()">
+        <button onclick="toggleSelect()" id="sel-btn" style="background:var(--glass); border:none; color:#fff; border-radius:8px; padding:10px 15px; font-size:13px; cursor:pointer;">選択</button>
+        <button onclick="openSettings()" style="background:var(--glass); border:none; color:#fff; border-radius:8px; padding:10px 15px; cursor:pointer;"><i class="fas fa-cog"></i></button>
     </div>
 
     <div id="explorer" onclick="closePopups()"></div>
 
-    <div id="bulk-bar"><span onclick="bulkDl()"><i class="fas fa-download"></i></span><span onclick="bulkDel()" style="color:#d00;"><i class="fas fa-trash"></i></span></div>
+    <div id="bulk-bar">
+        <span onclick="bulkDl()"><i class="fas fa-download"></i> 保存</span>
+        <span onclick="bulkDel()" style="color:#d00;"><i class="fas fa-trash"></i> 削除</span>
+    </div>
 
     <div id="action-sheet">
-        <div id="act-name" style="text-align:center; font-weight:bold; color:#888; font-size:12px; margin-bottom:10px;"></div>
-        <div class="act-item" onclick="handleAct('open')"><i class="fas fa-play"></i> 開く / 実行</div>
-        <div class="act-item" id="act-edit-btn" onclick="handleAct('edit')"><i class="fas fa-edit"></i> 編集</div>
-        <div class="act-item" onclick="handleAct('sort')"><i class="fas fa-arrows-alt" style="color: #5856d6;"></i> 並べ替え（配置変更）</div>
-        <div class="act-item" onclick="handleAct('change-icon')"><i class="fas fa-icons" style="color: #ff9500;"></i> アイコン変更</div>
+        <div id="act-name" style="text-align:center; font-weight:bold; color:#888; font-size:13px; margin-bottom:12px; border-bottom:1px solid #f0f0f0; padding-bottom:8px;"></div>
+        <div class="act-item" onclick="handleAct('open')"><i class="fas fa-play" style="color:#007aff"></i> 開く / 実行</div>
+        <div class="act-item" id="act-edit-btn" onclick="handleAct('edit')"><i class="fas fa-edit" style="color:#34c759"></i> テキスト編集</div>
+        <div class="act-item" onclick="handleAct('sort')"><i class="fas fa-arrows-alt" style="color:#5856d6"></i> 並べ替えモード</div>
+        <div class="act-item" onclick="handleAct('change-icon')"><i class="fas fa-icons" style="color:#ff9500"></i> アイコン・色変更</div>
         <div class="act-item" onclick="handleAct('dl')"><i class="fas fa-download"></i> ダウンロード</div>
         <div class="act-item" onclick="handleAct('del')" style="color:#ff3b30; border:none;"><i class="fas fa-trash"></i> 削除</div>
     </div>
 
     <div id="media-player" class="win">
-        <div onclick="closePlayerUI()" style="position:absolute; top:50px; left:25px; font-size:1.8rem;"><i class="fas fa-chevron-down"></i></div>
-        <div class="player-disk" id="disk"><i class="fas fa-music" style="font-size:4rem;"></i></div>
-        <h2 id="m-title" style="margin:20px 0 0 0; font-size:1.2rem;">Title</h2>
-        <div style="width:85%; max-width:400px; margin-top:20px;">
-            <input type="range" id="seek" style="width:100%; accent-color:var(--accent);" value="0" oninput="manualSeek()">
-            <div style="display:flex; justify-content:space-between; font-size:0.7rem; margin-top:5px; font-family:monospace;">
-                <span id="t-curr">0:00</span><span id="t-total">0:00</span>
+        <div onclick="closePlayerUI()" style="position:absolute; top:50px; left:25px; font-size:2rem; cursor:pointer; z-index:10;"><i class="fas fa-chevron-down"></i></div>
+        <div style="flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px;">
+            <div class="player-disk" id="disk" style="width:min(250px, 60vw); height:min(250px, 60vw); border-radius:50%; background:var(--grad); display:flex; align-items:center; justify-content:center; box-shadow: 0 10px 30px rgba(0,0,0,0.5);">
+                <i class="fas fa-music" style="font-size:4rem; color:#fff;"></i>
             </div>
-        </div>
-        <div style="width:100%; max-width:280px; display:flex; justify-content:space-around; align-items:center; margin-top:20px;">
-            <i class="fas fa-redo-alt" id="loop" onclick="toggleLoop()" style="color:#666;"></i>
-            <i class="fas fa-step-backward" onclick="prev()"></i>
-            <i class="fas fa-play-circle" id="p-main" onclick="togglePlay()" style="font-size:3.5rem; color:var(--accent);"></i>
-            <i class="fas fa-step-forward" onclick="next()"></i>
-            <i class="fas fa-cog" style="color:#666;"></i>
+            <h2 id="m-title" style="margin:30px 0 10px 0; font-size:1.3rem; text-align:center; width:80%;">Title</h2>
+            <div style="width:90%; max-width:450px; margin-top:20px;">
+                <input type="range" id="seek" style="width:100%; accent-color:var(--accent); cursor:pointer;" value="0" oninput="manualSeek()">
+                <div style="display:flex; justify-content:space-between; font-size:0.8rem; margin-top:8px; font-family:monospace; opacity:0.7;">
+                    <span id="t-curr">0:00</span><span id="t-total">0:00</span>
+                </div>
+            </div>
+            <div style="width:100%; max-width:320px; display:flex; justify-content:space-around; align-items:center; margin-top:30px;">
+                <i class="fas fa-redo-alt" id="loop" onclick="toggleLoop()" style="color:#666; font-size:1.2rem; cursor:pointer;"></i>
+                <i class="fas fa-step-backward" onclick="prev()" style="font-size:1.8rem; cursor:pointer;"></i>
+                <i class="fas fa-play-circle" id="p-main" onclick="togglePlay()" style="font-size:4.5rem; color:var(--accent); cursor:pointer;"></i>
+                <i class="fas fa-step-forward" onclick="next()" style="font-size:1.8rem; cursor:pointer;"></i>
+                <i class="fas fa-random" style="color:#666; font-size:1.2rem;"></i>
+            </div>
         </div>
         <audio id="audio"></audio>
     </div>
 
     <div id="img-viewer" class="win">
-        <div class="win-header"><button onclick="closeWin('img-viewer')">閉じる</button><span id="img-title">画像</span><div></div></div>
-        <div style="flex:1; display:flex; justify-content:center; align-items:center; overflow:hidden;">
+        <div class="win-header">
+            <button onclick="closeWin('img-viewer')">閉じる</button>
+            <span id="img-title" style="font-size:0.9rem; opacity:0.8;">画像</span>
+            <div style="width:60px;"></div>
+        </div>
+        <div style="flex:1; display:flex; justify-content:center; align-items:center; overflow:hidden; padding:10px;">
             <img id="img-display" src="">
         </div>
     </div>
 
     <div id="win-settings" class="win">
-        <div class="win-header"><button onclick="closeWin('win-settings')">閉じる</button><span>システム設定</span><div></div></div>
-        <div style="padding:20px; overflow-y:auto;">
-            <h4>背景画像URL</h4>
-            <input type="text" id="cfg-bg" style="width:100%; padding:10px; border-radius:8px; border:none; background:var(--glass); color:#fff;" placeholder="https://...">
-            <h4>時計の文字色</h4>
-            <input type="color" id="cfg-clock-color" style="width:100%; height:40px; border:none; background:none;">
-            <hr style="margin:30px 0; border:0; border-top:1px solid #333;">
-            <button onclick="exportData()" style="width:100%; padding:15px; margin-bottom:10px; background:var(--accent); color:#000; border:none; border-radius:10px; font-weight:bold;">一括バックアップ (JSON)</button>
-            <button onclick="resetSystem()" style="width:100%; padding:15px; background:#d00; color:#fff; border:none; border-radius:10px; font-weight:bold;">データを全消去 (初期化)</button>
+        <div class="win-header">
+            <button onclick="closeWin('win-settings')">閉じる</button>
+            <span>システム設定</span>
+            <div style="width:60px;"></div>
+        </div>
+        <div style="padding:25px; overflow-y:auto; max-width:600px; margin:0 auto; width:100%; box-sizing:border-box;">
+            <h4 style="margin-bottom:10px;">背景画像URL</h4>
+            <input type="text" id="cfg-bg" style="width:100%; padding:12px; border-radius:10px; border:none; background:var(--glass); color:#fff; margin-bottom:20px;" placeholder="https://...">
+            <h4 style="margin-bottom:10px;">時計の文字色</h4>
+            <input type="color" id="cfg-clock-color" style="width:100%; height:50px; border:none; background:none; cursor:pointer; margin-bottom:30px;">
+            <hr style="margin:20px 0; border:0; border-top:1px solid #333;">
+            <button onclick="exportData()" style="width:100%; padding:18px; margin-bottom:15px; background:var(--accent); color:#000; border:none; border-radius:12px; font-weight:bold; cursor:pointer;">一括バックアップ (JSON)</button>
+            <button onclick="resetSystem()" style="width:100%; padding:18px; background:#d00; color:#fff; border:none; border-radius:12px; font-weight:bold; cursor:pointer;">データを全消去 (初期化)</button>
         </div>
     </div>
 
     <div id="win-editor" class="win">
-        <div class="win-header"><button onclick="closeWin('win-editor')">戻る</button><span id="ed-file"></span><button onclick="saveFile()" style="color:var(--accent)">保存</button></div>
-        <textarea id="ed-text" spellcheck="false" style="flex:1; background:#000; color:var(--accent); border:none; padding:20px; font-size:16px; outline:none; font-family:monospace;"></textarea>
+        <div class="win-header">
+            <button onclick="closeWin('win-editor')">戻る</button>
+            <span id="ed-file" style="font-size:0.8rem;"></span>
+            <button onclick="saveFile()" style="color:var(--accent); font-weight:bold;">保存</button>
+        </div>
+        <textarea id="ed-text" spellcheck="false" style="flex:1; background:#000; color:var(--accent); border:none; padding:20px; font-size:16px; outline:none; font-family:'Courier New', Courier, monospace; resize:none;"></textarea>
     </div>
 
     <div class="taskbar">
-        <i class="fas fa-folder-plus task-icon" onclick="newNode('folder')"></i>
-        <i class="fas fa-plus-circle task-icon" onclick="newNode('file')"></i>
-        <i class="fas fa-file-import task-icon" onclick="document.getElementById('f-up').click()"></i>
+        <i class="fas fa-folder-plus task-icon" onclick="newNode('folder')" title="新規フォルダ"></i>
+        <i class="fas fa-plus-circle task-icon" onclick="newNode('file')" title="新規ファイル"></i>
+        <i class="fas fa-file-import task-icon" onclick="document.getElementById('f-up').click()" title="インポート"></i>
     </div>
 </div>
 
@@ -156,7 +185,8 @@
     function updateClock() {
         const now = new Date();
         document.getElementById('clock-time').innerText = now.getHours().toString().padStart(2,'0') + ":" + now.getMinutes().toString().padStart(2,'0');
-        document.getElementById('clock-date').innerText = now.getFullYear() + "." + (now.getMonth()+1) + "." + now.getDate();
+        const days = ['日','月','火','水','木','金','土'];
+        document.getElementById('clock-date').innerText = `${now.getFullYear()}.${now.getMonth()+1}.${now.getDate()} (${days[now.getDay()]})`;
         setTimeout(updateClock, 1000);
     }
 
@@ -198,17 +228,33 @@
             const info = getIconInfo(item);
             div.innerHTML = `<i class="${item.customIcon || info.icon}" style="color:${item.customColor || info.color}"></i><div class="node-name">${item.name}</div>`;
 
-            div.onmousedown = div.ontouchstart = (e) => { if(!isSelMode && !isSortMode) timer = setTimeout(() => openSheet(item), 600); };
+            // イベント制御
+            div.onmousedown = div.ontouchstart = (e) => { 
+                if(!isSelMode && !isSortMode) {
+                    timer = setTimeout(() => openSheet(item), 600); 
+                }
+            };
             div.onmouseup = div.ontouchend = () => clearTimeout(timer);
+            
+            // PC用の右クリック対応
+            div.oncontextmenu = (e) => {
+                e.preventDefault();
+                if(!isSelMode && !isSortMode) openSheet(item);
+            };
             
             div.onclick = (e) => { 
                 if(isSortMode) return;
                 e.stopPropagation(); 
-                if(isSelMode){ if(selected.has(item.id)) selected.delete(item.id); else selected.add(item.id); render(); document.getElementById('bulk-bar').style.display=selected.size>0?'flex':'none'; } 
+                if(isSelMode){ 
+                    if(selected.has(item.id)) selected.delete(item.id); 
+                    else selected.add(item.id); 
+                    render(); 
+                    document.getElementById('bulk-bar').style.display=selected.size>0?'flex':'none'; 
+                } 
                 else { launch(item); } 
             };
 
-            // Drag Events
+            // ドラッグ＆ドロップ (PC/スマホ共通)
             div.ondragstart = (e) => { div.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.id); };
             div.ondragend = () => { div.classList.remove('dragging'); document.querySelectorAll('.node').forEach(n => n.classList.remove('drag-over')); };
             div.ondragover = (e) => { e.preventDefault(); if(isSortMode) div.classList.add('drag-over'); };
@@ -252,18 +298,34 @@
     function launch(item) {
         if(item.type === 'folder') { currentPath = item.id; render(); return; }
         const ext = item.name.split('.').pop().toLowerCase();
-        if(['mp3','wav','m4a','ogg'].includes(ext)) { idx=playlist.findIndex(f=>f.id===item.id); loadMusic(item); openPlayerUI(); togglePlay(true); }
-        else if(['jpg','jpeg','png','gif','webp'].includes(ext)) { document.getElementById('img-display').src=item.content; document.getElementById('img-title').innerText=item.name; document.getElementById('img-viewer').style.display='flex'; }
-        else if(ext === 'html') { const w=window.open(); w.document.write(decodeContent(item.content)); }
-        else if(ext === 'mp4' || ext === 'webm') { const w=document.getElementById('media-player'); w.style.display='flex'; w.innerHTML=`<div onclick="location.reload()" style="position:fixed;top:50px;left:25px;z-index:9999;font-size:2rem;">✕</div><video src="${item.content}" controls autoplay style="width:100%;height:100%;background:#000;"></video>`; }
+        if(['mp3','wav','m4a','ogg'].includes(ext)) { 
+            idx=playlist.findIndex(f=>f.id===item.id); 
+            loadMusic(item); 
+            openPlayerUI(); 
+            togglePlay(true); 
+        }
+        else if(['jpg','jpeg','png','gif','webp'].includes(ext)) { 
+            document.getElementById('img-display').src=item.content; 
+            document.getElementById('img-title').innerText=item.name; 
+            document.getElementById('img-viewer').style.display='flex'; 
+        }
+        else if(ext === 'html') { 
+            const w=window.open(); 
+            w.document.write(decodeContent(item.content)); 
+        }
+        else if(ext === 'mp4' || ext === 'webm') { 
+            const w=document.getElementById('media-player'); 
+            w.style.display='flex'; 
+            w.innerHTML=`<div onclick="location.reload()" style="position:fixed;top:50px;left:25px;z-index:9999;font-size:2rem;cursor:pointer;">✕</div><video src="${item.content}" controls autoplay style="width:100%;height:100%;background:#000;"></video>`; 
+        }
         else { openEditor(item); }
     }
 
-    function decodeContent(c) { 
-        try { 
+    function decodeContent(c) { 
+        try { 
             const base64 = c.split(',')[1] || "";
-            return new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))); 
-        } catch(e) { return ""; } 
+            return new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))); 
+        } catch(e) { return ""; } 
     }
 
     function openSheet(item) {
@@ -272,7 +334,9 @@
         const editable = ['html','txt','js','css','json'].includes(ext) || !item.name.includes('.');
         document.getElementById('act-name').innerText = item.name;
         document.getElementById('act-edit-btn').style.display = editable ? 'flex' : 'none';
-        const s = document.getElementById('action-sheet'); s.style.display='flex'; setTimeout(()=>s.classList.add('open'),10);
+        const s = document.getElementById('action-sheet'); 
+        s.style.display='flex'; 
+        setTimeout(()=>s.classList.add('open'),10);
     }
 
     function handleAct(type) {
@@ -281,21 +345,45 @@
         if(type==='edit') openEditor(active);
         if(type==='sort') toggleSortMode(true);
         if(type==='change-icon') {
-            const newIcon = prompt("アイコン名 (fa-star 等):", active.customIcon || "");
-            if(newIcon) {
-                active.customIcon = newIcon.includes('fa-') ? "fas " + newIcon : newIcon;
-                active.customColor = prompt("色 (red, #00ff00等):", active.customColor || "white");
+            const newIcon = prompt("FontAwesomeクラス名 (例: fa-star):", active.customIcon || "");
+            if(newIcon !== null) {
+                active.customIcon = newIcon ? (newIcon.includes('fa-') ? "fas " + newIcon : newIcon) : "";
+                const newColor = prompt("カラー (例: #ff0000 または red):", active.customColor || "white");
+                active.customColor = newColor || "white";
                 const tx = db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(active); tx.oncomplete = render;
             }
         }
         if(type==='dl') { const a=document.createElement('a'); a.href=active.content; a.download=active.name; a.click(); }
-        if(type==='del') { if(confirm("削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).delete(active.id); tx.oncomplete=render; } }
+        if(type==='del') { if(confirm(active.name + " を削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).delete(active.id); tx.oncomplete=render; } }
     }
 
     // --- Media Player Logic ---
-    function loadMusic(item) { audio.src=item.content; document.getElementById('m-title').innerText=item.name; document.getElementById('mini-t').innerText=item.name; audio.onloadedmetadata=()=>{ document.getElementById('seek').max=Math.floor(audio.duration); document.getElementById('t-total').innerText=formatTime(audio.duration); }; }
-    function togglePlay(f) { const b=document.getElementById('p-main'), d=document.getElementById('disk'); if(audio.paused||f){ audio.play(); b.className='fas fa-pause-circle'; d.classList.add('playing'); document.getElementById('mini-player').style.display='flex'; } else { audio.pause(); b.className='fas fa-play-circle'; d.classList.remove('playing'); } }
-    audio.ontimeupdate=()=>{ document.getElementById('seek').value=Math.floor(audio.currentTime); document.getElementById('t-curr').innerText=formatTime(audio.currentTime); };
+    function loadMusic(item) { 
+        audio.src=item.content; 
+        document.getElementById('m-title').innerText=item.name; 
+        document.getElementById('mini-t').innerText=item.name; 
+        audio.onloadedmetadata=()=>{ 
+            document.getElementById('seek').max=Math.floor(audio.duration); 
+            document.getElementById('t-total').innerText=formatTime(audio.duration); 
+        }; 
+    }
+    function togglePlay(f) { 
+        const b=document.getElementById('p-main'), d=document.getElementById('disk'); 
+        if(audio.paused||f){ 
+            audio.play().catch(()=>{}); 
+            b.className='fas fa-pause-circle'; 
+            d.style.animation = "rotate 12s linear infinite";
+            document.getElementById('mini-player').style.display='flex'; 
+        } else { 
+            audio.pause(); 
+            b.className='fas fa-play-circle'; 
+            d.style.animation = "none";
+        } 
+    }
+    audio.ontimeupdate=()=>{ 
+        document.getElementById('seek').value=Math.floor(audio.currentTime); 
+        document.getElementById('t-curr').innerText=formatTime(audio.currentTime); 
+    };
     audio.onended=()=>{ if(isLoop){audio.currentTime=0; audio.play();} else next(); };
     function next(){ if(playlist.length>0){ idx=(idx+1)%playlist.length; loadMusic(playlist[idx]); togglePlay(true); } }
     function prev(){ if(playlist.length>0){ idx=(idx-1+playlist.length)%playlist.length; loadMusic(playlist[idx]); togglePlay(true); } }
@@ -321,36 +409,60 @@
         });
     }
     function newNode(t) {
-        const n=prompt("名前:"); if(n){
+        const n=prompt(t === 'folder' ? "フォルダ名:" : "ファイル名:"); 
+        if(n){
             const tx=db.transaction(STORE,'readwrite');
-            tx.objectStore(STORE).add({id:Date.now().toString(), name:n+(t==='file'&&!n.includes('.')?'.html':''), type:t, parent:currentPath, content:'', order: 0});
+            tx.objectStore(STORE).add({
+                id:Date.now().toString(), 
+                name:n+(t==='file'&&!n.includes('.')?'.html':''), 
+                type:t, 
+                parent:currentPath, 
+                content:'', 
+                order: 0
+            });
             tx.oncomplete=render;
         }
     }
 
     // --- System Utils ---
     function openSettings() { document.getElementById('win-settings').style.display='flex'; }
-    function closeWin(id) { 
+    function closeWin(id) { 
         if(id === 'win-settings') {
             localStorage.setItem('GUTTI_BG', document.getElementById('cfg-bg').value);
             localStorage.setItem('GUTTI_CLOCK_COLOR', document.getElementById('cfg-clock-color').value);
             loadConfig();
         }
-        document.getElementById(id).style.display='none'; 
+        document.getElementById(id).style.display='none'; 
     }
-    function closePopups(){ const s=document.getElementById('action-sheet'); s.classList.remove('open'); setTimeout(()=>s.style.display='none',300); }
-    function toggleSelect() { isSelMode=!isSelMode; selected.clear(); document.getElementById('bulk-bar').style.display='none'; document.getElementById('sel-btn').style.background=isSelMode?'var(--accent)':'var(--glass)'; render(); }
-    async function resetSystem() { if(confirm("初期化しますか？")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).clear(); tx.oncomplete=()=>location.reload(); } }
+    function closePopups(){ 
+        const s=document.getElementById('action-sheet'); 
+        s.classList.remove('open'); 
+        setTimeout(()=>s.style.display='none',300); 
+    }
+    function toggleSelect() { 
+        isSelMode=!isSelMode; 
+        selected.clear(); 
+        document.getElementById('bulk-bar').style.display='none'; 
+        document.getElementById('sel-btn').innerText = isSelMode ? '解除' : '選択';
+        document.getElementById('sel-btn').style.background=isSelMode?'var(--accent)':'var(--glass)'; 
+        render(); 
+    }
+    async function resetSystem() { if(confirm("すべてのデータを消去しますか？（復元できません）")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).clear(); tx.oncomplete=()=>location.reload(); } }
     async function exportData() {
         const tx=db.transaction(STORE,'readonly');
         const all=await new Promise(r=>{const req=tx.objectStore(STORE).getAll(); req.onsuccess=()=>r(req.result);});
         const blob=new Blob([JSON.stringify(all)], {type:'application/json'});
         const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='GUTTI_FS_BACKUP.json'; a.click();
     }
-    function bulkDel() { if(confirm("削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); selected.forEach(id=>tx.objectStore(STORE).delete(id)); tx.oncomplete=()=>{toggleSelect(); render();}; } }
+    function bulkDel() { if(confirm("選択した項目をすべて削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); selected.forEach(id=>tx.objectStore(STORE).delete(id)); tx.oncomplete=()=>{toggleSelect(); render();}; } }
     function bulkDl() { const tx=db.transaction(STORE,'readonly'); tx.objectStore(STORE).getAll().onsuccess=e=>{e.target.result.filter(f=>selected.has(f.id)).forEach(f=>{const a=document.createElement('a');a.href=f.content;a.download=f.name;a.click();}); toggleSelect();}; }
     function openPlayerUI(){ document.getElementById('media-player').style.display='flex'; }
     function closePlayerUI(){ document.getElementById('media-player').style.display='none'; }
 </script>
+
+<style>
+    /* アニメーション定義 */
+    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
 </body>
 </html>
