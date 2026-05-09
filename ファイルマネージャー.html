@@ -294,4 +294,63 @@
 
     // --- Media Player Logic ---
     function loadMusic(item) { audio.src=item.content; document.getElementById('m-title').innerText=item.name; document.getElementById('mini-t').innerText=item.name; audio.onloadedmetadata=()=>{ document.getElementById('seek').max=Math.floor(audio.duration); document.getElementById('t-total').innerText=formatTime(audio.duration); }; }
-    function togglePlay(f) { const b=document.getElementById('p-main'), d=document.getElementById('disk'); if(audio.paused||f){ audio.play(); b.className='fas fa-pause-circle'; d.classList.add('playing'); document.g
+    function togglePlay(f) { const b=document.getElementById('p-main'), d=document.getElementById('disk'); if(audio.paused||f){ audio.play(); b.className='fas fa-pause-circle'; d.classList.add('playing'); document.getElementById('mini-player').style.display='flex'; } else { audio.pause(); b.className='fas fa-play-circle'; d.classList.remove('playing'); } }
+    audio.ontimeupdate=()=>{ document.getElementById('seek').value=Math.floor(audio.currentTime); document.getElementById('t-curr').innerText=formatTime(audio.currentTime); };
+    audio.onended=()=>{ if(isLoop){audio.currentTime=0; audio.play();} else next(); };
+    function next(){ if(playlist.length>0){ idx=(idx+1)%playlist.length; loadMusic(playlist[idx]); togglePlay(true); } }
+    function prev(){ if(playlist.length>0){ idx=(idx-1+playlist.length)%playlist.length; loadMusic(playlist[idx]); togglePlay(true); } }
+    function manualSeek(){ audio.currentTime=document.getElementById('seek').value; }
+    function toggleLoop(){ isLoop=!isLoop; document.getElementById('loop').style.color=isLoop?'var(--accent)':'#666'; }
+    function formatTime(s){ const m=Math.floor(s/60), r=Math.floor(s%60); return `${m}:${r<10?'0':''}${r}`; }
+
+    // --- Editor & Files ---
+    function openEditor(item) { active=item; document.getElementById('ed-file').innerText=item.name; document.getElementById('ed-text').value=decodeContent(item.content); document.getElementById('win-editor').style.display='flex'; }
+    function saveFile() {
+        const text = document.getElementById('ed-text').value;
+        const base64 = btoa(String.fromCharCode(...new TextEncoder().encode(text)));
+        active.content = "data:text/plain;base64," + base64;
+        const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).put(active); tx.oncomplete=()=>{closeWin('win-editor'); render();};
+    }
+    function handleImport(files) {
+        Array.from(files).forEach(f=>{
+            const r=new FileReader(); r.onload=e=>{
+                const tx=db.transaction(STORE,'readwrite');
+                tx.objectStore(STORE).add({id:Date.now()+Math.random().toString(), name:f.name, parent:currentPath, content:e.target.result, order: 999});
+                tx.oncomplete=render;
+            }; r.readAsDataURL(f);
+        });
+    }
+    function newNode(t) {
+        const n=prompt("名前:"); if(n){
+            const tx=db.transaction(STORE,'readwrite');
+            tx.objectStore(STORE).add({id:Date.now().toString(), name:n+(t==='file'&&!n.includes('.')?'.html':''), type:t, parent:currentPath, content:'', order: 0});
+            tx.oncomplete=render;
+        }
+    }
+
+    // --- System Utils ---
+    function openSettings() { document.getElementById('win-settings').style.display='flex'; }
+    function closeWin(id) { 
+        if(id === 'win-settings') {
+            localStorage.setItem('GUTTI_BG', document.getElementById('cfg-bg').value);
+            localStorage.setItem('GUTTI_CLOCK_COLOR', document.getElementById('cfg-clock-color').value);
+            loadConfig();
+        }
+        document.getElementById(id).style.display='none'; 
+    }
+    function closePopups(){ const s=document.getElementById('action-sheet'); s.classList.remove('open'); setTimeout(()=>s.style.display='none',300); }
+    function toggleSelect() { isSelMode=!isSelMode; selected.clear(); document.getElementById('bulk-bar').style.display='none'; document.getElementById('sel-btn').style.background=isSelMode?'var(--accent)':'var(--glass)'; render(); }
+    async function resetSystem() { if(confirm("初期化しますか？")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).clear(); tx.oncomplete=()=>location.reload(); } }
+    async function exportData() {
+        const tx=db.transaction(STORE,'readonly');
+        const all=await new Promise(r=>{const req=tx.objectStore(STORE).getAll(); req.onsuccess=()=>r(req.result);});
+        const blob=new Blob([JSON.stringify(all)], {type:'application/json'});
+        const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='GUTTI_FS_BACKUP.json'; a.click();
+    }
+    function bulkDel() { if(confirm("削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); selected.forEach(id=>tx.objectStore(STORE).delete(id)); tx.oncomplete=()=>{toggleSelect(); render();}; } }
+    function bulkDl() { const tx=db.transaction(STORE,'readonly'); tx.objectStore(STORE).getAll().onsuccess=e=>{e.target.result.filter(f=>selected.has(f.id)).forEach(f=>{const a=document.createElement('a');a.href=f.content;a.download=f.name;a.click();}); toggleSelect();}; }
+    function openPlayerUI(){ document.getElementById('media-player').style.display='flex'; }
+    function closePlayerUI(){ document.getElementById('media-player').style.display='none'; }
+</script>
+</body>
+</html>
