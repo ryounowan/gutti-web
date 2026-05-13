@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LINK Ark</title>
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        :root { --main: #00f2ff; --bg: #050505; --panel: #111; --text: #e0faff; --safe: #00ff77; }
+        body, html { margin: 0; padding: 0; height: 100%; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; }
+        
+        #os-frame { height: 100%; display: flex; flex-direction: column; }
+        header { background: rgba(0, 242, 255, 0.05); border-bottom: 1px solid var(--main); padding: 8px 15px; display: flex; justify-content: space-between; font-size: 0.8rem; font-family: monospace; z-index: 2000; }
+        
+        main { flex: 1; position: relative; overflow-y: auto; }
+        .view { display: none; height: 100%; animation: fadeIn 0.3s; }
+        .view.active { display: flex; flex-direction: column; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        #map { flex: 1; width: 100%; background: #222; }
+        .map-overlay { position: absolute; top: 10px; left: 10px; z-index: 1000; display: flex; flex-direction: column; gap: 5px; width: calc(100% - 20px); }
+        .map-btn { background: rgba(0,0,0,0.8); color: var(--main); border: 1px solid var(--main); padding: 10px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; font-weight: bold; }
+        
+        /* Compass Radar */
+        #radar { position: absolute; bottom: 20px; right: 20px; z-index: 1000; width: 80px; height: 80px; border: 2px solid var(--main); border-radius: 50%; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; }
+        #arrow { font-size: 2rem; color: var(--main); transition: 0.1s; }
+
+        /* Panel UI */
+        .card { background: var(--panel); border: 1px solid #222; border-radius: 10px; padding: 15px; margin: 10px; }
+        .ark-btn { background: var(--main); color: #000; border: none; padding: 12px; border-radius: 6px; font-weight: bold; width: 100%; margin-top: 5px; cursor: pointer; }
+        
+        nav { height: 70px; background: #000; border-top: 1px solid #222; display: flex; z-index: 2000; }
+        .nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 0.6rem; color: #444; cursor: pointer; }
+        .nav-item.active { color: var(--main); }
+        .nav-icon { font-size: 1.4rem; }
+
+        input, textarea { background: #000; border: 1px solid #333; color: var(--main); padding: 10px; border-radius: 5px; width: 100%; box-sizing: border-box; margin-bottom: 5px; }
+        #dist-display { position: absolute; top: 120px; left: 10px; z-index: 1000; background: rgba(0,0,0,0.7); padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; color: var(--main); display: none; }
+
+        /* Chat System */
+        #chat-box { height: 150px; overflow-y: auto; background: #000; border: 1px solid #222; padding: 8px; font-size: 0.8rem; margin-bottom: 8px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+<div id="os-frame">
+    <header>
+        <div>LINK Ark</div>
+        <div id="os-clock">00:00:00</div>
+    </header>
+
+    <main>
+        <div id="v-map" class="view active" style="position:relative;">
+            <div id="map"></div>
+            <div id="dist-display">DISTANCE: -- km</div>
+            <div id="radar"><div id="arrow">↑</div></div>
+            <div class="map-overlay">
+                <button class="map-btn" onclick="startTracking()">🛰 衛星現在地を固定</button>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="destination" placeholder="目的地 (名称or緯度,経度)" style="margin:0;">
+                    <button class="map-btn" style="white-space:nowrap;" onclick="searchRoute()">検索/誘導</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="v-mesh" class="view">
+            <div class="card">
+                <h3>📡 合言葉メッシュ通信</h3>
+                <div id="my-peer-id" style="font-size:0.6rem; color:#888; margin-bottom:10px;">自分の合言葉: 取得中...</div>
+                <input type="text" id="connect-id" placeholder="相手の合言葉を入力">
+                <button class="ark-btn" onclick="connectToMesh()">接続確立</button>
+                <hr style="border:0; border-top:1px solid #222; margin:15px 0;">
+                <div id="chat-box"></div>
+                <div style="display:flex; gap:5px;">
+                    <input type="text" id="chat-msg" placeholder="通信内容..." style="margin:0;">
+                    <button class="map-btn" style="flex:0.3;" onclick="sendMeshMsg()">送信</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="v-log" class="view">
+            <div class="card">
+                <h3>📖 サバイバルログ</h3>
+                <textarea id="log-text" rows="3" placeholder="現在の状況を入力..."></textarea>
+                <button class="ark-btn" onclick="saveLog()">記録する</button>
+                <div id="log-list" style="margin-top:15px; font-size:0.8rem; max-height: 250px; overflow-y: auto;"></div>
+            </div>
+        </div>
+
+        <div id="v-tool" class="view">
+            <div class="card">
+                <h3>🆔 プロフィール管理</h3>
+                <input type="text" id="p-name" placeholder="氏名" onchange="updateProfile()">
+                <input type="text" id="p-blood" placeholder="血液型" onchange="updateProfile()">
+                <textarea id="p-memo" placeholder="緊急連絡先・持病など" onchange="updateProfile()"></textarea>
+                <div style="text-align:center; background:white; padding:10px; display:inline-block; border-radius:5px; margin-top:10px;">
+                    <div id="qr-area"></div>
+                </div>
+            </div>
+            <div class="card">
+                <h3>🚨 救助ツール</h3>
+                <button class="ark-btn" style="background:#f1c40f;" onclick="playHighPitch()">🎺 救助ホイッスル開始</button>
+                <button class="ark-btn" style="margin-top:15px; background:#333; color:white;" onclick="toggleEco()">🍃 低電力モード切替</button>
+            </div>
+        </div>
+    </main>
+
+    <nav>
+        <div class="nav-item active" onclick="switchNav('v-map', this)"><span class="nav-icon">🗺</span>NAV</div>
+        <div class="nav-item" onclick="switchNav('v-mesh', this)"><span class="nav-icon">📡</span>MESH</div>
+        <div class="nav-item" onclick="switchNav('v-log', this)"><span class="nav-icon">📖</span>LOG</div>
+        <div class="nav-item" onclick="switchNav('v-tool', this)"><span class="nav-icon">🆔</span>ID/SOS</div>
+    </nav>
+</div>
+
+<script>
+    // --- Clock System ---
+    setInterval(() => document.getElementById('os-clock').innerText = new Date().toTimeString().split(' ')[0], 1000);
+
+    // --- OS Navigation ---
+    function switchNav(id, el) {
+        document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        el.classList.add('active');
+        if(id === 'v-map' && map) map.invalidateSize();
+    }
+
+    // --- Map & Route Engine (触らずに完全維持) ---
+    let map, marker, routingControl, targetCoords = null;
+    function initMap() {
+        map = L.map('map', { zoomControl: false, attributionControl: false }).setView([35.68, 139.76], 13);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+        marker = L.marker([35.68, 139.76]).addTo(map);
+    }
+    initMap();
+
+    function startTracking() {
+        navigator.geolocation.watchPosition(p => {
+            const pos = [p.coords.latitude, p.coords.longitude];
+            map.panTo(pos);
+            marker.setLatLng(pos);
+            if(targetCoords) updateOfflineNav(pos);
+        }, null, { enableHighAccuracy: true });
+    }
+
+    async function searchRoute() {
+        const query = document.getElementById('destination').value;
+        if(!query) return;
+
+        const coordMatch = query.match(/^([+-]?\d+\.?\d*)\s*,\s*([+-]?\d+\.?\d*)$/);
+        if(coordMatch) {
+            targetCoords = [parseFloat(coordMatch[1]), parseFloat(coordMatch[2])];
+            startOfflineMode();
+            return;
+        }
+
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            if(data.length > 0) {
+                targetCoords = [data[0].lat, data[0].lon];
+                if (routingControl) map.removeControl(routingControl);
+                routingControl = L.Routing.control({
+                    waypoints: [marker.getLatLng(), L.latLng(targetCoords)],
+                    lineOptions: { styles: [{ color: '#00f2ff', weight: 6 }] },
+                    createMarker: () => null
+                }).addTo(map);
+                startOfflineMode();
+            }
+        } catch(e) { alert("オフラインのようです。座標を直接入力してください。"); }
+    }
+
+    function startOfflineMode() {
+        document.getElementById('radar').style.display = 'flex';
+        document.getElementById('dist-display').style.display = 'block';
+        L.circleMarker(targetCoords, {color: 'red'}).addTo(map);
+    }
+
+    function updateOfflineNav(curPos) {
+        const lat1 = curPos[0], lon1 = curPos[1];
+        const lat2 = targetCoords[0], lon2 = targetCoords[1];
+        const R = 6371;
+        const dLat = (lat2-lat1) * Math.PI / 180;
+        const dLon = (lon2-lon1) * Math.PI / 180;
+        const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+        const d = R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        
+        // メートル単位表示への拡張
+        const distStr = d < 1 ? `${(d*1000).toFixed(0)} m` : `${d.toFixed(2)} km`;
+        document.getElementById('dist-display').innerText = `TARGET: ${distStr}`;
+
+        const y = Math.sin(dLon) * Math.cos(lat2*Math.PI/180);
+        const x = Math.cos(lat1*Math.PI/180) * Math.sin(lat2*Math.PI/180) - Math.sin(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.cos(dLon);
+        const bearing = (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+        document.getElementById('arrow').style.transform = `rotate(${bearing}deg)`;
+    }
+
+    // --- P2P Mesh (PeerJS / 合言葉式) ---
+    let peer, conn;
+    function initPeer() {
+        peer = new Peer();
+        peer.on('open', id => document.getElementById('my-peer-id').innerText = `自分の合言葉: ${id}`);
+        peer.on('connection', c => {
+            conn = c;
+            setupMeshEvents();
+        });
+    }
+
+    function connectToMesh() {
+        const targetId = document.getElementById('connect-id').value;
+        if(!targetId) return;
+        conn = peer.connect(targetId);
+        setupMeshEvents();
+    }
+
+    function setupMeshEvents() {
+        conn.on('open', () => {
+            addChat("SYSTEM", "通信回線が確立されました");
+            conn.on('data', data => addChat("REC", data));
+        });
+    }
+
+    function sendMeshMsg() {
+        const msg = document.getElementById('chat-msg').value;
+        if(conn && msg) {
+            conn.send(msg);
+            addChat("YOU", msg);
+            document.getElementById('chat-msg').value = '';
+        }
+    }
+
+    function addChat(sender, text) {
+        const box = document.getElementById('chat-box');
+        box.innerHTML += `<div><b>[${sender}]</b>: ${text}</div>`;
+        box.scrollTop = box.scrollHeight;
+    }
+
+    // --- Profile & Log System ---
+    const qr = new QRCode(document.getElementById("qr-area"), { width: 140, height: 140 });
+    function updateProfile() {
+        const data = {
+            n: document.getElementById('p-name').value,
+            b: document.getElementById('p-blood').value,
+            m: document.getElementById('p-memo').value
+        };
+        localStorage.setItem('ark_profile_v4', JSON.stringify(data));
+        qr.makeCode(`Name:${data.n}\nBlood:${data.b}\nNote:${data.m}`);
+    }
+
+    function saveLog() {
+        const text = document.getElementById('log-text').value;
+        if(!text) return;
+        const logs = JSON.parse(localStorage.getItem('ark_logs') || '[]');
+        logs.unshift({ t: new Date().toLocaleString(), m: text });
+        localStorage.setItem('ark_logs', JSON.stringify(logs));
+        document.getElementById('log-text').value = '';
+        loadLogs();
+    }
+
+    function loadLogs() {
+        const logs = JSON.parse(localStorage.getItem('ark_logs') || '[]');
+        document.getElementById('log-list').innerHTML = logs.map(l => `<div style="border-bottom:1px solid #222; padding:8px;"><b>${l.t}</b><br>${l.m}</div>`).join('');
+    }
+
+    // --- SOS Tools ---
+    function playHighPitch() {
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        osc.frequency.value = 3500;
+        osc.connect(ctx.destination);
+        osc.start();
+        setTimeout(() => osc.stop(), 1000);
+    }
+    
+    function toggleEco() {
+        document.body.style.filter = document.body.style.filter ? '' : 'grayscale(1) brightness(0.6)';
+    }
+
+    window.onload = () => {
+        initPeer();
+        loadLogs();
+        const saved = JSON.parse(localStorage.getItem('ark_profile_v4') || '{}');
+        document.getElementById('p-name').value = saved.n || '';
+        document.getElementById('p-blood').value = saved.b || '';
+        document.getElementById('p-memo').value = saved.m || '';
+        updateProfile();
+    };
+</script>
+</body>
+</html>
