@@ -97,7 +97,7 @@
     "ファイルマネージャー.html": "アプリケーション",
     "Link-Ark.html": "システム"
   },
-  "masterKey": "1111-1111-1111",
+  "masterKey": "2012-0106-8686",
   "bgType": "solid",
   "bgValue": "rgb(184, 212, 217)",
   "keys": [
@@ -209,7 +209,7 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "10fec82f45942fa5cfe962fb2bc7ec99b3ebd726",
+  "sha": "d4a237e2d3d41df17765fcc3224349bd33e0f7b7",
   "mtMessage": "ああああああ",
   "nexusMaintenance": false,
   "mtMessage_Nexus": "ｋｋｋ"
