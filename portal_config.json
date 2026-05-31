@@ -109,7 +109,7 @@
         "background": "linear-gradient(135deg, rgb(0, 255, 0), rgb(255, 255, 0))",
         "textColor": "#000000"
       },
-      "verified": false,
+      "verified": true,
       "icon": "https://cdn.colleize.com/images/1733386197700-88336632",
       "birthday": "2012-01-06",
       "points": 10
