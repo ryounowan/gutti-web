@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>GUTTI SYSTEM ENGINE -THE CORE-</title>
+    <style>
+        :root { --bg-dark: #08080c; --panel-bg: #12121c; --accent: #00e5ff; --text: #ffffff; }
+        body { margin: 0; font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif; background: var(--bg-dark); color: #e0e0e8; display: flex; height: 100vh; overflow: hidden; }
+        
+        header { background: #040407; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; position: fixed; top: 0; left: 0; width: 100%; box-sizing: border-box; z-index: 100; height: 60px; border-bottom: 2px solid var(--accent); box-shadow: 0 0 15px rgba(0, 229, 255, 0.2); }
+        header h1 { margin: 0; font-size: 1.1rem; color: #fff; letter-spacing: 2px; font-weight: 800; }
+        
+        .main-layout { display: flex; flex: 1; margin-top: 60px; height: calc(100vh - 60px); width: 100%; }
+        
+        /* エディタ側ワークスペース */
+        .editor-side { flex: 1; padding: 20px; overflow-y: auto; border-right: 1px solid #1f1f2e; box-sizing: border-box; }
+        .config-box { background: #0b0b12; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #1f1f2e; }
+        
+        /* タイムラインカード */
+        .timeline-item { background: var(--panel-bg); border-left: 6px solid #555; padding: 15px; margin-bottom: 15px; border-radius: 6px; position: relative; box-shadow: 0 4px 10px rgba(0,0,0,0.3); }
+        .timeline-item.story { border-left-color: #3498db; }
+        .timeline-item.action { border-left-color: #e74c3c; background: #1c1214; }
+        .timeline-item.inspection { border-left-color: #f1c40f; background: #1c1b12; }
+        .timeline-item.stage_marker { border-left-color: #9b59b6; background: #18121c; }
+        
+        .form-group { margin-bottom: 12px; }
+        .form-inline { display: flex; gap: 10px; margin-bottom: 10px; }
+        .form-inline .form-group { flex: 1; }
+        label { display: block; font-size: 0.75rem; color: #a0a0b0; margin-bottom: 5px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; }
+        textarea, input, select { width: 100%; background: #05050a; border: 1px solid #28283d; color: #fff; padding: 10px; border-radius: 4px; box-sizing: border-box; font-family: monospace; font-size: 0.9rem; }
+        textarea { height: 65px; resize: vertical; }
+        
+        .btn { background: #252538; color: #fff; border: none; padding: 10px 16px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s; }
+        .btn:hover { filter: brightness(1.2); box-shadow: 0 0 8px rgba(255,255,255,0.1); }
+        .btn-story { background: #2980b9; }
+        .btn-action { background: #c0392b; }
+        .btn-inspect { background: #d35400; }
+        .btn-marker { background: #8e44ad; }
+        .btn-delete { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 4px 8px; font-size: 0.7rem; float: right; border-radius: 3px; }
+        .btn-delete:hover { background: #e74c3c; color: #fff; }
+
+        /* シミュレータ側コンソール */
+        .preview-side { flex: 1; background: #000; display: flex; flex-direction: column; position: relative; }
+        iframe { flex: 1; border: none; background: #000; }
+        .img-preview { max-height: 55px; display: block; margin-top: 8px; border-radius: 4px; border: 1px dashed #444; }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>GUTTI INTERACTIVE GAME ENGINE <span style="color:var(--accent);">[FINAL CORE]</span></h1>
+        <div style="display: flex; gap: 10px;">
+            <button class="btn" style="background:#e67e22;" onclick="clearSimSave()">🔄 セーブデータ初期化</button>
+            <button class="btn" style="background:#00b894;" onclick="exportHTML()">↓ スタンドアロンHTMLをエクスポート</button>
+        </div>
+    </header>
+
+    <div class="main-layout">
+        <div class="editor-side">
+            <div class="config-box">
+                <h3 style="margin:0 0 10px 0; font-size:0.95rem; letter-spacing:1px;">⚙️ グローバルシステム定義</h3>
+                <div class="form-group">
+                    <label>アプリケーション・ゲームタイトル</label>
+                    <input type="text" id="cfg-title" value="インスペクション・コード：ゼウス" onchange="saveData(); runPreview();">
+                </div>
+            </div>
+
+            <div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:15px;">
+                <button class="btn btn-marker" onclick="addItem('stage_marker')">+ 🗺️ 章区切り</button>
+                <button class="btn btn-story" onclick="addItem('story')">+ 💬 会話ダイアログ</button>
+                <button class="btn btn-action" onclick="addItem('action')">+ ⚡ ACTION（干渉設定）</button>
+                <button class="btn btn-inspect" onclick="addItem('inspection')">+ 🔍 INSPECTION（照合分岐）</button>
+            </div>
+
+            <div id="timeline"></div>
+        </div>
+
+        <div class="preview-side">
+            <iframe id="preview-iframe"></iframe>
+        </div>
+    </div>
+
+    <script>
+        // 基本構成：Actionで干渉・記録し、Inspectionで読み込んでルート分岐する完全デモ
+        let gameSteps = [
+            { id: 1, type: "stage_marker", stageNum: 1, stageName: "プロローグ：干渉と照合の始まり" },
+            { id: 2, type: "story", text: "「これよりシステム干渉テストを行う。まずは君のキーボード操作で、変数『user_key』に文字を流し込んで（干渉して）みてくれ」", charImg: "" },
+            { id: 3, type: "action", actionType: "typing", saveTag: "user_key", paramA: "コード入力", paramB: "code", charImg: "" },
+            { id: 4, type: "story", text: "よし、干渉を確認した。次は【INSPECTION（照合）】ブロックだ。\nもし君が今『code』と正しくタイピングしていれば、ステージ2が解放されるぞ！", charImg: "" },
+            { id: 5, type: "inspection", targetTag: "user_key", checkCondition: "equal", checkValue: "code", matchStep: 8, unmatchStep: 6 },
+            { id: 6, type: "story", text: "【照合結果：FALSE】\nおっと、入力されたデータが一致しなかったようだ。もう一度最初から打ち直してくれ。", charImg: "" },
+            { id: 7, type: "inspection", targetTag: "", checkCondition: "always", checkValue: "", matchStep: 2, unmatchStep: 2 },
+            { id: 8, type: "stage_marker", stageNum: 2, stageName: "第二章：物理環境干渉トリガー" },
+            { id: 9, type: "story", text: "見事だ、次のテストへ移行する。\n今度は、君の設定画面（右上のギア）を開き、【画面の輝度（明るさ）】を最大（2.0）に干渉させてみろ。\nそうすれば、隠された物理コードがシステムに一時記録されるはずだ。", charImg: "" },
+            { id: 10, type: "action", actionType: "brightness_check", saveTag: "lum_status", paramA: "", paramB: "", charImg: "" },
+            { id: 11, type: "inspection", targetTag: "lum_status", checkCondition: "equal", checkValue: "max", matchStep: 13, unmatchStep: 12 },
+            { id: 12, type: "story", text: "【照合結果：FALSE】\nまだ部屋が暗すぎる、あるいは輝度が最大になっていない。設定から限界まで明るさを上げて、再度挑戦しろ！\n（※このメッセージの後、自動的に輝度干渉アクションへループします）", charImg: "" },
+            { id: 13, type: "inspection", targetTag: "lum_status", checkCondition: "equal", checkValue: "max", matchStep: 10, unmatchStep: 10 }, 
+            { id: 14, type: "story", text: "【照合結果：TRUE】\n素晴らしい！物理環境の同期を確認した。すべてのインスペクションをクリアだ！", charImg: "" }
+        ];
+
+        window.onload = function() {
+            const saved = localStorage.getItem('gutti_core_data');
+            if (saved) {
+                const parsed = JSON.parse(saved);
+                gameSteps = parsed.steps || gameSteps;
+                document.getElementById('cfg-title').value = parsed.title || "インスペクション・コード：ゼウス";
+            }
+            renderTimeline();
+            runPreview();
+        };
+
+        function saveData() {
+            const data = { title: document.getElementById('cfg-title').value, steps: gameSteps };
+            localStorage.setItem('gutti_core_data', JSON.stringify(data));
+        }
+
+        function renderTimeline() {
+            const container = document.getElementById('timeline');
+            container.innerHTML = '';
+            gameSteps.forEach((step, idx) => {
+                const item = document.createElement('div');
+                item.className = `timeline-item ${step.type}`;
+                let html = `<button class="btn-delete" onclick="deleteItem(${step.id})">削除</button>
+                            <div class="item-header"><span class="badge-${step.type}">#${idx+1} [${step.type.toUpperCase()}]</span></div>`;
+                
+                // 画像設定コンポーネント（汎用）
+                if(['story','action'].includes(step.type)) {
+                    const imgTag = step.charImg ? `<img src="${step.charImg}" class="img-preview">` : `<div class="img-preview" style="height:30px; line-height:30px; text-align:center; font-size:0.7rem; color:#555;">アセット画像未設定 (空欄でデフォルト表示)</div>`;
+                    html += `<div class="form-group" style="background:rgba(0,0,0,0.2); padding:8px; border-radius:4px; margin-bottom:10px;">
+                                <label>🖼️ グラフィックパーツ配置（キャラクター・背景・証拠品）</label>
+                                <input type="file" accept="image/*" onchange="uploadImage(this, ${step.id})">
+                                ${imgTag}
+                             </div>`;
+                }
+
+                if(step.type === 'stage_marker') {
+                    html += `<div class="form-inline">
+                        <div class="form-group"><label>章番号</label><input type="number" value="${step.stageNum||1}" oninput="updateStep(${step.id},'stageNum',parseInt(this.value));saveData();runPreview();"></div>
+                        <div class="form-group"><label>章タイトル（ステージセレクトに表示）</label><input type="text" value="${step.stageName||''}" oninput="updateStep(${step.id},'stageName',this.value);saveData();runPreview();"></div>
+                    </div>`;
+                } else if(step.type === 'story') {
+                    html += `<div class="form-group"><label>ナレーション文 / 会話ダイアログ</label><textarea oninput="updateStep(${step.id},'text',this.value);saveData();runPreview();">${step.text}</textarea></div>`;
+                } else if(step.type === 'action') {
+                    html += `<div style="background:rgba(0,0,0,0.15); padding:10px; border-radius:4px;">
+                        <div class="form-inline">
+                            <div class="form-group"><label>⚡ 何に干渉（操作）するかを設定</label>
+                                <select onchange="updateStep(${step.id},'actionType',this.value);renderTimeline();saveData();runPreview();">
+                                    <option value="typing" ${step.actionType==='typing'?'selected':''}>1. タイピング操作に干渉</option>
+                                    <option value="overload" ${step.actionType==='overload'?'selected':''}>2. 物理連打（メーター最大化）に干渉</option>
+                                    <option value="click_core" ${step.actionType==='click_core'?'selected':''}>3. ポイント＆クリック調査に干渉</option>
+                                    <option value="brightness_check" ${step.actionType==='brightness_check'?'selected':''}>4. 設定の画質輝度（明るさMAX）に干渉</option>
+                                    <option value="time_check" ${step.actionType==='time_check'?'selected':''}>5. 現実世界のシステム時計（時間）に干渉</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>🏷️ 結果を記憶する「タグ（変数）名」</label>
+                                <input type="text" placeholder="例: user_flag" value="${step.saveTag||''}" oninput="updateStep(${step.id},'saveTag',this.value);saveData();runPreview();">
+                            </div>
+                        </div>`;
+                    
+                    // アクションタイプごとの可変パラメータ定義
+                    if(step.actionType === 'typing') {
+                        html += `<div class="form-inline">
+                                    <div class="form-group"><label>表示日本語</label><input type="text" value="${step.paramA||''}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>
+                                    <div class="form-group"><label>ローマ字（タグに保存される値）</label><input type="text" value="${step.paramB||''}" oninput="updateStep(${step.id},'paramB',this.value);saveData();runPreview();"></div>
+                                 </div>`;
+                    } else if(step.actionType === 'overload') {
+                        html += `<div class="form-group"><label>突破に必要な目標連打数（達成するとタグに 'max' が保存されます）</label>
+                                 <input type="number" value="${step.paramA||30}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>`;
+                    } else if(step.actionType === 'click_core') {
+                        html += `<div class="form-group"><label>画面内の指示プロンプトテキスト（クリアするとタグに 'found' が保存されます）</label>
+                                 <input type="text" value="${step.paramA||'エリア内を調査せよ'}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>`;
+                    } else if(step.actionType === 'time_check') {
+                        html += `<div class="form-inline">
+                                    <div class="form-group"><label>有効開始「時」(0〜23)</label><input type="number" value="${step.paramA||0}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>
+                                    <div class="form-group"><label>有効終了「時」(0〜23)</label><input type="number" value="${step.paramB||23}" oninput="updateStep(${step.id},'paramB',this.value);saveData();runPreview(); font-size:0.8rem;"></div>
+                                 </div><p style="font-size:0.7rem; color:#aaa; margin:0;">※指定時間内ならタグに 'in_time' 、時間外なら 'out_time' が常時自動記録されます。</p>`;
+                    } else if(step.actionType === 'brightness_check') {
+                        html += `<p style="font-size:0.75rem; color:#aaa; margin:0;">※プレイヤーがゲーム内設定で明るさを最大（2.0）にすると、自動で指定タグに 'max' が書き込まれます。</p>`;
+                    }
+                    html += `</div>`;
+                } else if(step.type === 'inspection') {
+                    html += `<div style="background:rgba(0,0,0,0.15); padding:10px; border-radius:4px;">
+                        <div class="form-inline">
+                            <div class="form-group"><label>🔍 検査・照合する対象の「タグ（変数）名」</label><input type="text" value="${step.targetTag||''}" oninput="updateStep(${step.id},'targetTag',this.value);saveData();runPreview();"></div>
+                            <div class="form-group"><label>⚖️ 照合条件</label>
+                                <select onchange="updateStep(${step.id},'checkCondition',this.value);saveData();runPreview();">
+                                    <option value="equal" ${step.checkCondition==='equal'?'selected':''}>タグの中身が [条件値] と一致する</option>
+                                    <option value="not_equal" ${step.checkCondition==='not_equal'?'selected':''}>タグの中身が [条件値] と一致しない</option>
+                                    <option value="always" ${step.checkCondition==='always'?'selected':''}>条件を無視して強制ジャンプ（疑似ループ用）</option>
+                                </select>
+                            </div>
+                            <div class="form-group"><label>💎 合致条件の文字列（値）</label><input type="text" value="${step.checkValue||''}" oninput="updateStep(${step.id},'checkValue',this.value);saveData();runPreview();"></div>
+                        </div>
+                        <div class="form-inline" style="margin-top:10px;">
+                            <div class="form-group"><label>✅ 照合が一致(TRUE)した時の移行先ステップ番号</label><input type="number" value="${step.matchStep||''}" oninput="updateStep(${step.id},'matchStep',parseInt(this.value));saveData();runPreview();"></div>
+                            <div class="form-group"><label>❌ 照合が不一致(FALSE)の時の移行先ステップ番号</label><input type="number" value="${step.unmatchStep||''}" oninput="updateStep(${step.id},'unmatchStep',parseInt(this.value));saveData();runPreview();"></div>
+                        </div>
+                    </div>`;
+                }
+                item.innerHTML = html; container.appendChild(item);
+            });
+        }
+
+        function uploadImage(input, id) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                updateStep(id, 'charImg', e.target.result); saveData(); renderTimeline(); runPreview();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        function addItem(type) {
+            const nid = Date.now();
+            if(type==='stage_marker') gameSteps.push({id:nid, type, stageNum: 1, stageName: "新章タイトル"});
+            else if(type==='story') gameSteps.push({id:nid, type, text: "新規ダイアログテキスト", charImg: ""});
+            else if(type==='action') gameSteps.push({id:nid, type, actionType: "typing", saveTag: "my_variable", paramA: "問題", paramB: "mondai", charImg: ""});
+            else if(type==='inspection') gameSteps.push({id:nid, type, targetTag: "my_variable", checkCondition: "equal", checkValue: "mondai", matchStep: 1, unmatchStep: 1});
+            renderTimeline(); saveData(); runPreview();
+        }
+        function updateStep(id, f, v) { const s = gameSteps.find(x=>x.id===id); if(s) s[f]=v; }
+        function deleteItem(id) { gameSteps = gameSteps.filter(x=>x.id!==id); renderTimeline(); saveData(); runPreview(); }
+        function clearSimSave() { const iframe = document.getElementById('preview-iframe'); iframe.contentWindow.postMessage("clear_all_saves", "*"); setTimeout(runPreview, 200); }
+        function runPreview() { document.getElementById('preview-iframe').srcdoc = buildEngineHTML(); }
+
+        // 🎮 ランタイムHTMLパッケージングエンジン
+        function buildEngineHTML() {
+            const title = document.getElementById('cfg-title').value;
+            return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>${title}</title>
+    <style>
+        :root { --global-gamma: 0.1; }
+        body { margin:0; background: #030305; color: #e2e2e9; font-family: monospace; overflow:hidden; height:100vh; position:relative; user-select:none; }
+        .container { width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; box-sizing:border-box; text-align:center; }
+        
+        /* 📺 統合キャンバスビジュアルエリア */
+        .viewport-canvas { width: 100%; max-width: 500px; height: 280px; background: #08080f; border: 2px solid #222; position: relative; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; border-radius: 8px; overflow: hidden; box-shadow:0 0 20px rgba(0,0,0,0.8); }
+        .viewport-bg { width: 100%; height: 100%; object-fit: cover; position: absolute; top:0; left:0; z-index: 1; }
+        .viewport-interactive { position: absolute; width:100%; height:100%; top:0; left:0; z-index: 2; display:flex; justify-content:center; align-items:center; }
+
+        /* 🔍 Actionパーツ: 精密探索ポインター */
+        .click-target-node { width: 44px; height: 44px; background: rgba(0, 229, 255, 0.4); border: 3px solid #00e5ff; border-radius: 50%; cursor: pointer; animation: pulseNode 1.3s infinite; }
+        @keyframes pulseNode { 0% { transform: scale(0.9); opacity: 0.5; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.5; } }
+
+        /* ⚡ Actionパーツ: オーバーロードチャージゲージ */
+        .charge-container { width: 80%; background: #111; height: 22px; border-radius: 11px; border: 2px solid #e74c3c; overflow: hidden; position: relative; }
+        .charge-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #e74c3c, #f1c40f); transition: width 0.08s; }
+
+        .dialog-box { font-size:1.25rem; line-height:1.7; max-width:620px; white-space:pre-line; min-height:70px; margin-top:10px; }
+        .typing-container { display:none; flex-direction:column; align-items:center; margin-top:10px; }
+        .roman-line { font-size:2.3rem; font-weight:bold; letter-spacing:1.5px; margin-top:8px; color:#00e5ff; text-shadow:0 0 10px rgba(0,229,255,0.4); }
+        .text-done { color: #2ecc71; text-shadow: 0 0 10px #2ecc71; }
+        .text-todo { opacity: 0.2; }
+        
+        /* 🗺️ セーブ連動章セレクトUI */
+        .select-layout { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:15px; width:85%; max-width:650px; margin-top:25px; }
+        .chapter-card { background:#0f0f18; color:#fff; border:1px solid #252538; padding:16px; text-align:left; cursor:pointer; border-radius:6px; transition:all 0.2s; }
+        .chapter-card:hover { background:#00e5ff; color:#000; border-color:#00e5ff; transform:translateY(-2px); }
+
+        /* ⚙️ ハードウェアセッティングオーバーレイ */
+        .gear-toggle { position:fixed; top:15px; right:15px; font-size:1.6rem; cursor:pointer; background:rgba(0,0,0,0.6); padding:6px 12px; border-radius:50%; z-index:1000; border:1px solid #333; }
+        .gear-panel { position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(4,4,6,0.97); z-index:999; display:none; flex-direction:column; justify-content:center; align-items:center; }
+        .menu-row { margin:18px 0; width:330px; display:flex; justify-content:space-between; align-items:center; font-size:1rem; }
+        .menu-row input[type="range"] { width:160px; }
+
+        .btn { background:transparent; color:#fff; border:2px solid #fff; padding:10px 26px; font-size:1.1rem; cursor:pointer; margin-top:20px; font-weight:bold; border-radius:4px; }
+        .btn:hover { background:#fff; color:#000; }
+        .hidden { display:none !important; }
+    </style>
+</head>
+<body>
+
+    <div class="gear-toggle" onclick="toggleMenu()">⚙</div>
+    <div class="gear-panel" id="ui-menu">
+        <h2 style="letter-spacing:3px; color: #00e5ff;">HARDWARE SPECIFICATIONS</h2>
+        <div class="menu-row">
+            <span>⚙️ 画面全体の輝度(明るさ)</span>
+            <input type="range" id="sys-gamma" min="0.1" max="2.0" step="0.1" value="0.1" oninput="syncHardware()">
+        </div>
+        <button class="btn" style="border-color:#00e5ff; color:#00e5ff;" onclick="toggleMenu()">DISMISS</button>
+    </div>
+
+    <div class="container">
+        <div id="scr-boot">
+            <h1 style="font-size:2.6rem; margin-bottom:30px; letter-spacing:3px; font-weight:900;">${title}</h1>
+            <button class="btn" onclick="executeBoot()">BOOT GAME SYSTEM</button>
+        </div>
+
+        <div id="scr-select" class="hidden">
+            <h2 style="color:#00e5ff;">解読済みアーカイブ（章セレクト）</h2>
+            <div class="select-layout" id="select-box"></div>
+        </div>
+
+        <div id="scr-runtime" class="hidden">
+            <div class="viewport-canvas">
+                <img id="view-img" class="viewport-bg hidden">
+                <div class="viewport-interactive" id="interact-layer"></div>
+            </div>
+
+            <div class="dialog-box" id="text-box"></div>
+
+            <div class="typing-container" id="type-box">
+                <div style="font-size:1.4rem; font-weight:bold; color:#fff;" id="jp-box"></div>
+                <div class="roman-line"><span class="text-done" id="lbl-done"></span><span class="text-todo" id="lbl-todo"></span></div>
+            </div>
+
+            <button class="btn hidden" id="btn-next" onclick="stepForward()">PROCEED</button>
+        </div>
+    </div>
+
+    <script>
+        const steps = ${JSON.stringify(gameSteps)};
+        let idx = 0, rCur = "", tIdx = 0, isT = false;
+        let pressCount = 0, pressTarget = 30;
+        
+        // 💾 コア・記憶空間ストレージタグ
+        const tagStorage = {};
+
+        window.addEventListener("message", (e) => {
+            if(e.data === "clear_all_saves") { localStorage.removeItem("gutti_core_unlocked"); }
+        });
+
+        function executeBoot() {
+            const unlocked = JSON.parse(localStorage.getItem("gutti_core_unlocked") || "[]");
+            if(unlocked.length === 0) {
+                document.getElementById('scr-boot').classList.add('hidden');
+                document.getElementById('scr-runtime').classList.remove('hidden');
+                idx = 0; runStep();
+            } else {
+                buildArchiveSelect();
+            }
+        }
+
+        function buildArchiveSelect() {
+            document.getElementById('scr-boot').classList.add('hidden');
+            document.getElementById('scr-select').classList.remove('hidden');
+            const box = document.getElementById('select-box');
+            box.innerHTML = '';
+
+            steps.forEach((s, stepIdx) => {
+                if(s.type === 'stage_marker') {
+                    const card = document.createElement('div');
+                    card.className = 'chapter-card';
+                    card.innerHTML = \`<b>📍 CHAPTER 0\${s.stageNum}</b><br><span style="font-size:0.85rem; opacity:0.7;">\${s.stageName}</span>\`;
+                    card.onclick = () => {
+                        document.getElementById('scr-select').classList.add('hidden');
+                        document.getElementById('scr-runtime').classList.remove('hidden');
+                        idx = stepIdx; runStep();
+                    };
+                    box.appendChild(card);
+                }
+            });
+        }
+
+        async function runStep() {
+            if(idx >= steps.length) { alert("SYSTEM OVER: ALL LOGS COMPLETED."); return; }
+            const s = steps[idx];
+
+            // 章のマーキング（オートセーブ）の自動バックグラウンド処理
+            if (s.type === 'stage_marker') {
+                let unl = JSON.parse(localStorage.getItem("gutti_core_unlocked") || "[]");
+                if(!unl.includes(s.stageNum)) {
+                    unl.push(s.stageNum); localStorage.setItem("gutti_core_unlocked", JSON.stringify(unl));
+                }
+                idx++; runStep(); return;
+            }
+
+            // 🔍 INSPECTION（照合・分岐コア）のリアルタイム処理
+            if (s.type === 'inspection') {
+                let isMatch = false;
+                if(s.checkCondition === 'always') {
+                    isMatch = true;
+                } else {
+                    const currentTagValue = tagStorage[s.targetTag] || "";
+                    const conditionTarget = (s.checkValue || "").trim();
+                    
+                    if(s.checkCondition === 'equal') {
+                        isMatch = (currentTagValue.toLowerCase() === conditionTarget.toLowerCase());
+                    } else if(s.checkCondition === 'not_equal') {
+                        isMatch = (currentTagValue.toLowerCase() !== conditionTarget.toLowerCase());
+                    }
+                }
+                // ジャンプ先インデックスへのトランスレート(ステップ番号は1始まりなので-1)
+                idx = isMatch ? (s.matchStep - 1) : (s.unmatchStep - 1);
+                runStep(); return;
+            }
+
+            // グラフィックビジュアルの適用
+            const imgEl = document.getElementById('view-img');
+            if(s.charImg) { imgEl.src = s.charImg; imgEl.classList.remove('hidden'); } 
+            else { imgEl.classList.add('hidden'); }
+
+            // インタラクティブUIレイヤーの初期化
+            const layer = document.getElementById('interact-layer');
+            layer.innerHTML = '';
+            document.getElementById('btn-next').classList.add('hidden');
+            document.getElementById('type-box').style.display = 'none';
+
+            // ⚡ ACTION（何に干渉するか）の動的描画とトリガー定義
+            if (s.type === 'action') {
+                // リアルタイム時計干渉のバックグラウンド即時記録
+                if(s.actionType === 'time_check') {
+                    const h = new Date().getHours();
+                    const start = parseInt(s.paramA) || 0;
+                    const end = parseInt(s.paramB) || 23;
+                    tagStorage[s.saveTag] = (h >= start && h <= end) ? 'in_time' : 'out_time';
+                    idx++; runStep(); return; 
+                }
+
+                // 1. タイピング干渉
+                if(s.actionType === 'typing') {
+                    isT = true;
+                    document.getElementById('type-box').style.display = 'flex';
+                    document.getElementById('text-box').textContent = "";
+                    document.getElementById('jp-box').textContent = s.paramA;
+                    rCur = s.paramB; tIdx = 0; refreshTypeDisplay();
+                }
+                // 2. 物理連打メーター干渉
+                else if(s.actionType === 'overload') {
+                    isT = false; pressCount = 0; pressTarget = parseInt(s.paramA) || 30;
+                    document.getElementById('text-box').innerHTML = `<span style="color:#e74c3c; font-weight:bold;">[ACTION: OVERLOAD GAUGE]</span><br>スペースキーまたは画面内を連打してデータを充填しろ！`;
+                    
+                    const wrap = document.createElement('div'); wrap.className = 'charge-container';
+                    const fill = document.createElement('div'); fill.id = 'charge-bar-node'; fill.className = 'charge-bar';
+                    wrap.appendChild(fill); layer.appendChild(wrap);
+                    layer.onclick = () => { handleOverloadClick(); };
+                }
+                // 3. ポイント調査干渉
+                else if(s.actionType === 'click_core') {
+                    isT = false;
+                    document.getElementById('text-box').innerHTML = `<span style="color:#00e5ff; font-weight:bold;">[ACTION: SEARCH NODE]</span><br>\${s.paramA}`;
+                    const target = document.createElement('div'); target.className = 'click-target-node';
+                    target.style.position = 'absolute'; target.style.top = '45%'; target.style.left = '48%';
+                    target.onclick = () => {
+                        tagStorage[s.saveTag] = 'found';
+                        alert("🔍 ノード発見。干渉データを保存しました。");
+                        idx++; runStep();
+                    };
+                    layer.appendChild(target);
+                }
+                // 4. 画質輝度干渉
+                else if(s.actionType === 'brightness_check') {
+                    isT = false;
+                    document.getElementById('text-box').innerHTML = `<span style="color:#f1c40f; font-weight:bold;">[ACTION: HARDWARE INTERFERENCE]</span><br>システムに干渉して輝度（明るさ）を「MAX (2.0)」に同期せよ。`;
+                    document.getElementById('btn-next').classList.remove('hidden'); // 輝度を確認しながら次に進むためのトリガーボタン
+                }
+                return;
+            }
+
+            // 通常のテキスト会話ステップ
+            if (s.type === 'story') {
+                isT = false;
+                document.getElementById('btn-next').classList.remove('hidden');
+                
+                // [tag:変数名] を自動置換して表示
+                let renderedText = s.text.replace(/\\[tag:(.*?)\\]/g, (m, t) => tagStorage[t] || \`[\${t}:未記録]\`);
+                document.getElementById('text-box').textContent = renderedText;
+            }
+        }
+
+        function handleOverloadClick() {
+            if(steps[idx].type !== 'action' || steps[idx].actionType !== 'overload') return;
+            pressCount++;
+            const bar = document.getElementById('charge-bar-node');
+            const pct = Math.min((pressCount / pressTarget) * 100, 100);
+            if(bar) bar.style.width = pct + '%';
+            
+            if(pressCount >= pressTarget) {
+                tagStorage[steps[idx].saveTag] = 'max'; // 結果を保存
+                setTimeout(() => { alert("⚡ 充填完了。出力マックスに固定されました。"); idx++; runStep(); }, 100);
+            }
+        }
+
+        function stepForward() {
+            const s = steps[idx];
+            // 輝度干渉アクションの時だけ、現在の物理設定値を確認してタグに保存
+            if(s.type === 'action' && s.actionType === 'brightness_check') {
+                const currentGamma = parseFloat(document.getElementById('sys-gamma').value);
+                tagStorage[s.saveTag] = (currentGamma >= 2.0) ? 'max' : 'low';
+            }
+            idx++; runStep();
+        }
+
+        function refreshTypeDisplay() {
+            document.getElementById('lbl-done').textContent = rCur.substring(0, tIdx);
+            document.getElementById('lbl-todo').textContent = rCur.substring(tIdx);
+        }
+
+        function inputCharacter(c) {
+            if(steps[idx] && steps[idx].type === 'action' && steps[idx].actionType === 'overload') {
+                if(c === ' ') handleOverloadClick(); return;
+            }
+            if(!isT) {
+                if(c === ' ' && !document.getElementById('btn-next').classList.contains('hidden')) stepForward();
+                return;
+            }
+            if(c.toLowerCase() === rCur[tIdx].toLowerCase()) {
+                tIdx++; refreshTypeDisplay();
+                if(tIdx >= rCur.length) {
+                    isT = false;
+                    tagStorage[steps[idx].saveTag] = rCur; // タイピングされた文字列をタグへ記憶！
+                    setTimeout(() => { idx++; runStep(); }, 180);
+                }
+            }
+        }
+
+        function toggleMenu() {
+            const m = document.getElementById('ui-menu'); m.style.display = (m.style.display==='flex')?'none':'flex';
+        }
+
+        function syncHardware() {
+            const g = document.getElementById('sys-gamma').value;
+            document.documentElement.style.setProperty('--global-gamma', g);
+            document.getElementById('scr-runtime').style.filter = \`brightness(\${g})\`;
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(e.key === ' ') { e.preventDefault(); inputCharacter(' '); }
+            else if(e.key.length === 1) inputCharacter(e.key);
+        });
+        syncHardware();
+    <\/script>
+</body>
+</html>
