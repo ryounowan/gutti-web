@@ -109,7 +109,7 @@
         "background": "linear-gradient(135deg, rgb(0, 255, 0), rgb(255, 255, 0))",
         "textColor": "#000000"
       },
-      "verified": true,
+      "verified": false,
       "icon": "https://cdn.colleize.com/images/1733386197700-88336632",
       "birthday": "2012-01-06",
       "points": 10
@@ -209,8 +209,8 @@
   "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
-  "sha": "e46abcaba99e2861cfa94460a9736b92d21e4151",
+  "sha": "a356ac7f64855bdce210ddce56d2d81815a675b8",
   "mtMessage": "ああああああ",
-  "nexusMaintenance": true,
+  "nexusMaintenance": false,
   "mtMessage_Nexus": "ｋｋｋ"
 }
