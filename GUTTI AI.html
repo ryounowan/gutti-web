@@ -37,7 +37,7 @@
     <script type="module">
         import * as webllm from "https://esm.run/@mlc-ai/web-llm";
 
-        // 今回使用する無料＆軽量かつ高性能な日本語対応モデル (Qwen2.5 0.5B)
+        // 軽量かつ高性能な日本語対応モデル
         const selectedModel = "Qwen2.5-0.5B-Instruct-q4f16_1-MLC";
         
         let engine;
@@ -46,25 +46,23 @@
         const sendBtn = document.getElementById("send-btn");
         const chatBox = document.getElementById("chat-box");
 
-        // 1. AIエンジンの初期化とモデルのダウンロード
+        // 1. AIエンジンの初期化とモデルのダウンロード（最新仕様に変更）
         async function initAI() {
             try {
-                engine = new webllm.CreateGenericEngine();
-                
-                // 進捗状況を画面に表示するコールバック
-                engine.setInitProgressCallback((report) => {
-                    statusDiv.innerText = report.text;
+                // CreateMLCEngine を使って初期化
+                engine = await webllm.CreateMLCEngine(selectedModel, {
+                    initProgressCallback: (report) => {
+                        statusDiv.innerText = report.text;
+                    }
                 });
-
-                // モデルの読み込み
-                await engine.reload(selectedModel);
+                
                 statusDiv.innerText = "【準備完了】AIが起動しました！自由に会話できます。";
                 statusDiv.style.background = "#a6e3a1";
                 statusDiv.style.color = "#11111b";
                 userInput.disabled = false;
                 sendBtn.disabled = false;
             } catch (error) {
-                statusDiv.innerText = "エラーが発生しました。WebGPUに対応したブラウザで試してください。";
+                statusDiv.innerText = "エラーが発生しました。WebGPU非対応か、ローカルサーバーで起動していない可能性があります。";
                 console.error(error);
             }
         }
@@ -74,20 +72,16 @@
             const text = userInput.value.trim();
             if (!text) return;
 
-            // ユーザーの発言を表示
             appendMessage(text, "user");
             userInput.value = "";
             userInput.disabled = true;
             sendBtn.disabled = true;
 
-            // AIの返答用枠を作る
             const aiMsgDiv = appendMessage("思考中...", "ai");
 
             try {
-                // AIに喋らせる（チャット履歴を渡す）
                 const messages = [{ role: "user", content: text }];
                 
-                // ストリーミング出力（文字がドバババと出てくる演出）
                 const chunks = await engine.chat.completions.create({
                     messages,
                     stream: true
@@ -97,7 +91,7 @@
                 for await (const chunk of chunks) {
                     const content = chunk.choices[0]?.delta?.content || "";
                     replyText += content;
-                    aiMsgDiv.innerText = replyText; // リアルタイムに文字を更新
+                    aiMsgDiv.innerText = replyText;
                     chatBox.scrollTop = chatBox.scrollHeight;
                 }
 
@@ -120,7 +114,6 @@
             return msgDiv;
         }
 
-        // ページ読み込み時にAIをスタート
         initAI();
     </script>
 </body>
