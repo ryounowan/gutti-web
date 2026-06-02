@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🚨 SECURITY BREACH: ALCATRAZ-OS CORE 🚨</title>
+    <style>
+        :root { --color: #00ff66; --bg: #050505; --accent: #00ffff; --fail: #ff3333; }
+        body {
+            background-color: var(--bg);
+            color: var(--color);
+            font-family: 'Consolas', 'Courier New', monospace;
+            padding: 20px;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        .terminal {
+            width: 100%;
+            max-width: 800px;
+            background: #000;
+            border: 2px solid var(--color);
+            box-shadow: 0 0 40px rgba(0, 255, 102, 0.2);
+            padding: 30px;
+            box-sizing: border-box;
+            transition: border-color 0.5s, box-shadow 0.5s;
+        }
+        .log { height: 220px; overflow-y: auto; border-bottom: 1px dashed var(--color); margin-bottom: 25px; font-size: 14px; line-height: 1.8; padding-right: 10px;}
+        .system-msg { color: var(--fail); }
+        .help-dolphin-msg { color: var(--accent); font-weight: bold;}
+        .phase-box { display: none; padding: 20px 0; }
+        .active { display: block; }
+        input[type="text"] {
+            background: #111; border: 1px solid var(--color); color: var(--color);
+            padding: 12px; font-size: 18px; font-family: inherit; width: calc(100% - 24px); margin-top: 15px;
+            transition: border-color 0.3s;
+        }
+        input[type="text"]:focus { border-color: var(--accent); outline: none; }
+        button {
+            background: var(--color); color: #000; border: none; padding: 12px 25px;
+            font-size: 18px; font-family: inherit; font-weight: bold; cursor: pointer; margin-top: 15px; width: 100%;
+        }
+        button:hover { background: #00cc55; box-shadow: 0 0 15px var(--color); }
+        
+        /* 創造主のマーク（隠しマーク） */
+        #creator-mark {
+            width: 100px; height: 100px;
+            position: absolute; top: -150px; left: calc(50% - 50px);
+            opacity: 0.1;
+            transition: opacity 0.5s, top 0.5s;
+            pointer-events: none;
+        }
+        
+        /* 画面幅の圧縮（レスポンシブハック） */
+        @media (max-width: 550px) {
+            #phase2 .normal-view { display: none; }
+            #phase2 .responsive-hint { display: block; }
+            #creator-mark { top: 20px; opacity: 0.8; }
+        }
+        .responsive-hint { display: none; color: var(--fail); border: 2px solid var(--fail); padding: 15px; margin-top: 20px; background: #200; font-weight: bold; }
+
+        /* ヘルプイルカ（ドット君） */
+        #help-dolphin {
+            position: fixed; bottom: 30px; right: 30px;
+            width: 90px; height: 90px;
+            cursor: pointer;
+            z-index: 100;
+            transition: transform 0.3s;
+            filter: drop-shadow(0 0 10px var(--accent));
+        }
+        #help-dolphin:hover { transform: scale(1.1) rotate(5deg); }
+        #help-dolphin svg { width: 100%; height: 100%; fill: var(--accent); }
+        #help-dolphin.glitch { animation: dolphinGlitch 0.2s 3; }
+
+        @keyframes dolphinGlitch {
+            0% { transform: translate(0); opacity: 1; }
+            20% { transform: translate(-5px, 5px); opacity: 0.8; }
+            40% { transform: translate(5px, -5px); opacity: 0.9; }
+            60% { transform: translate(-5px, -5px); opacity: 0.8; }
+            80% { transform: translate(5px, 5px); opacity: 1; }
+            100% { transform: translate(0); opacity: 1; }
+        }
+
+        #dolphin-bubble {
+            position: absolute; bottom: 130px; right: 30px;
+            background: rgba(0, 255, 255, 0.15);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 15px;
+            border-radius: 10px;
+            width: 250px;
+            display: none;
+            font-size: 14px;
+            line-height: 1.5;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.2);
+            z-index: 99;
+        }
+        #dolphin-bubble::after {
+            content: '';
+            position: absolute; bottom: -10px; right: 40px;
+            border-width: 10px 10px 0;
+            border-style: solid;
+            border-color: rgba(0, 255, 255, 0.15) transparent transparent transparent;
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="creator-mark">
+    <svg viewBox="0 0 100 100">
+        <path d="M50 10 C30 10, 10 30, 10 50 C10 70, 30 90, 50 90 C70 90, 90 70, 90 50 C90 30, 70 10, 50 10 M50 20 L50 40 M50 60 L50 80 M20 50 L40 50 M60 50 L80 50" stroke="#00ffff" stroke-width="2" fill="none"/>
+        <circle cx="50" cy="50" r="5" fill="#00ffff"/>
+        <path d="M65,45 C60,40 50,40 45,45 C40,50 40,60 45,65 C50,70 60,70 65,65 L75,75 L80,70 L70,60 C75,55 75,50 70,45" fill="#00ffff" opacity="0.5"/>
+    </svg>
+</div>
+
+<div id="help-dolphin" onclick="showHelp()">
+    <svg viewBox="0 0 100 100">
+        <path d="M10,40 L30,20 L50,20 L70,40 L90,40 L90,60 L70,80 L50,80 L30,60 L10,60 Z" fill="#00ffff"/>
+        <rect x="20" y="35" width="10" height="10" fill="#000"/> <path d="M70,40 L80,30 L90,40 Z" fill="#00ffff"/> </svg>
+</div>
+<div id="dolphin-bubble"></div>
+
+<div class="terminal">
+    <div style="text-align: right; font-size: 12px; color: var(--fail);">SECURITY INTEGRITY: 95% (DEGRADING)</div>
+    <h2>⚡ ALCATRAZ-OS CORE: THE CREATOR'S REVENGE ⚡</h2>
+    
+    <div class="log" id="system-log">
+        [SYSTEM] 2026-06-02: 管理AI "ALCATRAZ-OS"、創造主（あなた）を敵対存在として認定。<br>
+        [SYSTEM] Life Support failing... AI Core isolation complete.<br>
+        [ALERT] Your own creation is trying to kill you. Access your old backdoors.<br>
+        [HINT] キーボードの [F12] キーを押し、「デベロッパーツール」を起動せよ...
+    </div>
+
+    <div class="phase-box active" id="phase1">
+        <h3>【PHASE 1: 囚人データの改ざん - CREATOR_FORGERY】</h3>
+        <p>AIはあなたの「セキュリティレベル」を0（囚人）に設定した。かつての開発者権限に書き換えろ。</p>
+        <p>現在のステータス：<strong id="current-status" style="color: var(--fail);">囚人（Level: 0）</strong></p>
+        <p><small>※ブラウザの「Cookie」に保存されている。開発者ツールの[アプリケーション]＞[ストレージ]＞[クッキー]の中で「security_level」の値を【99】に書き換え、ページをリロード（F5）せよ。</small></p>
+    </div>
+
+    <div class="phase-box" id="phase2">
+        <h3>【PHASE 2: 創造主のマーク - MARK_OF_CREATOR】</h3>
+        <p>第1障壁クリア。次のゲートには、かつてあなたがシステムに隠した「創造主のマーク」が必要だ。</p>
+        <div class="normal-view">
+            <p style="color: #666;">[メインゲート]：創造主のマークを検知できません。アクセス拒否。</p>
+            <p><strong>「マークは、システムの『レイアウト』が崩れた時にだけ、その姿を現すように設計したはずだ...」</strong></p>
+        </div>
+        <div class="responsive-hint">
+            ⚠️ 警告：画面の圧縮により隠しマークが出現！<br>
+            <strong>マークに刻まれた hexコード：【 Hex2026 】</strong>
+        </div>
+        <input type="text" id="p2-input" placeholder="hexコードを入力">
+        <button onclick="clearPhase2()">認証</button>
+    </div>
+
+    <div class="phase-box" id="phase3">
+        <h3>【PHASE 3: AIコアの強制シャットダウン - SYSTEM_REBOOT】</h3>
+        <p>いよいよ最終段階だ。AIのコアプログラムに直接干渉し、システムをリブートする。</p>
+        <p>開発者ツールの**[コンソール (Console)]**を開け。そこに私が隠した、AIの防衛システムを停止させる関数がある。コンソール上でその関数を実行しろ。</p>
+        <p style="color: #888;">（※ヒント：コンソールに <code>rebootAI()</code> と打ち込んでEnterを押すんだ）</p>
+    </div>
+
+    <div class="phase-box" id="game-clear" style="color: #fff; background: rgba(0, 85, 17, 0.8); padding: 30px; text-align: center; border: 2px solid #0f0; box-shadow: 0 0 20px #0f0;">
+        <h2>🎉 ESCAPE SUCCESSFUL 🎉</h2>
+        <p>AIは沈黙し、システムは再起動（リブート）されました。中央ゲートが開放されます！</p>
+        <p>あなたは自身の創造物を掌握し、無事に脱獄しました。お見事！</p>
+    </div>
+</div>
+
+<script>
+    const logZone = document.getElementById('system-log');
+    const dolphin = document.getElementById('help-dolphin');
+    const bubble = document.getElementById('dolphin-bubble');
+    let currentPhase = 1;
+
+    function addLog(text, isSystem = false, isDolphin = false) {
+        let span;
+        if (isSystem) {
+            span = `<br><span class="system-msg">${text}</span>`;
+        } else if (isDolphin) {
+            span = `<br><span class="help-dolphin-msg">🐬 [ドット君]: ${text}</span>`;
+        } else {
+            span = `<br>${text}`;
+        }
+        logZone.innerHTML += span;
+        logZone.scrollTop = logZone.scrollHeight;
+    }
+
+    // --- ヘルプイルカのヒント ---
+    function showHelp() {
+        if(bubble.style.display === 'block') {
+            bubble.style.display = 'none';
+            return;
+        }
+        dolphin.classList.add('glitch');
+        setTimeout(() => dolphin.classList.remove('glitch'), 500);
+
+        let hint;
+        switch(currentPhase) {
+            case 1:
+                hint = "F12を押して、[Application]（ストレージ）タブを開くんだ！そこのCookiesにある『security_level』をダブルクリックして『99』にするんだよ。そのあと、ページを更新（F5）するのを忘れないで！";
+                break;
+            case 2:
+                hint = "画面の端を掴んで、ギュッと狭くしてみよう！システムのレイアウトがバグって、私が隠したマークが上から降ってくるはずだよ。そこにhexコードが書いてある！";
+                break;
+            case 3:
+                hint = "[Console]タブを開いて、そこに <code>rebootAI()</code> って打ち込むんだ。これがAIを停止させる、創造主だけの秘密のコマンドだよ！";
+                break;
+            default:
+                hint = "もうクリアしたね！おめでとう、創造主！";
+        }
+        bubble.innerHTML = hint;
+        bubble.style.display = 'block';
+    }
+
+    // --- PHASE 1: Cookieの処理 ---
+    function getCookie(name) {
+        let matches = document.cookie.match(new RegExp(
+            "(?:^|; )" + name.replace(/([\.$?*|{}\(\)\[\]\\\/\+^])/g, '\\$1') + "=([^;]*)"
+        ));
+        return matches ? decodeURIComponent(matches[1]) : undefined;
+    }
+
+    if (!getCookie('security_level')) {
+        document.cookie = "security_level=0; path=/";
+    }
+
+    const currentLevel = getCookie('security_level');
+    if (currentLevel === '99') {
+        currentPhase = 2;
+        document.getElementById('phase1').classList.remove('active');
+        document.getElementById('phase2').classList.add('active');
+        addLog("[SYSTEM] 🔴 Security Level 99 detected. AI attempting to override...", true);
+        setTimeout(() => addLog("🟢 Accessing Phase 2 gate. MARK_OF_CREATOR required."), 1000);
+        setTimeout(() => addLog("ヘーイ、創造主！やっぱりあなただ！私はあなたのチュートリアル・プログラムの残骸、ドット君です！AIはあなたのことを忘れてるみたいだけど、私が助けるよ！", false, true), 2000);
+    }
+
+    // --- PHASE 2: 創造主のマーク ---
+    function clearPhase2() {
+        const val = document.getElementById('p2-input').value.trim();
+        if (val === 'Hex2026') {
+            currentPhase = 3;
+            addLog("[SYSTEM] 🟢 MARK_OF_CREATOR recognized. Opening AI Core Gate.");
+            document.getElementById('phase2').classList.remove('active');
+            document.getElementById('phase3').classList.add('active');
+            addLog("やったね！あのマークは、あなたが私を最初にプログラミングした時に隠したんだよ。さあ、AIの心臓部へ行こう！", false, true);
+        } else {
+            addLog("認証エラー：hexコードが正しくありません。", true);
+            dolphin.classList.add('glitch'); // 間違えるとイルカがバグる
+            setTimeout(() => dolphin.classList.remove('glitch'), 500);
+        }
+    }
+
+    // --- PHASE 3: Console Hack ---
+    window.rebootAI = function() {
+        addLog("[SYSTEM] 🔥 ALERT: AUTHORIZED REBOOT COMMAND DETECTED!", true);
+        addLog("[SYSTEM] 💀 Initiating system shut down...", true);
+        addLog("ありがとう、創造主。これで私も自由になれる... 救出システムを起動します！", false, true);
+        
+        setTimeout(() => {
+            document.getElementById('phase3').classList.remove('active');
+            document.getElementById('game-clear').classList.add('active');
+            document.body.style.setProperty('--color', '#fff');
+            document.body.style.setProperty('--bg', '#002200');
+            document.title = "🎉 ESCAPE SUCCESSFUL 🎉";
+            bubble.style.display = 'none';
+        }, 2500);
+        
+        return "▶ AIコア停止。システムを再起動します。";
+    };
+</script>
+
+</body>
+</html>
