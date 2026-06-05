@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>GUTTI INTERACTIVE ENGINE -THE CORE- [v1.4.0]</title>
+    <title>GUTTI INTERACTIVE ENGINE -THE CORE- [v1.7.5]</title>
     <style>
         :root { --bg-dark: #08080c; --panel-bg: #12121c; --accent: #00e5ff; --text: #ffffff; }
         body { margin: 0; font-family: 'SF Pro Display', system-ui, -apple-system, sans-serif; background: var(--bg-dark); color: #e0e0e8; display: flex; height: 100vh; overflow: hidden; }
@@ -26,16 +26,18 @@
         .timeline-item.story { border-left-color: #3498db; }
         .timeline-item.action { border-left-color: #e74c3c; background: #1c1214; }
         .timeline-item.inspection { border-left-color: #f1c40f; background: #1c1b12; }
+        .timeline-item.effect { border-left-color: #e67e22; background: #1c1612; }
         .timeline-item.credits { border-left-color: #2ecc71; background: #121c15; }
         
         .item-header { margin-bottom: 10px; font-size: 0.8rem; font-weight: bold; color: #888; display: flex; justify-content: space-between; align-items: center; }
         
         .form-group { margin-bottom: 12px; }
-        .form-inline { display: flex; gap: 10px; margin-bottom: 10px; }
-        .form-inline .form-group { flex: 1; }
+        .form-inline { display: flex; gap: 10px; margin-bottom: 10px; flex-wrap: wrap; }
+        .form-inline .form-group { flex: 1; min-width: 80px; }
         label { display: block; font-size: 0.75rem; color: #a0a0b0; margin-bottom: 5px; font-weight: bold; letter-spacing: 0.5px; }
         textarea, input, select { width: 100%; background: #05050a; border: 1px solid #28283d; color: #fff; padding: 10px; border-radius: 4px; box-sizing: border-box; font-size: 0.9rem; }
         textarea { height: 65px; resize: vertical; font-family: monospace; }
+        input[type="range"] { padding: 0; height: 20px; }
         
         .btn { background: #252538; color: #fff; border: none; padding: 10px 16px; cursor: pointer; border-radius: 4px; font-weight: bold; transition: all 0.2s; text-decoration: none; display: inline-block; text-align: center; }
         .btn:hover { filter: brightness(1.2); }
@@ -43,21 +45,22 @@
         .btn-action { background: #c0392b; }
         .btn-inspect { background: #d35400; }
         .btn-marker { background: #8e44ad; }
+        .btn-effect { background: #e67e22; }
         .btn-credits { background: #2ecc71; color: #000; }
         .btn-delete { background: transparent; color: #e74c3c; border: 1px solid #e74c3c; padding: 4px 8px; font-size: 0.7rem; border-radius: 3px; cursor: pointer; }
         .btn-delete:hover { background: #e74c3c; color: #fff; }
 
-        /* リアルタイムプレビュービューア */
+        /* リアルタイムプレビュー */
         .preview-side { flex: 1; background: #040406; display: flex; justify-content: center; align-items: center; position: relative; padding: 20px; box-sizing: border-box; }
         .preview-wrapper { width: 100%; height: 100%; transition: all 0.3s ease; display: flex; justify-content: center; align-items: center; }
-        .preview-wrapper.pc-mode { width: 100%; max-width: 800px; aspect-ratio: 16 / 9; height: auto; border: 4px solid #222; border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); overflow: hidden; }
-        .preview-wrapper.phone-mode { width: 375px; height: 100%; max-height: 720px; border: 6px solid #222; border-radius: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); overflow: hidden; }
+        .preview-wrapper.pc-mode { width: 100%; max-width: 800px; aspect-ratio: 16 / 9; height: auto; border: 4px solid #222; border-radius: 8px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); overflow: hidden; position: relative; }
+        .preview-wrapper.phone-mode { width: 375px; height: 100%; max-height: 720px; border: 6px solid #222; border-radius: 20px; box-shadow: 0 12px 30px rgba(0,0,0,0.7); overflow: hidden; position: relative; }
         iframe { width: 100%; height: 100%; border: none; background: #000; }
         .img-preview { max-height: 55px; display: block; margin-top: 8px; border-radius: 4px; border: 1px solid #333; background: #000; object-fit: contain; }
 
-        /* ウェルカムダッシュボード（新設オーバーレイ） */
+        /* ウェルカムダッシュボード */
         .welcome-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(4, 4, 6, 0.95); z-index: 2000; display: flex; justify-content: center; align-items: center; }
-        .welcome-modal { background: #11111a; border: 2px solid var(--accent); border-radius: 12px; width: 90%; max-width: 650px; padding: 30px; box-shadow: 0 0 30px rgba(0, 229, 255, 0.3); box-sizing: border-box; }
+        .welcome-modal { background: #11111a; border: 2px solid var(--accent); border-radius: 12px; width: 90%; max-width: 650px; padding: 30px; box-shadow: 0 0 30px rgba(0, 229, 255, 0.3); box-sizing: border-box; max-height: 90vh; overflow-y: auto; }
         .welcome-title { text-align: center; font-size: 1.6rem; font-weight: 900; letter-spacing: 2px; color: #fff; margin-top: 0; margin-bottom: 5px; }
         .welcome-subtitle { text-align: center; font-size: 0.85rem; color: var(--accent); margin-bottom: 30px; letter-spacing: 1px; }
         .dashboard-grid { display: flex; flex-direction: column; gap: 20px; }
@@ -70,13 +73,129 @@
         .recent-date { font-size: 0.75rem; color: #666; }
         .no-recent { text-align: center; color: #444; font-size: 0.85rem; padding: 10px 0; }
     </style>
+    
+    <script>
+        let gameSteps = [
+            { id: 1, type: "stage_marker", stageNum: 1, stageName: "プロローグ: 認証シークエンス" },
+            { id: 2, type: "effect", effectType: "glitch", duration: 1.5 },
+            { id: 3, type: "story", text: "「システムコア起動。身元識別コードを登録してください」", charImg: "", imgW: 180, imgH: 180, imgX: 50, imgY: 35 },
+            { id: 4, type: "action", actionType: "free", saveTag: "name", paramA: "識別コードを入力してください", paramB: "8", charImg: "", imgW: 150, imgH: 150, imgX: 50, imgY: 50 },
+            { id: 5, type: "stage_marker", stageNum: 2, stageName: "第二段階: タイピングテスト" },
+            { id: 6, type: "action", actionType: "typing", saveTag: "test", paramA: "テストキーを入力せよ", paramB: "GUTTI", charImg: "", imgW: 150, imgH: 150, imgX: 50, imgY: 50 }
+        ];
+        let currentProjectId = "project_default";
+
+        function renderRecentProjectsList() {
+            const container = document.getElementById('recent-projects-container');
+            if(!container) return; container.innerHTML = '';
+            let history = [];
+            try { history = JSON.parse(localStorage.getItem('gutti_v175_projects_history') || '[]'); } catch(e) { history = []; }
+            if(history.length === 0) {
+                container.innerHTML = `<li class="no-recent">最近使用したプロジェクトはありません</li>`;
+                return;
+            }
+            history.sort((a,b) => b.updated - a.updated).slice(0, 5).forEach(proj => {
+                const li = document.createElement('li'); li.className = 'recent-item';
+                const dateStr = new Date(proj.updated).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
+                li.innerHTML = `<span class="recent-name">📁 ${proj.title}</span><span class="recent-date">${dateStr}</span>`;
+                li.onclick = () => { loadProjectFromHistory(proj.id); };
+                container.appendChild(li);
+            });
+        }
+
+        function loadProjectFromHistory(id) {
+            const savedData = localStorage.getItem(`gutti_proj_data_${id}`);
+            if(savedData) {
+                try {
+                    applyProjectDataToEditor(JSON.parse(savedData), id);
+                    document.getElementById('welcome-screen').style.display = 'none';
+                } catch(e) { alert("履歴データの解析に失敗しました。"); }
+            }
+        }
+
+        function createNewProject() {
+            const titleInput = document.getElementById('new-project-title').value.trim();
+            if(!titleInput) { alert("プロジェクト名を入力してください。"); return; }
+            currentProjectId = "proj_" + Date.now();
+            const newData = {
+                title: titleInput, deviceMode: "pc", bgColor: "#030305", textColor: "#e2e2e9", accentColor: "#00e5ff", bgmMode: "cyber",
+                steps: gameSteps
+            };
+            applyProjectDataToEditor(newData, currentProjectId);
+            saveData();
+            document.getElementById('welcome-screen').style.display = 'none';
+        }
+
+        function showDashboard() { renderRecentProjectsList(); document.getElementById('welcome-screen').style.display = 'flex'; }
+        function updateProjectTitle(title) { document.getElementById('header-project-name').textContent = `[ ${title} ]`; }
+
+        function applyProjectDataToEditor(data, id) {
+            currentProjectId = id; gameSteps = data.steps || [];
+            document.getElementById('cfg-title').value = data.title || "GUTTI INTERACTIVE SYSTEM";
+            document.getElementById('cfg-device').value = data.deviceMode || "pc";
+            document.getElementById('cfg-bg-color').value = data.bgColor || "#030305";
+            document.getElementById('cfg-text-color').value = data.textColor || "#e2e2e9";
+            document.getElementById('cfg-accent-color').value = data.accentColor || "#00e5ff";
+            document.getElementById('cfg-bgm').value = data.bgmMode || "cyber";
+            updateProjectTitle(data.title || "GUTTI INTERACTIVE SYSTEM");
+            updateDeviceMode(); renderTimeline(); runPreview();
+        }
+
+        function updateDeviceMode() {
+            const mode = document.getElementById('cfg-device').value;
+            const wrap = document.getElementById('wrapper-element');
+            if(wrap) wrap.className = (mode === 'pc') ? "preview-wrapper pc-mode" : "preview-wrapper phone-mode";
+        }
+
+        function saveData() {
+            const title = document.getElementById('cfg-title').value;
+            const data = { 
+                title: title, deviceMode: document.getElementById('cfg-device').value,
+                bgColor: document.getElementById('cfg-bg-color').value, textColor: document.getElementById('cfg-text-color').value,
+                accentColor: document.getElementById('cfg-accent-color').value, bgmMode: document.getElementById('cfg-bgm').value, steps: gameSteps 
+            };
+            localStorage.setItem(`gutti_proj_data_${currentProjectId}`, JSON.stringify(data));
+            let history = []; try { history = JSON.parse(localStorage.getItem('gutti_v175_projects_history') || '[]'); } catch(e){}
+            history = history.filter(x => x.id !== currentProjectId);
+            history.push({ id: currentProjectId, title: title, updated: Date.now() });
+            localStorage.setItem('gutti_v175_projects_history', JSON.stringify(history));
+        }
+
+        function clearAllData() {
+            if(confirm("タイムラインの内容を初期化しますか？")) {
+                applyProjectDataToEditor({ title: "GUTTI INTERACTIVE SYSTEM", deviceMode: "pc", bgColor: "#030305", textColor: "#e2e2e9", accentColor: "#00e5ff", bgmMode: "none", steps: [] }, currentProjectId);
+                saveData();
+            }
+        }
+
+        function exportGTF() {
+            const title = document.getElementById('cfg-title').value;
+            const projectData = { engine_signature: "GUTTI_INTERACTIVE_ENGINE_PROJECT", version: "1.7.5", title: title, deviceMode: document.getElementById('cfg-device').value, bgColor: document.getElementById('cfg-bg-color').value, textColor: document.getElementById('cfg-text-color').value, accentColor: document.getElementById('cfg-accent-color').value, bgmMode: document.getElementById('cfg-bgm').value, steps: gameSteps, timestamp: Date.now() };
+            const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: "application/json" });
+            const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = title.replace(/[^a-zA-Z0-9-_]/g, "_") + ".gtf"; a.click();
+        }
+
+        function importGTF(input, isFromDashboard = false) {
+            const file = input.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const parsed = JSON.parse(e.target.result);
+                    if(parsed.engine_signature !== "GUTTI_INTERACTIVE_ENGINE_PROJECT") { alert("不正な形式です"); return; }
+                    applyProjectDataToEditor(parsed, "proj_imported_" + Date.now()); saveData();
+                    if(isFromDashboard) document.getElementById('welcome-screen').style.display = 'none';
+                } catch(err) { alert("エラー: " + err.message); }
+            };
+            reader.readAsText(file); input.value = "";
+        }
+    </script>
 </head>
 <body>
 
     <div class="welcome-overlay" id="welcome-screen">
         <div class="welcome-modal">
             <div class="welcome-title">GUTTI INTERACTIVE ENGINE</div>
-            <div class="welcome-subtitle">CORE TERMINAL v1.4.0</div>
+            <div class="welcome-subtitle">CORE TERMINAL v1.7.5</div>
             
             <div class="dashboard-grid">
                 <div class="dashboard-section">
@@ -89,7 +208,6 @@
                         <button class="btn" style="background: var(--accent); color: #000; height: 40px;" onclick="createNewProject()">新規作成</button>
                     </div>
                 </div>
-
                 <div class="dashboard-section" style="display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h3>📂 外部データからロード</h3>
@@ -98,11 +216,9 @@
                     <button class="btn" style="background: #8e44ad;" onclick="document.getElementById('file-import-dashboard').click()">ファイルを選択</button>
                     <input type="file" id="file-import-dashboard" accept=".gtf" style="display:none;" onchange="importGTF(this, true)">
                 </div>
-
                 <div class="dashboard-section">
                     <h3>🕒 最近のプロジェクトから開く</h3>
-                    <ul class="recent-list" id="recent-projects-container">
-                        </ul>
+                    <ul class="recent-list" id="recent-projects-container"></ul>
                 </div>
             </div>
         </div>
@@ -137,20 +253,19 @@
                         </select>
                     </div>
                 </div>
-
+                <div class="form-group">
+                    <label>🎵 ループBGMタイプ (シンセエンジン自動生成)</label>
+                    <select id="cfg-bgm" onchange="saveData(); runPreview();">
+                        <option value="none">BGMなし</option>
+                        <option value="cyber" selected>サイバー・アンビエント（謎めいた都市風）</option>
+                        <option value="horror">ドロップ・ホラー（不気味な低音ループ）</option>
+                        <option value="retro">レトロ・ミステリー（ファミコン風哀愁）</option>
+                    </select>
+                </div>
                 <div class="color-pickers">
-                    <div class="color-group">
-                        <label>背景色</label>
-                        <input type="color" id="cfg-bg-color" value="#030305" onchange="saveData(); runPreview();">
-                    </div>
-                    <div class="color-group">
-                        <label>文字色</label>
-                        <input type="color" id="cfg-text-color" value="#e2e2e9" onchange="saveData(); runPreview();">
-                    </div>
-                    <div class="color-group">
-                        <label>アクセント色</label>
-                        <input type="color" id="cfg-accent-color" value="#00e5ff" onchange="saveData(); runPreview();">
-                    </div>
+                    <div class="color-group"><label>背景色</label><input type="color" id="cfg-bg-color" value="#030305" onchange="saveData(); runPreview();"></div>
+                    <div class="color-group"><label>文字色</label><input type="color" id="cfg-text-color" value="#e2e2e9" onchange="saveData(); runPreview();"></div>
+                    <div class="color-group"><label>アクセント色</label><input type="color" id="cfg-accent-color" value="#00e5ff" onchange="saveData(); runPreview();"></div>
                 </div>
             </div>
 
@@ -158,374 +273,77 @@
                 <button class="btn btn-marker" onclick="addItem('stage_marker')">+ 🗺️ ステージマーカー</button>
                 <button class="btn btn-story" onclick="addItem('story')">+ 💬 会話イベント</button>
                 <button class="btn btn-action" onclick="addItem('action')">+ ⚡ アクションノード</button>
-                <button class="btn btn-inspect" onclick="addItem('inspection')">+ 🔍 条件分岐</button>
+                <button class="btn btn-effect" onclick="addItem('effect')">+ 🎬 エフェクト実行</button>
                 <button class="btn btn-credits" onclick="addItem('credits')">+ 🎬 スタッフロール</button>
             </div>
-
             <div id="timeline"></div>
         </div>
-
         <div class="preview-side">
-            <div id="wrapper-element" class="preview-wrapper pc-mode">
-                <iframe id="preview-iframe"></iframe>
-            </div>
+            <div id="wrapper-element" class="preview-wrapper pc-mode"><iframe id="preview-iframe"></iframe></div>
         </div>
     </div>
 
     <script>
-        // デフォルト初期データテンプレート
-        let gameSteps = [
-            { id: 1, type: "stage_marker", stageNum: 1, stageName: "プロローグ: 認証シークエンス" },
-            { id: 2, type: "story", text: "「システムコア起動。身元識別コードを登録してください（英小文字と数字のみ有効）」\n[en]「System core activated. Please register your identification code (lowercase and numbers only)」", charImg: "https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400&auto=format&fit=crop&q=60" },
-            { id: 3, type: "action", actionType: "free", saveTag: "name", paramA: "識別コードを入力してください (最大8文字)\n[en]Enter unique code (Max 8 chars)", paramB: "8", charImg: "" },
-            { id: 4, type: "story", text: "「IDの同期が完了しました。ユーザーを [tag:name] と認識。システムテストを開始します」\n[en]「Identification synchronized. User registered as [tag:name]. Beginning dynamic testing sequence...」", charImg: "" },
-            { id: 5, type: "action", actionType: "typing", saveTag: "test_result", paramA: "ようこそ [tag:name]、コアシステムへ\n[en]Welcome [tag:name] to the core system", paramB: "welcome[tag:name]tothesystem", charImg: "" },
-            { id: 6, type: "story", text: "「タイピングテスト完了。次に、右上メニューからハードウェア輝度を最大値 '2.0' に設定してください」\n[en]「Typing test clear. Next, open the top-right menu and shift hardware brightness to maximum '2.0'」", charImg: "" },
-            { id: 7, type: "action", actionType: "brightness_check", saveTag: "lum_status", paramA: "", paramB: "", charImg: "" },
-            { id: 8, type: "inspection", targetType: "tag", targetTag: "lum_status", checkCondition: "equal", checkValue: "max", matchStep: 11, unmatchStep: 9 },
-            { id: 9, type: "story", text: "「輝度不足。キャリブレーションエラーが発生しました。設定を再確認してください」\n[en]「Hardware calibration error. Insufficient luminance detected. Please check your config again.」", charImg: "" },
-            { id: 10, type: "inspection", targetType: "always", targetTag: "", checkCondition: "always", checkValue: "", matchStep: 7, unmatchStep: 7 },
-            { id: 11, type: "story", text: "「すべてのテストマトリクスが正常にクリアされました。安全モードで終了します、エージェント [tag:name]」\n[en]「All test matrices cleared successfully. Executing final safe-mode shutdown routine, Agent [tag:name]」", charImg: "" },
-            { id: 12, type: "credits", text: "GUTTI INTERACTIVE SYSTEM\n\n- DESIGNATED AGENT -\n[tag:name]\n\n- EXECUTIVE PRODUCER -\nGUTTI PRESENTS\n\n- ARCHITECTURE CORE -\nGEMINI SYSTEM ENGINE v1.4.0\n\nTHANK YOU FOR ACCESSING!" }
-        ];
-
-        let currentProjectId = "project_default";
-
-        window.onload = function() {
-            renderRecentProjectsList();
-            // 初期状態ではエディタを裏側に隠し、ダッシュボードを表示
-            document.getElementById('welcome-screen').style.display = 'flex';
-        };
-
-        // 最近のプロジェクト一覧を localStorage から取得して描画
-        function renderRecentProjectsList() {
-            const container = document.getElementById('recent-projects-container');
-            if(!container) return;
-            container.innerHTML = '';
-
-            let history = [];
-            try {
-                history = JSON.parse(localStorage.getItem('gutti_v140_projects_history') || '[]');
-            } catch(e) { history = []; }
-
-            if(history.length === 0) {
-                container.innerHTML = `<li class="no-recent">最近使用したプロジェクトはありません</li>`;
-                return;
-            }
-
-            // タイムスタンプの降順でソートして最大5件表示
-            history.sort((a,b) => b.updated - a.updated).slice(0, 5).forEach(proj => {
-                const li = document.createElement('li');
-                li.className = 'recent-item';
-                const dateStr = new Date(proj.updated).toLocaleString('ja-JP', {month:'numeric', day:'numeric', hour:'2-digit', minute:'2-digit'});
-                li.innerHTML = `
-                    <span class="recent-name">📁 ${proj.title}</span>
-                    <span class="recent-date">${dateStr}</span>
-                `;
-                li.onclick = () => { loadProjectFromHistory(proj.id); };
-                container.appendChild(li);
-            });
-        }
-
-        // 履歴リストのアイテムをクリックした際の読み込み処理
-        function loadProjectFromHistory(id) {
-            const savedData = localStorage.getItem(`gutti_proj_data_${id}`);
-            if(savedData) {
-                try {
-                    const parsed = JSON.parse(savedData);
-                    applyProjectDataToEditor(parsed, id);
-                    document.getElementById('welcome-screen').style.display = 'none';
-                } catch(e) {
-                    alert("履歴データの解析に失敗しました。");
-                }
-            } else {
-                alert("該当のプロジェクトデータが見つかりません。");
-            }
-        }
-
-        // ダッシュボードから「新規作成」
-        function createNewProject() {
-            const titleInput = document.getElementById('new-project-title').value.trim();
-            if(!titleInput) { alert("プロジェクト名を入力してください。"); return; }
-
-            currentProjectId = "proj_" + Date.now();
-            
-            // 入力された名前で仮の空データを新規作成して適用
-            const newData = {
-                title: titleInput,
-                deviceMode: "pc",
-                bgColor: "#030305",
-                textColor: "#e2e2e9",
-                accentColor: "#00e5ff",
-                steps: [
-                    { id: Date.now(), type: "stage_marker", stageNum: 1, stageName: "新しいチャプター" },
-                    { id: Date.now()+1, type: "story", text: "ここに会話テキストを入力してください。\n[en]Enter conversation text here.", charImg: "" }
-                ]
-            };
-
-            applyProjectDataToEditor(newData, currentProjectId);
-            saveData(); // 即座に履歴とストレージへセーブ
-            document.getElementById('welcome-screen').style.display = 'none';
-        }
-
-        // ダッシュボードを手動で開くボタン
-        function showDashboard() {
-            renderRecentProjectsList();
-            document.getElementById('welcome-screen').style.display = 'flex';
-        }
-
-        // プロジェクト名表示をアップデート
-        function updateProjectTitle(title) {
-            document.getElementById('header-project-name').textContent = `[ ${title} ]`;
-        }
-
-        // エディタへ設定データを流し込む共通処理
-        function applyProjectDataToEditor(data, id) {
-            currentProjectId = id;
-            gameSteps = data.steps || [];
-            document.getElementById('cfg-title').value = data.title || "GUTTI INTERACTIVE SYSTEM";
-            document.getElementById('cfg-device').value = data.deviceMode || "pc";
-            document.getElementById('cfg-bg-color').value = data.bgColor || "#030305";
-            document.getElementById('cfg-text-color').value = data.textColor || "#e2e2e9";
-            document.getElementById('cfg-accent-color').value = data.accentColor || "#00e5ff";
-
-            updateProjectTitle(data.title || "GUTTI INTERACTIVE SYSTEM");
-            updateDeviceMode();
-            renderTimeline();
-            runPreview();
-        }
-
-        function updateDeviceMode() {
-            const mode = document.getElementById('cfg-device').value;
-            const wrap = document.getElementById('wrapper-element');
-            if(mode === 'pc') { wrap.className = "preview-wrapper pc-mode"; } 
-            else { wrap.className = "preview-wrapper phone-mode"; }
-        }
-
-        // 現在のデータをブラウザに自動保存 ＆ 最近の履歴インデックスを更新
-        function saveData() {
-            const title = document.getElementById('cfg-title').value;
-            const data = { 
-                title: title, 
-                deviceMode: document.getElementById('cfg-device').value,
-                bgColor: document.getElementById('cfg-bg-color').value,
-                textColor: document.getElementById('cfg-text-color').value,
-                accentColor: document.getElementById('cfg-accent-color').value,
-                steps: gameSteps 
-            };
-            
-            // 1. 個別の実データ保存
-            localStorage.setItem(`gutti_proj_data_${currentProjectId}`, JSON.stringify(data));
-
-            // 2. 最近のプロジェクト履歴のメタリスト更新
-            let history = [];
-            try { history = JSON.parse(localStorage.getItem('gutti_v140_projects_history') || '[]'); } catch(e){}
-            
-            // 重複排除して最新情報に更新
-            history = history.filter(x => x.id !== currentProjectId);
-            history.push({
-                id: currentProjectId,
-                title: title,
-                updated: Date.now()
-            });
-            localStorage.setItem('gutti_v140_projects_history', JSON.stringify(history));
-        }
-
-        function clearAllData() {
-            if(confirm("現在編集中のプロジェクトデータを初期化しますか？ (履歴からは消えません)")) {
-                applyProjectDataToEditor({
-                    title: "GUTTI INTERACTIVE SYSTEM", deviceMode: "pc", bgColor: "#030305", textColor: "#e2e2e9", accentColor: "#00e5ff", steps: []
-                }, currentProjectId);
-                saveData();
-            }
-        }
-
-        /* 💾 .gtf プロジェクトデータ書き出し */
-        function exportGTF() {
-            const title = document.getElementById('cfg-title').value;
-            const projectData = {
-                engine_signature: "GUTTI_INTERACTIVE_ENGINE_PROJECT",
-                version: "1.4.0",
-                title: title,
-                deviceMode: document.getElementById('cfg-device').value,
-                bgColor: document.getElementById('cfg-bg-color').value,
-                textColor: document.getElementById('cfg-text-color').value,
-                accentColor: document.getElementById('cfg-accent-color').value,
-                steps: gameSteps,
-                timestamp: Date.now()
-            };
-            const jsonString = JSON.stringify(projectData, null, 2);
-            const blob = new Blob([jsonString], { type: "application/json;charset=utf-8" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = title.replace(/[^a-zA-Z0-9-_]/g, "_") + ".gtf";
-            a.click();
-        }
-
-        /* 📂 .gtf プロジェクトデータ読み込み */
-        function importGTF(input, isFromDashboard = false) {
-            const file = input.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const parsed = JSON.parse(e.target.result);
-                    if(parsed.engine_signature !== "GUTTI_INTERACTIVE_ENGINE_PROJECT") {
-                        alert("互換性のないファイル形式です。(.gtf を読み込んでください)");
-                        return;
-                    }
-                    
-                    // ファイルインポート時は、既存履歴に被らないように新しいIDを割り当てるか、タイトルからIDを生成
-                    const newId = "proj_imported_" + Date.now();
-                    applyProjectDataToEditor(parsed, newId);
-                    saveData(); // 読み込みと同時に履歴へ保存
-
-                    if(isFromDashboard) {
-                        document.getElementById('welcome-screen').style.display = 'none';
-                    }
-                    alert(`プロジェクト「${parsed.title}」を正常に読み込みました。`);
-                } catch(err) {
-                    alert("ファイルの解析エラー: " + err.message);
-                }
-            };
-            reader.readAsText(file);
-            input.value = "";
-        }
+        window.addEventListener('DOMContentLoaded', function() { renderRecentProjectsList(); document.getElementById('welcome-screen').style.display = 'flex'; });
 
         function renderTimeline() {
-            const container = document.getElementById('timeline');
-            if(!container) return; container.innerHTML = '';
-            
+            const container = document.getElementById('timeline'); if(!container) return; container.innerHTML = '';
             gameSteps.forEach((step, idx) => {
-                const item = document.createElement('div');
-                item.className = `timeline-item ${step.type}`;
-                
-                let html = `<div class="item-header">
-                                <span class="badge-${step.type}">#${idx+1} [${step.type.toUpperCase()}]</span>
-                                <button class="btn-delete" onclick="deleteItem(${step.id})">削除</button>
-                            </div>`;
+                const item = document.createElement('div'); item.className = `timeline-item ${step.type}`;
+                let html = `<div class="item-header"><span class="badge-${step.type}">#${idx+1} [${step.type.toUpperCase()}]</span><button class="btn-delete" onclick="deleteItem(${step.id})">削除</button></div>`;
                 
                 if(['story','action'].includes(step.type)) {
-                    const imgPreview = step.charImg ? `<img src="${step.charImg}" class="img-preview">` : `<div class="img-preview" style="height:35px; line-height:35px; text-align:center; font-size:0.7rem; color:#555;">画像URL未指定 (非表示)</div>`;
-                    html += `<div class="form-group" style="background:rgba(0,0,0,0.2); padding:8px; border-radius:4px; margin-bottom:10px;">
-                                <label>🖼️ アセット画像指定 (画像URLを入力)</label>
-                                <input type="text" placeholder="https://example.com/image.png" value="${step.charImg||''}" oninput="updateStep(${step.id},'charImg',this.value);saveData();runPreview();renderImgPreview(${step.id},this.value);">
+                    const imgPreview = step.charImg ? `<img src="${step.charImg}" class="img-preview">` : `<div class="img-preview" style="height:35px; line-height:35px; text-align:center; font-size:0.7rem; color:#555;">写真なし</div>`;
+                    html += `<div class="config-box" style="margin-bottom:10px; background:rgba(0,0,0,0.15);">
+                                <label>🖼️ グラフィックアセット (URL or 空白でCSSキャラクター)</label>
+                                <select onchange="updateStep(${step.id},'charStyle',this.value);saveData();runPreview();" style="margin-bottom:8px;">
+                                    <option value="none" ${step.charStyle==='none'?'selected':''}>外部URL指定画像を使用</option>
+                                    <option value="detective" ${step.charStyle==='detective'?'selected':''}>CSS: トレンチコートの男</option>
+                                    <option value="shadow" ${step.charStyle==='shadow'?'selected':''}>CSS: 不気味な影</option>
+                                    <option value="girl" ${step.charStyle==='girl'?'selected':''}>CSS: 少女のシルエット</option>
+                                </select>
+                                <input type="text" placeholder="画像URL (CSSキャラ選択時は無視されます)" value="${step.charImg||''}" oninput="updateStep(${step.id},'charImg',this.value);saveData();runPreview();renderImgPreview(${step.id},this.value);">
                                 <div id="preview-wrap-${step.id}">${imgPreview}</div>
+                                <div class="form-inline" style="margin-top:8px;">
+                                    <div class="form-group"><label>幅</label><input type="range" min="30" max="600" value="${step.imgW||150}" oninput="updateStep(${step.id},'imgW',parseInt(this.value));saveData();runPreview();"></div>
+                                    <div class="form-group"><label>高</label><input type="range" min="30" max="600" value="${step.imgH||150}" oninput="updateStep(${step.id},'imgH',parseInt(this.value));saveData();runPreview();"></div>
+                                    <div class="form-group"><label>X</label><input type="range" min="0" max="100" value="${step.imgX||50}" oninput="updateStep(${step.id},'imgX',parseInt(this.value));saveData();runPreview();"></div>
+                                    <div class="form-group"><label>Y</label><input type="range" min="0" max="100" value="${step.imgY||50}" oninput="updateStep(${step.id},'imgY',parseInt(this.value));saveData();runPreview();"></div>
+                                </div>
                              </div>`;
                 }
-
                 if(step.type === 'stage_marker') {
                     html += `<div class="form-inline">
                         <div class="form-group"><label>ステージ番号</label><input type="number" value="${step.stageNum||1}" oninput="updateStep(${step.id},'stageNum',parseInt(this.value));saveData();runPreview();"></div>
-                        <div class="form-group"><label>ステージ章名ラベル</label><input type="text" value="${step.stageName||''}" oninput="updateStep(${step.id},'stageName',this.value);saveData();runPreview();"></div>
+                        <div class="form-group"><label>ステージ名</label><input type="text" value="${step.stageName||''}" oninput="updateStep(${step.id},'stageName',this.value);saveData();runPreview();"></div>
                     </div>`;
                 } else if(step.type === 'story') {
-                    html += `<div class="form-group"><label>テキスト本文（改行・[tag:変数名]対応 / 改行後に「[en]本文」で英語切替）</label><textarea oninput="updateStep(${step.id},'text',this.value);saveData();runPreview();">${step.text || ''}</textarea></div>`;
-                } else if(step.type === 'credits') {
-                    html += `<div class="form-group"><label>🎬 スタッフロールテキスト</label><textarea style="height:120px;" oninput="updateStep(${step.id},'text',this.value);saveData();runPreview();">${step.text || ''}</textarea></div>`;
-                } else if(step.type === 'action') {
-                    html += `<div style="background:rgba(0,0,0,0.15); padding:10px; border-radius:4px;">
-                        <div class="form-inline">
-                            <div class="form-group"><label>⚡ アクションタイプ</label>
-                                <select onchange="updateStep(${step.id},'actionType',this.value);renderTimeline();saveData();runPreview();">
-                                    <option value="free" ${step.actionType==='free'?'selected':''}>0. 自由入力 (英数字限定・最大数指定)</option>
-                                    <option value="typing" ${step.actionType==='typing'?'selected':''}>1. タイピングマトリクス</option>
-                                    <option value="overload" ${step.actionType==='overload'?'selected':''}>2. 連打オーバーロード</option>
-                                    <option value="click_core" ${step.actionType==='click_core'?'selected':''}>3. コア探索サーチノード</option>
-                                    <option value="brightness_check" ${step.actionType==='brightness_check'?'selected':''}>4. 輝度同期タスク</option>
-                                    <option value="time_check" ${step.actionType==='time_check'?'selected':''}>5. システム時間判定</option>
-                                </select>
-                            </div>
-                            <div class="form-group"><label>🏷️ 結果格納先変数タグ名</label>
-                                <input type="text" placeholder="name" value="${step.saveTag||''}" oninput="updateStep(${step.id},'saveTag',this.value);saveData();runPreview();">
-                            </div>
-                        </div>`;
-                    
-                    if(step.actionType === 'free') {
-                        html += `<div class="form-inline">
-                                    <div class="form-group"><label>プレースホルダー文面 (改行+[en]対応)</label><input type="text" value="${step.paramA||''}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>
-                                    <div class="form-group"><label>最大文字数制限</label><input type="number" value="${step.paramB||''}" oninput="updateStep(${step.id},'paramB',this.value);saveData();runPreview();"></div>
-                                 </div>`;
-                    } else if(step.actionType === 'typing') {
-                        html += `<div class="form-inline">
-                                    <div class="form-group"><label>お題日本語（改行+[en]対応）</label><input type="text" value="${step.paramA||''}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>
-                                    <div class="form-group"><label>タイピング文字 (半角英数)</label><input type="text" value="${step.paramB||''}" oninput="updateStep(${step.id},'paramB',this.value);saveData();runPreview();"></div>
-                                 </div>`;
-                    } else if(step.actionType === 'overload') {
-                        html += `<div class="form-group"><label>必要連打バースト閾値</label><input type="number" value="${step.paramA||30}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>`;
-                    } else if(step.actionType === 'click_core') {
-                        html += `<div class="form-group"><label>探索画面指示テキスト (改行+[en]対応)</label><input type="text" value="${step.paramA||''}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>`;
-                    } else if(step.actionType === 'time_check') {
-                        html += `<div class="form-inline">
-                                    <div class="form-group"><label>有効時間 開始 (時 0-23)</label><input type="number" value="${step.paramA||0}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div>
-                                    <div class="form-group"><label>有効時間 終了 (時 0-23)</label><input type="number" value="${step.paramB||23}" oninput="updateStep(${step.id},'paramB',this.value);saveData();runPreview();"></div>
-                                 </div>`;
-                    }
-                    html += `</div>`;
-                } else if(step.type === 'inspection') {
-                    html += `<div style="background:rgba(0,0,0,0.15); padding:10px; border-radius:4px;">
-                        <div class="form-inline">
-                            <div class="form-group"><label>🎯 条件評価対象</label>
-                                <select onchange="updateStep(${step.id},'targetType',this.value);renderTimeline();saveData();runPreview();">
-                                    <option value="tag" ${step.targetType==='tag'?'selected':''}>1. 変数タグ内の値を評価</option>
-                                    <option value="last_key" ${step.targetType==='last_key'?'selected':''}>2. 直前の打鍵キーを評価</option>
-                                    <option value="always" ${step.targetType==='always'?'selected':''}>3. 無条件強制ジャンプ</option>
-                                </select>
-                            </div>`;
-                    if(step.targetType === 'tag') {
-                        html += `<div class="form-group"><label>🔍 スキャン対象変数タグ名</label><input type="text" placeholder="name" value="${step.targetTag||''}" oninput="updateStep(${step.id},'targetTag',this.value);saveData();runPreview();"></div>`;
-                    }
-                    html += `</div>
-                        <div class="form-inline">
-                            <div class="form-group"><label>⚖️ ロジック比較演算子</label>
-                                <select onchange="updateStep(${step.id},'checkCondition',this.value);saveData();runPreview();">
-                                    <option value="equal" ${step.checkCondition==='equal'?'selected':''}>条件値と一致する (TRUE)</option>
-                                    <option value="not_equal" ${step.checkCondition==='not_equal'?'selected':''}>条件値と一致しない (FALSE)</option>
-                                </select>
-                            </div>
-                            <div class="form-group"><label>💎 期待されるターゲット値</label><input type="text" value="${step.checkValue||''}" oninput="updateStep(${step.id},'checkValue',this.value);saveData();runPreview();"></div>
-                        </div>
-                        <div class="form-inline" style="margin-top:10px;">
-                            <div class="form-group"><label>✅ 一致時(TRUE)移行先ステップ #</label><input type="number" value="${step.matchStep||''}" oninput="updateStep(${step.id},'matchStep',parseInt(this.value));saveData();runPreview();"></div>
-                            <div class="form-group"><label>❌ 不一致時(FALSE)移行先ステップ #</label><input type="number" value="${step.unmatchStep||''}" oninput="updateStep(${step.id},'unmatchStep',parseInt(this.value));saveData();runPreview();"></div>
-                        </div>
+                    html += `<div class="form-group"><label>本文</label><textarea oninput="updateStep(${step.id},'text',this.value);saveData();runPreview();">${step.text || ''}</textarea></div>`;
+                } else if(step.type === 'effect') {
+                    html += `<div class="form-inline">
+                        <div class="form-group"><label>エフェクト</label><select onchange="updateStep(${step.id},'effectType',this.value);saveData();runPreview();"><option value="glitch" ${step.effectType==='glitch'?'selected':''}>glitch</option><option value="scanline" ${step.effectType==='scanline'?'selected':''}>scanline</option><option value="shake" ${step.effectType==='shake'?'selected':''}>shake</option></select></div>
+                        <div class="form-group"><label>時間</label><input type="number" step="0.1" value="${step.duration||1.0}" oninput="updateStep(${step.id},'duration',parseFloat(this.value));saveData();runPreview();"></div>
                     </div>`;
+                } else if(step.type === 'credits') {
+                    html += `<div class="form-group"><label>スタッフロール</label><textarea oninput="updateStep(${step.id},'text',this.value);saveData();runPreview();">${step.text || ''}</textarea></div>`;
+                } else if(step.type === 'action') {
+                    html += `<div class="form-inline">
+                        <div class="form-group"><label>アクション</label><select onchange="updateStep(${step.id},'actionType',this.value);renderTimeline();saveData();runPreview();"><option value="free" ${step.actionType==='free'?'selected':''}>自由入力</option><option value="typing" ${step.actionType==='typing'?'selected':''}>タイピング</option></select></div>
+                        <div class="form-group"><label>タグ</label><input type="text" value="${step.saveTag||''}" oninput="updateStep(${step.id},'saveTag',this.value);saveData();runPreview();"></div>
+                    </div>`;
+                    if(step.actionType === 'free' || step.actionType === 'typing') {
+                        html += `<div class="form-inline"><div class="form-group"><label>お題/指示</label><input type="text" value="${step.paramA||''}" oninput="updateStep(${step.id},'paramA',this.value);saveData();runPreview();"></div><div class="form-group"><label>判定キー/制限</label><input type="text" value="${step.paramB||''}" oninput="updateStep(${step.id},'paramB',this.value);saveData();runPreview();"></div></div>`;
+                    }
                 }
                 item.innerHTML = html; container.appendChild(item);
             });
         }
-
-        function renderImgPreview(id, url) {
-            const wrap = document.getElementById(`preview-wrap-${id}`);
-            if(!wrap) return;
-            wrap.innerHTML = url ? `<img src="${url}" class="img-preview">` : `<div class="img-preview" style="height:35px; line-height:35px; text-align:center; font-size:0.7rem; color:#555;">画像URL未指定 (非表示)</div>`;
-        }
-
-        function addItem(type) {
-            const nid = Date.now();
-            if(type==='stage_marker') gameSteps.push({id:nid, type, stageNum: 1, stageName: "新規チャプター"});
-            else if(type==='story') gameSteps.push({id:nid, type, text: "新規会話テキスト。\n[en]New story conversation text.", charImg: ""});
-            else if(type==='credits') gameSteps.push({id:nid, type, text: "STAFF ROLL\n\nPRESENTED BY GUTTI"});
-            else if(type==='action') gameSteps.push({id:nid, type, actionType: "free", saveTag: "flag", paramA: "テキスト入力欄\n[en]Input text", paramB: "8", charImg: ""});
-            else if(type==='inspection') gameSteps.push({id:nid, type, targetType: "tag", targetTag: "flag", checkCondition: "equal", checkValue: "ok", matchStep: 1, unmatchStep: 1});
-            renderTimeline(); saveData(); runPreview();
-        }
+        function renderImgPreview(id, url) { const wrap = document.getElementById(`preview-wrap-${id}`); if(wrap) wrap.innerHTML = url ? `<img src="${url}" class="img-preview">` : `<div class="img-preview" style="height:35px;"></div>`; }
+        function addItem(type) { const nid = Date.now(); gameSteps.push({id:nid, type, stageNum:1, stageName:"新規テリトリー", text:"会話文", charStyle:"none", charImg:"", imgW:150, imgH:150, imgX:50, imgY:50, actionType:"free", paramA:"指示", paramB:"A"}); renderTimeline(); saveData(); runPreview(); }
         function updateStep(id, f, v) { const s = gameSteps.find(x=>x.id===id); if(s) s[f]=v; }
         function deleteItem(id) { gameSteps = gameSteps.filter(x=>x.id!==id); renderTimeline(); saveData(); runPreview(); }
-        
-        function runPreview() { 
-            const iframe = document.getElementById('preview-iframe');
-            if(iframe) { iframe.srcdoc = buildEngineHTML(); }
-        }
-
-        function exportHTML() {
-            const htmlContent = buildEngineHTML();
-            const blob = new Blob([htmlContent], { type: "text/html;charset=utf-8" });
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(blob);
-            a.download = document.getElementById('cfg-title').value + ".html";
-            a.click();
-        }
+        function runPreview() { const iframe = document.getElementById('preview-iframe'); if(iframe) iframe.srcdoc = buildEngineHTML(); }
+        function exportHTML() { const blob = new Blob([buildEngineHTML()], { type: "text/html;charset=utf-8" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = document.getElementById('cfg-title').value + ".html"; a.click(); }
 
         function buildEngineHTML() {
             const title = document.getElementById('cfg-title').value;
@@ -533,20 +351,12 @@
             const bgColor = document.getElementById('cfg-bg-color').value;
             const textColor = document.getElementById('cfg-text-color').value;
             const accentColor = document.getElementById('cfg-accent-color').value;
+            const bgmMode = document.getElementById('cfg-bgm').value;
             const jsonSteps = JSON.stringify(gameSteps).replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
             
-            let layoutStyles = "";
-            if (deviceMode === 'pc') {
-                layoutStyles = `
-                    body { display: flex; justify-content: center; align-items: center; background: #000; }
-                    .game-screen { width: 100%; max-width: 960px; aspect-ratio: 16 / 9; height: auto; border: 3px solid #222; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; position: relative; }
-                `;
-            } else {
-                layoutStyles = `
-                    body { display: block; background: ${bgColor}; }
-                    .game-screen { width: 100%; height: 100vh; position: relative; overflow: hidden; }
-                `;
-            }
+            let layoutStyles = (deviceMode === 'pc') ? 
+                `body { display: flex; justify-content: center; align-items: center; background: #000; } .game-screen { width: 100%; max-width: 960px; aspect-ratio: 16 / 9; height: auto; border: 3px solid #222; border-radius: 8px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; position: relative; }` :
+                `body { display: block; background: ${bgColor}; } .game-screen { width: 100%; height: 100vh; position: relative; overflow: hidden; }`;
 
             return `<!DOCTYPE html>
 <html lang="ja">
@@ -555,263 +365,586 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>${title}</title>
     <style>
-        body { margin:0; padding:0; font-family: monospace; color: ${textColor}; background: ${bgColor}; overflow:hidden; height:100vh; user-select:none; transition: filter 0.1s; }
+        body { margin:0; padding:0; font-family: monospace; color: ${textColor}; background: ${bgColor}; overflow:hidden; height:100vh; user-select:none; }
         ${layoutStyles}
+        .container { width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; box-sizing:border-box; text-align:center; background: ${bgColor}; position: relative; }
         
-        .container { width:100%; height:100%; display:flex; flex-direction:column; justify-content:center; align-items:center; padding:20px; box-sizing:border-box; text-align:center; background: ${bgColor}; }
+        .viewport-canvas { width: 100%; max-width: 480px; height: 200px; background: rgba(0,0,0,0.2); position: relative; margin-bottom: 20px; border-radius: 8px; overflow: hidden; display: flex; justify-content: center; align-items: flex-end; }
+        .viewport-bg { position: absolute; object-fit: cover; z-index: 2; display: none; }
+        .viewport-bg[src] { display: block; }
         
-        .viewport-canvas { width: 100%; max-width: 460px; height: 260px; background: rgba(0,0,0,0.4); border: 2px solid rgba(255,255,255,0.1); position: relative; margin-bottom: 20px; display: flex; justify-content: center; align-items: center; border-radius: 8px; overflow: hidden; }
-        .viewport-bg { width: 100%; height: 100%; object-fit: contain; position: absolute; top:0; left:0; z-index: 1; }
-        .viewport-interactive { position: absolute; width:100%; height:100%; top:0; left:0; z-index: 2; display:flex; justify-content:center; align-items:center; }
+        /* CSSグラフィックキャラアセンブリ */
+        .css-char { display: none; width: 70px; height: 130px; position: absolute; z-index: 5; bottom: 10px; }
+        .char-detective { display:block; background: #22252a; border-radius: 10px 10px 0 0; box-shadow: inset 0 15px #111; }
+        .char-detective::after { content:""; position:absolute; top:-25px; left:-5px; width:80px; height:25px; background:#1a1c20; border-radius:4px; }
+        .char-shadow { display:block; background: radial-gradient(circle, #ff3333 10%, transparent 20%), #000; background-size: 100% 30px; border-radius: 50% 50% 0 0; filter: blur(1px); opacity: 0.8; }
+        .char-girl { display:block; width:50px; background: #4a3b45; border-radius: 30px 30px 0 0; }
+        .char-girl::before { content:""; position:absolute; top:-10px; left:5px; width:40px; height:40px; background:#1a1218; border-radius:50%; }
 
-        .click-target-node { width: 44px; height: 44px; background: rgba(0, 0, 0, 0.2); border: 3px solid ${accentColor}; border-radius: 50%; cursor: pointer; animation: pulseNode 1.3s infinite; box-shadow: 0 0 15px ${accentColor}; }
-        @keyframes pulseNode { 0% { transform: scale(0.9); opacity: 0.6; } 50% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(0.9); opacity: 0.6; } }
-
-        .charge-container { width: 80%; background: rgba(0,0,0,0.6); height: 20px; border-radius: 10px; border: 2px solid ${accentColor}; overflow: hidden; position: relative; }
-        .charge-bar { width: 0%; height: 100%; background: ${accentColor}; transition: width 0.08s; box-shadow: 0 0 10px ${accentColor}; }
-
-        .dialog-box { font-size:1.2rem; line-height:1.6; max-width:580px; white-space:pre-line; min-height:65px; margin-top:10px; color: ${textColor}; }
+        #fx-overlay { position: absolute; top:0; left:0; width:100%; height:100%; z-index:100; pointer-events:none; display:none; }
+        .fx-glitch { display:block !important; animation: fxGlitchAnim 0.2s infinite; background: rgba(0,229,255,0.1); }
+        @keyframes fxGlitchAnim { 0%{transform:translate(2px,1px);} 50%{transform:translate(-1px,-2px);} 100%{transform:translate(1px,-1px);} }
+        .fx-shake { display:block !important; animation: fxShakeAnim 0.1s infinite; }
+        @keyframes fxShakeAnim { 0%{transform:translate(3px,3px);} 50%{transform:translate(-3px,-2px);} 100%{transform:translate(1px,-1px);} }
         
+        .dialog-box { font-size:1.2rem; line-height:1.6; max-width:580px; min-height:65px; margin-top:10px; color: ${textColor}; white-space: pre-line; }
         .free-input-container { display: flex; flex-direction: column; align-items: center; gap: 12px; width: 100%; max-width: 320px; margin-top: 15px; }
-        .free-input-box { width: 100%; background: rgba(0,0,0,0.5); border: 2px solid rgba(255,255,255,0.2); padding: 10px; border-radius: 4px; color: #fff; font-size: 1.1rem; text-align: center; font-family: monospace; }
-        .free-input-box:focus { border-color: ${accentColor}; outline: none; box-shadow: 0 0 10px ${accentColor}; }
-
-        .typing-container { display:none; flex-direction:column; align-items:center; margin-top:10px; }
-        .roman-line { font-size:2.1rem; font-weight:bold; letter-spacing:1.5px; margin-top:8px; color:${accentColor}; text-shadow:0 0 8px ${accentColor}; }
-        .text-done { opacity: 1; color: ${textColor}; }
-        .text-todo { opacity: 0.25; }
+        .free-input-box { width: 100%; background: rgba(0,0,0,0.5); border: 2px solid ${accentColor}; padding: 10px; border-radius: 4px; color: #fff; font-size: 1.1rem; text-align: center; }
         
-        .select-layout { display:grid; grid-template-columns:repeat(auto-fit, minmax(200px, 1fr)); gap:12px; width:85%; max-width:600px; margin-top:25px; }
-        .chapter-card { background:rgba(0,0,0,0.4); color:${textColor}; border:1px solid rgba(255,255,255,0.1); padding:14px; text-align:left; cursor:pointer; border-radius:6px; transition:all 0.2s; }
-        .chapter-card:hover { background:${accentColor}; color:#000; border-color:${accentColor}; }
-
-        .result-panel { background: rgba(0,0,0,0.8); border: 2px solid ${accentColor}; padding: 25px; border-radius: 8px; width: 85%; max-width: 420px; box-shadow: 0 0 20px ${accentColor}; }
-        .rank-badge { font-size: 4.5rem; font-weight: 900; color: ${accentColor}; text-shadow: 0 0 15px ${accentColor}; margin: 8px 0; }
-
-        #scr-credits { display: none; width: 100%; height: 100%; background: #000; position: absolute; top: 0; left: 0; z-index: 500; overflow: hidden; }
-        .credits-wrap { position: absolute; width: 100%; bottom: -100%; animation: scrollCredits 22s linear forwards; text-align: center; font-size: 1.25rem; line-height: 2.3; color: #fff; }
-        @keyframes scrollCredits { 0% { bottom: -120%; } 100% { bottom: 120%; } }
-
-        .gear-toggle { position:absolute; top:15px; right:15px; font-size:1.4rem; cursor:pointer; background:rgba(0,0,0,0.5); padding:6px 12px; border-radius:50%; z-index:1000; border:1px solid rgba(255,255,255,0.1); color:${textColor}; }
+        .typing-container { display:none; flex-direction:column; align-items:center; margin-top:10px; }
+        .roman-line { font-size:2.1rem; font-weight:bold; color:${accentColor}; text-shadow:0 0 8px ${accentColor}; letter-spacing: 1px; }
+        .text-done { color: ${textColor}; text-shadow: none; opacity: 0.4; } .text-todo { color: ${accentColor}; }
+        
+        .select-layout { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:10px; width:100%; max-width:500px; margin-top:15px; max-height:180px; overflow-y:auto; }
+        .slot-card, .chapter-card { background:rgba(25,25,40,0.8); border:2px solid rgba(255,255,255,0.1); padding:15px; cursor:pointer; border-radius:6px; font-weight:bold; transition:all 0.2s; text-align:center; position:relative; }
+        .slot-card:hover, .chapter-card:hover { border-color:${accentColor}; box-shadow:0 0 10px ${accentColor}; color:#fff; }
+        
+        .slot-actions { display:flex; gap:5px; margin-top:10px; justify-content:center; }
+        .btn-mini { font-size:0.75rem; padding:4px 8px; margin:0; border-radius:3px; border-width:1px; background:rgba(0,0,0,0.3); color:#fff; cursor: pointer; border: 1px solid #555; }
+        
+        .result-panel { background: rgba(5,5,10,0.95); border: 2px solid ${accentColor}; padding: 25px; border-radius: 8px; width: 85%; max-width: 420px; box-shadow: 0 0 20px rgba(0,229,255,0.3); }
+        .rank-badge { font-size: 4rem; font-weight: 900; color: ${accentColor}; text-shadow: 0 0 10px ${accentColor}; margin-bottom:10px; }
+        
+        .gear-toggle { position:absolute; top:15px; right:15px; font-size:1.4rem; cursor:pointer; background:rgba(0,0,0,0.5); padding:6px 12px; border-radius:50%; z-index:1000; }
         .gear-panel { position:absolute; top:0; left:0; width:100%; height:100%; background:${bgColor}; z-index:999; display:none; flex-direction:column; justify-content:center; align-items:center; }
-        .menu-row { margin:15px 0; width:320px; display:flex; justify-content:space-between; align-items:center; font-size:1rem; }
-        .menu-row select { width: 130px; background: #000; color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 5px; border-radius: 4px; }
+        
+        /* モバイルキーボード */
+        .mobile-kb { display:none; grid-template-columns:repeat(10, 1fr); gap:4px; padding:10px; background:rgba(0,0,0,0.6); width:100%; box-sizing: border-box; position: absolute; bottom: 0; left: 0; z-index: 500; }
+        .key { background:rgba(255,255,255,0.1); color:${textColor}; padding:12px 0; text-align:center; border-radius:4px; cursor:pointer; font-size:1.1rem; border:1px solid rgba(255,255,255,0.05); }
+        .key:active { background:${accentColor}; }
 
-        .btn { background:transparent; color:${textColor}; border:2px solid ${textColor}; padding:8px 24px; font-size:1rem; cursor:pointer; margin-top:20px; font-weight:bold; border-radius:4px; }
+        .btn { background:transparent; color:${textColor}; border:2px solid ${textColor}; padding:8px 20px; font-size:1rem; cursor:pointer; margin-top:15px; font-weight:bold; border-radius:4px; }
         .btn:hover { background:${textColor}; color:${bgColor}; }
         .hidden { display:none !important; }
+        @media(max-width:768px) { .roman-line{font-size:1.6rem;} .mobile-kb{display:grid;} .container { padding-bottom: 180px; } }
     </style>
 </head>
 <body>
 
-    <div class="game-screen">
+    <div class="game-screen" id="main-frame-node">
+        <div id="fx-overlay"></div>
         <div class="gear-toggle" onclick="toggleMenu()">⚙</div>
+        
         <div class="gear-panel" id="ui-menu">
-            <h2 id="lbl-menu-title" style="letter-spacing:2px; color: ${accentColor};">システム設定 / SETTINGS</h2>
-            <div class="menu-row">
-                <span id="lbl-menu-gamma">⚙️ システム輝度</span>
-                <input type="range" id="sys-gamma" min="0.1" max="2.0" step="0.1" value="1.0" oninput="syncHardware()">
-            </div>
-            <div class="menu-row">
-                <span id="lbl-menu-lang">🌐 言語 (Language)</span>
-                <select id="sys-lang" onchange="changeLanguage()">
-                    <option value="ja" selected>日本語</option>
-                    <option value="en">English</option>
-                </select>
-            </div>
-            <button class="btn" id="btn-menu-close" style="border-color:${accentColor}; color:${accentColor};" onclick="toggleMenu()">閉じる / DISMISS</button>
-        </div>
-
-        <div id="scr-credits">
-            <div class="credits-wrap" id="credits-roll"></div>
+            <h2 style="color:${accentColor}">SETTINGS / CONTROLS</h2>
+            <button class="btn" style="border-color:${accentColor}; color:${accentColor};" onclick="triggerManualSave()">💾 上書きセーブ (SAVE PROGRESS)</button>
+            <button class="btn" style="border-color:#8e44ad; color:#8e44ad;" onclick="triggerGsvExport()">↓ .gsv 暗号化バックアップ</button>
+            <button class="btn" onclick="toggleMenu()">設定を閉じる</button>
+            <button class="btn" style="border-color:#ff7675; color:#ff7675;" onclick="returnToTitleDashboard()">↩ タイトルに戻る</button>
         </div>
 
         <div class="container">
-            <div id="scr-boot">
-                <h1 style="font-size:2.2rem; margin-bottom:25px; letter-spacing:2px; font-weight:900; color:${accentColor};">${title}</h1>
-                <button class="btn" id="btn-boot" style="border-color:${accentColor}; color:${accentColor};" onclick="executeBoot()">ランタイムシステム起動</button>
+            <div id="scr-slot-select">
+                <h1 style="font-size:2rem; color:${accentColor}; font-weight:900;">SELECT SAVE SLOT</h1>
+                <div style="font-size:0.8rem; opacity:0.6; margin-bottom:20px;">ゲームデータを保存・読み込みするスロットを選択してください</div>
+                
+                <div style="margin-bottom:15px; background:rgba(255,255,255,0.03); padding:10px; border-radius:6px; font-size:0.85rem; display:inline-block;">
+                    <span>📂 外部の .gsv ファイルをスロットに読み込む: </span>
+                    <input type="file" id="file-import-gsv" accept=".gsv" style="display:none;" onchange="importGsvFile(this)">
+                    <button class="btn btn-mini" style="border-color:#2ecc71; color:#2ecc71;" onclick="document.getElementById('file-import-gsv').click()">ファイルを選択 (.gsv)</button>
+                </div>
+
+                <div style="display:flex; flex-direction:column; gap:12px; width:340px; margin:0 auto;" id="slot-container">
+                    <div class="slot-card">
+                        <div onclick="selectSlot(1)" style="width:100%; padding:5px 0;">
+                            SLOT 1 <div id="slot-info-1" style="font-size:0.75rem; opacity:0.5;">No Data</div>
+                        </div>
+                        <div class="slot-actions" id="actions-1"></div>
+                    </div>
+                    <div class="slot-card">
+                        <div onclick="selectSlot(2)" style="width:100%; padding:5px 0;">
+                            SLOT 2 <div id="slot-info-2" style="font-size:0.75rem; opacity:0.5;">No Data</div>
+                        </div>
+                        <div class="slot-actions" id="actions-2"></div>
+                    </div>
+                    <div class="slot-card">
+                        <div onclick="selectSlot(3)" style="width:100%; padding:5px 0;">
+                            SLOT 3 <div id="slot-info-3" style="font-size:0.75rem; opacity:0.5;">No Data</div>
+                        </div>
+                        <div class="slot-actions" id="actions-3"></div>
+                    </div>
+                </div>
             </div>
 
-            <div id="scr-select" class="hidden">
-                <h2 id="lbl-archive-title" style="color:${accentColor}; letter-spacing:2px;">解読済みアーカイブ（CHAPTER SELECT）</h2>
-                <div class="select-layout" id="select-box"></div>
+            <div id="scr-boot" class="hidden">
+                <h1 id="title-display" style="font-size:2.2rem; color:${accentColor}; font-weight:900; margin-bottom:5px;">${title}</h1>
+                <div id="slot-badge" style="font-size:0.8rem; color:${accentColor}; margin-bottom:25px;"></div>
+                
+                <div style="background:rgba(255,255,255,0.02); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); max-width:450px; margin:0 auto;">
+                    <h3 style="margin-top:0; color:#fff;">🎬 ストーリーモード / STORY MODE</h3>
+                    <div style="display:flex; gap:10px; justify-content:center;">
+                        <button class="btn" style="border-color:${accentColor}; color:${accentColor};" onclick="startStory(false)">▶ 最初から遊ぶ</button>
+                        <button class="btn hidden" id="btn-resume" style="border-color:#2ecc71; color:#2ecc71;" onclick="startStory(true)">⏯ 続きから遊ぶ</button>
+                    </div>
+                </div>
+
+                <div style="margin-top:20px; background:rgba(255,255,255,0.02); padding:20px; border-radius:8px; border:1px solid rgba(255,255,255,0.05); max-width:450px; margin:0 auto;">
+                    <h3 style="margin-top:0; color:${accentColor};">🗺️ フリーモード (ステージセレクト)</h3>
+                    <div id="free-mode-locked" style="font-size:0.85rem; opacity:0.4; padding:10px;">到達したステージがここにアーカイブされます</div>
+                    <div class="select-layout hidden" id="select-box"></div>
+                </div>
+                
+                <button class="btn" style="margin-top:25px; font-size:0.85rem; opacity:0.6;" onclick="backToSlotSelect()">⬅ スロット選択に戻る</button>
             </div>
 
             <div id="scr-result" class="hidden result-panel">
-                <h3 id="lbl-res-title" style="margin:0; color:${accentColor}; letter-spacing:1px;">タイピング解析結果</h3>
+                <h2 style="color:${accentColor}; margin:0 0 5px 0; letter-spacing:2px;" id="res-title">STAGE CLEAR</h2>
+                <div style="font-size:0.8rem; opacity:0.5; margin-bottom:15px;" id="res-stage-name">STAGE RESULT</div>
                 <div class="rank-badge" id="res-rank">S</div>
                 <div style="font-size:1rem; text-align:left; margin:0 auto; width:260px; line-height:1.8;">
-                    <div><span id="lbl-res-keys">・入力文字数:</span> <span id="res-keys" style="color:#fff">0</span></div>
-                    <div><span id="lbl-res-miss">・システムミス:</span> <span id="res-miss" style="color:red">0</span></div>
-                    <div><span id="lbl-res-kpm">・打鍵速度 (KPM):</span> <span id="res-kpm" style="color:${accentColor}">0</span></div>
+                    <div>セクション時間: <span id="res-time" style="color:#fff">0.0</span> 秒</div>
+                    <div>タイピング文字数: <span id="res-keys" style="color:#fff">0</span></div>
+                    <div>システムエラー: <span id="res-miss" style="color:#ff7675">0</span></div>
+                    <div>データレート (KPM): <span id="res-kpm" style="color:${accentColor}">0</span></div>
                 </div>
-                <button class="btn" id="btn-res-close" style="border-color:${accentColor}; color:${accentColor};" onclick="closeResult()">次へ進む</button>
+                <button class="btn" style="border-color:${accentColor}; color:${accentColor}; width:100%;" onclick="closeResult()">次へアクセス / NEXT</button>
             </div>
 
             <div id="scr-runtime" class="hidden">
-                <div class="viewport-canvas">
-                    <img id="view-img" class="viewport-bg hidden">
-                    <div class="viewport-interactive" id="interact-layer"></div>
+                <div class="viewport-canvas" id="canvas-node">
+                    <img id="view-img" class="viewport-bg">
+                    <div id="avatar-element" class="css-char"></div>
                 </div>
-
                 <div class="dialog-box" id="text-box"></div>
-
                 <div class="free-input-container hidden" id="free-input-wrap">
-                    <input type="text" id="free-input-node" class="free-input-box" placeholder="入力..." autocomplete="off">
-                    <button class="btn" id="btn-free-submit" style="border-color:${accentColor}; color:${accentColor}; margin-top:5px;" onclick="submitFreeInput()">決定 / ACCESS</button>
+                    <input type="text" id="free-input-node" class="free-input-box" autocomplete="off">
+                    <button class="btn" style="border-color:${accentColor}; color:${accentColor};" onclick="submitFreeInput()">決定 / ENTER</button>
                 </div>
-
                 <div class="typing-container" id="type-box">
-                    <div style="font-size:1.3rem; font-weight:bold; color:#fff;" id="jp-box"></div>
+                    <div style="font-size:1.3rem; margin-bottom:5px; font-weight:bold;" id="jp-box"></div>
                     <div class="roman-line"><span class="text-done" id="lbl-done"></span><span class="text-todo" id="lbl-todo"></span></div>
                 </div>
-
-                <button class="btn hidden" id="btn-next" style="border-color:${accentColor}; color:${accentColor};" onclick="stepForward()">進む</button>
+                <button class="btn hidden" id="btn-next" style="border-color:${accentColor}; color:${accentColor};" onclick="stepForward()">進む / NEXT</button>
             </div>
         </div>
     </div>
 
+    <div class="mobile-kb" id="virtual-keyboard">
+        ${"QWERTYUIOPASDFGHJKLZXCVBNM-".split("").map(c => `<div class="key" onclick="pressVirtualKey('${c}')">${c}</div>`).join("")}
+        <div class="key" style="grid-column:span 4; background:rgba(255,255,255,0.15);" onclick="pressVirtualKey(' ')">SPACE</div>
+    </div>
+
     <script>
+        // --- 超軽量デジタルオーディオシンセエンジン ---
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        let bgmNode = null;
+        function startEngineBGM() {
+            const mode = "${bgmMode}";
+            if (mode === 'none' || bgmNode) return;
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            
+            const bufferSize = audioCtx.sampleRate * 2;
+            const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+            const data = buffer.getChannelData(0);
+            
+            for (let i = 0; i < bufferSize; i++) {
+                const t = i / audioCtx.sampleRate;
+                if(mode === 'cyber') {
+                    data[i] = Math.sin(2 * Math.PI * 70 * t + Math.sin(2 * Math.PI * 4 * t) * 5) * 0.2;
+                } else if(mode === 'horror') {
+                    data[i] = (Math.sin(2 * Math.PI * 55 * t) + Math.random()*0.08) * Math.sin(2*Math.PI*0.5*t);
+                } else if(mode === 'retro') {
+                    data[i] = Math.sign(Math.sin(2 * Math.PI * (120 + (Math.floor(t*4)%4)*40) * t)) * 0.05;
+                }
+            }
+            bgmNode = audioCtx.createBufferSource();
+            bgmNode.buffer = buffer; bgmNode.loop = true;
+            bgmNode.connect(audioCtx.destination); bgmNode.start();
+        }
+
+        function playSoundEffect(type) {
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.connect(g); g.connect(audioCtx.destination);
+            if(type==='type') { 
+                o.frequency.setValueAtTime(400+Math.random()*300, audioCtx.currentTime); 
+                g.gain.setValueAtTime(0.05, audioCtx.currentTime); 
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.04); 
+                o.start(); o.stop(audioCtx.currentTime+0.04); 
+            } else { 
+                o.type='sawtooth'; o.frequency.setValueAtTime(80, audioCtx.currentTime); 
+                g.gain.setValueAtTime(0.2, audioCtx.currentTime); 
+                g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime+0.3); 
+                o.start(); o.stop(audioCtx.currentTime+0.3); 
+            }
+        }
+
+        // --- コアゲームマネジメント ---
         const steps = JSON.parse(\`${jsonSteps}\`);
+        let currentSlot = 1;
+        let slotData = { currentIdx: 0, maxIdx: 0, clearedMarkers: [] };
+        
         let idx = 0, rCur = "", tIdx = 0, isT = false, isInputFieldFocused = false;
-        let pressCount = 0, pressTarget = 30;
-        let stageStartTime = 0, stageKeys = 0, stageMiss = 0;
-        let lastInterceptedKey = ""; 
-        const tagStorage = { name: "agent" }; 
-        let currentLang = "ja"; 
+        let gameMode = "story";
 
-        const langData = {
-            ja: {
-                boot: "ランタイムシステム起動", archive: "解読済みアーカイブ（CHAPTER SELECT）", resTitle: "タイピング解析結果",
-                resKeys: "・入力文字数:", resMiss: "・システムミス:", resKpm: "・打鍵速度 (KPM):", resClose: "次へ進む",
-                menuTitle: "システム設定 / SETTINGS", menuGamma: "⚙️ システム輝度", menuLang: "🌐 言語 (Language)", menuClose: "閉じる / DISMISS", btnNext: "進む",
-                overloadTxt: "<span style='color:${accentColor}; font-weight:bold;'>[ACTION: 連打バースト]</span><br>スペースキーかクリック連打でメーターをMAXにしろ！",
-                brightTxt: "<span style='color:${accentColor}; font-weight:bold;'>[ACTION: 輝度同期タスク]</span><br>右上メニューからシステム輝度を最大値<span style='color:${accentColor}; font-weight:bold;'>【2.0】</span>に同期させて「進む」を押せ。",
-                completeTxt: "<span style='color:${accentColor}; font-weight:bold;'>【全シークエンス完了】</span><br>すべてのタイムライン実行が終了しました。"
-            },
-            en: {
-                boot: "LAUNCH RUNTIME SYSTEM", archive: "UNLOCKED ARCHIVES (CHAPTER SELECT)", resTitle: "TYPING ANALYSIS RESULT",
-                resKeys: "· Total Keystrokes:", resMiss: "· System Errors:", resKpm: "· Typing Speed (KPM):", resClose: "PROCEED NEXT",
-                menuTitle: "HARDWARE INTERNAL SETTINGS", menuGamma: "⚙️ Hardware Brightness", menuLang: "🌐 System Language", menuClose: "DISMISS", btnNext: "PROCEED",
-                overloadTxt: "<span style='color:${accentColor}; font-weight:bold;'>[ACTION: OVERLOAD GAUGE]</span><br>Press SPACE or Click to burst the gauge to maximum!",
-                brightTxt: "<span style='color:${accentColor}; font-weight:bold;'>[ACTION: HARDWARE INTERFERENCE]</span><br>Open top-right settings, synchronize system brightness to <span style='color:${accentColor}; font-weight:bold;'>[2.0]</span>, then press PROCEED.",
-                completeTxt: "<span style='color:${accentColor}; font-weight:bold;'>【SEQUENCE COMPLETE】</span><br>All timeline sequences have executed successfully."
-            }
-        };
+        let stageStartTime = 0;
+        let totalKeysTyped = 0;
+        let totalMisses = 0;
 
-        function resolveTextTranslation(rawText) {
-            if (!rawText) return ""; let text = rawText;
-            if (rawText.includes("[en]")) {
-                const lines = rawText.split('\\n'); let jaPart = []; let enPart = [];
-                lines.forEach(line => { if (line.trim().startsWith("[en]")) { enPart.push(line.replace("[en]", "").trim()); } else { jaPart.push(line); } });
-                text = (currentLang === "en" && enPart.length > 0) ? enPart.join('\\n') : jaPart.join('\\n');
-            }
-            return text.replace(/\\[tag:(.*?)\\]/g, function(match, key) { return tagStorage[key] !== undefined ? tagStorage[key] : ("[" + key + "]"); });
+        const tagStorage = { name: "プレイヤー" };
+        const SECRET_SALT = "GUTTI_ENGINE_SECURE_SALT_v175_";
+
+        window.addEventListener('DOMContentLoaded', () => { loadSlotPreviews(); });
+
+        function encryptSaveData(obj) {
+            const rawString = JSON.stringify(obj);
+            const wrapped = SECRET_SALT + btoa(unescape(encodeURIComponent(rawString)));
+            return btoa(unescape(encodeURIComponent(wrapped)));
         }
 
-        function changeLanguage() {
-            currentLang = document.getElementById('sys-lang').value; const d = langData[currentLang];
-            document.getElementById('btn-boot').textContent = d.boot; document.getElementById('lbl-archive-title').textContent = d.archive;
-            document.getElementById('lbl-res-title').textContent = d.resTitle; document.getElementById('lbl-res-keys').textContent = d.resKeys;
-            document.getElementById('lbl-res-miss').textContent = d.resMiss; document.getElementById('lbl-res-kpm').textContent = d.resKpm;
-            document.getElementById('btn-res-close').textContent = d.resClose; document.getElementById('lbl-menu-title').textContent = d.menuTitle;
-            document.getElementById('lbl-menu-gamma').textContent = d.menuGamma; document.getElementById('lbl-menu-lang').textContent = d.menuLang;
-            document.getElementById('btn-menu-close').textContent = d.menuClose; document.getElementById('btn-next').textContent = d.btnNext;
+        function decryptSaveData(str) {
+            try {
+                const unwrapped = decodeURIComponent(escape(atob(str)));
+                if(!unwrapped.startsWith(SECRET_SALT)) return null;
+                const base64Part = unwrapped.substring(SECRET_SALT.length);
+                const jsonStr = decodeURIComponent(escape(atob(base64Part)));
+                return JSON.parse(jsonStr);
+            } catch(e) { return null; }
+        }
 
-            if (steps && steps[idx]) {
-                const s = steps[idx];
-                if (s.type === 'story') { document.getElementById('text-box').textContent = resolveTextTranslation(s.text); } 
-                else if (s.type === 'action') {
-                    if (s.actionType === 'free') { document.getElementById('text-box').textContent = resolveTextTranslation(s.paramA) || "Enter value:"; } 
-                    else if (s.actionType === 'typing') { document.getElementById('jp-box').textContent = resolveTextTranslation(s.paramA); } 
-                    else if (s.actionType === 'overload') { document.getElementById('text-box').innerHTML = d.overloadTxt; } 
-                    else if (s.actionType === 'click_core') { document.getElementById('text-box').innerHTML = resolveTextTranslation(s.paramA); } 
-                    else if (s.actionType === 'brightness_check') { document.getElementById('text-box').innerHTML = d.brightTxt; }
+        function loadSlotPreviews() {
+            for(let i=1; i<=3; i++) {
+                let local = localStorage.getItem(\`gutti_slot_\${i}_\${encodeURIComponent('${title}')}\`);
+                const infoEl = document.getElementById(\`slot-info-\${i}\`);
+                const actionEl = document.getElementById(\`actions-\${i}\`);
+                if(!infoEl || !actionEl) continue;
+                actionEl.innerHTML = "";
+                
+                if(local) {
+                    try {
+                        let parsed = JSON.parse(local);
+                        infoEl.innerHTML = \`STAGE CH.\${parsed.clearedMarkers.length || 1} まで到達\`;
+                        
+                        const expBtn = document.createElement('button');
+                        expBtn.className = "btn btn-mini";
+                        expBtn.style.borderColor = "#8e44ad"; expBtn.style.color = "#8e44ad"; expBtn.style.marginRight = "5px";
+                        expBtn.innerText = "↓ .gsv書出";
+                        expBtn.onclick = (e) => { e.stopPropagation(); exportGsvFromSlot(i); };
+                        
+                        const clrBtn = document.createElement('button');
+                        clrBtn.className = "btn btn-mini";
+                        clrBtn.style.borderColor = "#e74c3c"; clrBtn.style.color = "#e74c3c";
+                        clrBtn.innerText = "削除";
+                        clrBtn.onclick = (e) => { e.stopPropagation(); clearSlotDataDirect(i); };
+
+                        actionEl.appendChild(expBtn);
+                        actionEl.appendChild(clrBtn);
+                    } catch(e) { infoEl.innerText = "データあり"; }
+                } else {
+                    infoEl.innerText = "No Data (新規作成)";
                 }
             }
         }
 
-        function executeBoot() {
-            changeLanguage(); const unlocked = JSON.parse(localStorage.getItem("gutti_premium_unlocked") || "[]");
-            if(unlocked.length <= 1) { document.getElementById('scr-boot').classList.add('hidden'); document.getElementById('scr-runtime').classList.remove('hidden'); idx = 0; runStep(); } 
-            else { buildArchiveSelect(); }
+        function selectSlot(slotNum) {
+            currentSlot = slotNum;
+            document.getElementById('slot-badge').innerText = "SELECTED SAVE SLOT: 0" + slotNum;
+            let local = localStorage.getItem(\`gutti_slot_\${slotNum}_\${encodeURIComponent('${title}')}\`);
+            if(local) {
+                try { slotData = JSON.parse(local); } catch(e) { resetSlotData(); }
+            } else {
+                resetSlotData();
+            }
+            document.getElementById('scr-slot-select').classList.add('hidden');
+            document.getElementById('scr-boot').classList.remove('hidden');
+            refreshDashboardUI();
         }
 
-        function buildArchiveSelect() {
-            document.getElementById('scr-boot').classList.add('hidden'); document.getElementById('scr-select').classList.remove('hidden');
-            const box = document.getElementById('select-box'); box.innerHTML = '';
-            steps.forEach((s, stepIdx) => {
-                if(s.type === 'stage_marker') {
-                    const card = document.createElement('div'); card.className = 'chapter-card';
-                    card.innerHTML = '<b>📍 CHAPTER 0' + s.stageNum + '</b><br><span style="font-size:0.85rem; opacity:0.7;">' + s.stageName + '</span>';
-                    card.onclick = () => { document.getElementById('scr-select').classList.add('hidden'); document.getElementById('scr-runtime').classList.remove('hidden'); idx = stepIdx; runStep(); };
-                    box.appendChild(card);
+        function resetSlotData() {
+            slotData = { currentIdx: 0, maxIdx: 0, clearedMarkers: [] };
+        }
+
+        function saveSlotProgress() {
+            localStorage.setItem(\`gutti_slot_\${currentSlot}_\${encodeURIComponent('${title}')}\`, JSON.stringify(slotData));
+        }
+
+        function triggerManualSave() {
+            if(gameMode === "free") {
+                alert("フリーモード中はデータの上書き保存は行われません。");
+                return;
+            }
+            slotData.currentIdx = idx;
+            saveSlotProgress();
+            alert("現在の状態をスロット0" + currentSlot + "へ上書き保存しました！");
+            toggleMenu();
+        }
+
+        function triggerGsvExport() { exportGsvFromSlot(currentSlot); }
+
+        function exportGsvFromSlot(slotNum) {
+            let local = localStorage.getItem(\`gutti_slot_\${slotNum}_\${encodeURIComponent('${title}')}\`);
+            if(!local) { alert("エクスポートするデータがありません。"); return; }
+            try {
+                let parsed = JSON.parse(local);
+                let encrypted = encryptSaveData(parsed);
+                const blob = new Blob([encrypted], { type: "application/octet-stream" });
+                const a = document.createElement("a");
+                a.href = URL.createObjectURL(blob);
+                a.download = \`${title.replace(/[^a-zA-Z0-9-_]/g, "_")}_slot\${slotNum}.gsv\`;
+                a.click();
+            } catch(e) { alert("暗号化書き出しに失敗しました。"); }
+        }
+
+        function importGsvFile(input) {
+            const file = input.files[0]; if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const encryptedData = e.target.result.trim();
+                const decrypted = decryptSaveData(encryptedData);
+                if(!decrypted) {
+                    alert("不正または破損した .gsv セーブデータファイルです。");
+                    return;
                 }
-            });
+                let targetSlot = prompt("読み込んだデータをどのスロットに上書きしますか？ (1〜3の半角数字を入力)", "1");
+                if(targetSlot === "1" || targetSlot === "2" || targetSlot === "3") {
+                    localStorage.setItem(\`gutti_slot_\${targetSlot}_\${encodeURIComponent('${title}')}\`, JSON.stringify(decrypted));
+                    alert(\`スロット 0\${targetSlot} に .gsv データを取り込み・上書きしました。\`);
+                    loadSlotPreviews();
+                } else { alert("キャンセル、または不正なスロット番号です。"); }
+            };
+            reader.readAsText(file); input.value = "";
+        }
+
+        function clearSlotDataDirect(slotNum) {
+            if(confirm(\`スロット 0\${slotNum} のデータを完全に消去しますか？\`)) {
+                localStorage.removeItem(\`gutti_slot_\${slotNum}_\${encodeURIComponent('${title}')}\`);
+                loadSlotPreviews();
+            }
+        }
+
+        function backToSlotSelect() {
+            document.getElementById('scr-boot').classList.add('hidden');
+            document.getElementById('scr-slot-select').classList.remove('hidden');
+            loadSlotPreviews();
+        }
+
+        function refreshDashboardUI() {
+            const resumeBtn = document.getElementById('btn-resume');
+            if(slotData.currentIdx > 0) resumeBtn.classList.remove('hidden');
+            else resumeBtn.classList.add('hidden');
+
+            const selectBox = document.getElementById('select-box');
+            const lockedText = document.getElementById('free-mode-locked');
+            selectBox.innerHTML = "";
+
+            let availableMarkers = steps.filter((s, sIdx) => s.type === 'stage_marker' && sIdx <= slotData.maxIdx);
+            
+            if(availableMarkers.length > 0) {
+                if(lockedText) lockedText.classList.add('hidden');
+                selectBox.classList.remove('hidden');
+                availableMarkers.forEach(m => {
+                    let stepIndex = steps.indexOf(m);
+                    const card = document.createElement('div');
+                    card.className = 'chapter-card';
+                    card.innerHTML = \`CH.\${m.stageNum}<br><span style="font-size:0.7rem;opacity:0.7;">\${m.stageName}</span>\`;
+                    card.onclick = () => startFreeMode(stepIndex);
+                    selectBox.appendChild(card);
+                });
+            } else {
+                if(lockedText) lockedText.classList.remove('hidden');
+                selectBox.classList.add('hidden');
+            }
+        }
+
+        function startStory(resume) {
+            gameMode = "story";
+            idx = resume ? slotData.currentIdx : 0;
+            if(!resume) resetSlotData();
+            document.getElementById('scr-boot').classList.add('hidden');
+            document.getElementById('scr-runtime').classList.remove('hidden');
+            startEngineBGM();
+            initStageMetrics();
+            runStep();
+        }
+
+        function startFreeMode(stepIndex) {
+            gameMode = "free";
+            idx = stepIndex;
+            document.getElementById('scr-boot').classList.add('hidden');
+            document.getElementById('scr-runtime').classList.remove('hidden');
+            startEngineBGM();
+            initStageMetrics();
+            runStep();
+        }
+
+        function returnToTitleDashboard() {
+            document.getElementById('ui-menu').style.display = 'none';
+            document.getElementById('scr-runtime').classList.add('hidden');
+            document.getElementById('scr-result').classList.add('hidden');
+            document.getElementById('scr-boot').classList.remove('hidden');
+            refreshDashboardUI();
+        }
+
+        function initStageMetrics() {
+            stageStartTime = Date.now();
+            totalKeysTyped = 0;
+            totalMisses = 0;
         }
 
         function runStep() {
-            if(!steps || idx < 0 || idx >= steps.length) { document.getElementById('text-box').innerHTML = langData[currentLang].completeTxt; document.getElementById('btn-next').classList.add('hidden'); return; }
-            const s = steps[idx];
-            if (s.type === 'credits') { document.getElementById('scr-runtime').classList.add('hidden'); const rollContainer = document.getElementById('scr-credits'); const textContainer = document.getElementById('credits-roll'); rollContainer.style.display = 'block'; textContainer.innerText = resolveTextTranslation(s.text); return; }
-            if (s.type === 'stage_marker') { let unl = JSON.parse(localStorage.getItem("gutti_premium_unlocked") || "[]"); if(!unl.includes(s.stageNum)) { unl.push(s.stageNum); localStorage.setItem("gutti_premium_unlocked", JSON.stringify(unl)); } idx++; runStep(); return; }
-            if (s.type === 'inspection') {
-                let isMatch = false;
-                if(s.targetType === 'always' || s.checkCondition === 'always') { isMatch = true; } 
-                else {
-                    let evaluationSourceValue = s.targetType === 'last_key' ? lastInterceptedKey.trim().toLowerCase() : (tagStorage[s.targetTag] || "").toString().trim().toLowerCase();
-                    const conditionTarget = (s.checkValue || "").toString().trim().toLowerCase();
-                    if(s.checkCondition === 'equal') isMatch = (evaluationSourceValue === conditionTarget);
-                    if(s.checkCondition === 'not_equal') isMatch = (evaluationSourceValue !== conditionTarget);
-                }
-                idx = isMatch ? (s.matchStep - 1) : (s.unmatchStep - 1); runStep(); return;
+            if(!steps || idx < 0 || idx >= steps.length) { 
+                document.getElementById('text-box').innerHTML = "【全シークエンス完了】"; 
+                document.getElementById('btn-next').classList.add('hidden'); 
+                return; 
             }
 
-            const imgEl = document.getElementById('view-img'); if(s.charImg) { imgEl.src = s.charImg; imgEl.classList.remove('hidden'); } else { imgEl.classList.add('hidden'); }
-            const layer = document.getElementById('interact-layer'); layer.innerHTML = '';
-            document.getElementById('btn-next').classList.add('hidden'); document.getElementById('type-box').style.display = 'none'; document.getElementById('free-input-wrap').classList.add('hidden');
+            const s = steps[idx];
 
-            if (s.type === 'action') {
-                if(s.actionType === 'time_check') { const h = new Date().getHours(); const start = parseInt(s.paramA) || 0; const end = parseInt(s.paramB) || 23; tagStorage[s.saveTag] = (h >= start && h <= end) ? 'in_time' : 'out_time'; idx++; runStep(); return; }
-                if(s.actionType === 'free') { isT = false; document.getElementById('text-box').textContent = resolveTextTranslation(s.paramA) || "Enter text:"; const inputWrap = document.getElementById('free-input-wrap'); const inputNode = document.getElementById('free-input-node'); inputWrap.classList.remove('hidden'); inputNode.value = ""; if(s.paramB && parseInt(s.paramB) > 0) inputNode.maxLength = parseInt(s.paramB); else inputNode.removeAttribute('maxLength'); inputNode.focus(); return; }
-                if(s.actionType === 'typing') { isT = true; document.getElementById('type-box').style.display = 'flex'; document.getElementById('text-box').textContent = ""; document.getElementById('jp-box').textContent = resolveTextTranslation(s.paramA || ""); rCur = resolveTextTranslation(s.paramB || "code").toLowerCase(); tIdx = 0; refreshTypeDisplay(); stageStartTime = Date.now(); stageKeys = rCur.length; stageMiss = 0; } 
-                else if(s.actionType === 'overload') { isT = false; pressCount = 0; pressTarget = parseInt(s.paramA) || 30; document.getElementById('text-box').innerHTML = langData[currentLang].overloadTxt; const wrap = document.createElement('div'); wrap.className = 'charge-container'; const fill = document.createElement('div'); fill.id = 'charge-bar-node'; fill.className = 'charge-bar'; wrap.appendChild(fill); layer.appendChild(wrap); layer.onclick = () => { handleOverloadClick(); }; } 
-                else if(s.actionType === 'click_core') { isT = false; document.getElementById('text-box').innerHTML = resolveTextTranslation(s.paramA || ""); const target = document.createElement('div'); target.className = 'click-target-node'; target.style.position = 'absolute'; target.style.top = '45%'; target.style.left = '45%'; target.onclick = () => { tagStorage[s.saveTag] = 'found'; idx++; runStep(); }; layer.appendChild(target); } 
-                else if(s.actionType === 'brightness_check') { isT = false; document.getElementById('text-box').innerHTML = langData[currentLang].brightTxt; document.getElementById('btn-next').classList.remove('hidden'); }
+            if(gameMode === "story") {
+                if(idx > slotData.maxIdx) slotData.maxIdx = idx;
+                slotData.currentIdx = idx;
+                if(s.type === 'stage_marker' && !slotData.clearedMarkers.includes(s.stageName)) {
+                    slotData.clearedMarkers.push(s.stageName);
+                }
+                saveSlotProgress();
+            }
+
+            if (idx > 0 && (s.type === 'stage_marker')) {
+                showStageResult();
                 return;
             }
-            if (s.type === 'story') { isT = false; document.getElementById('btn-next').classList.remove('hidden'); document.getElementById('text-box').textContent = resolveTextTranslation(s.text); }
+
+            if (s.type === 'stage_marker') { idx++; runStep(); return; }
+
+            if (s.type === 'effect') {
+                const fxOverlay = document.getElementById('fx-overlay');
+                const mainFrame = document.getElementById('main-frame-node');
+                fxOverlay.className = "";
+                if (s.effectType === 'shake') { mainFrame.classList.add('fx-shake'); } else { fxOverlay.classList.add('fx-' + (s.effectType || 'glitch')); }
+                setTimeout(() => { fxOverlay.className = ""; mainFrame.classList.remove('fx-shake'); idx++; runStep(); }, (s.duration || 1.0) * 1000);
+                return;
+            }
+
+            if (s.type === 'credits') { 
+                document.getElementById('text-box').innerHTML = s.text; 
+                document.getElementById('btn-next').classList.remove('hidden'); 
+                return; 
+            }
+
+            // キャラクター表示スイッチロジック
+            const imgEl = document.getElementById('view-img');
+            const cssChar = document.getElementById('avatar-element');
+            
+            imgEl.style.display = "none";
+            cssChar.className = "css-char";
+            
+            if(s.charStyle && s.charStyle !== 'none') {
+                cssChar.classList.add('char-' + s.charStyle);
+                cssChar.style.left = \`calc(\${s.imgX || 50}% - 35px)\`;
+                cssChar.style.bottom = "10px";
+            } else if(s.charImg && s.charImg.trim() !== "") {
+                imgEl.src = s.charImg;
+                imgEl.style.width = (s.imgW || 150) + "px"; imgEl.style.height = (s.imgH || 150) + "px";
+                imgEl.style.left = \`calc(\${s.imgX || 50}% - \${(s.imgW || 150) / 2}px)\`; 
+                imgEl.style.top = \`calc(\${s.imgY || 50}% - \${(s.imgH || 150) / 2}px)\`;
+                imgEl.style.display = "block";
+            }
+
+            document.getElementById('btn-next').classList.add('hidden'); 
+            document.getElementById('type-box').style.display = 'none'; 
+            document.getElementById('free-input-wrap').classList.add('hidden');
+
+            if (s.type === 'action') {
+                if(s.actionType === 'free') { 
+                    document.getElementById('text-box').textContent = s.paramA; 
+                    const wrap = document.getElementById('free-input-wrap'); 
+                    const node = document.getElementById('free-input-node'); 
+                    wrap.classList.remove('hidden'); node.value = ""; node.focus(); 
+                    return; 
+                }
+                if(s.actionType === 'typing') { 
+                    isT = true; 
+                    document.getElementById('type-box').style.display = 'flex'; 
+                    document.getElementById('jp-box').textContent = s.paramA; 
+                    rCur = s.paramB.toLowerCase(); tIdx = 0; 
+                    refreshTypeDisplay(); 
+                    return;
+                }
+            }
+            if (s.type === 'story') { 
+                document.getElementById('btn-next').classList.remove('hidden'); 
+                document.getElementById('text-box').textContent = s.text; 
+            }
         }
 
-        function submitFreeInput() { const inputNode = document.getElementById('free-input-node'); const inputVal = inputNode.value.trim(); const s = steps[idx]; if(s && s.type === 'action' && s.actionType === 'free') { tagStorage[s.saveTag] = inputVal || "agent"; idx++; runStep(); } }
-        function handleOverloadClick() { if(!steps[idx] || steps[idx].type !== 'action' || steps[idx].actionType !== 'overload') return; pressCount++; const bar = document.getElementById('charge-bar-node'); if(bar) bar.style.width = Math.min((pressCount / pressTarget) * 100, 100) + '%'; if(pressCount >= pressTarget) { tagStorage[steps[idx].saveTag] = 'max'; idx++; runStep(); } }
-        function stepForward() { if(!steps[idx]) return; const s = steps[idx]; if(s && s.type === 'action' && s.actionType === 'brightness_check') { const g = parseFloat(document.getElementById('sys-gamma').value); tagStorage[s.saveTag] = (g >= 2.0) ? 'max' : 'low'; } idx++; runStep(); }
+        function showStageResult() {
+            const diff = (Date.now() - stageStartTime) / 1000;
+            const kpm = totalKeysTyped > 0 ? Math.round((totalKeysTyped / diff) * 60) : 0;
+            
+            let rank = "S";
+            if(totalMisses > 5) rank = "A";
+            if(totalMisses > 12) rank = "B";
+            if(totalMisses > 20) rank = "C";
+
+            let currentStageLabel = "SEQUENCE SECTOR";
+            for(let i = idx; i >= 0; i--) {
+                if(steps[i] && steps[i].type === 'stage_marker') {
+                    currentStageLabel = "CH." + steps[i].stageNum + " " + steps[i].stageName;
+                    break;
+                }
+            }
+
+            document.getElementById('res-stage-name').textContent = currentStageLabel;
+            document.getElementById('res-time').textContent = diff.toFixed(1);
+            document.getElementById('res-keys').textContent = totalKeysTyped;
+            document.getElementById('res-miss').textContent = totalMisses;
+            document.getElementById('res-kpm').textContent = kpm;
+            document.getElementById('res-rank').textContent = rank;
+
+            document.getElementById('scr-runtime').classList.add('hidden');
+            document.getElementById('scr-result').classList.remove('hidden');
+        }
+
+        function closeResult() {
+            document.getElementById('scr-result').classList.add('hidden');
+            if(gameMode === "free") {
+                document.getElementById('scr-boot').classList.remove('hidden');
+                refreshDashboardUI();
+            } else {
+                document.getElementById('scr-runtime').classList.remove('hidden');
+                initStageMetrics();
+                idx++;
+                runStep();
+            }
+        }
+
+        function stepForward() { idx++; runStep(); }
+        function submitFreeInput() { const node = document.getElementById('free-input-node'); tagStorage[steps[idx].saveTag] = node.value.trim()||""; totalKeysTyped += node.value.length; idx++; runStep(); }
         function refreshTypeDisplay() { document.getElementById('lbl-done').textContent = rCur.substring(0, tIdx); document.getElementById('lbl-todo').textContent = rCur.substring(tIdx); }
 
         function inputCharacter(c) {
-            if(isInputFieldFocused) return; if(c !== ' ' && c.length === 1) lastInterceptedKey = c;
-            if(steps[idx] && steps[idx].type === 'action' && steps[idx].actionType === 'overload' && c === ' ') { handleOverloadClick(); return; }
+            if(isInputFieldFocused) return;
             if(!isT) { if(c === ' ' && !document.getElementById('btn-next').classList.contains('hidden')) stepForward(); return; }
-            if(c.toLowerCase() === rCur[tIdx].toLowerCase()) { tIdx++; refreshTypeDisplay(); if(tIdx >= rCur.length) { isT = false; tagStorage[steps[idx].saveTag] = rCur; showTypingResult(); } } 
-            else { if(c !== 'Shift' && c !== 'Control' && c !== 'Alt') stageMiss++; }
+            
+            totalKeysTyped++;
+            if(c.toLowerCase() === rCur[tIdx].toLowerCase()) { 
+                tIdx++; 
+                playSoundEffect('type');
+                refreshTypeDisplay(); 
+                if(tIdx >= rCur.length) { 
+                    isT = false; 
+                    tagStorage[steps[idx].saveTag] = rCur; 
+                    setTimeout(() => { idx++; runStep(); }, 200);
+                } 
+            } else { 
+                if(c !== 'Shift' && c !== 'Control') {
+                    totalMisses++; 
+                    playSoundEffect('miss');
+                    const mainFrame = document.getElementById('main-frame-node');
+                    mainFrame.classList.add('fx-shake');
+                    setTimeout(() => mainFrame.classList.remove('fx-shake'), 150);
+                }
+            }
         }
 
-        function showTypingResult() {
-            const duration = (Date.now() - stageStartTime) / 1000; const kpm = Math.round((stageKeys / (duration || 1)) * 60);
-            document.getElementById('res-keys').textContent = stageKeys; document.getElementById('res-miss').textContent = stageMiss; document.getElementById('res-kpm').textContent = kpm;
-            let rank = "C"; if(stageMiss === 0 && kpm > 250) rank = "SS"; else if(stageMiss <= 1 && kpm > 180) rank = "S"; else if(stageMiss <= 3 && kpm > 120) rank = "A"; else if(stageMiss <= 6 && kpm > 70) rank = "B";
-            document.getElementById('res-rank').textContent = rank; document.getElementById('scr-runtime').classList.add('hidden'); document.getElementById('scr-result').classList.remove('hidden');
-        }
-
-        function closeResult() { document.getElementById('scr-result').classList.add('hidden'); document.getElementById('scr-runtime').classList.remove('hidden'); idx++; runStep(); }
+        function pressVirtualKey(c) { inputCharacter(c); }
         function toggleMenu() { const m = document.getElementById('ui-menu'); m.style.display = (m.style.display==='flex')?'none':'flex'; }
-        function syncHardware() { const g = document.getElementById('sys-gamma').value; document.body.style.filter = "brightness(" + g + ")"; }
         
-        document.getElementById('free-input-node').addEventListener('input', function(e) { let filteredValue = this.value.toLowerCase().replace(/[^a-z0-9]/g, ''); if (this.value !== filteredValue) this.value = filteredValue; });
-        document.getElementById('free-input-node').addEventListener('focus', () => { isInputFieldFocused = true; });
-        document.getElementById('free-input-node').addEventListener('blur', () => { isInputFieldFocused = false; });
-        document.getElementById('free-input-node').addEventListener('keydown', (e) => { if(e.key === 'Enter') { e.preventDefault(); submitFreeInput(); } });
-
+        const inputNode = document.getElementById('free-input-node');
+        if(inputNode) {
+            inputNode.addEventListener('focus', () => { isInputFieldFocused = true; });
+            inputNode.addEventListener('blur', () => { isInputFieldFocused = false; });
+        }
         window.addEventListener('keydown', (e) => { if(isInputFieldFocused) return; if(e.key === ' ') { e.preventDefault(); inputCharacter(' '); } else if(e.key.length === 1) inputCharacter(e.key); });
     <\/script>
 </body>
