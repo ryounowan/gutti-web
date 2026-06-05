@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>プレミアム・チケットファクトリー</title>
+    <style>
+        :root { --theme-color: #ff4757; }
+        body {
+            background-color: #131419; font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', sans-serif;
+            color: #e0e0e0; margin: 0; padding: 20px; display: flex; justify-content: center; align-items: flex-start;
+            min-height: 100vh; box-sizing: border-box; user-select: none; -webkit-user-select: none;
+        }
+        .workspace { display: flex; flex-direction: row; gap: 40px; max-width: 1200px; width: 100%; margin-top: 20px; }
+        @media (max-width: 1000px) { .workspace { flex-direction: column; align-items: center; } }
+
+        /* コントロールパネル */
+        .control-panel {
+            flex: 1; background: #1c1d24; padding: 25px; border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5); display: flex; flex-direction: column; gap: 15px; width: 100%; max-width: 400px; box-sizing: border-box;
+        }
+        .control-panel h2 { margin: 0 0 10px 0; font-size: 20px; color: #fff; border-bottom: 2px solid #333; padding-bottom: 8px; }
+        .form-group { display: flex; flex-direction: column; gap: 6px; }
+        label { font-size: 13px; color: #a0a0a0; font-weight: bold; }
+        input[type="text"], input[type="file"] { background: #282a36; border: 1px solid #444; color: #fff; padding: 10px; border-radius: 6px; font-size: 14px; }
+        input[type="color"] { border: none; width: 100%; height: 40px; border-radius: 6px; cursor: pointer; background: transparent; }
+
+        /* ステージ */
+        .stage {
+            flex: 1.5; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 40px 20px; background: #1a1b21; border-radius: 16px; border: 2px dashed #333; min-height: 450px; position: relative;
+        }
+        .instructions { color: #aaa; margin-bottom: 30px; font-size: 15px; text-align: center; background: rgba(255,255,255,0.05); padding: 8px 16px; border-radius: 20px; }
+
+        /* 🎫 チケット構造 */
+        .ticket-container { position: relative; width: 600px; height: 220px; display: flex; perspective: 1200px; }
+        .ticket-part { height: 100%; background-color: #ffffff; background-size: cover; background-position: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); box-sizing: border-box; position: relative; overflow: hidden; }
+        
+        .ticket-main { width: 420px; border-radius: 16px 0 0 16px; padding: 25px; display: flex; flex-direction: column; justify-content: space-between; z-index: 1; }
+        .ticket-main::before { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: linear-gradient(90deg, rgba(255,255,255,0.95) 70%, rgba(255,255,255,0.8)); z-index: 0; }
+        .main-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; justify-content: space-between; }
+
+        .ticket-stub { width: 180px; background-color: var(--theme-color); color: white; border-radius: 0 16px 16px 0; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; cursor: grab; z-index: 2; transform-origin: top left; transition: transform 0.05s linear; }
+        .ticket-stub::before { content: ''; position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0, 0, 0, 0.15); z-index: 0; }
+        .stub-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; justify-content: space-between; align-items: center; width: 100%;}
+
+        /* デザイン */
+        .header-wrap { display: flex; gap: 15px; align-items: center; }
+        .logo-preview { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; background: #eee; display: none; border: 1px solid #ddd;}
+        .title { font-size: 24px; font-weight: 900; margin: 0; color: #111; line-height: 1.2; }
+        .info-row { display: flex; gap: 30px; margin-bottom: 5px; }
+        .info-block span { display: block; font-size: 10px; color: #666; font-weight: bold; margin-bottom: 2px; }
+        .info-block p { margin: 0; font-size: 14px; color: #222; font-weight: bold; }
+        .stub-title { font-size: 14px; font-weight: bold; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.9; }
+        .stub-code { font-size: 22px; font-weight: 900; letter-spacing: 1px; border: 2px dashed rgba(255,255,255,0.4); padding: 4px 12px; border-radius: 6px; background: rgba(0,0,0,0.1); }
+
+        /* ギザギザ・切り取り線 */
+        .border-line { position: absolute; top: 0; right: 180px; width: 2px; height: 100%; background: linear-gradient(to bottom, #bbb 50%, transparent 50%); background-size: 2px 12px; z-index: 3; pointer-events: none; }
+        .notch { position: absolute; width: 24px; height: 24px; background: #1a1b21; border-radius: 50%; right: 168px; z-index: 4; }
+        .notch-top { top: -12px; } .notch-bottom { bottom: -12px; }
+
+        .torn-main { clip-path: polygon(0% 0%, 100% 0%, 98% 6%, 100% 13%, 98% 21%, 100% 28%, 97% 37%, 100% 45%, 98% 53%, 100% 61%, 98% 69%, 100% 77%, 97% 85%, 100% 92%, 98% 97%, 100% 100%, 0% 100%); }
+        .torn-stub { clip-path: polygon(0% 0%, 2% 6%, 0% 13%, 2% 21%, 0% 28%, 3% 37%, 0% 45%, 2% 53%, 0% 61%, 2% 69%, 0% 77%, 3% 85%, 0% 92%, 2% 97%, 0% 100%, 100% 100%, 100% 0%); }
+
+        .fall-animation { animation: tearAndFall 1.6s forwards ease-in; pointer-events: none; }
+        @keyframes tearAndFall {
+            0% { transform: translate(var(--p-x), var(--p-y)) rotate(var(--p-r)); opacity: 1; }
+            15% { transform: translate(calc(var(--p-x) + 15px), calc(var(--p-y) + 35px)) rotate(20deg); }
+            100% { transform: translate(calc(var(--p-x) + 80px), 700px) rotate(85deg); opacity: 0; }
+        }
+
+        /* ボタン類 */
+        .btn-group { display: flex; gap: 15px; margin-top: 30px; }
+        .action-btn { padding: 12px 25px; border: none; border-radius: 25px; cursor: pointer; font-size: 15px; font-weight: bold; transition: all 0.3s; }
+        .revive-btn { background: #57606f; color: white; display: none; }
+        .revive-btn.show { display: block; }
+        .export-btn { background: #2ed573; color: white; box-shadow: 0 4px 15px rgba(46, 213, 115, 0.4); }
+        .export-btn:hover { background: #26af5f; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+    <div class="workspace">
+        <div class="control-panel">
+            <h2>🎫 チケットファクトリー</h2>
+            <div class="form-group"><label>イベント名</label><input type="text" id="inTitle" value="LIVE TOUR 2026"></div>
+            <div class="form-group"><label>ロゴ / アイコン画像</label><input type="file" id="inLogo" accept="image/*"></div>
+            <div class="form-group"><label>チケット背景画像</label><input type="file" id="inBg" accept="image/*"></div>
+            <div class="form-group"><label>日時</label><input type="text" id="inDate" value="2026.08.12 (WED) 19:00"></div>
+            <div class="form-group"><label>会場</label><input type="text" id="inVenue" value="TOKYO DOME CITY HALL"></div>
+            <div class="form-group"><label>座席 / 管理番号</label><input type="text" id="inSeat" value="ARENA B-2"></div>
+            <div class="form-group"><label>半券テーマカラー</label><input type="color" id="inColor" value="#ff4757"></div>
+        </div>
+
+        <div class="stage">
+            <div class="instructions" id="statusText">🛠️ ここでは何度でもちぎるテストが可能です！</div>
+
+            <div class="ticket-container">
+                <div class="border-line" id="burnLine"></div>
+                <div class="notch notch-top"></div>
+                <div class="notch notch-bottom"></div>
+
+                <div class="ticket-part ticket-main" id="tMain">
+                    <div class="main-content">
+                        <div class="header-wrap">
+                            <img src="" class="logo-preview" id="pLogo">
+                            <h2 class="title" id="pTitle">LIVE TOUR 2026</h2>
+                        </div>
+                        <div>
+                            <div class="info-row">
+                                <div class="info-block"><span>DATE & TIME</span><p id="pDate">2026.08.12 (WED) 19:00</p></div>
+                            </div>
+                            <div class="info-row">
+                                <div class="info-block"><span>VENUE</span><p id="pVenue">TOKYO DOME CITY HALL</p></div>
+                                <div class="info-block"><span>SEAT NUMBER</span><p id="pSeat">ARENA B-2</p></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="ticket-part ticket-stub" id="tStub">
+                    <div class="stub-content">
+                        <div class="stub-title" id="pStubTitle">LIVE TOUR 2026</div>
+                        <div class="stub-code" id="pStubSeat">B-2</div>
+                        <div style="font-size: 11px; font-weight: bold; letter-spacing: 2px; opacity: 0.8;">🎟️ STUB</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="action-btn revive-btn" id="reviveBtn">もう一度ちぎる（リセット）</button>
+                <button class="action-btn export-btn" id="exportBtn">このデザインで配布用HTMLを出力</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const inTitle = document.getElementById('inTitle'), inLogo = document.getElementById('inLogo'), inBg = document.getElementById('inBg');
+        const inDate = document.getElementById('inDate'), inVenue = document.getElementById('inVenue'), inSeat = document.getElementById('inSeat'), inColor = document.getElementById('inColor');
+        const tMain = document.getElementById('tMain'), tStub = document.getElementById('tStub'), burnLine = document.getElementById('burnLine');
+        const pTitle = document.getElementById('pTitle'), pLogo = document.getElementById('pLogo'), pDate = document.getElementById('pDate'), pVenue = document.getElementById('pVenue'), pSeat = document.getElementById('pSeat');
+        const pStubTitle = document.getElementById('pStubTitle'), pStubSeat = document.getElementById('pStubSeat');
+        const statusText = document.getElementById('statusText'), reviveBtn = document.getElementById('reviveBtn'), exportBtn = document.getElementById('exportBtn');
+
+        let isDragging = false, startY = 0, startX = 0, isTorn = false;
+        let logoBase64 = "", bgBase64 = "";
+        const BREAK_POINT = 95;
+
+        function syncFields() {
+            if(isTorn) return;
+            pTitle.textContent = inTitle.value; pStubTitle.textContent = inTitle.value;
+            pDate.textContent = inDate.value; pVenue.textContent = inVenue.value; pSeat.textContent = inSeat.value;
+            const seatParts = inSeat.value.split(' ');
+            pStubSeat.textContent = seatParts[seatParts.length - 1] || '---';
+            document.documentElement.style.setProperty('--theme-color', inColor.value);
+        }
+
+        inLogo.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) { logoBase64 = evt.target.result; pLogo.src = logoBase64; pLogo.style.display = 'block'; }
+                reader.readAsDataURL(file);
+            }
+        });
+        inBg.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(evt) { bgBase64 = evt.target.result; tMain.style.backgroundImage = "url('" + bgBase64 + "')"; tStub.style.backgroundImage = "url('" + bgBase64 + "')"; }
+                reader.readAsDataURL(file);
+            }
+        });
+
+        [inTitle, inDate, inVenue, inSeat, inColor].forEach(el => el.addEventListener('input', syncFields));
+
+        tStub.addEventListener('mousedown', dragStart);
+        tStub.addEventListener('touchstart', dragStart, { passive: true });
+        window.addEventListener('mousemove', dragMove);
+        window.addEventListener('touchmove', dragMove, { passive: false });
+        window.addEventListener('mouseup', dragEnd);
+        window.addEventListener('touchend', dragEnd);
+
+        function dragStart(e) { if (isTorn) return; isDragging = true; const cX = e.touches ? e.touches[0].clientX : e.clientX; const cY = e.touches ? e.touches[0].clientY : e.clientY; startX = cX; startY = cY; }
+        function dragMove(e) {
+            if (!isDragging || isTorn) return;
+            const cX = e.touches ? e.touches[0].clientX : e.clientX; const cY = e.touches ? e.touches[0].clientY : e.clientY;
+            const dx = cX - startX, dy = cY - startY;
+            if (dy > 0) {
+                const rot = Math.min(dy * 0.12, 14); tStub.style.transform = "translate(" + (dx * 0.25) + "px, " + dy + "px) rotate(" + rot + "deg)";
+                if (dy > BREAK_POINT - 20) tMain.style.transform = "translate(" + ((Math.random()-0.5)*2) + "px, " + ((Math.random()-0.5)*2) + "px)";
+            }
+            if (dy > BREAK_POINT) executeTear(dx * 0.25, dy, Math.min(dy * 0.12, 14));
+        }
+        function dragEnd() {
+            if (!isDragging || isTorn) return; isDragging = false;
+            tStub.style.transition = 'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)'; tStub.style.transform = 'translate(0, 0) rotate(0deg)'; tMain.style.transform = 'none';
+            setTimeout(() => { tStub.style.transition = 'transform 0.05s linear'; }, 250);
+        }
+
+        function executeTear(fx, fy, fr) {
+            isTorn = true; isDragging = false; burnLine.style.display = 'none';
+            tMain.classList.add('torn-main'); tStub.classList.add('torn-stub'); tMain.style.transform = 'none';
+            tStub.style.setProperty('--p-x', fx + "px"); tStub.style.setProperty('--p-y', fy + "px"); tStub.style.setProperty('--p-r', fr + "deg");
+            tStub.classList.add('fall-animation');
+            reviveBtn.classList.add('show');
+        }
+
+        reviveBtn.addEventListener('click', () => {
+            isTorn = false; tStub.classList.remove('fall-animation', 'torn-stub'); tMain.classList.remove('torn-main');
+            tStub.style.transform = 'translate(0,0) rotate(0deg)'; burnLine.style.display = 'block'; reviveBtn.classList.remove('show'); syncFields();
+        });
+
+        // 初回ロード時実行
+        syncFields();
+
+        // 🌟 配布用HTMLファイルを完全に書き出すコア処理
+        exportBtn.addEventListener('click', () => {
+            const ticketID = "ticket_" + Math.random().toString(36).substring(2, 11);
+            
+            const htmlContent = '<!DOCTYPE html>\n<html lang="ja">\n<head>\n    <meta charset="UTF-8">\n    <meta name="viewport" content="width=device-width, initial-scale=1.0">\n    <title>' + inTitle.value + ' - 電子チケット<\/title>\n    <style>\n        :root { --theme-color: ' + inColor.value + '; }\n        body { background-color: #131419; font-family: sans-serif; color: #e0e0e0; margin: 0; padding: 20px; display: flex; flex-direction: column; justify-content: center; align-items: center; height: 100vh; overflow: hidden; user-select: none; -webkit-user-select: none; }\n        .instructions { color: #aaa; margin-bottom: 30px; font-size: 16px; text-align: center; background: rgba(255,255,255,0.05); padding: 8px 16px; border-radius: 20px; }\n        .ticket-container { position: relative; width: 600px; height: 220px; display: flex; perspective: 1200px; }\n        .ticket-part { height: 100%; background-color: #ffffff; background-size: cover; background-position: center; box-shadow: 0 15px 35px rgba(0,0,0,0.5); box-sizing: border-box; position: relative; overflow: hidden; ' + (bgBase64 ? "background-image: url('" + bgBase64 + "');" : "") + ' }\n        .ticket-main { width: 420px; border-radius: 16px 0 0 16px; padding: 25px; display: flex; flex-direction: column; justify-content: space-between; z-index: 1; }\n        .ticket-main::before { content: \'\'; position: absolute; top:0; left:0; right:0; bottom:0; background: linear-gradient(90deg, rgba(255,255,255,0.95) 70%, rgba(255,255,255,0.8)); z-index: 0; }\n        .main-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; justify-content: space-between; }\n        .ticket-stub { width: 180px; background-color: var(--theme-color); color: white; border-radius: 0 16px 16px 0; padding: 20px; display: flex; flex-direction: column; justify-content: space-between; align-items: center; text-align: center; cursor: grab; z-index: 2; transform-origin: top left; transition: transform 0.05s linear; }\n        .ticket-stub::before { content: \'\'; position: absolute; top:0; left:0; right:0; bottom:0; background: rgba(0, 0, 0, 0.15); z-index: 0; }\n        .stub-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; justify-content: space-between; align-items: center; width: 100%;}\n        .header-wrap { display: flex; gap: 15px; align-items: center; }\n        .logo-preview { width: 50px; height: 50px; border-radius: 8px; object-fit: cover; border: 1px solid #ddd; ' + (logoBase64 ? "display: block;" : "display: none;") + ' }\n        .title { font-size: 24px; font-weight: 900; margin: 0; color: #111; line-height: 1.2; }\n        .info-row { display: flex; gap: 30px; margin-bottom: 5px; }\n        .info-block span { display: block; font-size: 10px; color: #666; font-weight: bold; margin-bottom: 2px; }\n        .info-block p { margin: 0; font-size: 14px; color: #222; font-weight: bold; }\n        .stub-title { font-size: 14px; font-weight: bold; width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: 0.9; }\n        .stub-code { font-size: 22px; font-weight: 900; letter-spacing: 1px; border: 2px dashed rgba(255,255,255,0.4); padding: 4px 12px; border-radius: 6px; background: rgba(0,0,0,0.1); }\n        .border-line { position: absolute; top: 0; right: 180px; width: 2px; height: 100%; background: linear-gradient(to bottom, #bbb 50%, transparent 50%); background-size: 2px 12px; z-index: 3; pointer-events: none; }\n        .notch { position: absolute; width: 24px; height: 24px; background: #131419; border-radius: 50%; right: 168px; z-index: 4; }\n        .notch-top { top: -12px; } .notch-bottom { bottom: -12px; }\n        .torn-main { clip-path: polygon(0% 0%, 100% 0%, 98% 6%, 100% 13%, 98% 21%, 100% 28%, 97% 37%, 100% 45%, 98% 53%, 100% 61%, 98% 69%, 100% 77%, 97% 85%, 100% 92%, 98% 97%, 100% 100%, 0% 100%); }\n        .torn-stub { clip-path: polygon(0% 0%, 2% 6%, 0% 13%, 2% 21%, 0% 28%, 3% 37%, 0% 45%, 2% 53%, 0% 61%, 2% 69%, 0% 77%, 3% 85%, 0% 92%, 2% 97%, 0% 100%, 100% 100%, 100% 0%); }\n        .fall-animation { animation: tearAndFall 1.6s forwards ease-in; pointer-events: none; }\n        @keyframes tearAndFall { 0% { transform: translate(var(--p-x), var(--p-y)) rotate(var(--p-r)); opacity: 1; } 15% { transform: translate(calc(var(--p-x) + 15px), calc(var(--p-y) + 35px)) rotate(20deg); } 100% { transform: translate(calc(var(--p-x) + 80px), 700px) rotate(85deg); opacity: 0; } }\n        .is-vanished { display: none !important; }\n    <\/style>\n<\/head>\n<body>\n    <div class=\"instructions\" id=\"statusText\">🎟️ 入場口スタッフへ提示し、右側の半券を引きちぎってください<\/div>\n    <div class=\"ticket-container\">\n        <div class=\"border-line\" id=\"burnLine\"><\/div>\n        <div class=\"notch notch-top\"><\/div><div class="notch notch-bottom\"><\/div>\n        <div class=\"ticket-part ticket-main\" id=\"tMain\">\n            <div class="main-content">\n                <div class="header-wrap">\n                    <img src=\"' + logoBase64 + '\" class=\"logo-preview\">\n                    <h2 class=\"title\">' + inTitle.value + '<\/h2>\n                </div>\n                <div>\n                    <div class=\"info-row\"><div class=\"info-block\"><span>DATE & TIME<\/span><p>' + inDate.value + '<\/p><\/div><\/div>\n                    <div class=\"info-row\">\n                        <div class=\"info-block\"><span>VENUE<\/span><p>' + inVenue.value + '<\/p><\/div>\n                        <div class=\"info-block"><span>SEAT NUMBER<\/span><p>' + inSeat.value + '<\/p><\/div>\n                    <\/div>\n                <\/div>\n            <\/div>\n        <\/div>\n        <div class=\"ticket-part ticket-stub\" id="tStub">\n            <div class="stub-content">\n                <div class="stub-title">' + inTitle.value + '<\/div>\n                <div class="stub-code">' + pStubSeat.textContent + '<\/div>\n                <div style=\"font-size: 11px; font-weight: bold; letter-spacing: 2px; opacity: 0.8;\">🎟️ STUB<\/div>\n            <\/div>\n        <\/div>\n    <\/div>\n    <script>\n        const tMain = document.getElementById(\'tMain\'), tStub = document.getElementById(\'tStub\'), burnLine = document.getElementById(\'burnLine\'), statusText = document.getElementById(\'statusText\');\n        let isDragging = false, startY = 0, startX = 0, isTorn = false;\n        const BREAK_POINT = 95;\n        const STORAGE_KEY = \"' + ticketID + '\";\n        tStub.addEventListener(\'mousedown\', dragStart); tStub.addEventListener(\'touchstart\', dragStart, { passive: true });\n        window.addEventListener(\'mousemove\', dragMove); window.addEventListener(\'touchmove\', dragMove, { passive: false });\n        window.addEventListener(\'mouseup\', dragEnd); window.addEventListener(\'touchend\', dragEnd);\n        function dragStart(e) { if (isTorn) return; isDragging = true; const cX = e.touches ? e.touches[0].clientX : e.clientX; const cY = e.touches ? e.touches[0].clientY : e.clientY; startX = cX; startY = cY; }\n        function dragMove(e) { if (!isDragging || isTorn) return; const cX = e.touches ? e.touches[0].clientX : e.clientX; const cY = e.touches ? e.touches[0].clientY : e.clientY; const dx = cX - startX, dy = cY - startY;\n            if (dy > 0) { const rot = Math.min(dy * 0.12, 14); tStub.style.transform = "translate(" + (dx * 0.25) + "px, " + dy + "px) rotate(" + rot + "deg)"; if (dy > BREAK_POINT - 20) tMain.style.transform = "translate(" + ((Math.random()-0.5)*2) + "px, " + ((Math.random()-0.5)*2) + "px)"; }\n            if (dy > BREAK_POINT) executeTear(dx * 0.25, dy, Math.min(dy * 0.12, 14), true); }\n        function dragEnd() { if (!isDragging || isTorn) return; isDragging = false; tStub.style.transition = \'transform 0.25s cubic-bezier(0.175, 0.885, 0.32, 1.275)\'; tStub.style.transform = \'translate(0, 0) rotate(0deg)\'; tMain.style.transform = \'none\'; }\n        function executeTear(fx, fy, fr, isNew) { isTorn = true; isDragging = false; burnLine.style.display = \'none\'; tMain.classList.add(\'torn-main\'); tStub.classList.add(\'torn-stub\'); tMain.style.transform = \'none\';\n            if (isNew) { tStub.style.setProperty(\'--p-x\', fx + "px"); tStub.style.setProperty(\'--p-y\', fy + "px"); tStub.style.setProperty(\'--p-r\', fr + "deg"); tStub.classList.add(\'fall-animation\'); localStorage.setItem(STORAGE_KEY, \'torn\'); } else { tStub.classList.add(\'is-vanished\'); }\n            statusText.textContent = \"✖ このチケットは使用済み（半券回収済み）です。\"; statusText.style.color = \"#ff4757\"; }\n        window.addEventListener(\'DOMContentLoaded\', () => { if (localStorage.getItem(STORAGE_KEY) === \'torn\') { executeTear(0, 0, 0, false); } });\n    <\/script>\n<\/body>\n<\/html>';
+
+            const blob = new Blob([htmlContent], { type: "text/html" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "ticket-" + inTitle.value.replace(/\s+/g, '_') + ".html";
+            link.click();
+        });
+    </script>
+</body>
+</html>
