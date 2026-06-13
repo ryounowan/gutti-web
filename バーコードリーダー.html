@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Universal Barcode Studio Perfect v3</title>
+    <script src="https://unpkg.com/@zxing/library@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bwip-js@3.0.4/dist/bwip-js-min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        html, body {
+            margin: 0; padding: 0; width: 100%; height: 100%;
+            background-color: #000;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden; color: #fff;
+        }
+
+        /* 🎥 全画面表示エリア */
+        .main-container { position: relative; width: 100%; height: 100%; z-index: 1; }
+        .camera-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+        #video { width: 100%; height: 100%; object-fit: cover; }
+
+        /* 🛠️ モード切り替えトップタブ */
+        .mode-selector {
+            position: absolute; top: 90px; left: 50%; transform: translateX(-50%);
+            display: flex; background: rgba(0,0,0,0.6); padding: 4px; border-radius: 20px;
+            z-index: 5; border: 1px solid rgba(255,255,255,0.2); pointer-events: auto;
+        }
+        .mode-tab {
+            background: none; border: none; color: #aaa; padding: 6px 16px;
+            font-size: 12px; font-weight: bold; border-radius: 16px; cursor: pointer;
+        }
+        .mode-tab.active { background: #fff; color: #000; }
+
+        /* 🎯 カメラのUIオーバーレイ */
+        .ui-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 2; display: flex; flex-direction: column; justify-content: space-between;
+            pointer-events: none;
+        }
+
+        .top-bar {
+            padding: 20px; display: flex; justify-content: space-between; align-items: center;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.7), rgba(0,0,0,0)); pointer-events: auto;
+        }
+        .book-btn {
+            background: rgba(0, 0, 0, 0.6); border: 2px solid #34a853; font-size: 26px;
+            cursor: pointer; width: 55px; height: 55px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5); transition: all 0.2s; position: relative;
+        }
+        .btn-badge {
+            position: absolute; top: -2px; right: -2px; width: 14px; height: 14px;
+            background: #ff3b30; border-radius: 50%; display: none; border: 2px solid #000;
+        }
+
+        /* スキャン枠 */
+        .scan-frame-container { flex-grow: 1; display: flex; align-items: center; justify-content: center; }
+        .scan-frame {
+            width: 260px; height: 260px; border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 16px; position: relative; box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.4);
+        }
+        .scan-frame::before {
+            content: ''; position: absolute; top: -2px; left: -2px; right: -2px; bottom: -2px;
+            border: 4px solid #34a853; border-radius: 16px;
+            mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><path d="M0 30V0h30M70 0h30v30M100 70v30H70M30 100H0V70" fill="none" stroke="black" stroke-width="10"/></svg>') fill;
+            -webkit-mask: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100"><path d="M0 30V0h30M70 0h30v30M100 70v30H70M30 100H0V70" fill="none" stroke="black" stroke-width="10"/></svg>') fill;
+        }
+
+        .bottom-bar {
+            padding: 20px 20px 40px 20px; background: linear-gradient(to top, rgba(0,0,0,0.8), rgba(0,0,0,0));
+            display: flex; flex-direction: column; gap: 15px; align-items: center; pointer-events: auto;
+        }
+        .zoom-container {
+            display: flex; align-items: center; gap: 10px; width: 80%; max-width: 300px;
+            background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px;
+        }
+        .slider {
+            flex-grow: 1; -webkit-appearance: none; background: rgba(255,255,255,0.3); height: 4px; border-radius: 2px;
+        }
+        .slider::-webkit-slider-thumb {
+            -webkit-appearance: none; background: #fff; width: 16px; height: 16px; border-radius: 50%;
+        }
+
+        /* 📋 カード型結果画面 */
+        .result-toast {
+            position: absolute; bottom: 150px; left: 50%; transform: translateX(-50%);
+            width: 92%; max-width: 420px; background: #fff; color: #000;
+            border-radius: 16px; padding: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.4);
+            z-index: 3; display: none; pointer-events: auto;
+        }
+        .toast-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        .badge { background: #1a73e8; color: white; font-size: 11px; padding: 4px 10px; border-radius: 6px; font-weight: bold; }
+        .close-toast { cursor: pointer; font-size: 20px; color: #999; }
+        .info-title { font-size: 12px; color: #5f6368; font-weight: bold; margin-bottom: 4px; }
+        .toast-content-wrapper { background: #f1f3f4; padding: 12px; border-radius: 8px; margin-bottom: 12px; }
+        .toast-content { font-family: monospace; font-size: 15px; word-break: break-all; max-height: 120px; overflow-y: auto; color: #137333; font-weight: bold; }
+        .toast-actions { display: flex; gap: 8px; }
+        .action-btn { flex: 1; padding: 10px; border: none; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; }
+        .btn-primary { background: #1a73e8; color: white; }
+        .btn-secondary { background: #e8eaed; color: #3c4043; }
+
+        /* ✏️ コード作成画面 */
+        .generate-view {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #121212; z-index: 4; display: none; padding: 150px 20px 40px 20px;
+            flex-direction: column; align-items: center; overflow-y: auto;
+        }
+        .gen-box { width: 100%; max-width: 400px; background: #202124; padding: 20px; border-radius: 16px; border: 1px solid #3c4043; }
+        .gen-field { width: 100%; background: #303134; border: 1px solid #5f6368; color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
+        .gen-select { width: 100%; background: #303134; border: 1px solid #5f6368; color: #fff; padding: 10px; border-radius: 8px; font-size: 14px; margin-bottom: 15px; }
+        
+        /* 🌟 生成物表示用のコンテナ（潰れを絶対に発生させない領域設定） */
+        .output-container { 
+            margin-top: 20px; background: #fff; padding: 20px; border-radius: 12px; 
+            display: none; text-align: center; width: 100%;
+        }
+        .canvas-wrapper {
+            width: 100%; display: flex; justify-content: center; align-items: center; 
+            background: #fff; padding: 10px; border-radius: 8px; margin-bottom: 15px;
+        }
+        /* 💡 潰れ防止のキモ：CSSでwidthやheightを数値固定せず、ブラウザにネイティブな縦横比を維持させる */
+        #gen-canvas { 
+            max-width: 100% !important; 
+            height: auto !important; 
+            display: block;
+            image-rendering: pixelated; /* バーコードのドットや線をクッキリ見せる */
+        }
+
+        /* 📕 ポップアップモーダル */
+        .modal-book {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.9); z-index: 6; display: none;
+            justify-content: center; align-items: center; padding: 20px;
+        }
+        .modal-content {
+            background: #202124; border: 1px solid #3c4043; width: 100%; max-width: 480px;
+            max-height: 80%; border-radius: 16px; display: flex; flex-direction: column;
+        }
+        .modal-header { padding: 15px 20px; border-bottom: 1px solid #3c4043; display: flex; justify-content: space-between; align-items: center; }
+        .modal-body { padding: 20px; overflow-y: auto; font-size: 14px; line-height: 1.6; color: #e8eaed; }
+        .code-explanation { background: #2d2e31; padding: 14px; border-radius: 10px; margin-bottom: 15px; border-left: 4px solid #8ab4f8; }
+        .code-name { font-weight: bold; color: #8ab4f8; font-size: 15px; margin-bottom: 4px; }
+        .meta-line { font-size: 13px; color: #bcc1c6; margin-bottom: 4px; }
+        .meta-line strong { color: #f8f9fa; }
+        .search-box-container { background: #1a73e8; color: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <div class="mode-selector">
+        <button class="mode-tab active" id="tab-scan" onclick="switchAppMode('scan')">📸 読み取り</button>
+        <button class="mode-tab" id="tab-gen" onclick="switchAppMode('gen')">✏️ コード作成</button>
+    </div>
+
+    <div class="main-container" id="view-scan">
+        <div class="camera-view"><video id="video" autoplay playsinline></video></div>
+        <div class="ui-overlay">
+            <div class="top-bar">
+                <button class="book-btn" id="book-trigger" onclick="openBookModal()">📕<span class="btn-badge" id="book-badge"></span></button>
+                <div id="status-text" style="font-size: 12px; color: #aaa; text-shadow: 0 2px 4px #000;">コードに枠を合わせてください</div>
+                <div style="width: 55px;"></div>
+            </div>
+            <div class="scan-frame-container"><div class="scan-frame"></div></div>
+            <div class="bottom-bar">
+                <div class="zoom-container">
+                    <span style="font-size: 11px; color: #aaa;">1x</span>
+                    <input type="range" id="zoom-range" class="slider" min="1" max="1" step="0.1" value="1" disabled>
+                    <span id="zoom-val" style="font-size: 11px;">1.0x</span>
+                </div>
+                <button id="btn-autofocus" style="background:rgba(255,255,255,0.2); border:none; color:#fff; padding:6px 12px; border-radius:15px; font-size:12px; cursor:pointer;" disabled>🎯 ピント微調整</button>
+            </div>
+        </div>
+
+        <div id="result-toast" class="result-toast">
+            <div class="toast-header">
+                <span class="badge" id="res-format">QR CODE</span>
+                <span class="close-toast" onclick="closeToast()">✕</span>
+            </div>
+            <div class="info-title">📥 含まれていた情報：</div>
+            <div class="toast-content-wrapper">
+                <div class="toast-content" id="toast-content"></div>
+            </div>
+            <div class="toast-actions">
+                <button class="action-btn btn-primary" onclick="openBookModal()">📕 誕生国・用途をみる</button>
+                <button class="action-btn btn-secondary" id="btn-toast-copy">📋 コピー</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="generate-view" id="view-gen">
+        <div class="gen-box">
+            <div style="font-size: 15px; font-weight: bold; margin-bottom: 10px; color: #8ab4f8;">変換したい文字を入力</div>
+            <textarea id="gen-input" class="gen-field" rows="3" placeholder="URLやテキストを入力してください..."></textarea>
+            
+            <div style="font-size: 14px; font-weight: bold; margin-bottom: 8px;">作成する形式を選択</div>
+            <select id="gen-type" class="gen-select">
+                <option value="qrcode">■ QRコード (世界標準 / 日本)</option>
+                <option value="microqrcode">■ Micro-QRコード (省スペース / 日本)</option>
+                <option value="pdf417">■ PDF417 (航空券・身分証 / アメリカ)</option>
+                <option value="datamatrix">■ Data Matrix (電子部品・医療 / アメリカ)</option>
+                <option value="azteccode">■ Aztec Code (国際切符・医療 / アメリカ)</option>
+                <option value="code128">■ Code 128 (配送追跡・伝票 / アメリカ)</option>
+                <option value="ean13">■ JAN / EAN-13 (一般商品 / 国際規格)</option>
+            </select>
+            
+            <button class="action-btn btn-primary" style="width: 100%; padding: 12px;" onclick="generateBarcode()">✨ コードを生成する</button>
+
+            <div class="output-container" id="output-box">
+                <div class="canvas-wrapper">
+                    <canvas id="gen-canvas"></canvas>
+                </div>
+                <button class="action-btn btn-secondary" style="width: 100%;" onclick="downloadBarcode()">💾 画像を保存する</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="book-modal" class="modal-book" onclick="closeBookModal()">
+        <div class="modal-content" onclick="event.stopPropagation()">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title-text">📕 世界のコード解説書</div>
+                <span class="close-toast" style="color:#fff;" onclick="closeBookModal()">✕</span>
+            </div>
+            <div class="modal-body" id="modal-body-content"></div>
+        </div>
+    </div>
+
+<script>
+    const codeReader = new ZXing.BrowserMultiFormatReader();
+    let videoTrack = null;
+    let scannedData = null;
+
+    // 世界のコードデータベース
+    const specDetails = {
+        'QR_CODE': {
+            name: 'QRコード (QR Code)', origin: '日本 🇯🇵 (デンソーウェーブ)',
+            use: 'キャッシュレス決済、Webサイトへの誘導、電子チケット、各種ポスター。',
+            desc: '3つの角にある四角いマーク（切り出しシンボル）が特徴。360度どの方向からカメラをかざしても超高速で正確にデータを展開できる、現在世界で最も普及している2次元コードです。'
+        },
+        'MICRO_QR': {
+            name: 'Micro-QRコード (マイクロQR)', origin: '日本 🇯🇵 (デンソーウェーブ)',
+            use: 'お菓子の小さな箱、化粧品の容器、極小の電子基板、各種おもちゃ。',
+            desc: '切り出しシンボルが1つしかなく、通常のQRコードの4分の1以下の面積に印字できる超省スペース特化型規格です。'
+        },
+        'PDF_417': {
+            name: 'PDF417', origin: 'アメリカ 🇺🇸 (Symbol Technologies)',
+            use: '航空券の搭乗券（国際標準規格）、アメリカや各地の運転免許証、大型物流ラベル。',
+            desc: '横に長いバーコードが何層も積み重なった外観をしています。ネット環境が全くない場所でも、コード自体に「名前、フライト便名、座席番号」などの大量のテキストデータを直接格納できるペーパーデータベースです。'
+        },
+        'DATA_MATRIX': {
+            name: 'データマトリックス (Data Matrix)', origin: 'アメリカ 🇺🇸 (International Data Matrix)',
+            use: '半導体・CPUチップ、医療用医薬品の極小パッケージ、自動車パーツへのレーザー刻印。',
+            desc: '外枠が「L字型」のガイドラインになっている2次元コード。QRコードよりもさらに小さな正方形スペースに配置でき、工場の金属パーツ等に直接彫り込んでも高い耐久性で読み取れるため、工業界の国際標準となっています。'
+        },
+        'AZTEC': {
+            name: 'アズテックコード (Aztec Code)', origin: 'アメリカ 🇺🇸 (Honeywell)',
+            use: '海外の鉄道切符（ユーロスター等）、航空券、病院の患者識別用リストバンド。',
+            desc: '中心に古代アズテックのピラミッドに似た正方形マークが1つ配置されています。コードの周囲に「白い余白（マージン）」を必要としないため、限られた印字スペースを最大限に活用できる特性を持っています。'
+        },
+        'EAN_13': {
+            name: 'JAN / EAN-13 (商品バーコード)', origin: '国際規格 🌐 (アメリカのUPC規格がベース)',
+            use: 'スーパー、コンビニ、ドラッグストアなどの市販商品のPOSレジ管理。',
+            desc: '世界のあらゆる既製品に印刷されている、最もなじみ深い1次元バーコード。13桁の数字で構成され、最初の2〜3桁（日本は45または49）が国籍を示し、以降でメーカーと商品を完全識別します。'
+        },
+        'CODE_128': {
+            name: 'Code 128 (高密度1次元コード)', origin: 'アメリカ 🇺🇸 (Computer Identics)',
+            use: '宅配便の追跡バーコード（ヤマト運輸、Amazon等）、各種公共料金の払込用紙。',
+            desc: '数字だけではなく、アルファベットや制御用記号など、アスキー文字（128文字）のすべてを完璧に表現できる高密度なバーコード。読み取りの信頼性が非常に高いため、物流インフラのデファクトスタンダードです。'
+        }
+    };
+
+    window.addEventListener('load', () => { initCamera(); });
+
+    function initCamera() {
+        const constraints = { video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } } };
+        codeReader.decodeFromConstraints(constraints, 'video', (result) => {
+            if (result && (!scannedData || scannedData.text !== result.text)) {
+                scannedData = result;
+                document.getElementById('book-badge').style.display = 'block';
+                document.getElementById('book-trigger').style.border = '2px solid #1a73e8';
+                document.getElementById('status-text').innerText = "💡 スキャンに成功しました！";
+                document.getElementById('status-text').style.color = "#34a853";
+                
+                document.getElementById('result-toast').style.display = 'block';
+                
+                let formatName = "UNKNOWN";
+                if (result.format !== undefined) {
+                    formatName = Object.keys(ZXing.BarcodeFormat).find(key => ZXing.BarcodeFormat[key] === result.format) || String(result.format);
+                }
+                
+                if(formatName === "QR_CODE" && result.text.length <= 35 && !result.text.includes("http")) {
+                    formatName = "MICRO_QR";
+                }
+                
+                document.getElementById('res-format').innerText = formatName.replace('_', ' ');
+
+                const text = result.text.trim();
+                const urlPattern = /^(http|https):\/\/[^\s$.?#].[^\s]*$/i;
+                document.getElementById('toast-content').innerHTML = text.match(urlPattern) ? `<a href="${text}" target="_blank" style="color:#1a73e8; text-decoration:underline;">${text}</a>` : text;
+
+                document.getElementById('btn-toast-copy').onclick = () => {
+                    navigator.clipboard.writeText(text).then(() => alert('コピーしました！'));
+                };
+            }
+        }).then(() => { setTimeout(setupCameraCapabilities, 1000); }).catch(e => console.error(e));
+    }
+
+    function switchAppMode(mode) {
+        document.getElementById('tab-scan').classList.toggle('active', mode === 'scan');
+        document.getElementById('tab-gen').classList.toggle('active', mode === 'gen');
+        document.getElementById('view-scan').style.display = mode === 'scan' ? 'block' : 'none';
+        document.getElementById('view-gen').style.display = mode === 'gen' ? 'flex' : 'none';
+    }
+
+    function openBookModal() {
+        const title = document.getElementById('modal-title-text');
+        const body = document.getElementById('modal-body-content');
+        document.getElementById('book-modal').style.display = 'flex';
+
+        if (scannedData) {
+            let formatName = "UNKNOWN";
+            if (scannedData.format !== undefined) {
+                formatName = Object.keys(ZXing.BarcodeFormat).find(key => ZXing.BarcodeFormat[key] === scannedData.format) || String(scannedData.format);
+            }
+            if(formatName === "QR_CODE" && scannedData.text.length <= 35 && !scannedData.text.includes("http")) {
+                formatName = "MICRO_QR";
+            }
+            
+            const rawText = scannedData.text.trim();
+            const matched = specDetails[formatName] || { 
+                name: formatName.replace('_', ' '), 
+                origin: '国際標準規格', 
+                use: '産業・製品識別用', 
+                desc: 'ツールが自動識別したコード形式です。' 
+            };
+
+            title.innerText = `🔍 識別コードのルーツ解析`;
+            body.innerHTML = `
+                <div class="search-box-container">
+                    <div style="font-weight:bold; font-size:14px;">🌐 データの中身をGoogle検索</div>
+                    <div style="font-size:11px; opacity:0.8; font-family:monospace; margin:4px 0 8px 0; word-break:break-all;">"${rawText}"</div>
+                    <a href="https://www.google.com/search?q=${encodeURIComponent(rawText)}" target="_blank" class="action-btn btn-secondary" style="text-decoration:none; display:inline-block; font-size:12px; padding:6px 12px; border-radius:4px;">ネットで詳細を調べる</a>
+                </div>
+                <div class="code-explanation">
+                    <div class="code-name">■ 判別された規格: ${matched.name}</div>
+                    <div class="meta-line">📍 誕生した国: <strong>${matched.origin}</strong></div>
+                    <div class="meta-line">💼 主な用途: <strong>${matched.use}</strong></div>
+                    <div style="color: #e8eaed; margin-top:8px; font-size:13px; border-top:1px solid #3c4043; padding-top:8px;">${matched.desc}</div>
+                </div>
+                <button class="action-btn btn-secondary" style="width:100%;" onclick="resetScan()">🔄 カメラをリセットして再スキャン</button>
+            `;
+        } else {
+            title.innerText = `📕 世界のコード解説書`;
+            let htmlList = `<p style="font-size:12px; color:#aaa; margin-top:0; margin-bottom:15px;">世界中のあらゆる場所で使われている主要なコード規格の一覧です。</p>`;
+            for (let k in specDetails) {
+                htmlList += `
+                    <div class="code-explanation">
+                        <div class="code-name">■ ${specDetails[k].name}</div>
+                        <div class="meta-line">📍 誕生国: <strong>${specDetails[k].origin}</strong></div>
+                        <div class="meta-line">💼 使用用途: <strong>${specDetails[k].use}</strong></div>
+                        <div style="color: #d1d5db; font-size:12.5px; margin-top:4px;">${specDetails[k].desc}</div>
+                    </div>`;
+            }
+            body.innerHTML = htmlList;
+        }
+    }
+
+    // ✏️ 全規格コード生成（キャンバスの強制拡大縮小バグを完全排除）
+    function generateBarcode() {
+        const text = document.getElementById('gen-input').value.trim();
+        const type = document.getElementById('gen-type').value;
+        const canvas = document.getElementById('gen-canvas');
+        if (!text) { alert('文字を入力してください'); return; }
+
+        document.getElementById('output-box').style.display = 'block';
+        
+        const hasKanji = /[^\x00-\x7F]/.test(text);
+        if (hasKanji && type !== 'qrcode' && type !== 'microqrcode') {
+            alert('エラー: QRコード以外のバーコード規格は日本語に対応していません。半角の英数字を入力してください。');
+            document.getElementById('output-box').style.display = 'none';
+            return;
+        }
+
+        const is2D = (type === 'qrcode' || type === 'microqrcode' || type === 'datamatrix' || type === 'azteccode');
+
+        try {
+            // 💡 解決策: Canvasに手動で固定の width/height を割り当てない。
+            // bwipjsが生成する本来のピクセル数にCanvasを完全委ねるため、属性を一度全削除。
+            canvas.removeAttribute('width');
+            canvas.removeAttribute('height');
+            canvas.style.width = '';
+            canvas.style.height = '';
+
+            // bwip-jsのレンダリング処理を実行
+            bwipjs.toCanvas('gen-canvas', {
+                bcid: type,       
+                text: text,       
+                scale: 4,                        // ダウンロード時も綺麗な、十分な解像度を確保
+                height: is2D ? undefined : 12,   // 1次元コードのみ、適切な高さを指定
+                includetext: !is2D,              // 1次元バーコードのみ数値を下に記載
+                textxalign: 'center',
+            });
+            
+        } catch (e) {
+            alert('生成に失敗しました。データ長、または対応文字をご確認ください。');
+            document.getElementById('output-box').style.display = 'none';
+        }
+    }
+
+    function downloadBarcode() {
+        const canvas = document.getElementById('gen-canvas');
+        const link = document.createElement('a');
+        link.download = `generated_${document.getElementById('gen-type').value}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    }
+
+    function closeToast() { document.getElementById('result-toast').style.display = 'none'; }
+    function closeBookModal() { document.getElementById('book-modal').style.display = 'none'; }
+    
+    function resetScan() {
+        scannedData = null; 
+        document.getElementById('book-badge').style.display = 'none';
+        document.getElementById('book-trigger').style.border = '2px solid #34a853';
+        document.getElementById('status-text').innerText = "コードに枠を合わせてください";
+        document.getElementById('status-text').style.color = "#aaa";
+        closeToast(); closeBookModal();
+    }
+
+    function setupCameraCapabilities() {
+        const videoElement = document.getElementById('video');
+        const zoomRange = document.getElementById('zoom-range');
+        const zoomVal = document.getElementById('zoom-val');
+        if (!videoElement.srcObject) return;
+        videoTrack = videoElement.srcObject.getVideoTracks()[0];
+        if (!videoTrack) return;
+        const capabilities = videoTrack.getCapabilities();
+        if (capabilities.zoom) {
+            zoomRange.min = capabilities.zoom.min; zoomRange.max = capabilities.zoom.max;
+            zoomRange.step = capabilities.zoom.step || 0.1; zoomRange.disabled = false;
+            zoomRange.addEventListener('input', (e) => {
+                zoomVal.innerText = parseFloat(e.target.value).toFixed(1) + "x";
+                videoTrack.applyConstraints({ advanced: [{ zoom: e.target.value }] });
+            });
+        }
+        if (capabilities.focusMode && capabilities.focusMode.includes('continuous')) {
+            document.getElementById('btn-autofocus').disabled = false;
+            document.getElementById('btn-autofocus').addEventListener('click', () => {
+                videoTrack.applyConstraints({ advanced: [{ focusMode: "single" }] }).then(() => {
+                    setTimeout(() => { videoTrack.applyConstraints({ advanced: [{ focusMode: "continuous" }] }); }, 500);
+                });
+            });
+        }
+    }
+</script>
+</body>
+</html>
