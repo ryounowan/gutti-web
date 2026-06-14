@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Studio Master Pro - Legacy Universal</title>
-    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
+    <title>Gutti Studio Master Pro - Pure WebRTC</title>
     <style>
         :root { 
             --bg: #0f1115; --panel: #20242a; --active: #00ff41; 
@@ -45,6 +44,7 @@
         .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; background: #3d444d; -webkit-transition: 0.1s; transition: 0.1s; font-size: 12px; }
         .btn:active { -webkit-transform: scale(0.98); transform: scale(0.98); opacity: 0.8; }
         .btn-on { background: #2563eb; }
+        .btn-off { background: #4b5563; }
         .btn-rec { background: #b91c1c; }
         .btn-play { background: #00ff41; background: var(--active); color: #000; }
 
@@ -56,6 +56,10 @@
 
         input[type="file"] { display: none; }
         .file-link { font-size: 10px; color: #3b82f6; color: var(--seek); cursor: pointer; text-decoration: underline; }
+        
+        /* 手動接続用エリア */
+        .sdp-area { width: 100%; margin-top: 10px; background: #111; padding: 10px; border-radius: 8px; box-sizing: border-box; }
+        textarea { width: 100%; height: 60px; background: #000; color: #00ff41; font-family: monospace; font-size: 10px; border: 1px solid #333; box-sizing: border-box; resize: none; margin-bottom: 8px; }
     </style>
 </head>
 <body>
@@ -79,9 +83,18 @@
         <div id="main" style="display:none">
             <div class="btn-row">
                 <button id="btnOnAir" class="btn btn-on" onclick="toggleAir(true)">ON AIR</button>
-                <button id="btnOffAir" class="btn" onclick="toggleAir(false)" disabled>STOP</button>
+                <button id="btnOffAir" class="btn btn-off" onclick="toggleAir(false)" disabled>STOP</button>
             </div>
             <button id="btnRec" class="btn btn-rec" style="width:100%; margin-top:10px;" onclick="toggleRecording()" disabled>録音開始 (START REC)</button>
+
+            <div class="unit-label">4sレガシー中継接続パネル</div>
+            <div class="sdp-area">
+                <div style="font-size:10px; color:#aaa; margin-bottom:4px;">① リスナー側で生成された鍵をここに貼り付け:</div>
+                <textarea id="remote-sdp" placeholder="ここにリスナーの鍵をペーストして下のボタンを押す"></textarea>
+                <button class="btn btn-play" style="padding:8px;" onclick="acceptListener()">② リスナーを追加確認</button>
+                <div style="font-size:10px; color:#aaa; margin-top:8px; margin-bottom:4px;">③ 返ってきた合鍵（これをリスナーへ渡す）:</div>
+                <textarea id="local-sdp" readonly onclick="this.select()" placeholder="上のボタンを押すとここに合鍵が出ます"></textarea>
+            </div>
 
             <div class="unit-label">MIC / VOICE FX</div>
             <div class="strip">
@@ -90,89 +103,38 @@
                     <span id="v-mic">100%</span>
                 </div>
                 <input type="range" min="0" max="2" step="0.01" value="1" oninput="updateVol('mic', this.value)">
-                
-                <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-                    <div>
-                        <div style="font-size:9px; color:#888;">ECHO (DELAY)</div>
-                        <input type="range" min="0" max="0.8" step="0.01" value="0" oninput="updateFX('echo', this.value)">
-                    </div>
-                    <div>
-                        <div style="font-size:9px; color:#888;">REVERB</div>
-                        <input type="range" min="0" max="0.8" step="0.01" value="0" oninput="updateFX('verb', this.value)">
-                    </div>
-                </div>
             </div>
 
             <div class="unit-label">BGM CHANNELS</div>
             <div id="slots"></div>
-
-            <div class="unit-label">SAMPLER</div>
-            <div class="se-grid" id="se-pads"></div>
-            <div style="margin-top:20px; text-align:center;">
-                <button class="btn" style="background:transparent; border:1px solid #444; color:#666;" onclick="location.reload()">Emergency Reset</button>
-            </div>
         </div>
     </div>
 </div>
 
 <script>
-    // レガシー環境のために、すべてのlet/constをvarに変更
-    var peer, audioCtx, destination, micGain, analyser, conns = {};
-    var micSource, echoDelay, echoGain, reverbNode, monitorGain;
+    var audioCtx, destination, micGain, analyser;
+    var micSource, monitorGain;
     var isAirOn = false, isRecording = false;
-    var mediaRecorder, recordedChunks = [];
+    var pc = null; // WebRTCネイティブ接続オブジェクト
+    var localStream = null;
 
     var bgmStates = [
-        { id: 0, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false },
-        { id: 1, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false },
-        { id: 2, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false }
+        { id: 0, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false }
     ];
-    var seBuffers = [null, null, null, null];
 
     function openStation() {
-        var roomName = document.getElementById('room').value;
-        if(!roomName) { alert("STATION NAMEを入力してください"); return; }
-        
-        // 古いブラウザ用のオーディオ事前アクティベート
-        var AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-        if(AudioCtxClass) {
-            audioCtx = new AudioCtxClass();
-        }
-
-        peer = new Peer(roomName + "-host");
-        
-        peer.on('open', function() {
-            document.getElementById('setup').style.display = 'none';
-            document.getElementById('main').style.display = 'block';
-            initAudio();
-            initUI();
-        });
-        
-        peer.on('connection', function(c) {
-            conns[c.peer] = c;
-            // リスナーが接続してきた瞬間、配信中の音声ストリームをすぐに投げつける
-            if(audioCtx && destination && isAirOn) {
-                peer.call(c.peer, destination.stream);
-            }
-        });
+        document.getElementById('setup').style.display = 'none';
+        document.getElementById('main').style.display = 'block';
+        initAudio();
+        initUI();
     }
 
     function initAudio() {
-        if(!audioCtx) {
-            var AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-            audioCtx = new AudioCtxClass();
-        }
+        var AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioCtxClass();
         destination = audioCtx.createMediaStreamDestination();
         analyser = audioCtx.createAnalyser();
-        
         micGain = audioCtx.createGain();
-        
-        echoDelay = audioCtx.createDelay();
-        echoDelay.delayTime.value = 0.3;
-        echoGain = audioCtx.createGain();
-        echoGain.gain.value = 0;
-        
-        reverbNode = audioCtx.createGain(); // 簡易代用
         
         monitorGain = audioCtx.createGain();
         monitorGain.gain.value = 0;
@@ -182,7 +144,6 @@
         micGain.connect(analyser);
         micGain.connect(monitorGain);
 
-        // BGM初期化を安全なforループで実行
         for(var i = 0; i < bgmStates.length; i++) {
             var s = bgmStates[i];
             s.gainNode = audioCtx.createGain();
@@ -202,7 +163,6 @@
             requestAnimationFrame(updateMeter);
         };
         updateMeter();
-        requestAnimationFrame(smoothSeekUpdate);
     }
 
     function initUI() {
@@ -211,102 +171,18 @@
         for(var i = 0; i < bgmStates.length; i++) {
             var s = bgmStates[i];
             slotsHtml += '<div class="strip" id="slot-' + s.id + '">' +
-                '<div style="display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between; font-size:10px;">' +
+                '<div style="display:flex; justify-content:space-between; font-size:10px;">' +
                     '<span id="t-' + s.id + '" style="color:#aaa;">CH ' + (s.id+1) + ': NO DATA</span>' +
-                    '<label><input type="checkbox" onchange="bgmStates[' + s.id + '].loop=this.checked"> LOOP</label>' +
                 '</div>' +
-                '<div class="seek-box" id="seekbox-' + s.id + '">' +
-                    '<div class="seek-info" id="time-' + s.id + '">0:00 / 0:00</div>' +
-                    '<div class="seek-fill" id="seek-' + s.id + '"></div>' +
-                '</div>' +
-                '<div style="display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between; font-size:10px;">' +
-                    '<span>VOLUME</span><span id="v-bgm' + s.id + '">50%</span>' +
-                '</div>' +
-                '<input type="range" min="0" max="1" step="0.01" value="0.5" oninput="updateVol(\'bgm' + s.id + '\', this.value)">' +
-                '<div class="btn-row">' +
+                '<input type="file" id="f' + s.id + '" onchange="loadAudio(' + s.id + ', this)">' +
+                '<button class="btn" onclick="document.getElementById(\'f' + s.id + '\').click()">ファイル選択</button>' +
+                '<div class="btn-row" style="margin-top:5px;">' +
                     '<button class="btn btn-play" onclick="playBGM(' + s.id + ')">PLAY</button>' +
                     '<button class="btn" onclick="pauseBGM(' + s.id + ')">STOP</button>' +
                 '</div>' +
-                '<div style="margin-top:10px; display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between;">' +
-                    '<span class="file-link" onclick="document.getElementById(\'f' + s.id + '\').click()">📁 LOAD FILE</span>' +
-                '</div>' +
-                '<input type="file" id="f' + s.id + '" onchange="loadAudio(' + s.id + ', this)">' +
             '</div>';
         }
         slots.innerHTML = slotsHtml;
-        
-        // 遅延実行でシークイベントを紐付け
-        setTimeout(function() {
-            for(var k=0; k<bgmStates.length; k++) { setupSeekEvent(k); }
-        }, 200);
-
-        var pads = document.getElementById('se-pads');
-        var padsHtml = "";
-        for(var m=0; m<4; m++) {
-            padsHtml += '<div>' +
-                '<button class="se-btn" id="se-' + m + '" onclick="playSE(' + m + ')" style="width:100%">SE ' + (m+1) + '</button>' +
-                '<div class="file-link" style="text-align:center; margin-top:5px;" onclick="document.getElementById(\'sf' + m + '\').click()">SET FILE</div>' +
-                '<input type="file" id="sf' + m + '" onchange="loadSE(' + m + ',this)">' +
-            '</div>';
-        }
-        pads.innerHTML = padsHtml;
-    }
-
-    function setupSeekEvent(id) {
-        var box = document.getElementById("seekbox-" + id);
-        if(!box) return;
-        
-        var handleMove = function(e) {
-            if(!isAirOn) return;
-            var s = bgmStates[id]; if(!s.buffer) return;
-            var rect = box.getBoundingClientRect();
-            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            var x = clientX - rect.left;
-            s.offset = Math.max(0, Math.min((x / rect.width) * s.buffer.duration, s.buffer.duration));
-            if(s.isPlaying) playBGM(id);
-            else updateSeekDisplay(id);
-        };
-
-        box.addEventListener('mousedown', function(e) {
-            handleMove(e);
-            var moveListener = function(ee) { handleMove(ee); };
-            var upListener = function() {
-                window.removeEventListener('mousemove', moveListener);
-                window.removeEventListener('mouseup', upListener);
-            };
-            window.addEventListener('mousemove', moveListener);
-            window.addEventListener('mouseup', upListener);
-        });
-
-        box.addEventListener('touchstart', function(e) {
-            handleMove(e);
-            var moveListener = function(ee) { handleMove(ee); };
-            var upListener = function() {
-                window.removeEventListener('touchmove', moveListener);
-                window.removeEventListener('touchend', upListener);
-            };
-            window.addEventListener('touchmove', moveListener);
-            window.addEventListener('touchend', upListener);
-        });
-    }
-
-    function smoothSeekUpdate() {
-        for(var i=0; i<bgmStates.length; i++) {
-            var s = bgmStates[i];
-            if(!s.buffer || !s.isPlaying) continue;
-            var cur = Math.min(audioCtx.currentTime - s.startTime, s.buffer.duration);
-            var fillEl = document.getElementById("seek-" + s.id);
-            var timeEl = document.getElementById("time-" + s.id);
-            if(fillEl) fillEl.style.width = (cur / s.buffer.duration * 100) + "%";
-            if(timeEl) timeEl.innerText = formatTime(cur) + " / " + formatTime(s.buffer.duration);
-        }
-        requestAnimationFrame(smoothSeekUpdate);
-    }
-
-    function updateSeekDisplay(i) {
-        var s = bgmStates[i];
-        document.getElementById("seek-" + s.id).style.width = (s.offset / s.buffer.duration * 100) + "%";
-        document.getElementById("time-" + s.id).innerText = formatTime(s.offset) + " / " + formatTime(s.buffer.duration);
     }
 
     function toggleAir(on) {
@@ -314,161 +190,84 @@
         isAirOn = on;
         document.getElementById('btnOnAir').disabled = on;
         document.getElementById('btnOffAir').disabled = !on;
-        document.getElementById('btnRec').disabled = !on;
         document.getElementById('air-led').className = on ? "on-air-led active" : "on-air-led";
 
         if(on) {
-            var getUserMediaLegacy = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
-            
             var successStream = function(stream) {
+                localStream = stream;
                 micSource = audioCtx.createMediaStreamSource(stream);
-                micSource.connect(echoDelay);
-                echoDelay.connect(echoGain);
-                echoGain.connect(micGain);
                 micSource.connect(micGain);
-
-                // すでに接続を待機している全リスナーに一斉発信
-                for(var peerId in conns) {
-                    if(conns.hasOwnProperty(peerId)) {
-                        peer.call(peerId, destination.stream);
-                    }
-                }
                 document.getElementById('air-timer').innerText = "LIVE ON AIR";
             };
-
-            var errorStream = function(e) {
-                alert("マイクの許可が必要です"); 
-                toggleAir(false);
-            };
+            var errorStream = function() { alert("マイクが使えません"); };
 
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
                 navigator.mediaDevices.getUserMedia({ audio: true }).then(successStream)["catch"](errorStream);
-            } else if(getUserMediaLegacy) {
-                getUserMediaLegacy.call(navigator, { audio: true }, successStream, errorStream);
+            } else {
+                var legacy = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+                if(legacy) legacy.call(navigator, { audio: true }, successStream, errorStream);
             }
         } else {
-            if(isRecording) toggleRecording();
-            for(var i=0; i<bgmStates.length; i++) { pauseBGM(i); }
-            if(micSource) micSource.disconnect();
             document.getElementById('air-timer').innerText = "OFF AIR";
         }
     }
 
+    // ネイティブ接続処理（PeerJSを使わず直結）
+    function acceptListener() {
+        var rtcPeerConnection = window.RTCPeerConnection || window.webkitRTCPeerConnection || window.mozRTCPeerConnection;
+        pc = new rtcPeerConnection({ iceServers: [] });
+        
+        // 配信中の音声をトラックに追加
+        var stream = destination.stream;
+        var tracks = stream.getAudioTracks();
+        if(tracks.length > 0) {
+            pc.addTrack(tracks[0], stream);
+        }
+
+        var rsdp = document.getElementById('remote-sdp').value;
+        if(!rsdp) { alert("リスナーの鍵を入力してください"); return; }
+
+        var RTCSessionDescriptionClass = window.RTCSessionDescription || window.webkitRTCSessionDescription;
+        var desc = new RTCSessionDescriptionClass({ type: 'offer', sdp: atob(rsdp) });
+        
+        pc.setRemoteDescription(desc, function() {
+            pc.createAnswer(function(answer) {
+                pc.setLocalDescription(answer, function() {
+                    document.getElementById('local-sdp').value = btoa(answer.sdp);
+                }, function(e){console.log(e);});
+            }, function(e){console.log(e);});
+        }, function(e){ alert("鍵の形式が正しくありません"); });
+    }
+
     function playBGM(i) {
-        if(!isAirOn) return;
         var s = bgmStates[i]; if(!s.buffer) return;
-        if(s.source) { try{s.source.stop();}catch(e){} }
         s.source = audioCtx.createBufferSource();
         s.source.buffer = s.buffer;
         s.source.connect(s.gainNode);
-        s.source.onended = function() { 
-            if(s.isPlaying) { 
-                if(s.loop) playBGM(i); else pauseBGM(i); 
-            } 
-        };
-        s.source.start(0, s.offset);
-        s.startTime = audioCtx.currentTime - s.offset;
-        s.isPlaying = true;
+        s.source.start(0);
         document.getElementById("slot-" + i).classList.add('active');
     }
 
     function pauseBGM(i) {
         var s = bgmStates[i];
-        if(s.isPlaying) {
-            s.offset = audioCtx.currentTime - s.startTime;
-            if(s.source) { try{s.source.stop();}catch(e){} s.source = null; }
-            s.isPlaying = false;
-        }
+        if(s.source) { s.source.stop(); s.source = null; }
         document.getElementById("slot-" + i).classList.remove('active');
     }
 
     function loadAudio(i, input) {
         var f = input.files[0]; if(!f) return;
-        document.getElementById("t-" + i).innerText = "LOADING...";
-        
-        var fileReader = new FileReader();
-        fileReader.onload = function(e) {
-            if(!audioCtx) return;
-            audioCtx.decodeAudioData(e.target.result, function(buffer) {
-                bgmStates[i].buffer = buffer;
-                document.getElementById("t-" + i).innerText = f.name.substring(0,18).toUpperCase();
-                bgmStates[i].offset = 0; 
-                updateSeekDisplay(i);
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            audioCtx.decodeAudioData(e.target.result, function(buf) {
+                bgmStates[i].buffer = buf;
+                document.getElementById("t-" + i).innerText = f.name.substring(0,15).toUpperCase();
             });
         };
-        fileReader.readAsArrayBuffer(f);
+        reader.readAsArrayBuffer(f);
     }
 
-    function updateVol(type, val) {
-        if(type === 'mic') micGain.gain.value = val;
-        else bgmStates[parseInt(type.replace('bgm',''), 10)].gainNode.gain.value = val;
-        document.getElementById("v-" + type).innerText = Math.round(val*100)+"%";
-    }
-
-    function toggleMonitor(on) {
-        if(monitorGain) monitorGain.gain.value = on ? 1 : 0;
-    }
-
-    function updateFX(type, val) {
-        if(type === 'echo') echoGain.gain.value = val;
-    }
-
-    function toggleRecording() {
-        if(!isRecording) {
-            recordedChunks = [];
-            if(typeof MediaRecorder === 'undefined') {
-                alert("この端末は録音に対応していません");
-                return;
-            }
-            mediaRecorder = new MediaRecorder(destination.stream);
-            mediaRecorder.ondataavailable = function(e) { recordedChunks.push(e.data); };
-            mediaRecorder.onstop = function() {
-                var blob = new Blob(recordedChunks, { type: 'audio/webm' });
-                var url = URL.createObjectURL(blob);
-                var a = document.createElement('a');
-                a.href = url; a.download = "radio_log_" + new Date().getTime() + ".webm";
-                a.click();
-            };
-            mediaRecorder.start();
-            isRecording = true;
-            document.getElementById('btnRec').innerText = "録音停止 (SAVE)";
-            document.getElementById('rec-label').style.display = "block";
-        } else {
-            mediaRecorder.stop();
-            isRecording = false;
-            document.getElementById('btnRec').innerText = "録音開始 (START REC)";
-            document.getElementById('rec-label').style.display = "none";
-        }
-    }
-
-    function formatTime(sec) {
-        var m = Math.floor(sec/60);
-        var s = Math.floor(sec%60).toString();
-        if(s.length < 2) s = "0" + s;
-        return m + ":" + s;
-    }
-
-    function playSE(i) { 
-        if(isAirOn && seBuffers[i]) { 
-            var s = audioCtx.createBufferSource(); 
-            s.buffer = seBuffers[i]; 
-            s.connect(destination); 
-            s.start(0); 
-        } 
-    }
-    
-    function loadSE(i, input) { 
-        var f = input.files[0]; if(!f) return;
-        var fileReader = new FileReader();
-        fileReader.onload = function(e) {
-            if(!audioCtx) return;
-            audioCtx.decodeAudioData(e.target.result, function(buffer) {
-                seBuffers[i] = buffer; 
-                document.getElementById("se-" + i).style.borderColor = "#00ff41"; 
-            });
-        };
-        fileReader.readAsArrayBuffer(f);
-    }
+    function updateVol(type, val) { micGain.gain.value = val; }
+    function toggleMonitor(on) { monitorGain.gain.value = on ? 1 : 0; }
 </script>
 </body>
 </html>
