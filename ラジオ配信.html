@@ -3,55 +3,50 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Studio Master Pro</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Gutti Studio Master Pro - Legacy Universal</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
         :root { 
             --bg: #0f1115; --panel: #20242a; --active: #00ff41; 
             --seek: #3b82f6; --record: #ff3e3e; --text: #e2e8f0;
         }
         body { 
-            font-family: sans-serif; background: var(--bg); color: var(--text); 
-            margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center;
+            font-family: sans-serif; background: #0f1115; background: var(--bg); color: #e2e8f0; color: var(--text); 
+            margin: 0; padding: 10px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-box-direction: normal; -webkit-flex-direction: column; flex-direction: column; -webkit-box-align: center; -webkit-align-items: center; align-items: center;
         }
         .console { 
-            background: var(--panel); width: 100%; max-width: 420px; border-radius: 20px; 
+            background: #20242a; background: var(--panel); width: 100%; max-width: 420px; border-radius: 20px; 
             box-shadow: 0 30px 60px rgba(0,0,0,0.8); border: 1px solid #333; overflow: hidden;
-            display: flex; flex-direction: column;
+            display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-orient: vertical; -webkit-box-direction: normal; -webkit-flex-direction: column; flex-direction: column;
         }
-        /* ヘッダー */
         .top-unit { background: #000; padding: 15px; border-bottom: 2px solid #333; }
-        .status-display { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        .on-air-led { color: #444; font-weight: bold; font-family: monospace; display: flex; align-items: center; gap: 8px; }
-        .on-air-led.active { color: var(--record); text-shadow: 0 0 10px var(--record); }
+        .status-display { display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-pack: space-between; -webkit-justify-content: space-between; justify-content: space-between; -webkit-box-align: center; -webkit-align-items: center; align-items: center; margin-bottom: 10px; }
+        .on-air-led { color: #444; font-weight: bold; font-family: monospace; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; gap: 8px; }
+        .on-air-led.active { color: #ff3e3e; color: var(--record); text-shadow: 0 0 10px #ff3e3e; text-shadow: 0 0 10px var(--record); }
         .led-dot { width: 12px; height: 12px; background: #333; border-radius: 50%; }
-        .active .led-dot { background: var(--record); box-shadow: 0 0 8px var(--record); }
+        .active .led-dot { background: #ff3e3e; background: var(--record); box-shadow: 0 0 8px #ff3e3e; box-shadow: 0 0 8px var(--record); }
 
         .vu-meter { height: 10px; background: #111; border-radius: 5px; overflow: hidden; position: relative; border: 1px solid #222; }
-        #level-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff41 60%, #ffaa00 80%, #ff0000 100%); transition: width 0.05s; }
+        #level-bar { width: 0%; height: 100%; background: -webkit-linear-gradient(left, #00ff41 60%, #ffaa00 80%, #ff0000 100%); background: linear-gradient(90deg, #00ff41 60%, #ffaa00 80%, #ff0000 100%); -webkit-transition: width 0.05s; transition: width 0.05s; }
 
-        /* スクロール可能なメイン操作部 */
-        .main-scroll { padding: 15px; max-height: 80vh; overflow-y: auto; }
+        .main-scroll { padding: 15px; max-height: 80vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
         
-        .unit-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px; display: flex; align-items: center; gap: 10px; }
-        .unit-label::after { content: ""; flex: 1; height: 1px; background: #333; }
+        .unit-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px; display: -webkit-box; display: -webkit-flex; display: flex; -webkit-box-align: center; -webkit-align-items: center; align-items: center; gap: 10px; }
+        .unit-label::after { content: ""; -webkit-box-flex: 1; -webkit-flex: 1; flex: 1; height: 1px; background: #333; }
 
-        /* フェーダーカード */
         .strip { background: #2a2f37; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 5px solid #444; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
-        .strip.active { border-left-color: var(--active); background: #2d353f; }
+        .strip.active { border-left-color: #00ff41; border-left-color: var(--active); background: #2d353f; }
 
-        /* シークバー改修 */
         .seek-box { height: 28px; background: #000; border-radius: 6px; position: relative; overflow: hidden; cursor: crosshair; margin: 10px 0; border: 1px solid #444; touch-action: none; }
-        .seek-fill { width: 0%; height: 100%; background: var(--seek); opacity: 0.4; pointer-events: none; }
+        .seek-fill { width: 0%; height: 100%; background: #3b82f6; background: var(--seek); opacity: 0.4; pointer-events: none; }
         .seek-info { position: absolute; width: 100%; text-align: center; line-height: 28px; font-size: 11px; font-family: monospace; z-index: 2; pointer-events: none; }
 
-        /* ボタン・フェーダー */
         .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; background: #3d444d; transition: 0.1s; font-size: 12px; }
-        .btn:active { transform: scale(0.98); opacity: 0.8; }
+        .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; background: #3d444d; -webkit-transition: 0.1s; transition: 0.1s; font-size: 12px; }
+        .btn:active { -webkit-transform: scale(0.98); transform: scale(0.98); opacity: 0.8; }
         .btn-on { background: #2563eb; }
         .btn-rec { background: #b91c1c; }
-        .btn-play { background: var(--active); color: #000; }
+        .btn-play { background: #00ff41; background: var(--active); color: #000; }
 
         input[type="range"] { -webkit-appearance: none; width: 100%; height: 8px; background: #111; border-radius: 4px; margin: 15px 0; outline: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 20px; background: #f0f0f0; border-radius: 4px; border: 1px solid #999; cursor: ns-resize; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
@@ -60,7 +55,7 @@
         .se-btn { background: #333; border: 1px solid #444; color: #fff; padding: 15px; border-radius: 8px; font-size: 11px; }
 
         input[type="file"] { display: none; }
-        .file-link { font-size: 10px; color: var(--seek); cursor: pointer; text-decoration: underline; }
+        .file-link { font-size: 10px; color: #3b82f6; color: var(--seek); cursor: pointer; text-decoration: underline; }
     </style>
 </head>
 <body>
@@ -69,7 +64,7 @@
     <div class="top-unit">
         <div class="status-display">
             <div id="air-led" class="on-air-led"><div class="led-dot"></div><span id="air-timer">OFF AIR</span></div>
-            <div id="rec-label" style="display:none; color:var(--record); font-size:10px; font-weight:bold;">● RECORDING</div>
+            <div id="rec-label" style="display:none; color:#ff3e3e; font-size:10px; font-weight:bold;">● RECORDING</div>
         </div>
         <div class="vu-meter"><div id="level-bar"></div></div>
     </div>
@@ -77,7 +72,7 @@
     <div class="main-scroll">
         <div id="setup">
             <div style="font-size:11px; margin-bottom:5px; color:#666;">STATION NAME</div>
-            <input type="text" id="room" style="width:100%; padding:15px; background:#111; border:1px solid #333; color:var(--active); font-family:monospace; margin-bottom:15px; border-radius:8px; box-sizing:border-box;" value="Gutti Presents">
+            <input type="text" id="room" style="width:100%; padding:15px; background:#111; border:1px solid #333; color:#00ff41; font-family:monospace; margin-bottom:15px; border-radius:8px; box-sizing:border-box;" value="Gutti Presents">
             <button class="btn btn-play" style="width:100%; padding:20px;" onclick="openStation()">SYSTEM START</button>
         </div>
 
@@ -90,8 +85,8 @@
 
             <div class="unit-label">MIC / VOICE FX</div>
             <div class="strip">
-                <div style="display:flex; justify-content:space-between; font-size:11px;">
-                    <label style="color:var(--active)"><input type="checkbox" id="mon-check" onchange="toggleMonitor(this.checked)"> MONITOR ON</label>
+                <div style="display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between; font-size:11px;">
+                    <label style="color:#00ff41"><input type="checkbox" id="mon-check" onchange="toggleMonitor(this.checked)"> MONITOR ON</label>
                     <span id="v-mic">100%</span>
                 </div>
                 <input type="range" min="0" max="2" step="0.01" value="1" oninput="updateVol('mic', this.value)">
@@ -121,52 +116,64 @@
 </div>
 
 <script>
-    let peer, audioCtx, destination, micGain, analyser, conns = {};
-    let micSource, echoDelay, echoGain, reverbNode, monitorGain;
-    let isAirOn = false, isRecording = false;
-    let mediaRecorder, recordedChunks = [];
+    // レガシー環境のために、すべてのlet/constをvarに変更
+    var peer, audioCtx, destination, micGain, analyser, conns = {};
+    var micSource, echoDelay, echoGain, reverbNode, monitorGain;
+    var isAirOn = false, isRecording = false;
+    var mediaRecorder, recordedChunks = [];
 
-    let bgmStates = Array.from({length: 3}, (_, i) => ({ 
-        id: i, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false 
-    }));
-    let seBuffers = Array.from({length: 4}, () => null);
+    var bgmStates = [
+        { id: 0, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false },
+        { id: 1, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false },
+        { id: 2, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false }
+    ];
+    var seBuffers = [null, null, null, null];
 
-    // PeerJS設定
     function openStation() {
-        peer = new Peer(`${document.getElementById('room').value}-host`);
-        peer.on('open', () => {
+        var roomName = document.getElementById('room').value;
+        if(!roomName) { alert("STATION NAMEを入力してください"); return; }
+        
+        // 古いブラウザ用のオーディオ事前アクティベート
+        var AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+        if(AudioCtxClass) {
+            audioCtx = new AudioCtxClass();
+        }
+
+        peer = new Peer(roomName + "-host");
+        
+        peer.on('open', function() {
             document.getElementById('setup').style.display = 'none';
             document.getElementById('main').style.display = 'block';
             initAudio();
             initUI();
         });
-        peer.on('connection', c => {
+        
+        peer.on('connection', function(c) {
             conns[c.peer] = c;
-            if(audioCtx) peer.call(c.peer, destination.stream);
+            // リスナーが接続してきた瞬間、配信中の音声ストリームをすぐに投げつける
+            if(audioCtx && destination && isAirOn) {
+                peer.call(c.peer, destination.stream);
+            }
         });
     }
 
-    // オーディオグラフの初期化
     function initAudio() {
-        if(audioCtx) return;
-        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        if(!audioCtx) {
+            var AudioCtxClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioCtxClass();
+        }
         destination = audioCtx.createMediaStreamDestination();
         analyser = audioCtx.createAnalyser();
         
-        // --- MIC CHAIN ---
         micGain = audioCtx.createGain();
         
-        // エコー設定
         echoDelay = audioCtx.createDelay();
         echoDelay.delayTime.value = 0.3;
         echoGain = audioCtx.createGain();
         echoGain.gain.value = 0;
         
-        // リバーブ (簡易)
-        reverbNode = audioCtx.createConvolver();
-        // ※ 本来はインパルスレスポンスが必要だが、ここではGainで代用
+        reverbNode = audioCtx.createGain(); // 簡易代用
         
-        // モニター（自分用）
         monitorGain = audioCtx.createGain();
         monitorGain.gain.value = 0;
         monitorGain.connect(audioCtx.destination);
@@ -175,19 +182,22 @@
         micGain.connect(analyser);
         micGain.connect(monitorGain);
 
-        // BGM Slots
-        bgmStates.forEach(s => {
+        // BGM初期化を安全なforループで実行
+        for(var i = 0; i < bgmStates.length; i++) {
+            var s = bgmStates[i];
             s.gainNode = audioCtx.createGain();
             s.gainNode.gain.value = 0.5;
             s.gainNode.connect(destination);
             s.gainNode.connect(analyser);
-        });
+        }
 
-        // メーター更新
-        const updateMeter = () => {
-            const d = new Uint8Array(analyser.frequencyBinCount);
+        var updateMeter = function() {
+            if(!analyser) return;
+            var d = new Uint8Array(analyser.frequencyBinCount);
             analyser.getByteFrequencyData(d);
-            const val = (d.reduce((a,b)=>a+b)/d.length);
+            var sum = 0;
+            for(var j = 0; j < d.length; j++) { sum += d[j]; }
+            var val = (sum / d.length);
             document.getElementById('level-bar').style.width = Math.min(val * 1.8, 100) + "%";
             requestAnimationFrame(updateMeter);
         };
@@ -196,64 +206,71 @@
     }
 
     function initUI() {
-        const slots = document.getElementById('slots');
-        bgmStates.forEach(s => {
-            slots.innerHTML += `
-            <div class="strip" id="slot-${s.id}">
-                <div style="display:flex; justify-content:space-between; font-size:10px;">
-                    <span id="t-${s.id}" style="color:#aaa;">CH ${s.id+1}: NO DATA</span>
-                    <label><input type="checkbox" onchange="bgmStates[${s.id}].loop=this.checked"> LOOP</label>
-                </div>
-                <div class="seek-box" id="seekbox-${s.id}">
-                    <div class="seek-info" id="time-${s.id}">0:00 / 0:00</div>
-                    <div class="seek-fill" id="seek-${s.id}"></div>
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:10px;">
-                    <span>VOLUME</span><span id="v-bgm${s.id}">50%</span>
-                </div>
-                <input type="range" min="0" max="1" step="0.01" value="0.5" oninput="updateVol('bgm${s.id}', this.value)">
-                <div class="btn-row">
-                    <button class="btn btn-play" onclick="playBGM(${s.id})">PLAY</button>
-                    <button class="btn" onclick="pauseBGM(${s.id})">STOP</button>
-                </div>
-                <div style="margin-top:10px; display:flex; justify-content:space-between;">
-                    <span class="file-link" onclick="document.getElementById('f${s.id}').click()">📁 LOAD FILE</span>
-                </div>
-                <input type="file" id="f${s.id}" onchange="loadAudio(${s.id}, this)">
-            </div>`;
-            
-            // シークバーのイベント登録 (ドラッグ対応)
-            setTimeout(() => setupSeekEvent(s.id), 100);
-        });
-
-        const pads = document.getElementById('se-pads');
-        for(let i=0; i<4; i++) {
-            pads.innerHTML += `<div>
-                <button class="se-btn" id="se-${i}" onclick="playSE(${i})" style="width:100%">SE ${i+1}</button>
-                <div class="file-link" style="text-align:center; margin-top:5px;" onclick="document.getElementById('sf${i}').click()">SET FILE</div>
-                <input type="file" id="sf${i}" onchange="loadSE(${i},this)">
-            </div>`;
+        var slots = document.getElementById('slots');
+        var slotsHtml = "";
+        for(var i = 0; i < bgmStates.length; i++) {
+            var s = bgmStates[i];
+            slotsHtml += '<div class="strip" id="slot-' + s.id + '">' +
+                '<div style="display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between; font-size:10px;">' +
+                    '<span id="t-' + s.id + '" style="color:#aaa;">CH ' + (s.id+1) + ': NO DATA</span>' +
+                    '<label><input type="checkbox" onchange="bgmStates[' + s.id + '].loop=this.checked"> LOOP</label>' +
+                '</div>' +
+                '<div class="seek-box" id="seekbox-' + s.id + '">' +
+                    '<div class="seek-info" id="time-' + s.id + '">0:00 / 0:00</div>' +
+                    '<div class="seek-fill" id="seek-' + s.id + '"></div>' +
+                '</div>' +
+                '<div style="display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between; font-size:10px;">' +
+                    '<span>VOLUME</span><span id="v-bgm' + s.id + '">50%</span>' +
+                '</div>' +
+                '<input type="range" min="0" max="1" step="0.01" value="0.5" oninput="updateVol(\'bgm' + s.id + '\', this.value)">' +
+                '<div class="btn-row">' +
+                    '<button class="btn btn-play" onclick="playBGM(' + s.id + ')">PLAY</button>' +
+                    '<button class="btn" onclick="pauseBGM(' + s.id + ')">STOP</button>' +
+                '</div>' +
+                '<div style="margin-top:10px; display:-webkit-box; display:-webkit-flex; display:flex; -webkit-box-pack:space-between; -webkit-justify-content:space-between; justify-content:space-between;">' +
+                    '<span class="file-link" onclick="document.getElementById(\'f' + s.id + '\').click()">📁 LOAD FILE</span>' +
+                '</div>' +
+                '<input type="file" id="f' + s.id + '" onchange="loadAudio(' + s.id + ', this)">' +
+            '</div>';
         }
+        slots.innerHTML = slotsHtml;
+        
+        // 遅延実行でシークイベントを紐付け
+        setTimeout(function() {
+            for(var k=0; k<bgmStates.length; k++) { setupSeekEvent(k); }
+        }, 200);
+
+        var pads = document.getElementById('se-pads');
+        var padsHtml = "";
+        for(var m=0; m<4; m++) {
+            padsHtml += '<div>' +
+                '<button class="se-btn" id="se-' + m + '" onclick="playSE(' + m + ')" style="width:100%">SE ' + (m+1) + '</button>' +
+                '<div class="file-link" style="text-align:center; margin-top:5px;" onclick="document.getElementById(\'sf' + m + '\').click()">SET FILE</div>' +
+                '<input type="file" id="sf' + m + '" onchange="loadSE(' + m + ',this)">' +
+            '</div>';
+        }
+        pads.innerHTML = padsHtml;
     }
 
-    // シークバーのドラッグ操作
     function setupSeekEvent(id) {
-        const box = document.getElementById(`seekbox-${id}`);
-        const handleMove = (e) => {
+        var box = document.getElementById("seekbox-" + id);
+        if(!box) return;
+        
+        var handleMove = function(e) {
             if(!isAirOn) return;
-            const s = bgmStates[id]; if(!s.buffer) return;
-            const rect = box.getBoundingClientRect();
-            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-            const x = clientX - rect.left;
+            var s = bgmStates[id]; if(!s.buffer) return;
+            var rect = box.getBoundingClientRect();
+            var clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            var x = clientX - rect.left;
             s.offset = Math.max(0, Math.min((x / rect.width) * s.buffer.duration, s.buffer.duration));
             if(s.isPlaying) playBGM(id);
             else updateSeekDisplay(id);
         };
 
-        box.addEventListener('mousedown', (e) => {
+        box.addEventListener('mousedown', function(e) {
             handleMove(e);
-            const moveListener = (ee) => handleMove(ee);
-            const upListener = () => {
+            var moveListener = function(ee) { handleMove(ee); };
+            var upListener = function() {
                 window.removeEventListener('mousemove', moveListener);
                 window.removeEventListener('mouseup', upListener);
             };
@@ -261,10 +278,10 @@
             window.addEventListener('mouseup', upListener);
         });
 
-        box.addEventListener('touchstart', (e) => {
+        box.addEventListener('touchstart', function(e) {
             handleMove(e);
-            const moveListener = (ee) => handleMove(ee);
-            const upListener = () => {
+            var moveListener = function(ee) { handleMove(ee); };
+            var upListener = function() {
                 window.removeEventListener('touchmove', moveListener);
                 window.removeEventListener('touchend', upListener);
             };
@@ -274,23 +291,26 @@
     }
 
     function smoothSeekUpdate() {
-        bgmStates.forEach(s => {
-            if(!s.buffer || !s.isPlaying) return;
-            const cur = Math.min(audioCtx.currentTime - s.startTime, s.buffer.duration);
-            document.getElementById(`seek-${s.id}`).style.width = (cur / s.buffer.duration * 100) + "%";
-            document.getElementById(`time-${s.id}`).innerText = `${formatTime(cur)} / ${formatTime(s.buffer.duration)}`;
-        });
+        for(var i=0; i<bgmStates.length; i++) {
+            var s = bgmStates[i];
+            if(!s.buffer || !s.isPlaying) continue;
+            var cur = Math.min(audioCtx.currentTime - s.startTime, s.buffer.duration);
+            var fillEl = document.getElementById("seek-" + s.id);
+            var timeEl = document.getElementById("time-" + s.id);
+            if(fillEl) fillEl.style.width = (cur / s.buffer.duration * 100) + "%";
+            if(timeEl) timeEl.innerText = formatTime(cur) + " / " + formatTime(s.buffer.duration);
+        }
         requestAnimationFrame(smoothSeekUpdate);
     }
 
     function updateSeekDisplay(i) {
-        const s = bgmStates[i];
-        document.getElementById(`seek-${s.id}`).style.width = (s.offset / s.buffer.duration * 100) + "%";
-        document.getElementById(`time-${s.id}`).innerText = `${formatTime(s.offset)} / ${formatTime(s.buffer.duration)}`;
+        var s = bgmStates[i];
+        document.getElementById("seek-" + s.id).style.width = (s.offset / s.buffer.duration * 100) + "%";
+        document.getElementById("time-" + s.id).innerText = formatTime(s.offset) + " / " + formatTime(s.buffer.duration);
     }
 
-    async function toggleAir(on) {
-        if(audioCtx.state === 'suspended') audioCtx.resume();
+    function toggleAir(on) {
+        if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
         isAirOn = on;
         document.getElementById('btnOnAir').disabled = on;
         document.getElementById('btnOffAir').disabled = !on;
@@ -298,21 +318,37 @@
         document.getElementById('air-led').className = on ? "on-air-led active" : "on-air-led";
 
         if(on) {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            var getUserMediaLegacy = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+            
+            var successStream = function(stream) {
                 micSource = audioCtx.createMediaStreamSource(stream);
-                // エコー接続
                 micSource.connect(echoDelay);
                 echoDelay.connect(echoGain);
                 echoGain.connect(micGain);
-                
                 micSource.connect(micGain);
-                Object.keys(conns).forEach(id => peer.call(id, destination.stream));
+
+                // すでに接続を待機している全リスナーに一斉発信
+                for(var peerId in conns) {
+                    if(conns.hasOwnProperty(peerId)) {
+                        peer.call(peerId, destination.stream);
+                    }
+                }
                 document.getElementById('air-timer').innerText = "LIVE ON AIR";
-            } catch(e) { alert("マイクの許可が必要です"); toggleAir(false); }
+            };
+
+            var errorStream = function(e) {
+                alert("マイクの許可が必要です"); 
+                toggleAir(false);
+            };
+
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                navigator.mediaDevices.getUserMedia({ audio: true }).then(successStream)["catch"](errorStream);
+            } else if(getUserMediaLegacy) {
+                getUserMediaLegacy.call(navigator, { audio: true }, successStream, errorStream);
+            }
         } else {
             if(isRecording) toggleRecording();
-            bgmStates.forEach((_, i) => pauseBGM(i));
+            for(var i=0; i<bgmStates.length; i++) { pauseBGM(i); }
             if(micSource) micSource.disconnect();
             document.getElementById('air-timer').innerText = "OFF AIR";
         }
@@ -320,40 +356,53 @@
 
     function playBGM(i) {
         if(!isAirOn) return;
-        const s = bgmStates[i]; if(!s.buffer) return;
-        if(s.source) s.source.stop();
+        var s = bgmStates[i]; if(!s.buffer) return;
+        if(s.source) { try{s.source.stop();}catch(e){} }
         s.source = audioCtx.createBufferSource();
         s.source.buffer = s.buffer;
         s.source.connect(s.gainNode);
-        s.source.onended = () => { if(s.isPlaying) { if(s.loop) playBGM(i); else pauseBGM(i); } };
+        s.source.onended = function() { 
+            if(s.isPlaying) { 
+                if(s.loop) playBGM(i); else pauseBGM(i); 
+            } 
+        };
         s.source.start(0, s.offset);
         s.startTime = audioCtx.currentTime - s.offset;
         s.isPlaying = true;
-        document.getElementById(`slot-${i}`).classList.add('active');
+        document.getElementById("slot-" + i).classList.add('active');
     }
 
     function pauseBGM(i) {
-        const s = bgmStates[i];
+        var s = bgmStates[i];
         if(s.isPlaying) {
             s.offset = audioCtx.currentTime - s.startTime;
-            if(s.source) { s.source.stop(); s.source = null; }
+            if(s.source) { try{s.source.stop();}catch(e){} s.source = null; }
             s.isPlaying = false;
         }
-        document.getElementById(`slot-${i}`).classList.remove('active');
+        document.getElementById("slot-" + i).classList.remove('active');
     }
 
-    async function loadAudio(i, input) {
-        const f = input.files[0]; if(!f) return;
-        document.getElementById(`t-${i}`).innerText = "LOADING...";
-        bgmStates[i].buffer = await audioCtx.decodeAudioData(await f.arrayBuffer());
-        document.getElementById(`t-${i}`).innerText = f.name.substring(0,18).toUpperCase();
-        bgmStates[i].offset = 0; updateSeekDisplay(i);
+    function loadAudio(i, input) {
+        var f = input.files[0]; if(!f) return;
+        document.getElementById("t-" + i).innerText = "LOADING...";
+        
+        var fileReader = new FileReader();
+        fileReader.onload = function(e) {
+            if(!audioCtx) return;
+            audioCtx.decodeAudioData(e.target.result, function(buffer) {
+                bgmStates[i].buffer = buffer;
+                document.getElementById("t-" + i).innerText = f.name.substring(0,18).toUpperCase();
+                bgmStates[i].offset = 0; 
+                updateSeekDisplay(i);
+            });
+        };
+        fileReader.readAsArrayBuffer(f);
     }
 
     function updateVol(type, val) {
         if(type === 'mic') micGain.gain.value = val;
-        else bgmStates[type.replace('bgm','')].gainNode.gain.value = val;
-        document.getElementById(`v-${type}`).innerText = Math.round(val*100)+"%";
+        else bgmStates[parseInt(type.replace('bgm',''), 10)].gainNode.gain.value = val;
+        document.getElementById("v-" + type).innerText = Math.round(val*100)+"%";
     }
 
     function toggleMonitor(on) {
@@ -362,20 +411,22 @@
 
     function updateFX(type, val) {
         if(type === 'echo') echoGain.gain.value = val;
-        // リバーブはデモ用としてマイクGainに少し加味
-        if(type === 'verb') { /* Convolver等で実装可能 */ }
     }
 
     function toggleRecording() {
         if(!isRecording) {
             recordedChunks = [];
+            if(typeof MediaRecorder === 'undefined') {
+                alert("この端末は録音に対応していません");
+                return;
+            }
             mediaRecorder = new MediaRecorder(destination.stream);
-            mediaRecorder.ondataavailable = e => recordedChunks.push(e.data);
-            mediaRecorder.onstop = () => {
-                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `radio_log_${new Date().getTime()}.webm`;
+            mediaRecorder.ondataavailable = function(e) { recordedChunks.push(e.data); };
+            mediaRecorder.onstop = function() {
+                var blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url; a.download = "radio_log_" + new Date().getTime() + ".webm";
                 a.click();
             };
             mediaRecorder.start();
@@ -391,11 +442,33 @@
     }
 
     function formatTime(sec) {
-        return `${Math.floor(sec/60)}:${Math.floor(sec%60).toString().padStart(2,'0')}`;
+        var m = Math.floor(sec/60);
+        var s = Math.floor(sec%60).toString();
+        if(s.length < 2) s = "0" + s;
+        return m + ":" + s;
     }
 
-    function playSE(i) { if(isAirOn && seBuffers[i]) { const s = audioCtx.createBufferSource(); s.buffer = seBuffers[i]; s.connect(destination); s.start(0); } }
-    async function loadSE(i, input) { const f = input.files[0]; if(f) { seBuffers[i] = await audioCtx.decodeAudioData(await f.arrayBuffer()); document.getElementById(`se-${i}`).style.borderColor = "var(--active)"; } }
+    function playSE(i) { 
+        if(isAirOn && seBuffers[i]) { 
+            var s = audioCtx.createBufferSource(); 
+            s.buffer = seBuffers[i]; 
+            s.connect(destination); 
+            s.start(0); 
+        } 
+    }
+    
+    function loadSE(i, input) { 
+        var f = input.files[0]; if(!f) return;
+        var fileReader = new FileReader();
+        fileReader.onload = function(e) {
+            if(!audioCtx) return;
+            audioCtx.decodeAudioData(e.target.result, function(buffer) {
+                seBuffers[i] = buffer; 
+                document.getElementById("se-" + i).style.borderColor = "#00ff41"; 
+            });
+        };
+        fileReader.readAsArrayBuffer(f);
+    }
 </script>
 </body>
 </html>
