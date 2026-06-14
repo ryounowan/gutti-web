@@ -2,55 +2,78 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Phone v17 - Complete</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gutti Phone v17 - Perfect Fit</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --blue: #007aff; --red: #ff3b30; --green: #34c759; --gray: #8e8e93; --light: #f2f2f7; --dark: #1c1c1e; }
-        body { font-family: -apple-system, sans-serif; background: var(--light); margin: 0; display: flex; flex-direction: column; height: 100vh; color: #000; overflow: hidden; transition: 0.3s; }
         
-        header { padding: 15px; text-align: center; background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,0.05); z-index: 10; }
-        .mode-selector { display: flex; background: #e3e3e3; border-radius: 20px; padding: 3px; margin: 0 auto 10px; width: 240px; }
-        .mode-btn { flex: 1; border: none; border-radius: 17px; padding: 8px; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: transparent; color: var(--gray); transition: 0.2s; }
+        /* 100vhで画面全体を固定し、はみ出しを徹底防止 */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+            background: #f2f2f7; 
+            background: var(--light); 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            height: 100vh; 
+            color: #000; 
+            overflow: hidden; 
+            -webkit-transition: 0.3s; 
+            transition: 0.3s;
+            padding-top: env(safe-area-inset-top, 0px);
+            padding-bottom: env(safe-area-inset-bottom, 0px);
+            box-sizing: border-box;
+        }
+        
+        header { padding: 8px 15px; text-align: center; background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,0.05); z-index: 10; flex-shrink: 0; }
+        .mode-selector { display: flex; background: #e3e3e3; border-radius: 20px; padding: 2px; margin: 0 auto 6px; width: 220px; }
+        .mode-btn { flex: 1; border: none; border-radius: 17px; padding: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; background: transparent; color: #8e8e93; color: var(--gray); -webkit-transition: 0.2s; transition: 0.2s; }
         .mode-btn.active { background: #fff; color: #000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .my-num-val { font-size: 1.4rem; font-weight: 700; color: var(--blue); letter-spacing: 1px; }
+        .my-num-val { font-size: 1.2rem; font-weight: 700; color: #007aff; color: var(--blue); letter-spacing: 1px; }
 
-        .nav-btns { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
-        .nav-link { border: none; background: none; color: var(--blue); font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 5px; }
+        .nav-btns { display: flex; justify-content: center; gap: 12px; margin-top: 6px; }
+        .nav-link { border: none; background: none; color: #007aff; color: var(--blue); font-size: 0.8rem; font-weight: 600; cursor: pointer; padding: 4px; }
 
-        .display-container { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
-        #dial-view { font-size: 2.8rem; min-height: 3.5rem; font-weight: 300; letter-spacing: 1px; color: #333; }
-        #contact-name { font-size: 1rem; color: var(--blue); height: 1.5rem; margin-top: 5px; cursor: pointer; font-weight: 500; }
-        #call-timer { font-size: 1.2rem; color: var(--gray); font-weight: bold; margin-bottom: 10px; display: none; }
+        /* ここが柔軟に伸縮することで、画面サイズの違い（縦長・画面潰れ）をすべて吸収します */
+        .display-container { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-height: 40px; padding: 10px 0; }
+        #dial-view { font-size: 2rem; min-height: 2.4rem; font-weight: 300; letter-spacing: 1px; color: #333; display: flex; align-items: center; }
+        #contact-name { font-size: 0.85rem; color: #007aff; color: var(--blue); height: 1.2rem; margin-top: 2px; cursor: pointer; font-weight: 500; }
+        #call-timer { font-size: 1rem; color: #8e8e93; color: var(--gray); font-weight: bold; margin-bottom: 4px; display: none; }
 
-        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 280px; margin: 0 auto; transition: 0.3s; }
-        .key { width: 75px; height: 75px; border-radius: 50%; border: none; background: #fff; font-size: 2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        /* キーパッド全体の縦幅を抑え、下部ボタンが隠れないように調整 */
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 230px; margin: 0 auto; flex-shrink: 0; }
+        .key { width: 62px; height: 62px; border-radius: 50%; border: none; background: #fff; font-size: 1.5rem; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.06); -webkit-tap-highlight-color: transparent; }
         .key:active { background: #ebebeb; }
-        .key span { font-size: 0.6rem; color: var(--gray); font-weight: bold; margin-top: -2px; }
+        .key span { font-size: 0.5rem; color: #8e8e93; color: var(--gray); font-weight: bold; margin-top: -2px; }
 
-        .controls { padding: 30px 0 50px; display: flex; justify-content: center; align-items: center; gap: 25px; }
-        .btn-main { width: 75px; height: 75px; border-radius: 50%; border: none; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 2rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
-        .call { background: var(--green); }
-        .hangup { background: var(--red); display: none; }
-        .tool-btn { width: 55px; height: 55px; border-radius: 50%; border: none; background: #fff; font-size: 1.3rem; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
-        .active-tool { background: var(--blue) !important; color: #fff !important; }
-        .mute-active { background: var(--red) !important; color: #fff !important; }
+        /* 操作ボタンエリアのレイアウトとマージンを最適化 */
+        .controls { padding: 10px 0 15px; display: flex; justify-content: center; align-items: center; gap: 20px; flex-shrink: 0; }
+        .btn-main { width: 62px; height: 62px; border-radius: 50%; border: none; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
+        .call { background: #34c759; background: var(--green); }
+        .hangup { background: #ff3b30; background: var(--red); display: none; }
+        .tool-btn { width: 44px; height: 44px; border-radius: 50%; border: none; background: #fff; font-size: 1.1rem; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+        .active-tool { background: #007aff !important; background: var(--blue) !important; color: #fff !important; }
+        .mute-active { background: #ff3b30 !important; background: var(--red) !important; color: #fff !important; }
 
-        .modal { display: none; position: fixed; inset: 0; background: #fff; z-index: 1000; padding: 40px 20px; overflow-y: auto; }
-        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--light); padding-bottom: 15px; margin-bottom: 20px; }
-        .item-row { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
-        .setting-group { margin-bottom: 20px; max-width: 320px; margin-inline: auto; text-align: left; }
-        .setting-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; color: var(--gray); }
-        select, input[type="file"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; background: var(--light); margin-bottom: 5px; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #fff; z-index: 1000; padding: 20px 15px; overflow-y: auto; padding-top: env(safe-area-inset-top, 20px); }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f2f2f7; border-bottom: 2px solid var(--light); padding-bottom: 10px; margin-bottom: 15px; }
+        .modal-header h2 { font-size: 1.2rem; margin: 0; }
+        .item-row { padding: 12px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; font-size: 0.9rem; }
+        .setting-group { margin-bottom: 15px; max-width: 320px; margin-inline: auto; text-align: left; }
+        .setting-label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.85rem; color: #8e8e93; color: var(--gray); }
+        select, input[type="file"] { width: 100%; padding: 10px; border-radius: 10px; border: 1px solid #ddd; font-size: 0.9rem; background: #f2f2f7; background: var(--light); margin-bottom: 5px; -webkit-appearance: none; box-sizing: border-box; }
 
-        #incoming-screen { display: none; position: fixed; inset: 0; background: var(--dark); color: white; flex-direction: column; align-items: center; justify-content: space-around; z-index: 2000; }
+        #incoming-screen { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: #1c1c1e; background: var(--dark); color: white; flex-direction: column; align-items: center; justify-content: space-around; z-index: 2000; }
         .incoming-info { text-align: center; }
-        .caller-id { font-size: 2.5rem; font-weight: bold; margin-bottom: 10px; }
-        .pulse { animation: pulse 1.5s infinite; }
+        .caller-id { font-size: 2rem; font-weight: bold; margin-bottom: 10px; }
+        .pulse { -webkit-animation: pulse 1.5s infinite; animation: pulse 1.5s infinite; }
+        @-webkit-keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        .missed-text { color: #ff3b30; color: var(--red); }
     </style>
 </head>
-<body>
+<body onclick="resumeAudioContext()">
 
 <header>
     <div class="mode-selector">
@@ -125,123 +148,236 @@
         <div id="incoming-caller" class="caller-id">---</div>
         <div class="pulse">着信中...</div>
     </div>
-    <div style="display:flex; gap:60px;">
+    <div style="display:flex; gap:40px;">
         <button class="btn-main hangup" style="display:flex" onclick="rejectCall()">📵</button>
         <button class="btn-main call" onclick="answerCall()">📞</button>
     </div>
 </div>
 
-<audio id="remote-audio" autoplay></audio>
-<audio id="local-player" loop></audio>
+<audio id="remote-audio" autoplay playsinline></audio>
+<audio id="local-player" loop playsinline></audio>
 
 <script>
-    // --- 初期化 & IndexedDB ---
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const localPlayer = document.getElementById('local-player');
-    const remoteAudio = document.getElementById('remote-audio');
-    let soundSettings = JSON.parse(localStorage.getItem('gutti_sounds_v17') || '{"back": "400", "tone": "sine"}');
+    // --- 初期化 & レガシー・モダン共通オーディオ環境の構築 ---
+    var AudioContextClass = window.AudioContext || window.webkitAudioContext;
+    var audioCtx = AudioContextClass ? new AudioContextClass() : null;
     
-    let db;
-    const dbReq = indexedDB.open("GuttiPhoneSounds", 1);
-    dbReq.onupgradeneeded = e => e.target.result.createObjectStore("sounds");
-    dbReq.onsuccess = e => db = e.target.result;
+    var localPlayer = document.getElementById('local-player');
+    var remoteAudio = document.getElementById('remote-audio');
+    
+    function resumeAudioContext() {
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+    }
+    
+    var soundSettings = { back: "400", tone: "sine" };
+    try {
+        var savedSounds = localStorage.getItem('gutti_sounds_v17');
+        if (savedSounds) soundSettings = JSON.parse(savedSounds);
+    } catch(e) {}
+    
+    var db;
+    var indexedDBObj = window.indexedDB || window.webkitIndexedDB || window.mozIndexedDB || window.msIndexedDB;
+    if (indexedDBObj) {
+        var dbReq = indexedDBObj.open("GuttiPhoneSounds", 1);
+        dbReq.onupgradeneeded = function(e) {
+            e.target.result.createObjectStore("sounds");
+        };
+        dbReq.onsuccess = function(e) {
+            db = e.target.result;
+        };
+    }
 
-    let ringInterval, callTimeout, timerInterval, isConnected = false, secondsElapsed = 0;
-    let myId = localStorage.getItem('gutti_id') || "090" + Math.floor(10000000 + Math.random() * 90000000).toString();
-    localStorage.setItem('gutti_id', myId);
+    var ringInterval, callTimeout, timerInterval, isConnected = false, secondsElapsed = 0;
+    
+    var myId = localStorage.getItem('gutti_id');
+    if (!myId) {
+        myId = "090" + Math.floor(10000000 + Math.random() * 90000000).toString();
+        localStorage.setItem('gutti_id', myId);
+    }
 
-    let currentMode = 'p2p';
-    let data = {
-        p2p: { contacts: JSON.parse(localStorage.getItem('gutti_p2p_contacts_v17') || '{}'), history: JSON.parse(localStorage.getItem('gutti_p2p_history_v17') || '[]') },
-        real: { contacts: JSON.parse(localStorage.getItem('gutti_real_contacts_v17') || '{}'), history: JSON.parse(localStorage.getItem('gutti_real_history_v17') || '[]') }
+    var currentMode = 'p2p';
+    
+    var p2pContacts = localStorage.getItem('gutti_p2p_contacts_v17');
+    var p2pHistory = localStorage.getItem('gutti_p2p_history_v17');
+    var realContacts = localStorage.getItem('gutti_real_contacts_v17');
+    var realHistory = localStorage.getItem('gutti_real_history_v17');
+
+    var data = {
+        p2p: { 
+            contacts: p2pContacts ? JSON.parse(p2pContacts) : {}, 
+            history: p2pHistory ? JSON.parse(p2pHistory) : [] 
+        },
+        real: { 
+            contacts: realContacts ? JSON.parse(realContacts) : {}, 
+            history: realHistory ? JSON.parse(realHistory) : [] 
+        }
     };
 
-    const peer = new Peer(myId);
-    let localStream, currentCall, incomingCall;
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => localStream = s);
+    var peer = new Peer(myId);
+    var localStream, currentCall, incomingCall;
+
+    if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true }).then(function(s) {
+            localStream = s;
+        })["catch"](function(err) { console.log("Mic error: ", err); });
+    } else {
+        var getUserMediaLegacy = navigator.getUserMedia || navigator.webkitGetUserMedia || navigator.mozGetUserMedia;
+        if (getUserMediaLegacy) {
+            getUserMediaLegacy.call(navigator, { audio: true }, function(s) {
+                localStream = s;
+            }, function(err) { console.log("Legacy mic error: ", err); });
+        }
+    }
 
     // --- サウンドエンジン ---
     function playTone(freq, type, duration) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        if (!audioCtx) return;
+        var osc = audioCtx.createOscillator();
+        var gain = audioCtx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
         gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
-        osc.connect(gain); gain.connect(audioCtx.destination);
-        osc.start(); osc.stop(audioCtx.currentTime + duration);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        
+        if (osc.start) {
+            osc.start(0);
+        } else if (osc.noteOn) {
+            osc.noteOn(0);
+        }
+        
+        var stopTime = audioCtx.currentTime + duration;
+        setTimeout(function() {
+            try {
+                if (osc.stop) { osc.stop(0); } else if (osc.noteOff) { osc.noteOff(0); }
+            } catch(e) {}
+        }, duration * 1000);
     }
 
-    async function playRing(type) {
+    function playRing(type) {
         stopAllSounds();
-        const val = (type === 'back') ? soundSettings.back : soundSettings.tone;
+        var val = (type === 'back') ? soundSettings.back : soundSettings.tone;
         if (val === 'custom') {
-            const tx = db.transaction("sounds", "readonly");
-            const req = tx.objectStore("sounds").get(type);
-            req.onsuccess = () => {
-                if (req.result) { localPlayer.src = req.result; localPlayer.play(); }
+            if (!db) return;
+            var tx = db.transaction("sounds", "readonly");
+            var req = tx.objectStore("sounds").get(type);
+            req.onsuccess = function() {
+                if (req.result) { 
+                    localPlayer.src = req.result; 
+                    localPlayer.play(); 
+                }
             };
         } else {
             if (type === 'back') {
-                ringInterval = setInterval(() => playTone(parseInt(val), 'sine', 1), 3000);
+                ringInterval = setInterval(function() { 
+                    playTone(parseInt(val, 10), 'sine', 1); 
+                }, 3000);
             } else {
-                ringInterval = setInterval(() => { playTone(600, val, 0.1); setTimeout(() => playTone(800, val, 0.1), 150); }, 1000);
+                ringInterval = setInterval(function() { 
+                    playTone(600, val, 0.1); 
+                    setTimeout(function() { playTone(800, val, 0.1); }, 150); 
+                }, 1000);
             }
         }
     }
 
-    function stopAllSounds() { clearInterval(ringInterval); localPlayer.pause(); localPlayer.currentTime = 0; }
+    function stopAllSounds() { 
+        clearInterval(ringInterval); 
+        try {
+            localPlayer.pause(); 
+            localPlayer.currentTime = 0; 
+        } catch(e) {}
+    }
 
     function playGuidance(msg) {
         stopAllSounds();
-        const uttr = new SpeechSynthesisUtterance(msg);
-        uttr.lang = 'ja-JP'; uttr.rate = 1.1;
-        uttr.onend = () => endCall();
+        if (!window.speechSynthesis) {
+            endCall();
+            return;
+        }
+        window.speechSynthesis.cancel();
+        var uttr = new SpeechSynthesisUtterance(msg);
+        uttr.lang = 'ja-JP'; 
+        uttr.rate = 1.1;
+        uttr.onend = function() { endCall(); };
         window.speechSynthesis.speak(uttr);
     }
 
     // --- 通話制御 ---
     function makeCall() {
         if (!dialBuffer) return;
-        audioCtx.resume();
+        resumeAudioContext();
         addHistoryEntry(dialBuffer, currentMode, '発信');
-        if (currentMode === 'real') { window.location.href = `tel:${dialBuffer}`; dialBuffer=""; updateDisplay(); return; }
+        if (currentMode === 'real') { 
+            window.location.href = 'tel:' + dialBuffer; 
+            dialBuffer = ""; 
+            updateDisplay(); 
+            return; 
+        }
 
         isConnected = false;
         playRing('back');
-        const call = peer.call(dialBuffer, localStream);
+        var call = peer.call(dialBuffer, localStream);
         document.getElementById('contact-name').innerText = "呼び出し中...";
         
-        callTimeout = setTimeout(() => {
+        callTimeout = setTimeout(function() {
             if (!isConnected) {
-                const conn = peer.connect(dialBuffer);
-                conn.on('open', () => conn.send({ type: 'missed', from: myId }));
+                var conn = peer.connect(dialBuffer);
+                if (conn) {
+                    conn.on('open', function() { 
+                        conn.send({ type: 'missed', from: myId }); 
+                    });
+                }
                 playGuidance("おかけになった電話は、現在応答できません。のちほどお掛け直しください。");
             }
         }, 15000);
         handleCall(call);
     }
 
-    peer.on('connection', conn => {
-        conn.on('data', d => { 
+    peer.on('connection', function(conn) {
+        conn.on('data', function(d) { 
             if(d.type === 'missed') addHistoryEntry(d.from, 'p2p', '不在着信');
             if(d.type === 'rejected') playGuidance("おかけになった電話は、現在呼び出しがつきません。またお時間を置いてお掛け直しください。");
         });
     });
 
-    peer.on('call', call => {
-        audioCtx.resume();
-        if (currentCall && currentCall.open) { call.answer(); setTimeout(() => call.close(), 500); return; }
+    peer.on('call', function(call) {
+        resumeAudioContext();
+        if (currentCall && currentCall.open) { 
+            call.answer(); 
+            setTimeout(function() { call.close(); }, 500); 
+            return; 
+        }
         playRing('tone');
         incomingCall = call;
         document.getElementById('incoming-caller').innerText = data.p2p.contacts[call.peer] || formatPhone(call.peer);
         document.getElementById('incoming-screen').style.display = 'flex';
     });
 
-    function answerCall() { stopAllSounds(); incomingCall.answer(localStream); document.getElementById('incoming-screen').style.display = 'none'; handleCall(incomingCall); }
+    function answerCall() { 
+        stopAllSounds(); 
+        if (incomingCall) {
+            incomingCall.answer(localStream); 
+            handleCall(incomingCall); 
+        }
+        document.getElementById('incoming-screen').style.display = 'none'; 
+    }
     
     function rejectCall() { 
         stopAllSounds(); 
-        const conn = peer.connect(incomingCall.peer);
-        conn.on('open', () => { conn.send({ type: 'rejected' }); setTimeout(() => incomingCall.close(), 500); });
+        if (incomingCall) {
+            var conn = peer.connect(incomingCall.peer);
+            if (conn) {
+                conn.on('open', function() { 
+                    conn.send({ type: 'rejected' }); 
+                    setTimeout(function() { incomingCall.close(); }, 500); 
+                });
+            } else {
+                incomingCall.close();
+            }
+        }
         document.getElementById('incoming-screen').style.display = 'none'; 
     }
 
@@ -250,9 +386,16 @@
         document.getElementById('call-btn').style.display = 'none';
         document.getElementById('hangup-btn').style.display = 'flex';
         document.getElementById('main-keypad').style.opacity = '0.3';
-        call.on('stream', s => {
-            isConnected = true; clearTimeout(callTimeout); stopAllSounds();
-            remoteAudio.srcObject = s;
+        
+        call.on('stream', function(s) {
+            isConnected = true; 
+            clearTimeout(callTimeout); 
+            stopAllSounds();
+            if ('srcObject' in remoteAudio) {
+                remoteAudio.srcObject = s;
+            } else {
+                remoteAudio.src = (window.URL || window.webkitURL).createObjectURL(s);
+            }
             document.getElementById('contact-name').innerText = "通話中";
             startTimer();
         });
@@ -261,26 +404,38 @@
 
     function endCall() {
         if (currentCall) currentCall.close();
-        stopAllSounds(); clearTimeout(callTimeout); stopTimer();
-        window.speechSynthesis.cancel();
+        stopAllSounds(); 
+        clearTimeout(callTimeout); 
+        stopTimer();
+        if (window.speechSynthesis) window.speechSynthesis.cancel();
         document.getElementById('call-btn').style.display = 'flex';
         document.getElementById('hangup-btn').style.display = 'none';
         document.getElementById('main-keypad').style.opacity = '1';
-        dialBuffer = ""; updateDisplay();
+        dialBuffer = ""; 
+        updateDisplay();
     }
 
     // --- 設定・ユーティリティ ---
     function toggleSpeaker() {
-        const btn = document.getElementById('speaker-btn');
-        btn.classList.toggle('active-tool');
-        remoteAudio.volume = btn.classList.contains('active-tool') ? 1.0 : 0.3;
+        resumeAudioContext();
+        var btn = document.getElementById('speaker-btn');
+        var isActive = btn.className.indexOf('active-tool') !== -1;
+        if (isActive) {
+            btn.className = 'tool-btn';
+            remoteAudio.volume = 0.3;
+        } else {
+            btn.className = 'tool-btn active-tool';
+            remoteAudio.volume = 1.0;
+        }
     }
 
     function handleFileUpload(type) {
-        const file = document.getElementById(type === 'back' ? 'file-ringback' : 'file-ringtone').files[0];
+        var fileEl = document.getElementById(type === 'back' ? 'file-ringback' : 'file-ringtone');
+        var file = fileEl.files[0];
         if (!file) return;
-        const reader = new FileReader();
-        reader.onload = e => { 
+        var reader = new FileReader();
+        reader.onload = function(e) { 
+            if (!db) return;
             db.transaction("sounds", "readwrite").objectStore("sounds").put(e.target.result, type); 
             alert("サウンドを保存しました！設定から「★カスタムファイル」を選択してください。"); 
         };
@@ -293,61 +448,151 @@
         localStorage.setItem('gutti_sounds_v17', JSON.stringify(soundSettings));
     }
 
-    let dialBuffer = "";
-    function typeNum(n) { if(dialBuffer.length < 11) dialBuffer += n; updateDisplay(); playTone(440, 'sine', 0.05); }
-    function back() { dialBuffer = dialBuffer.slice(0, -1); updateDisplay(); }
+    var dialBuffer = "";
+    function typeNum(n) { 
+        resumeAudioContext();
+        if(dialBuffer.length < 11) dialBuffer += n; 
+        updateDisplay(); 
+        playTone(440, 'sine', 0.05); 
+    }
+    
+    function back() { 
+        dialBuffer = dialBuffer.slice(0, -1); 
+        updateDisplay(); 
+    }
+    
     function updateDisplay() {
         document.getElementById('my-num-display').innerText = formatPhone(myId);
         document.getElementById('dial-view').innerText = formatPhone(dialBuffer);
         document.getElementById('contact-name').innerText = data[currentMode].contacts[dialBuffer] || (currentMode === 'real' ? "通常発信" : "連絡先に追加");
     }
+    
     function formatPhone(n) {
-        let s = n.replace(/\D/g, '');
+        var s = n.replace(/\D/g, '');
         if (s.length <= 3) return s;
         if (s.length <= 7) return s.replace(/(\d{3})(\d+)/, '$1-$2');
         return s.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
     }
+    
+    /* モード選択時のCSSクラス処理 */
     function setMode(m) {
         currentMode = m;
-        document.body.classList.toggle('real-mode', m === 'real');
-        document.getElementById('p2p-mode-btn').classList.toggle('active', m === 'p2p');
-        document.getElementById('real-mode-btn').classList.toggle('active', m === 'real');
+        if (m === 'real') {
+            document.body.className = 'real-mode';
+            document.getElementById('p2p-mode-btn').className = 'mode-btn';
+            document.getElementById('real-mode-btn').className = 'mode-btn active';
+        } else {
+            document.body.className = '';
+            document.getElementById('p2p-mode-btn').className = 'mode-btn active';
+            document.getElementById('real-mode-btn').className = 'mode-btn';
+        }
         updateDisplay();
     }
-    function startTimer() { secondsElapsed = 0; document.getElementById('call-timer').style.display = 'block'; timerInterval = setInterval(() => { secondsElapsed++; document.getElementById('call-timer').innerText = Math.floor(secondsElapsed/60).toString().padStart(2,'0')+":"+(secondsElapsed%60).toString().padStart(2,'0'); }, 1000); }
-    function stopTimer() { clearInterval(timerInterval); document.getElementById('call-timer').style.display = 'none'; }
-    function toggleMute() { if(localStream) { localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled; document.getElementById('mute-btn').classList.toggle('mute-active'); } }
-    function addHistoryEntry(num, mode, type) {
-        const now = new Date();
-        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
-        data[mode].history.unshift({ num, type, time: timeStr, name: data[mode].contacts[num] || "不明" });
-        localStorage.setItem(`gutti_${mode}_history_v17`, JSON.stringify(data[mode].history));
+    
+    function startTimer() { 
+        secondsElapsed = 0; 
+        document.getElementById('call-timer').style.display = 'block'; 
+        timerInterval = setInterval(function() { 
+            secondsElapsed++; 
+            var min = Math.floor(secondsElapsed / 60).toString();
+            var sec = (secondsElapsed % 60).toString();
+            if (min.length < 2) min = '0' + min;
+            if (sec.length < 2) sec = '0' + sec;
+            document.getElementById('call-timer').innerText = min + ":" + sec; 
+        }, 1000); 
     }
+    
+    function stopTimer() { 
+        clearInterval(timerInterval); 
+        document.getElementById('call-timer').style.display = 'none'; 
+    }
+    
+    function toggleMute() { 
+        resumeAudioContext();
+        if(localStream && localStream.getAudioTracks()[0]) { 
+            var track = localStream.getAudioTracks()[0];
+            track.enabled = !track.enabled; 
+            var btn = document.getElementById('mute-btn');
+            if (btn.className.indexOf('mute-active') !== -1) {
+                btn.className = 'tool-btn';
+            } else {
+                btn.className = 'tool-btn mute-active';
+            }
+        } 
+    }
+    
+    function addHistoryEntry(num, mode, type) {
+        var now = new Date();
+        var minStr = now.getMinutes().toString();
+        if (minStr.length < 2) minStr = '0' + minStr;
+        var timeStr = now.getHours() + ':' + minStr;
+        
+        data[mode].history.unshift({ 
+            num: num, 
+            type: type, 
+            time: timeStr, 
+            name: data[mode].contacts[num] || "不明" 
+        });
+        localStorage.setItem('gutti_' + mode + '_history_v17', JSON.stringify(data[mode].history));
+    }
+    
     function showHistory() {
         document.getElementById('modal-title').innerText = "履歴";
-        document.getElementById('modal-list').innerHTML = data[currentMode].history.map(h => `<div class="item-row"><div><span class="${h.type==='不在着信'?'missed-text':''}">[${h.type}] ${h.name}</span><br><small>${formatPhone(h.num)}</small></div><button class="nav-link" onclick="dialFromList('${h.num}')">発信</button></div>`).join('');
+        var listHtml = "";
+        var hist = data[currentMode].history;
+        for (var i = 0; i < hist.length; i++) {
+            var h = hist[i];
+            var isMissed = h.type === '不在着信' ? 'class="missed-text"' : '';
+            listHtml += '<div class="item-row"><div><span ' + isMissed + '>[' + h.type + '] ' + h.name + '</span><br><small>' + formatPhone(h.num) + '</small></div><button class="nav-link" onclick="dialFromList(\'' + h.num + '\')">発信</button></div>';
+        }
+        document.getElementById('modal-list').innerHTML = listHtml;
         document.getElementById('list-modal').style.display = 'block';
     }
+    
     function showContacts() {
         document.getElementById('modal-title').innerText = "連絡先";
-        const c = data[currentMode].contacts;
-        document.getElementById('modal-list').innerHTML = Object.keys(c).map(n => `<div class="item-row"><div><strong>${c[n]}</strong><br><small>${formatPhone(n)}</small></div><button class="nav-link" onclick="dialFromList('${n}')">発信</button></div>`).join('');
+        var listHtml = "";
+        var c = data[currentMode].contacts;
+        for (var n in c) {
+            if (c.hasOwnProperty(n)) {
+                listHtml += '<div class="item-row"><div><strong>' + c[n] + '</strong><br><small>' + formatPhone(n) + '</small></div><button class="nav-link" onclick="dialFromList(\'' + n + '\')">発信</button></div>';
+            }
+        }
+        document.getElementById('modal-list').innerHTML = listHtml;
         document.getElementById('list-modal').style.display = 'block';
     }
+    
     function saveCurrentContact() {
         if(!dialBuffer) return;
-        const n = prompt("名前を入力:", data[currentMode].contacts[dialBuffer] || "");
-        if(n) { data[currentMode].contacts[dialBuffer] = n; localStorage.setItem(`gutti_${currentMode}_contacts_v17`, JSON.stringify(data[currentMode].contacts)); updateDisplay(); }
+        var existingName = data[currentMode].contacts[dialBuffer] || "";
+        var n = prompt("名前を入力:", existingName);
+        if(n) { 
+            data[currentMode].contacts[dialBuffer] = n; 
+            localStorage.setItem('gutti_' + currentMode + '_contacts_v17', JSON.stringify(data[currentMode].contacts)); 
+            updateDisplay(); 
+        }
     }
-    function dialFromList(n) { dialBuffer = n; updateDisplay(); closeModal(); makeCall(); }
-    function closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+    
+    function dialFromList(n) { 
+        dialBuffer = n; 
+        updateDisplay(); 
+        closeModal(); 
+        makeCall(); 
+    }
+    
+    function closeModal() { 
+        var modals = document.querySelectorAll('.modal');
+        for (var i = 0; i < modals.length; i++) {
+            modals[i].style.display = 'none';
+        }
+    }
+    
     function showSettings() { 
         document.getElementById('ringback-select').value = soundSettings.back;
         document.getElementById('ringtone-select').value = soundSettings.tone;
         document.getElementById('setting-modal').style.display = 'block'; 
     }
     
-    // 初期化
     updateDisplay();
 </script>
 </body>
