@@ -3,10 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Radio Listener - Universal Fit</title>
-    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <title>Radio Listener - Universal Fit v2</title>
+    <script src="https://cdn.jsdelivr.net/npm/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        /* iPhone 4sから最新の大画面まで、絶対に上下中央に収めるFlexbox構成 */
         body { 
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
             background: #0f172a; 
@@ -31,7 +30,7 @@
             padding: 25px 20px; 
             border-radius: 24px; 
             width: 90%; 
-            max-width: 280px; /* 小さな画面を意識して少しタイトに調整 */
+            max-width: 280px; 
             text-align: center; 
             box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
             -webkit-flex-shrink: 0;
@@ -74,7 +73,6 @@
         @-webkit-keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         
-        /* スマホ用通知バッジ */
         .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; background: #334155; margin-bottom: 10px; font-weight: bold; letter-spacing: 1px; }
     </style>
 </head>
@@ -96,22 +94,15 @@
 </div>
 
 <script>
-    // 古いブラウザ用の変数宣言と設定
     var peer = null;
 
-    // 通信を中継するTURNサーバーの設定（違うWi-Fi同士でも繋がるようにする）
+    // 古いiOSの接続トラブルを回避するため、極力シンプルなSTUNサーバー構成に変更
     var PEER_CONFIG = {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
-                { urls: 'stun:stun1.l.google.com:19302' },
-                { 
-                    urls: 'turn:openrelay.metered.ca:443',
-                    username: 'openrelayproject',
-                    credential: 'openrelayproject'
-                }
-            ],
-            'iceTransportPolicy': 'all'
+                { urls: 'stun:stun1.l.google.com:19302' }
+            ]
         }
     };
 
@@ -126,78 +117,99 @@
         document.getElementById('listenBtn').disabled = true;
         status.innerText = "🔍 放送を探しています...";
 
-        // レガシー対応の空再生（自動再生ブロック解除用）
+        // iOS古参ブラウザ用の自動再生ブロック解除処理
         try {
-            var playPromise = audio.play();
-            if (playPromise !== undefined) {
-                playPromise["catch"](function() {});
+            if (audio && typeof audio.play === 'function') {
+                var pPromise = audio.play();
+                if (pPromise && typeof pPromise["catch"] === 'function') {
+                    pPromise["catch"](function() {});
+                }
             }
         } catch(e) {}
 
-        // リスナーIDをランダム生成（レガシー向け文字列結合）
-        var myId = room + "-listener-" + Math.floor(Math.random() * 9999);
-        peer = new Peer(myId, PEER_CONFIG);
+        // 完全に安全な文字列結合でリスナーIDを作成
+        var randId = Math.floor(1000 + Math.random() * 9000).toString();
+        var myId = "room-" + randId + "-listener";
 
-        peer.on('open', function() {
-            status.innerText = "📡 接続を確立中...";
-            // 配信者に接続
-            var conn = peer.connect(room + "-host");
+        try {
+            // Peerオブジェクトの生成をレガシー互換仕様で実行
+            if (typeof Peer === 'undefined') {
+                status.innerText = "❌ 通信ライブラリが読み込めません";
+                resetBtn.style.display = "block";
+                return;
+            }
             
-            conn.on('open', function() {
-                status.innerText = "✅ 接続完了！配信を待機しています...";
-            });
+            peer = new Peer(myId, PEER_CONFIG);
 
-            conn.on('close', function() { showEnd(); });
-        });
-
-        peer.on('call', function(call) {
-            status.innerText = "🔴 受信中...";
-            status.className = 'status-on';
-            resetBtn.style.display = "block";
-            
-            call.answer();
-            
-            call.on('stream', function(s) {
-                if ('srcObject' in audio) {
-                    audio.srcObject = s;
-                } else {
-                    audio.src = (window.URL || window.webkitURL).createObjectURL(s);
-                }
+            peer.on('open', function() {
+                status.innerText = "📡 接続を確立中...";
                 
-                // スマホの音声ブロックを回避するセーフプレイ
-                try {
-                    var p = audio.play();
-                    if (p !== undefined) {
-                        p["catch"](function(e) {
-                            status.innerHTML = "⚠️ ブラウザが音をブロックしました<br>ここをタップして再生を許可してください";
-                            status.style.cursor = "pointer";
-                            status.onclick = function() {
-                                audio.play();
-                                status.innerHTML = "🔴 受信中...";
-                                status.onclick = null;
-                            };
-                        });
-                    }
-                } catch(err) {
-                    status.innerHTML = "⚠️ タップして再生してください";
-                    status.style.cursor = "pointer";
-                    status.onclick = function() {
-                        audio.play();
-                        status.innerHTML = "🔴 受信中...";
-                        status.onclick = null;
-                    };
+                // ホスト側へのシグナリング接続
+                var targetHost = room + "-host";
+                var conn = peer.connect(targetHost);
+                
+                if (conn) {
+                    conn.on('open', function() {
+                        status.innerText = "✅ 接続完了！配信を待機しています...";
+                    });
+                    conn.on('close', function() { showEnd(); });
+                    conn.on('error', function() { showEnd(); });
                 }
             });
 
-            call.on('close', function() { showEnd(); });
-        });
+            peer.on('call', function(call) {
+                status.innerText = "🔴 受信中...";
+                status.className = 'status-on';
+                resetBtn.style.display = "block";
+                
+                call.answer();
+                
+                call.on('stream', function(s) {
+                    if (audio) {
+                        if ('srcObject' in audio) {
+                            audio.srcObject = s;
+                        } else {
+                            audio.src = (window.URL || window.webkitURL).createObjectURL(s);
+                        }
+                        
+                        // 再生強制＆ブロック時タップリカバリ
+                        try {
+                            var p = audio.play();
+                            if (p && typeof p["catch"] === 'function') {
+                                p["catch"](function() { triggerTapToPlay(); });
+                            }
+                        } catch(err) {
+                            triggerTapToPlay();
+                        }
+                    }
+                });
 
-        peer.on('error', function(err) {
-            console.error(err);
-            status.innerText = "❌ 配信が見つからないか、接続が切れました";
-            status.className = 'status-off';
+                call.on('close', function() { showEnd(); });
+            });
+
+            peer.on('error', function(err) {
+                console.log("Peer error:", err);
+                status.innerText = "❌ 配信が見つからないか、接続が切れました";
+                status.className = 'status-off';
+                resetBtn.style.display = "block";
+            });
+
+        } catch(fatalErr) {
+            status.innerText = "❌ システムエラーが発生しました";
             resetBtn.style.display = "block";
-        });
+        }
+    }
+
+    function triggerTapToPlay() {
+        var status = document.getElementById('status');
+        var audio = document.getElementById('audio');
+        status.innerHTML = "⚠️ 音声がブロックされました<br>[ここをタップして再生]";
+        status.style.cursor = "pointer";
+        status.onclick = function() {
+            if (audio) audio.play();
+            status.innerHTML = "🔴 受信中...";
+            status.onclick = null;
+        };
     }
 
     function showEnd() {
@@ -206,7 +218,7 @@
         status.className = 'status-off';
         document.getElementById('resetBtn').style.display = "block";
         var a = document.getElementById('audio');
-        a.srcObject = null;
+        if (a) a.srcObject = null;
     }
 </script>
 </body>
