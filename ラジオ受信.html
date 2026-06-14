@@ -1,26 +1,81 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radio Listener - Mobile Ready</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Radio Listener - Universal Fit</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .box { background: #1e293b; padding: 30px; border-radius: 24px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        h2 { margin-bottom: 20px; font-size: 24px; }
-        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.2s; }
-        button:active { transform: scale(0.95); background: #059669; }
+        /* iPhone 4sから最新の大画面まで、絶対に上下中央に収めるFlexbox構成 */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: #0f172a; 
+            color: white; 
+            display: -webkit-box;
+            display: -webkit-flex;
+            display: flex; 
+            -webkit-box-pack: center;
+            -webkit-justify-content: center;
+            justify-content: center; 
+            -webkit-box-align: center;
+            -webkit-align-items: center;
+            align-items: center; 
+            height: 100vh; 
+            margin: 0; 
+            overflow: hidden;
+            box-sizing: border-box;
+            padding: 10px;
+        }
+        .box { 
+            background: #1e293b; 
+            padding: 25px 20px; 
+            border-radius: 24px; 
+            width: 90%; 
+            max-width: 280px; /* 小さな画面を意識して少しタイトに調整 */
+            text-align: center; 
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5); 
+            -webkit-flex-shrink: 0;
+            flex-shrink: 0;
+        }
+        h2 { margin: 0 0 15px 0; font-size: 22px; }
+        input { 
+            width: 100%; 
+            padding: 12px; 
+            margin-bottom: 12px; 
+            border-radius: 12px; 
+            border: 1px solid #334155; 
+            background: #0f172a; 
+            color: white; 
+            text-align: center; 
+            font-size: 16px; 
+            box-sizing: border-box; 
+            -webkit-appearance: none;
+        }
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            border-radius: 15px; 
+            border: none; 
+            background: #10b981; 
+            color: white; 
+            font-weight: bold; 
+            cursor: pointer; 
+            font-size: 16px; 
+            -webkit-transition: 0.2s; 
+            transition: 0.2s; 
+        }
+        button:active { background: #059669; }
         button:disabled { background: #334155; cursor: not-allowed; }
-        .btn-reset { background: #64748b; margin-top: 20px; display: none; font-size: 14px; padding: 12px; }
-        #status { margin-top: 25px; color: #94a3b8; font-weight: bold; line-height: 1.6; }
-        .status-on { color: #10b981; animation: blink 2s infinite; }
+        .btn-reset { background: #64748b; margin-top: 15px; display: none; font-size: 13px; padding: 10px; }
+        #status { margin-top: 20px; color: #94a3b8; font-weight: bold; font-size: 14px; line-height: 1.5; }
+        .status-on { color: #10b981; -webkit-animation: blink 2s infinite; animation: blink 2s infinite; }
         .status-off { color: #f87171; }
+        
+        @-webkit-keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         
         /* スマホ用通知バッジ */
-        .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; background: #334155; margin-bottom: 10px; }
+        .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 11px; background: #334155; margin-bottom: 10px; font-weight: bold; letter-spacing: 1px; }
     </style>
 </head>
 <body>
@@ -41,10 +96,11 @@
 </div>
 
 <script>
-    let peer = null;
+    // 古いブラウザ用の変数宣言と設定
+    var peer = null;
 
     // 通信を中継するTURNサーバーの設定（違うWi-Fi同士でも繋がるようにする）
-    const PEER_CONFIG = {
+    var PEER_CONFIG = {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -60,74 +116,96 @@
     };
 
     function listen() {
-        const room = document.getElementById('room').value;
-        const status = document.getElementById('status');
-        const resetBtn = document.getElementById('resetBtn');
-        const audio = document.getElementById('audio');
+        var room = document.getElementById('room').value;
+        var status = document.getElementById('status');
+        var resetBtn = document.getElementById('resetBtn');
+        var audio = document.getElementById('audio');
 
         if(!room) { alert("IDを入力してください"); return; }
 
         document.getElementById('listenBtn').disabled = true;
         status.innerText = "🔍 放送を探しています...";
 
-        // スマホの「自動再生ブロック」を解除するために、ボタンを押した瞬間に空の音を再生させる
-        audio.play().catch(() => {});
+        // レガシー対応の空再生（自動再生ブロック解除用）
+        try {
+            var playPromise = audio.play();
+            if (playPromise !== undefined) {
+                playPromise["catch"](function() {});
+            }
+        } catch(e) {}
 
-        // リスナーIDをランダム生成
-        const myId = `${room}-listener-${Math.floor(Math.random() * 9999)}`;
+        // リスナーIDをランダム生成（レガシー向け文字列結合）
+        var myId = room + "-listener-" + Math.floor(Math.random() * 9999);
         peer = new Peer(myId, PEER_CONFIG);
 
-        peer.on('open', () => {
+        peer.on('open', function() {
             status.innerText = "📡 接続を確立中...";
             // 配信者に接続
-            const conn = peer.connect(`${room}-host`);
+            var conn = peer.connect(room + "-host");
             
-            conn.on('open', () => {
+            conn.on('open', function() {
                 status.innerText = "✅ 接続完了！配信を待機しています...";
             });
 
-            conn.on('close', () => { showEnd(); });
+            conn.on('close', function() { showEnd(); });
         });
 
-        peer.on('call', call => {
+        peer.on('call', function(call) {
             status.innerText = "🔴 受信中...";
-            status.classList.add('status-on');
+            status.className = 'status-on';
             resetBtn.style.display = "block";
             
             call.answer();
             
-            call.on('stream', s => {
-                audio.srcObject = s;
-                // スマホ対策：ユーザー操作直後でないとplay()が失敗するためエラーハンドリング
-                audio.play().catch(e => {
-                    status.innerHTML = "⚠️ ブラウザが音をブロックしました<br>ここをタップして再生を許可してください";
+            call.on('stream', function(s) {
+                if ('srcObject' in audio) {
+                    audio.srcObject = s;
+                } else {
+                    audio.src = (window.URL || window.webkitURL).createObjectURL(s);
+                }
+                
+                // スマホの音声ブロックを回避するセーフプレイ
+                try {
+                    var p = audio.play();
+                    if (p !== undefined) {
+                        p["catch"](function(e) {
+                            status.innerHTML = "⚠️ ブラウザが音をブロックしました<br>ここをタップして再生を許可してください";
+                            status.style.cursor = "pointer";
+                            status.onclick = function() {
+                                audio.play();
+                                status.innerHTML = "🔴 受信中...";
+                                status.onclick = null;
+                            };
+                        });
+                    }
+                } catch(err) {
+                    status.innerHTML = "⚠️ タップして再生してください";
                     status.style.cursor = "pointer";
-                    status.onclick = () => {
+                    status.onclick = function() {
                         audio.play();
                         status.innerHTML = "🔴 受信中...";
                         status.onclick = null;
                     };
-                });
+                }
             });
 
-            call.on('close', () => { showEnd(); });
+            call.on('close', function() { showEnd(); });
         });
 
-        peer.on('error', (err) => {
+        peer.on('error', function(err) {
             console.error(err);
             status.innerText = "❌ 配信が見つからないか、接続が切れました";
-            status.classList.add('status-off');
+            status.className = 'status-off';
             resetBtn.style.display = "block";
         });
     }
 
     function showEnd() {
-        const status = document.getElementById('status');
+        var status = document.getElementById('status');
         status.innerText = "📴 放送は終了しました";
-        status.classList.remove('status-on');
-        status.classList.add('status-off');
+        status.className = 'status-off';
         document.getElementById('resetBtn').style.display = "block";
-        const a = document.getElementById('audio');
+        var a = document.getElementById('audio');
         a.srcObject = null;
     }
 </script>
