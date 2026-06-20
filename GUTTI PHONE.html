@@ -2,24 +2,353 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ただいまシステムメンテナンス中です</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Gutti Phone v17 - Complete</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { background-color: #222222; color: #ffffff; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; font-family: sans-serif; }
-        .container { text-align: center; padding: 20px; max-width: 500px; }
-        .icon { font-size: 80px; margin-bottom: 20px; animation: twist 2s infinite ease-in-out; }
-        @keyframes twist { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(15deg); } }
-        h1 { font-size: 28px; margin: 10px 0; font-weight: bold; }
-        p { line-height: 1.8; opacity: 0.9; font-size: 16px; }
-        .time { font-weight: bold; color: #f39c12; background: rgba(0,0,0,0.2); padding: 2px 8px; border-radius: 4px; }
+        :root { --blue: #007aff; --red: #ff3b30; --green: #34c759; --gray: #8e8e93; --light: #f2f2f7; --dark: #1c1c1e; }
+        body { font-family: -apple-system, sans-serif; background: var(--light); margin: 0; display: flex; flex-direction: column; height: 100vh; color: #000; overflow: hidden; transition: 0.3s; }
+        
+        header { padding: 15px; text-align: center; background: #fff; box-shadow: 0 1px 5px rgba(0,0,0,0.05); z-index: 10; }
+        .mode-selector { display: flex; background: #e3e3e3; border-radius: 20px; padding: 3px; margin: 0 auto 10px; width: 240px; }
+        .mode-btn { flex: 1; border: none; border-radius: 17px; padding: 8px; font-size: 0.8rem; font-weight: bold; cursor: pointer; background: transparent; color: var(--gray); transition: 0.2s; }
+        .mode-btn.active { background: #fff; color: #000; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .my-num-val { font-size: 1.4rem; font-weight: 700; color: var(--blue); letter-spacing: 1px; }
+
+        .nav-btns { display: flex; justify-content: center; gap: 15px; margin-top: 10px; }
+        .nav-link { border: none; background: none; color: var(--blue); font-size: 0.85rem; font-weight: 600; cursor: pointer; padding: 5px; }
+
+        .display-container { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        #dial-view { font-size: 2.8rem; min-height: 3.5rem; font-weight: 300; letter-spacing: 1px; color: #333; }
+        #contact-name { font-size: 1rem; color: var(--blue); height: 1.5rem; margin-top: 5px; cursor: pointer; font-weight: 500; }
+        #call-timer { font-size: 1.2rem; color: var(--gray); font-weight: bold; margin-bottom: 10px; display: none; }
+
+        .keypad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 280px; margin: 0 auto; transition: 0.3s; }
+        .key { width: 75px; height: 75px; border-radius: 50%; border: none; background: #fff; font-size: 2rem; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+        .key:active { background: #ebebeb; }
+        .key span { font-size: 0.6rem; color: var(--gray); font-weight: bold; margin-top: -2px; }
+
+        .controls { padding: 30px 0 50px; display: flex; justify-content: center; align-items: center; gap: 25px; }
+        .btn-main { width: 75px; height: 75px; border-radius: 50%; border: none; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 2rem; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .call { background: var(--green); }
+        .hangup { background: var(--red); display: none; }
+        .tool-btn { width: 55px; height: 55px; border-radius: 50%; border: none; background: #fff; font-size: 1.3rem; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.1); display: flex; align-items: center; justify-content: center; }
+        .active-tool { background: var(--blue) !important; color: #fff !important; }
+        .mute-active { background: var(--red) !important; color: #fff !important; }
+
+        .modal { display: none; position: fixed; inset: 0; background: #fff; z-index: 1000; padding: 40px 20px; overflow-y: auto; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--light); padding-bottom: 15px; margin-bottom: 20px; }
+        .item-row { padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; }
+        .setting-group { margin-bottom: 20px; max-width: 320px; margin-inline: auto; text-align: left; }
+        .setting-label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; color: var(--gray); }
+        select, input[type="file"] { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ddd; font-size: 1rem; background: var(--light); margin-bottom: 5px; }
+
+        #incoming-screen { display: none; position: fixed; inset: 0; background: var(--dark); color: white; flex-direction: column; align-items: center; justify-content: space-around; z-index: 2000; }
+        .incoming-info { text-align: center; }
+        .caller-id { font-size: 2.5rem; font-weight: bold; margin-bottom: 10px; }
+        .pulse { animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="icon">🛠️</div>
-        <h1>ただいまシステムメンテナンス中です</h1>
-        <p>いつもご利用いただきありがとうございます。より良いサービス提供のため、現在システムメンテナンスを行っております。</p>
-        <p style="margin-top:20px;">⏱️ 終了予定：<span class="time">未定（順次復旧中）</span></p>
+
+<header>
+    <div class="mode-selector">
+        <button id="p2p-mode-btn" class="mode-btn active" onclick="setMode('p2p')">サイト内通話</button>
+        <button id="real-mode-btn" class="mode-btn" onclick="setMode('real')">ガチの電話</button>
     </div>
+    <div class="my-num-val" id="my-num-display">--- ---- ----</div>
+    <div class="nav-btns">
+        <button class="nav-link" onclick="showContacts()">📖 連絡先</button>
+        <button class="nav-link" onclick="showHistory()">🕒 履歴</button>
+        <button class="nav-link" onclick="showSettings()">⚙️ 設定</button>
+    </div>
+</header>
+
+<div class="display-container">
+    <div id="call-timer">00:00</div>
+    <div id="dial-view"></div>
+    <div id="contact-name" onclick="saveCurrentContact()">ADD CONTACT</div>
+</div>
+
+<div class="keypad" id="main-keypad">
+    <button class="key" onclick="typeNum('1')">1</button>
+    <button class="key" onclick="typeNum('2')">2<span>ABC</span></button>
+    <button class="key" onclick="typeNum('3')">3<span>DEF</span></button>
+    <button class="key" onclick="typeNum('4')">4<span>GHI</span></button>
+    <button class="key" onclick="typeNum('5')">5<span>JKL</span></button>
+    <button class="key" onclick="typeNum('6')">6<span>MNO</span></button>
+    <button class="key" onclick="typeNum('7')">7<span>PQRS</span></button>
+    <button class="key" onclick="typeNum('8')">8<span>TUV</span></button>
+    <button class="key" onclick="typeNum('9')">9<span>WXYZ</span></button>
+    <button class="key" onclick="typeNum('*')">*</button>
+    <button class="key" onclick="typeNum('0')">0</button>
+    <button class="key" onclick="back()">⌫</button>
+</div>
+
+<div class="controls">
+    <button id="mute-btn" class="tool-btn" onclick="toggleMute()">🎤</button>
+    <button id="call-btn" class="btn-main call" onclick="makeCall()">📞</button>
+    <button id="hangup-btn" class="btn-main hangup" onclick="endCall()">📵</button>
+    <button id="speaker-btn" class="tool-btn" onclick="toggleSpeaker()">🔊</button>
+</div>
+
+<div id="setting-modal" class="modal">
+    <div class="modal-header"><h2>通話設定</h2><button class="nav-link" onclick="closeModal()">✕ 閉じる</button></div>
+    <div class="setting-group">
+        <label class="setting-label">呼び出し音 (発信中)</label>
+        <select id="ringback-select" onchange="saveSoundSettings()">
+            <option value="400">標準 (400Hz)</option>
+            <option value="600">電子音 (高め)</option>
+            <option value="custom">★カスタムファイル</option>
+        </select>
+        <input type="file" id="file-ringback" accept="audio/*" onchange="handleFileUpload('back')">
+    </div>
+    <div class="setting-group">
+        <label class="setting-label">着信音 (受信時)</label>
+        <select id="ringtone-select" onchange="saveSoundSettings()">
+            <option value="sine">おだやか (Sine)</option>
+            <option value="square">レトロ (Square)</option>
+            <option value="custom">★カスタムファイル</option>
+        </select>
+        <input type="file" id="file-ringtone" accept="audio/*" onchange="handleFileUpload('tone')">
+    </div>
+</div>
+
+<div id="list-modal" class="modal">
+    <div class="modal-header"><h2 id="modal-title">一覧</h2><button class="nav-link" onclick="closeModal()">✕ 閉じる</button></div>
+    <div id="modal-list"></div>
+</div>
+
+<div id="incoming-screen">
+    <div class="incoming-info">
+        <div id="incoming-caller" class="caller-id">---</div>
+        <div class="pulse">着信中...</div>
+    </div>
+    <div style="display:flex; gap:60px;">
+        <button class="btn-main hangup" style="display:flex" onclick="rejectCall()">📵</button>
+        <button class="btn-main call" onclick="answerCall()">📞</button>
+    </div>
+</div>
+
+<audio id="remote-audio" autoplay></audio>
+<audio id="local-player" loop></audio>
+
+<script>
+    // --- 初期化 & IndexedDB ---
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const localPlayer = document.getElementById('local-player');
+    const remoteAudio = document.getElementById('remote-audio');
+    let soundSettings = JSON.parse(localStorage.getItem('gutti_sounds_v17') || '{"back": "400", "tone": "sine"}');
+    
+    let db;
+    const dbReq = indexedDB.open("GuttiPhoneSounds", 1);
+    dbReq.onupgradeneeded = e => e.target.result.createObjectStore("sounds");
+    dbReq.onsuccess = e => db = e.target.result;
+
+    let ringInterval, callTimeout, timerInterval, isConnected = false, secondsElapsed = 0;
+    let myId = localStorage.getItem('gutti_id') || "090" + Math.floor(10000000 + Math.random() * 90000000).toString();
+    localStorage.setItem('gutti_id', myId);
+
+    let currentMode = 'p2p';
+    let data = {
+        p2p: { contacts: JSON.parse(localStorage.getItem('gutti_p2p_contacts_v17') || '{}'), history: JSON.parse(localStorage.getItem('gutti_p2p_history_v17') || '[]') },
+        real: { contacts: JSON.parse(localStorage.getItem('gutti_real_contacts_v17') || '{}'), history: JSON.parse(localStorage.getItem('gutti_real_history_v17') || '[]') }
+    };
+
+    const peer = new Peer(myId);
+    let localStream, currentCall, incomingCall;
+    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => localStream = s);
+
+    // --- サウンドエンジン ---
+    function playTone(freq, type, duration) {
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+        gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+        osc.connect(gain); gain.connect(audioCtx.destination);
+        osc.start(); osc.stop(audioCtx.currentTime + duration);
+    }
+
+    async function playRing(type) {
+        stopAllSounds();
+        const val = (type === 'back') ? soundSettings.back : soundSettings.tone;
+        if (val === 'custom') {
+            const tx = db.transaction("sounds", "readonly");
+            const req = tx.objectStore("sounds").get(type);
+            req.onsuccess = () => {
+                if (req.result) { localPlayer.src = req.result; localPlayer.play(); }
+            };
+        } else {
+            if (type === 'back') {
+                ringInterval = setInterval(() => playTone(parseInt(val), 'sine', 1), 3000);
+            } else {
+                ringInterval = setInterval(() => { playTone(600, val, 0.1); setTimeout(() => playTone(800, val, 0.1), 150); }, 1000);
+            }
+        }
+    }
+
+    function stopAllSounds() { clearInterval(ringInterval); localPlayer.pause(); localPlayer.currentTime = 0; }
+
+    function playGuidance(msg) {
+        stopAllSounds();
+        const uttr = new SpeechSynthesisUtterance(msg);
+        uttr.lang = 'ja-JP'; uttr.rate = 1.1;
+        uttr.onend = () => endCall();
+        window.speechSynthesis.speak(uttr);
+    }
+
+    // --- 通話制御 ---
+    function makeCall() {
+        if (!dialBuffer) return;
+        audioCtx.resume();
+        addHistoryEntry(dialBuffer, currentMode, '発信');
+        if (currentMode === 'real') { window.location.href = `tel:${dialBuffer}`; dialBuffer=""; updateDisplay(); return; }
+
+        isConnected = false;
+        playRing('back');
+        const call = peer.call(dialBuffer, localStream);
+        document.getElementById('contact-name').innerText = "呼び出し中...";
+        
+        callTimeout = setTimeout(() => {
+            if (!isConnected) {
+                const conn = peer.connect(dialBuffer);
+                conn.on('open', () => conn.send({ type: 'missed', from: myId }));
+                playGuidance("おかけになった電話は、現在応答できません。のちほどお掛け直しください。");
+            }
+        }, 15000);
+        handleCall(call);
+    }
+
+    peer.on('connection', conn => {
+        conn.on('data', d => { 
+            if(d.type === 'missed') addHistoryEntry(d.from, 'p2p', '不在着信');
+            if(d.type === 'rejected') playGuidance("おかけになった電話は、現在呼び出しがつきません。またお時間を置いてお掛け直しください。");
+        });
+    });
+
+    peer.on('call', call => {
+        audioCtx.resume();
+        if (currentCall && currentCall.open) { call.answer(); setTimeout(() => call.close(), 500); return; }
+        playRing('tone');
+        incomingCall = call;
+        document.getElementById('incoming-caller').innerText = data.p2p.contacts[call.peer] || formatPhone(call.peer);
+        document.getElementById('incoming-screen').style.display = 'flex';
+    });
+
+    function answerCall() { stopAllSounds(); incomingCall.answer(localStream); document.getElementById('incoming-screen').style.display = 'none'; handleCall(incomingCall); }
+    
+    function rejectCall() { 
+        stopAllSounds(); 
+        const conn = peer.connect(incomingCall.peer);
+        conn.on('open', () => { conn.send({ type: 'rejected' }); setTimeout(() => incomingCall.close(), 500); });
+        document.getElementById('incoming-screen').style.display = 'none'; 
+    }
+
+    function handleCall(call) {
+        currentCall = call;
+        document.getElementById('call-btn').style.display = 'none';
+        document.getElementById('hangup-btn').style.display = 'flex';
+        document.getElementById('main-keypad').style.opacity = '0.3';
+        call.on('stream', s => {
+            isConnected = true; clearTimeout(callTimeout); stopAllSounds();
+            remoteAudio.srcObject = s;
+            document.getElementById('contact-name').innerText = "通話中";
+            startTimer();
+        });
+        call.on('close', endCall);
+    }
+
+    function endCall() {
+        if (currentCall) currentCall.close();
+        stopAllSounds(); clearTimeout(callTimeout); stopTimer();
+        window.speechSynthesis.cancel();
+        document.getElementById('call-btn').style.display = 'flex';
+        document.getElementById('hangup-btn').style.display = 'none';
+        document.getElementById('main-keypad').style.opacity = '1';
+        dialBuffer = ""; updateDisplay();
+    }
+
+    // --- 設定・ユーティリティ ---
+    function toggleSpeaker() {
+        const btn = document.getElementById('speaker-btn');
+        btn.classList.toggle('active-tool');
+        remoteAudio.volume = btn.classList.contains('active-tool') ? 1.0 : 0.3;
+    }
+
+    function handleFileUpload(type) {
+        const file = document.getElementById(type === 'back' ? 'file-ringback' : 'file-ringtone').files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = e => { 
+            db.transaction("sounds", "readwrite").objectStore("sounds").put(e.target.result, type); 
+            alert("サウンドを保存しました！設定から「★カスタムファイル」を選択してください。"); 
+        };
+        reader.readAsDataURL(file);
+    }
+
+    function saveSoundSettings() {
+        soundSettings.back = document.getElementById('ringback-select').value;
+        soundSettings.tone = document.getElementById('ringtone-select').value;
+        localStorage.setItem('gutti_sounds_v17', JSON.stringify(soundSettings));
+    }
+
+    let dialBuffer = "";
+    function typeNum(n) { if(dialBuffer.length < 11) dialBuffer += n; updateDisplay(); playTone(440, 'sine', 0.05); }
+    function back() { dialBuffer = dialBuffer.slice(0, -1); updateDisplay(); }
+    function updateDisplay() {
+        document.getElementById('my-num-display').innerText = formatPhone(myId);
+        document.getElementById('dial-view').innerText = formatPhone(dialBuffer);
+        document.getElementById('contact-name').innerText = data[currentMode].contacts[dialBuffer] || (currentMode === 'real' ? "通常発信" : "連絡先に追加");
+    }
+    function formatPhone(n) {
+        let s = n.replace(/\D/g, '');
+        if (s.length <= 3) return s;
+        if (s.length <= 7) return s.replace(/(\d{3})(\d+)/, '$1-$2');
+        return s.replace(/(\d{3})(\d{4})(\d+)/, '$1-$2-$3');
+    }
+    function setMode(m) {
+        currentMode = m;
+        document.body.classList.toggle('real-mode', m === 'real');
+        document.getElementById('p2p-mode-btn').classList.toggle('active', m === 'p2p');
+        document.getElementById('real-mode-btn').classList.toggle('active', m === 'real');
+        updateDisplay();
+    }
+    function startTimer() { secondsElapsed = 0; document.getElementById('call-timer').style.display = 'block'; timerInterval = setInterval(() => { secondsElapsed++; document.getElementById('call-timer').innerText = Math.floor(secondsElapsed/60).toString().padStart(2,'0')+":"+(secondsElapsed%60).toString().padStart(2,'0'); }, 1000); }
+    function stopTimer() { clearInterval(timerInterval); document.getElementById('call-timer').style.display = 'none'; }
+    function toggleMute() { if(localStream) { localStream.getAudioTracks()[0].enabled = !localStream.getAudioTracks()[0].enabled; document.getElementById('mute-btn').classList.toggle('mute-active'); } }
+    function addHistoryEntry(num, mode, type) {
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
+        data[mode].history.unshift({ num, type, time: timeStr, name: data[mode].contacts[num] || "不明" });
+        localStorage.setItem(`gutti_${mode}_history_v17`, JSON.stringify(data[mode].history));
+    }
+    function showHistory() {
+        document.getElementById('modal-title').innerText = "履歴";
+        document.getElementById('modal-list').innerHTML = data[currentMode].history.map(h => `<div class="item-row"><div><span class="${h.type==='不在着信'?'missed-text':''}">[${h.type}] ${h.name}</span><br><small>${formatPhone(h.num)}</small></div><button class="nav-link" onclick="dialFromList('${h.num}')">発信</button></div>`).join('');
+        document.getElementById('list-modal').style.display = 'block';
+    }
+    function showContacts() {
+        document.getElementById('modal-title').innerText = "連絡先";
+        const c = data[currentMode].contacts;
+        document.getElementById('modal-list').innerHTML = Object.keys(c).map(n => `<div class="item-row"><div><strong>${c[n]}</strong><br><small>${formatPhone(n)}</small></div><button class="nav-link" onclick="dialFromList('${n}')">発信</button></div>`).join('');
+        document.getElementById('list-modal').style.display = 'block';
+    }
+    function saveCurrentContact() {
+        if(!dialBuffer) return;
+        const n = prompt("名前を入力:", data[currentMode].contacts[dialBuffer] || "");
+        if(n) { data[currentMode].contacts[dialBuffer] = n; localStorage.setItem(`gutti_${currentMode}_contacts_v17`, JSON.stringify(data[currentMode].contacts)); updateDisplay(); }
+    }
+    function dialFromList(n) { dialBuffer = n; updateDisplay(); closeModal(); makeCall(); }
+    function closeModal() { document.querySelectorAll('.modal').forEach(m => m.style.display = 'none'); }
+    function showSettings() { 
+        document.getElementById('ringback-select').value = soundSettings.back;
+        document.getElementById('ringtone-select').value = soundSettings.tone;
+        document.getElementById('setting-modal').style.display = 'block'; 
+    }
+    
+    // 初期化
+    updateDisplay();
+</script>
 </body>
 </html>
