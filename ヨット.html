@@ -2,67 +2,134 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ヨット・カスタム決定版</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ヨット・カスタム決定版 3D</title>
     <style>
-        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #1a1a1a; color: white; text-align: center; padding: 20px; }
-        .screen { display: none; max-width: 850px; margin: auto; }
+        :root {
+            --dice-size: 60px;
+            --dice-transform-z: 30px; /* サイズの半分 */
+        }
+        body { 
+            font-family: 'Helvetica Neue', Arial, sans-serif; 
+            background: #1a1a1a; 
+            color: white; 
+            text-align: center; 
+            padding: 10px; 
+            margin: 0;
+        }
+        .screen { display: none; max-width: 900px; margin: auto; padding: 10px; }
         .active { display: block; }
         
         /* 設定画面 */
-        .setup-card { background: #333; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        .btn-mode { background: #555; color: white; padding: 12px 20px; border: 2px solid transparent; margin: 5px; cursor: pointer; border-radius: 5px; font-weight: bold; }
+        .setup-card { background: #333; padding: 30px 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 500px; margin: 40px auto; }
+        .btn-mode { background: #555; color: white; padding: 12px 20px; border: 2px solid transparent; margin: 5px; cursor: pointer; border-radius: 5px; font-weight: bold; width: 100%; max-width: 240px; }
         .btn-mode.active { background: #f1c40f; color: black; border-color: #fff; }
-        input { padding: 10px; border-radius: 5px; border: none; width: 200px; margin-bottom: 10px; }
+        input { padding: 12px; border-radius: 5px; border: none; width: 80%; max-width: 250px; margin-bottom: 10px; font-size: 16px; }
 
-        /* ゲーム画面 */
-        .p-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
-        .tab { padding: 10px 15px; background: #444; border-radius: 5px; opacity: 0.6; }
+        /* ゲーム画面レスポンシブレイアウト */
+        .p-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
+        .tab { padding: 8px 12px; background: #444; border-radius: 5px; opacity: 0.6; font-size: 14px; }
         .tab.current { opacity: 1; background: #27ae60; font-weight: bold; border: 2px solid white; }
 
-        .game-layout { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
-        .dice-box { background: #2c3e50; padding: 25px; border-radius: 15px; flex: 1; min-width: 320px; }
-        .dice-row { display: flex; justify-content: center; gap: 10px; margin: 25px 0; height: 60px; }
+        .game-layout { display: flex; gap: 15px; flex-direction: column; }
+        @media (min-width: 768px) {
+            .game-layout { flex-direction: row; align-items: flex-start; }
+        }
+
+        .dice-box { background: #2c3e50; padding: 20px 10px; border-radius: 15px; flex: 1; }
+        .dice-row { display: flex; justify-content: center; gap: 15px; margin: 30px 0; height: 90px; align-items: center; }
         
-        /* 🌀アニメーション設定 */
-        .dice { width: 55px; height: 55px; background: white; color: #333; font-size: 38px; 
-                line-height: 55px; border-radius: 10px; cursor: pointer; border: 4px solid transparent; transition: 0.2s;
-                display: flex; justify-content: center; align-items: center; }
-        .dice.keep { border-color: #e74c3c; transform: translateY(-5px); box-shadow: 0 5px 15px rgba(231,76,60,0.4); }
-        .dice.rolling { animation: spin 0.5s infinite linear; font-size: 25px; opacity: 0.8; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* 🎲 3Dサイコロのスタイリング */
+        .dice-wrapper {
+            perspective: 300px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .dice-wrapper.keep {
+            transform: translateY(-10px);
+        }
+        .dice-wrapper.keep .cube .face {
+            border: 3px solid #e74c3c;
+            box-shadow: 0 0 15px rgba(231,76,60,0.6);
+        }
+        .cube {
+            width: var(--dice-size);
+            height: var(--dice-size);
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.1);
+        }
+        /* 振り出し中の激しい回転用クラス */
+        .cube.rolling {
+            animation: spin3d 0.5s infinite linear;
+        }
+        @keyframes spin3d {
+            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+            100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(180deg); }
+        }
+
+        .face {
+            position: absolute;
+            width: var(--dice-size);
+            height: var(--dice-size);
+            background: white;
+            color: #333;
+            font-size: 32px;
+            font-weight: bold;
+            line-height: var(--dice-size);
+            text-align: center;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 3px 5px rgba(0,0,0,0.2);
+            box-sizing: border-box;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 3Dの各面の配置 */
+        .f1 { transform: rotateY(0deg) translateZ(var(--dice-transform-z)); }
+        .f6 { transform: rotateY(180deg) translateZ(var(--dice-transform-z)); }
+        .f3 { transform: rotateY(90deg) translateZ(var(--dice-transform-z)); }
+        .f4 { transform: rotateY(-90deg) translateZ(var(--dice-transform-z)); }
+        .f2 { transform: rotateX(90deg) translateZ(var(--dice-transform-z)); }
+        .f5 { transform: rotateX(-90deg) translateZ(var(--dice-transform-z)); }
 
         /* スコア表 */
-        .score-box { background: white; color: #333; padding: 20px; border-radius: 10px; flex: 1; min-width: 320px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        .score-box { background: white; color: #333; padding: 15px; border-radius: 10px; flex: 1; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 15px; }
+        th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: left; }
+        th { background: #f5f5f5; }
         .selectable { cursor: pointer; background: #fdfdfd; }
         .selectable:hover { background: #e3f2fd; }
         .filled { background: #eee; color: #aaa; font-weight: bold; }
-        .preview { color: #2980b9; font-style: italic; }
+        .preview { color: #2980b9; font-style: italic; font-weight: bold; }
 
-        button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
-        .btn-main { background: #27ae60; color: white; width: 100%; font-size: 20px; margin-top: 15px; }
-        .btn-main:disabled { background: #7f8c8d; opacity: 0.5; }
-        .btn-danger { background: #c0392b; color: white; font-size: 12px; margin-top: 30px; }
+        button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 16px; }
+        .btn-main { background: #27ae60; color: white; width: 100%; font-size: 20px; margin-top: 15px; padding: 15px; }
+        .btn-main:disabled { background: #7f8c8d; opacity: 0.5; cursor: not-allowed; }
+        .btn-danger { background: #c0392b; color: white; font-size: 12px; margin-top: 20px; padding: 8px 15px; }
     </style>
 </head>
 <body>
 
 <div id="setup-screen" class="screen active">
-    <h1>Yacht Dice</h1>
+    <h1>Yacht Dice 3D</h1>
     <div class="setup-card">
         <h3>1. モードを選択</h3>
-        <button id="normal-btn" class="btn-mode active" onclick="setSpeed(false)">通常モード (12役)</button>
-        <button id="speed-btn" class="btn-mode" onclick="setSpeed(true)">スピードモード (厳選6役)</button>
+        <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
+            <button id="normal-btn" class="btn-mode active" onclick="setSpeed(false)">通常モード (12役)</button>
+            <button id="speed-btn" class="btn-mode" onclick="setSpeed(true)">スピードモード (厳選6役)</button>
+        </div>
         
         <h3>2. プレイヤー名入力</h3>
         <div id="name-inputs">
             <input type="text" id="p0-name" value="Player 1"><br>
-            <input type="text" id="p1-name" value="Player 2">
+            <input type="text" id="p1-name" value="Player 2"><br>
         </div>
-        <button onclick="addPlayer()" style="background:#555; color:white; margin:10px;">＋ プレイヤーを追加</button>
+        <button onclick="addPlayer()" style="background:#555; color:white; margin:10px; padding:8px 15px; font-size:14px;">＋ プレイヤーを追加</button>
         <br>
-        <button class="btn-main" onclick="initGame()" style="width:250px; height:60px;">ゲーム開始</button>
+        <button class="btn-main" onclick="initGame()" style="width:100%; max-width:250px; margin-top:20px;">ゲーム開始</button>
     </div>
 </div>
 
@@ -70,19 +137,22 @@
     <div id="tabs" class="p-tabs"></div>
     <div class="game-layout">
         <div class="dice-box">
-            <h2 id="turn-label"></h2>
-            <p>残り振り直し: <span id="rolls-left">3</span></p>
+            <h2 id="turn-label" style="margin-top:0;"></h2>
+            <p style="font-size:18px;">残り振り直し: <span id="rolls-left" style="font-weight:bold; color:#f1c40f;">3</span></p>
+            
+            <!-- サイコロ表示エリア -->
             <div class="dice-row" id="dice-container"></div>
+            
             <button id="roll-btn" class="btn-main" onclick="handleRoll()">サイコロを振る</button>
             <br>
-            <button class="btn-danger" onclick="forceQuit()">強制終了 (現スコアで結果発表)</button>
+            <button class="btn-danger" onclick="forceQuit()">強制終了 (結果発表)</button>
         </div>
         <div class="score-box">
             <table>
                 <thead><tr><th>役名</th><th>得点</th></tr></thead>
                 <tbody id="score-tbody"></tbody>
             </table>
-            <h3>合計スコア: <span id="total-val">0</span></h3>
+            <h3 style="margin-bottom:0; text-align:right;">合計スコア: <span id="total-val" style="color:#27ae60; font-size:24px;">0</span></h3>
         </div>
     </div>
 </div>
@@ -92,8 +162,18 @@
     let players = [];
     let currentPlayerIdx = 0;
     let rolls = 3;
-    let dice = [0,0,0,0,0];
+    let dice = [1,1,1,1,1]; // 初期値
     let keeps = [false, false, false, false, false];
+
+    // 各出目に対応するCSS 3Dの角度（1〜6）
+    const rotationAngles = {
+        1: "rotateX(0deg) rotateY(0deg)",
+        2: "rotateX(-90deg) rotateY(0deg)",
+        3: "rotateX(0deg) rotateY(-90deg)",
+        4: "rotateX(0deg) rotateY(90deg)",
+        5: "rotateX(90deg) rotateY(0deg)",
+        6: "rotateX(0deg) rotateY(180deg)"
+    };
 
     const allCategories = [
         { id: 'ones', name: '1 (Ones)', speed: true, calc: d => count(d, 1) * 1 },
@@ -121,7 +201,13 @@
         const div = document.getElementById('name-inputs');
         const id = div.querySelectorAll('input').length;
         if (id >= 4) return;
-        div.innerHTML += `<input type="text" id="p${id}-name" value="Player ${id+1}"><br>`;
+        
+        const newInput = document.createElement('input');
+        newInput.type = 'text';
+        newInput.id = `p${id}-name`;
+        newInput.value = `Player ${id+1}`;
+        div.appendChild(newInput);
+        div.appendChild(document.createElement('br'));
     }
 
     function initGame() {
@@ -131,14 +217,47 @@
         
         document.getElementById('setup-screen').classList.remove('active');
         document.getElementById('game-screen').classList.add('active');
+        
+        // 初回のみサイコロの初期配置HTMLを生成
+        renderInitialDice();
         startTurn();
+    }
+
+    function renderInitialDice() {
+        const cont = document.getElementById('dice-container');
+        // 3Dの立体サイコロの構造を5個分生成
+        cont.innerHTML = [0,1,2,3,4].map(i => `
+            <div id="dice-wrapper-${i}" class="dice-wrapper" onclick="toggleKeep(${i})">
+                <div id="cube-${i}" class="cube">
+                    <div class="face f1">⚀</div>
+                    <div class="face f6">⚅</div>
+                    <div class="face f3">⚂</div>
+                    <div class="face f4">⚃</div>
+                    <div class="face f2">⚁</div>
+                    <div class="face f5">⚄</div>
+                </div>
+            </div>
+        `).join('');
     }
 
     function startTurn() {
         rolls = 3;
         keeps = [false, false, false, false, false];
-        dice = [0,0,0,0,0];
-        updateUI();
+        dice = [1,1,1,1,1];
+        
+        // 【バグ修正】新ターン開始時にボタンの無効化をしっかり解除
+        const btn = document.getElementById('roll-btn');
+        btn.disabled = false;
+        
+        // サイコロのキープ状態の見た目と角度をリセット
+        for(let i=0; i<5; i++) {
+            const wrapper = document.getElementById(`dice-wrapper-${i}`);
+            const cube = document.getElementById(`cube-${i}`);
+            wrapper.classList.remove('keep');
+            cube.style.transform = rotationAngles[1];
+        }
+        
+        updateUI(true); // 初回はスコア選択させない（一度も振ってないため）
     }
 
     function handleRoll() {
@@ -146,62 +265,95 @@
         const btn = document.getElementById('roll-btn');
         btn.disabled = true;
         
-        const diceDivs = document.querySelectorAll('.dice');
-        diceDivs.forEach((d, i) => { 
-            if(!keeps[i]) {
-                d.classList.add('rolling'); 
-                d.innerText = '🌀';
+        // キープされていない3Dサイコロに回転アニメーション（ぐるぐる）を付与
+        for(let i = 0; i < 5; i++) {
+            if (!keeps[i]) {
+                document.getElementById(`cube-${i}`).classList.add('rolling');
             }
-        });
+        }
 
         setTimeout(() => {
             rolls--;
+            // 値の決定
             dice = dice.map((v, i) => keeps[i] ? v : Math.floor(Math.random()*6)+1);
-            updateUI();
-            btn.disabled = rolls === 0;
+            
+            // アニメーションを止め、決定した目の角度へピタッと回す
+            for(let i = 0; i < 5; i++) {
+                const cube = document.getElementById(`cube-${i}`);
+                cube.classList.remove('rolling');
+                if (!keeps[i]) {
+                    cube.style.transform = rotationAngles[dice[i]];
+                }
+            }
+            
+            updateUI(false); // 振ったのでスコア選択可能に
+            
+            // 残り回数があればボタンを再活性化
+            if (rolls > 0) {
+                btn.disabled = false;
+            }
         }, 600);
     }
 
-    function updateUI() {
+    function updateUI(isTurnStart = false) {
         document.getElementById('rolls-left').innerText = rolls;
         document.getElementById('turn-label').innerText = `${players[currentPlayerIdx].name}の番`;
+        
         const tabs = document.getElementById('tabs');
         tabs.innerHTML = players.map((p, i) => `<div class="tab ${i===currentPlayerIdx?'current':''}">${p.name}</div>`).join('');
 
-        const cont = document.getElementById('dice-container');
-        cont.innerHTML = dice.map((v, i) => `
-            <div class="dice ${keeps[i]?'keep':''}" onclick="toggleKeep(${i})">
-                ${v === 0 ? '🎲' : ["","⚀","⚁","⚂","⚃","⚄","⚅"][v]}
-            </div>
-        `).join('');
+        // キープ状態のクラス適用
+        for(let i=0; i<5; i++) {
+            const wrapper = document.getElementById(`dice-wrapper-${i}`);
+            if(keeps[i]) wrapper.classList.add('keep'); else wrapper.classList.remove('keep');
+        }
 
+        // スコアテーブルの更新
         const tbody = document.getElementById('score-tbody');
         let currentTotal = 0;
+        
         tbody.innerHTML = activeCategories.map(cat => {
             const val = players[currentPlayerIdx].scores[cat.id];
             const isFilled = val !== undefined;
             if(isFilled) currentTotal += val;
+            
+            // まだ一度も振っていない(isTurnStart)ならクリック無効＆プレビューは「-」
+            if (isTurnStart) {
+                return `
+                    <tr class="${isFilled?'filled':''}">
+                        <td>${cat.name}</td>
+                        <td>${isFilled ? val : '-'}</td>
+                    </tr>
+                `;
+            }
+            
             return `
                 <tr class="${isFilled?'filled':'selectable'}" onclick="selectScore('${cat.id}')">
                     <td>${cat.name}</td>
-                    <td class="${!isFilled && dice[0]!==0 ? 'preview' : ''}">${isFilled ? val : (dice[0]===0 ? '-' : cat.calc(dice))}</td>
+                    <td class="${!isFilled ? 'preview' : ''}">${isFilled ? val : cat.calc(dice)}</td>
                 </tr>
             `;
         }).join('');
+        
         document.getElementById('total-val').innerText = currentTotal;
     }
 
     function toggleKeep(i) {
-        if (dice[0] === 0 || rolls === 0 || rolls === 3) return;
+        // まだ一度も振っていない時、または残り回数がない・最初の振り直し前の時はキープ不可
+        if (rolls === 3 || rolls === 0) return;
         keeps[i] = !keeps[i];
-        updateUI();
+        updateUI(false);
     }
 
     function selectScore(id) {
-        if (dice[0] === 0 || players[currentPlayerIdx].scores[id] !== undefined) return;
+        // 1度も振っていない、または既に埋まっている場合は選択不可
+        if (rolls === 3 || players[currentPlayerIdx].scores[id] !== undefined) return;
+        
         const cat = activeCategories.find(c => c.id === id);
         players[currentPlayerIdx].scores[id] = cat.calc(dice);
+        
         currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+        
         const finished = players.every(p => Object.keys(p.scores).length === activeCategories.length);
         if (finished) showResult(); else startTurn();
     }
@@ -217,6 +369,7 @@
         location.reload();
     }
 
+    // 計算用ヘルパー
     const count = (d, v) => d.filter(x => x === v).length;
     const sum = d => d.reduce((a, b) => a + b, 0);
     const hasN = (d, n) => {
