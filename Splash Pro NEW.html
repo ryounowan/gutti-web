@@ -2,227 +2,281 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Splash Pro - Fixed Percentage</title>
+    <title>Splash Pro</title>
     <style>
-        :root { --primary: #0078d4; --bg-side: #ffffff; --bg-main: #f0f4f8; }
-        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg-main); margin: 0; display: flex; height: 100vh; color: #333; }
-        .sidebar { width: 420px; min-width: 420px; background: var(--bg-side); padding: 20px; box-shadow: 2px 0 15px rgba(0,0,0,0.1); overflow-y: auto; z-index: 10; height: 100vh; box-sizing: border-box; }
-        .main-view { flex-grow: 1; display: flex; flex-direction: column; align-items: center; padding: 20px; overflow-y: auto; gap: 20px; }
-        @media (max-width: 1000px) { body { flex-direction: column; height: auto; } .sidebar { width: 100%; min-width: auto; height: auto; } }
-        h2 { margin: 15px 0 10px 0; font-size: 0.9rem; border-left: 5px solid var(--primary); padding-left: 10px; color: #1e293b; background: #f8fafc; padding-top: 5px; padding-bottom: 5px; }
+        :root { --primary: #0078d4; --bg-side: #ffffff; --bg-main: #e2e8f0; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg-main); margin: 0; display: flex; height: 100vh; overflow: hidden; color: #333; }
+        .sidebar { width: 450px; background: var(--bg-side); padding: 20px; box-shadow: 2px 0 15px rgba(0,0,0,0.1); overflow-y: auto; z-index: 10; }
+        .main-view { flex-grow: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; }
+        h2 { margin: 15px 0 10px 0; font-size: 1rem; border-left: 5px solid var(--primary); padding-left: 10px; color: #1e293b; }
         .config-item { margin-bottom: 12px; }
-        label { display: block; font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; color: #475569; }
-        input, select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.8rem; box-sizing: border-box; }
-        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        label { display: block; font-size: 0.75rem; font-weight: 700; margin-bottom: 5px; color: #475569; }
+        input, select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 0.85rem; }
+        .row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        button { width: 100%; background: var(--primary); color: white; border: none; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; margin-top: 5px; transition: 0.2s; }
         button:hover { filter: brightness(1.1); }
-        textarea { width: 100%; height: 120px; font-family: 'Consolas', monospace; font-size: 11px; margin-top: 10px; background: #1e293b; color: #94a3b8; padding: 10px; border-radius: 8px; border: none; resize: vertical; box-sizing: border-box; }
-        .previews-wrapper { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; width: 100%; }
-        .preview-box { background: #333; padding: 15px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
-        .preview-label { color: white; text-align: center; font-size: 11px; margin-bottom: 8px; opacity: 0.8; }
-        #pc-preview { width: 450px; height: 280px; background: white; position: relative; overflow: hidden; }
-        #mobile-preview { width: 200px; height: 400px; background: white; border-radius: 25px; border: 6px solid #222; position: relative; overflow: hidden; }
+        textarea { width: 100%; height: 120px; font-family: 'Consolas', monospace; font-size: 10px; margin-top: 10px; background: #1e293b; color: #94a3b8; padding: 10px; border-radius: 8px; border: none; resize: none; }
+        #preview-container { width: 100%; height: 400px; position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 20px 40px rgba(0,0,0,0.2); background: white; }
+        .pos-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; width: 120px; margin: 5px auto; }
+        .pos-btn { background: #f1f5f9; color: #64748b; padding: 8px; border-radius: 4px; border: 1px solid #e2e8f0; font-size: 0.7rem; cursor: pointer; }
+        .pos-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
     </style>
 </head>
 <body>
-
-<div class="sidebar">
-    <h1 style="font-size: 1.1rem; margin: 0 0 15px 0; color: var(--primary);">🎨 Splash Pro</h1>
-    
-    <h2>🎨 テキスト設定</h2>
-    <div class="row">
-        <div class="config-item"><label>表示名:</label><input type="text" id="appName" value="Modern App" oninput="updatePreview()"></div>
-        <div class="config-item"><label>バージョン:</label><input type="text" id="appVersion" value="ver 1.0.0" oninput="updatePreview()"></div>
+<div id="sp-root" style="position:fixed;inset:0;background:#b8d4d9;color:#333333;display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9999999;transition:opacity 0.8s ease;font-family:'Times New Roman', serif;user-select:none;overflow:hidden;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:25px;text-align:center;">
+                <div style="font-size:2.2rem;font-weight:800;">Splash Pro</div>
+        <div id="sp-ldr-box"><div class='sp-b'><div class='sp-f'></div></div><div class='sp-pt' style='color:#333333'><span id='sp-pc'>0</span>%</div></div>
     </div>
-    <div class="row">
-        <div class="config-item"><label>文字サイズ(px):</label><input type="number" id="fontSize" value="32" oninput="updatePreview()"></div>
-        <div class="config-item"><label>要素間隔(px):</label><input type="number" id="itemGap" value="25" oninput="updatePreview()"></div>
-    </div>
-
-    <h2>🖼️ ロゴ設定</h2>
-    <input type="file" id="logoFile" accept="image/*" onchange="loadFile(event)">
-    <div class="row" style="margin-top:10px;">
-        <div class="config-item"><label>枠の太さ(px):</label><input type="number" id="borderWidth" value="4" oninput="updatePreview()"></div>
-        <div class="config-item"><label>枠,バーの色:</label><input type="color" id="borderColor" value="#0078d4" oninput="updatePreview()"></div>
-    </div>
-    <div class="config-item"><label>ロゴサイズ(px):</label><input type="range" id="logoSize" min="40" max="250" value="100" oninput="updatePreview()"></div>
-
-    <h2>⚙️ システム</h2>
-    <div class="row">
-        <div class="config-item">
-            <label>ローダー:</label>
-            <select id="loaderType" onchange="updatePreview()">
-                <option value="percent">パーセント</option>
-                <option value="spin">スピン</option>
-                <option value="dots">ドット</option>
-                <option value="bar">バー</option>
-            </select>
-        </div>
-        <div class="config-item"><label>表示時間(秒):</label><input type="number" id="duration" value="3" step="0.5" oninput="updatePreview()"></div>
-    </div>
-
-    <button onclick="generateCode()" style="background:#10b981; margin-top:10px;">🚀 コードを生成</button>
-    <textarea id="resultCode" readonly placeholder="ここに埋め込みコードが表示されます"></textarea>
-</div>
-
-<div class="main-view">
-    <div class="previews-wrapper">
-        <div class="preview-box">
-            <div class="preview-label">PC VIEW</div>
-            <div id="pc-preview"></div>
-        </div>
-        <div class="preview-box">
-            <div class="preview-label">MOBILE VIEW</div>
-            <div id="mobile-preview"></div>
-        </div>
-    </div>
-    <div class="row" style="width:100%; max-width:350px; margin-top:10px;">
-        <button onclick="updatePreview(true)" style="background:#475569;">▶ 再生（カウント開始）</button>
-    </div>
-</div>
-
-<script>
-let base64Image = "", timerPc = null, timerMob = null;
-
-function loadFile(event) {
-    const file = event.target.files[0];
-    if(!file) return;
-    const reader = new FileReader();
-    reader.onload = (e) => { base64Image = e.target.result; updatePreview(); };
-    reader.readAsDataURL(file);
-}
-
-function updatePreview(isPlay = false) {
-    clearInterval(timerPc); clearInterval(timerMob);
-    
-    const config = {
-        name: document.getElementById('appName').value,
-        ver: document.getElementById('appVersion').value,
-        fSize: document.getElementById('fontSize').value,
-        gap: document.getElementById('itemGap').value,
-        lSize: document.getElementById('logoSize').value,
-        bWidth: document.getElementById('borderWidth').value,
-        bColor: document.getElementById('borderColor').value,
-        dur: document.getElementById('duration').value,
-        loader: document.getElementById('loaderType').value
-    };
-
-    const createHTML = (idPrefix) => {
-        const isMob = idPrefix === 'mob';
-        const scale = isMob ? 0.7 : 1;
-        let lHtml = "";
-        
-        if(config.loader === 'percent') {
-            lHtml = `<div style="display:flex;flex-direction:column;align-items:center;">
-                        <div style="width:120px;height:4px;background:rgba(0,0,0,0.1);border-radius:10px;overflow:hidden;">
-                            <div id="${idPrefix}-bar" style="height:100%;background:${config.bColor};width:0%;"></div>
-                        </div>
-                        <div style="font-size:10px;margin-top:5px;font-weight:bold;"><span id="${idPrefix}-num">0</span>%</div>
-                     </div>`;
-        } else if(config.loader === 'spin') {
-            lHtml = `<div style="border:3px solid rgba(0,0,0,0.1);border-top-color:${config.bColor};border-radius:50%;width:25px;height:25px;animation:spin 0.8s linear infinite;"></div>`;
-        } else if(config.loader === 'dots') {
-            lHtml = `<div style="display:flex;gap:5px;">${[0,0.2,0.4].map(d=>`<div style="width:8px;height:8px;background:${config.bColor};border-radius:50%;animation:dot 1.2s infinite ease-in-out;animation-delay:${d}s"></div>`).join('')}</div>`;
-        } else {
-            lHtml = `<div style="width:120px;height:4px;background:rgba(0,0,0,0.1);overflow:hidden;position:relative;"><div style="position:absolute;width:40%;height:100%;background:${config.bColor};animation:bar 1.2s infinite linear;"></div></div>`;
-        }
-
-        return `
-        <div style="width:100%;height:100%;background:white;color:#333;display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;overflow:hidden;">
-            <div style="display:flex;flex-direction:column;align-items:center;gap:${config.gap * scale}px;text-align:center;">
-                ${base64Image ? `<img src="${base64Image}" style="width:${config.lSize * scale}px;height:${config.lSize * scale}px;border-radius:50%;border:${config.bWidth * scale}px solid ${config.bColor};object-fit:cover;">` : ""}
-                <div style="font-size:${config.fSize * scale}px;font-weight:800;">${config.name}</div>
-                <div style="min-height:40px;display:flex;align-items:center;">${lHtml}</div>
-            </div>
-            <div style="position:absolute;bottom:15px;right:15px;font-size:10px;opacity:0.6;">${config.ver}</div>
-        </div><style>@keyframes spin{to{transform:rotate(360deg)}}@keyframes dot{0%,80%,100%{transform:scale(0.3);opacity:0.3}40%{transform:scale(1);opacity:1}}@keyframes bar{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}</style>`;
-    };
-
-    document.getElementById('pc-preview').innerHTML = createHTML('pc');
-    document.getElementById('mobile-preview').innerHTML = createHTML('mob');
-
-    // 再生ボタンが押されたとき、またはローダーがパーセントの時に数値を動かす
-    if(config.loader === 'percent') {
-        const startAnim = (id) => {
-            let c = 0;
-            const numEl = document.getElementById(`${id}-num`);
-            const barEl = document.getElementById(`${id}-bar`);
-            const itv = setInterval(() => {
-                c++;
-                if(numEl) numEl.innerText = c;
-                if(barEl) barEl.style.width = c + "%";
-                if(c >= 100) clearInterval(itv);
-            }, (config.dur * 1000) / 100);
-            return itv;
-        };
-        timerPc = startAnim('pc');
-        timerMob = startAnim('mob');
-    }
-}
-
-function generateCode() {
-    const config = {
-        name: document.getElementById('appName').value,
-        ver: document.getElementById('appVersion').value,
-        fSize: document.getElementById('fontSize').value,
-        gap: document.getElementById('itemGap').value,
-        lSize: document.getElementById('logoSize').value,
-        bWidth: document.getElementById('borderWidth').value,
-        bColor: document.getElementById('borderColor').value,
-        dur: document.getElementById('duration').value,
-        loader: document.getElementById('loaderType').value
-    };
-
-    const lH = {
-        percent: `<div class='sp-b'><div id='sp-f' class='sp-f'></div></div><div class='sp-pt'><span id='sp-pc'>0</span>%</div>`,
-        spin: `<div class='sp-s'></div>`,
-        dots: `<div class='sp-d'>${[0,0.2,0.4].map(d=>`<div class='sp-dt' style='animation-delay:${d}s'></div>`).join('')}</div>`,
-        bar: `<div class='sp-bb'><div class='sp-bf'></div></div>`
-    };
-
-    document.getElementById('resultCode').value = `
-<div id="sp-root">
-    <div class="sp-c">
-        ${base64Image ? `<img src='${base64Image}' class='sp-l'>` : ""}
-        <div class="sp-t">${config.name}</div>
-        <div class="sp-ld">${lH[config.loader]}</div>
-    </div>
-    <div class="sp-v">${config.ver}</div>
-    <style>
-        #sp-root { position:fixed; inset:0; background:white; color:#333; display:flex; justify-content:center; align-items:center; z-index:9999999; transition:opacity 0.8s; font-family:sans-serif; user-select:none; }
-        .sp-c { display:flex; flex-direction:column; align-items:center; gap:${config.gap}px; text-align:center; }
-        .sp-l { width:${config.lSize}px; height:${config.lSize}px; border-radius:50%; border:${config.bWidth}px solid ${config.bColor}; object-fit:cover; }
-        .sp-t { font-size:${config.fSize}px; font-weight:800; }
-        .sp-v { position:absolute; bottom:20px; right:20px; font-size:11px; opacity:0.6; }
-        .sp-ld { min-height:45px; display:flex; align-items:center; justify-content:center; }
-        .sp-s { border:3px solid rgba(0,0,0,.1); border-top-color:${config.bColor}; border-radius:50%; width:30px; height:30px; animation:sp-r .8s linear infinite; }
-        .sp-b { width:140px; height:4px; background:rgba(0,0,0,.1); border-radius:10px; overflow:hidden; }
-        .sp-f { height:100%; background:${config.bColor}; width:0%; }
-        .sp-pt { font-size:11px; margin-top:5px; font-weight:bold; }
-        .sp-d { display:flex; gap:6px; }
-        .sp-dt { width:9px; height:9px; background:${config.bColor}; border-radius:50%; animation:sp-o 1.2s infinite ease-in-out; }
-        .sp-bb { width:130px; height:4px; background:rgba(0,0,0,.1); overflow:hidden; position:relative; }
-        .sp-bf { position:absolute; width:40%; height:100%; background:${config.bColor}; animation:sp-a 1.2s infinite linear; }
-        @keyframes sp-r{to{transform:rotate(360deg)}} @keyframes sp-o{0%,80%,100%{transform:scale(.3);opacity:.3}40%{transform:scale(1);opacity:1}} @keyframes sp-a{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}
-        body.sp-lock { overflow:hidden!important; touch-action:none; }
-        @media (max-width: 600px) { .sp-l { width:${config.lSize*0.8}px; height:${config.lSize*0.8}px; } .sp-t { font-size:${config.fSize*0.8}px; } }
-    </style>
+    <div style="position:absolute;bottom:20px;right:20px;font-size:11px;opacity:0.6;">ver 1.0.0</div>
+    <style>body.sp-lock{overflow:hidden!important}#sp-ldr-box{min-height:45px;display:flex;flex-direction:column;align-items:center;justify-content:center}.sp-s{border:3px solid rgba(0,0,0,.1);border-top-color:#0078d4;border-radius:50%;width:30px;height:30px;animation:sp-spin .8s linear infinite}.sp-b{width:160px;height:5px;background:rgba(0,0,0,.1);border-radius:10px;overflow:hidden}.sp-f{height:100%;background:#0078d4;width:0%;animation:sp-pl 3s forwards linear}.sp-pt{font-size:10px;font-weight:700;margin-top:5px}.sp-d{display:flex;gap:6px}.sp-dt{width:9px;height:9px;background:#0078d4;border-radius:50%;animation:sp-dot 1.2s infinite ease-in-out}.sp-p{width:35px;height:35px;background:#0078d4;border-radius:50%;animation:sp-pulse 1.2s infinite ease-out}.sp-bb{width:140px;height:4px;background:rgba(0,0,0,.1);overflow:hidden;position:relative}.sp-bf{position:absolute;width:40%;height:100%;background:#0078d4;animation:sp-bar 1.2s infinite linear}@keyframes sp-spin{to{transform:rotate(360deg)}}@keyframes sp-pl{to{width:100%}}@keyframes sp-dot{0%,80%,100%{transform:scale(.3);opacity:.3}40%{transform:scale(1);opacity:1}}@keyframes sp-pulse{0%{transform:scale(.1);opacity:1}100%{transform:scale(1.5);opacity:0}}@keyframes sp-bar{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}</style>
 </div>
 <script>
 (function(){
     document.body.classList.add('sp-lock');
-    ${config.loader==='percent' ? `
-    let c=0; const n=document.getElementById("sp-pc"), b=document.getElementById("sp-f");
-    const i=setInterval(()=>{
-        c++; if(n)n.innerText=c; if(b)b.style.width=c+"%"; if(c>=100)clearInterval(i);
-    }, ${ (config.dur * 1000) / 100 });` : ''}
+    
+    let c=0;const el=document.getElementById("sp-pc");const itv=setInterval(()=>{c++;if(el)el.innerText=c;if(c>=100)clearInterval(itv)},30);
     window.addEventListener('load',()=>{
         setTimeout(()=>{
             const r=document.getElementById('sp-root');
             if(r){r.style.opacity="0";setTimeout(()=>r.remove(),800)}
             document.body.classList.remove('sp-lock');
-        },${config.dur*1000})
+            
+        },3000)
+    })
+})()
+</script>
+<div class="sidebar">
+    <h2>🎨 デザイン配色</h2>
+    <div class="row">
+        <div class="config-item"><label>背景色:</label><input type="color" id="bgColor" value="#ffffff" oninput="updatePreview()"></div>
+        <div class="config-item"><label>文字色:</label><input type="color" id="textColor" value="#333333" oninput="updatePreview()"></div>
+    </div>
+    <div class="config-item">
+        <label>フォントスタイル:</label>
+        <select id="fontFamily" onchange="updatePreview()">
+            <option value="sans-serif">ゴシック体 (Sans-serif)</option>
+            <option value="'Times New Roman', serif">明朝体 (Serif)</option>
+            <option value="'Courier New', monospace">等幅 (Monospace)</option>
+            <option value="'Segoe UI', system-ui">モダン (Segoe UI)</option>
+            <option value="'Arial Black', sans-serif">極太 (Impact Style)</option>
+        </select>
+    </div>
+
+    <h2>🖼️ ロゴ設定</h2>
+    <div class="config-item">
+        <label>ロゴ画像:</label>
+        <input type="file" id="logoFile" accept="image/*" onchange="loadFile(event, 'img')">
+        <button onclick="clearLogo()" style="background:#ef4444; font-size:0.7rem; padding:4px;">画像を解除</button>
+    </div>
+    
+    <div class="row">
+        <div class="config-item">
+            <label>トリミング位置:</label>
+            <div class="pos-pad">
+                <button class="pos-btn" onclick="setPos('left top', this)">↖</button>
+                <button class="pos-btn" onclick="setPos('center top', this)">↑</button>
+                <button class="pos-btn" onclick="setPos('right top', this)">↗</button>
+                <button class="pos-btn" onclick="setPos('left center', this)">←</button>
+                <button class="pos-btn active" onclick="setPos('center center', this)">●</button>
+                <button class="pos-btn" onclick="setPos('right center', this)">→</button>
+                <button class="pos-btn" onclick="setPos('left bottom', this)">↙</button>
+                <button class="pos-btn" onclick="setPos('center bottom', this)">↓</button>
+                <button class="pos-btn" onclick="setPos('right bottom', this)">↘</button>
+            </div>
+        </div>
+        <div class="config-item">
+            <label>枠の設定:</label>
+            <div style="display:flex; flex-direction:column; gap:8px;">
+                <label style="font-weight:normal;"><input type="checkbox" id="circleLogo" onchange="updatePreview()" checked> 枠を表示</label>
+                <input type="color" id="borderColor" value="#0078d4" oninput="updatePreview()">
+                <input type="number" id="borderWidth" value="4" oninput="updatePreview()">
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="config-item"><label>ロゴサイズ:</label><input type="range" id="logoWidth" min="40" max="300" value="120" oninput="updatePreview()"></div>
+        <div class="config-item"><label>要素間隔:</label><input type="range" id="itemGap" min="0" max="80" value="25" oninput="updatePreview()"></div>
+    </div>
+
+    <h2>⚙️ スプラッシュ設定</h2>
+    <div class="row">
+        <div class="config-item"><label>表示名:</label><input type="text" id="appName" value="My Project" oninput="updatePreview()"></div>
+        <div class="config-item"><label>バージョン:</label><input type="text" id="appVersion" value="ver 1.0.0" oninput="updatePreview()"></div>
+    </div>
+    <div class="row">
+        <div class="config-item">
+            <label>ローダー:</label>
+            <select id="loaderType" onchange="updatePreview()">
+                <option value="spin">スピン</option><option value="percent">パーセント</option>
+                <option value="dots">ドット</option><option value="pulse">パルス</option><option value="bar">バー</option>
+            </select>
+        </div>
+        <div class="config-item"><label>時間(秒):</label><input type="number" id="duration" value="3" step="0.5" oninput="updatePreview()"></div>
+    </div>
+
+    <h2>🎵 サウンド</h2>
+    <div class="config-item">
+        <select id="soundSource" onchange="toggleSoundUI()">
+            <option value="preset">プリセットSE</option><option value="custom">カスタムBGM</option>
+        </select>
+    </div>
+    <div id="presetBox" class="config-item">
+        <select id="presetType" onchange="updatePreview()">
+            <option value="none">音なし</option><option value="mist">ミスト</option><option value="soft-bell">ベル</option><option value="water">水滴</option>
+        </select>
+    </div>
+    <div id="customBox" style="display:none; border:1px solid #e2e8f0; padding:10px; border-radius:8px;">
+        <input type="file" id="bgmInput" accept="audio/*" onchange="loadFile(event, 'bgm')">
+        <div class="row" style="margin-top:8px;">
+            <div><label>音量:</label><input type="number" id="bgmVol" min="0" max="1" step="0.1" value="0.2"></div>
+            <div><label>フェード:</label><input type="number" id="fadeTime" value="1.5" step="0.5"></div>
+        </div>
+    </div>
+
+    <button onclick="generateCode()" style="background:#10b981; padding:15px; margin-top:15px;">🚀 埋め込みコードを生成</button>
+    <textarea id="resultCode" readonly placeholder="生成されたコードがここに出ます"></textarea>
+</div>
+
+<div class="main-view">
+    <div id="preview-container"></div>
+    <div class="row" style="width:320px; margin-top:20px;">
+        <button onclick="updatePreview(true)" style="background:#475569;">▶ 再生テスト</button>
+        <button onclick="stopAll()" style="background:#94a3b8;">⏹ 停止</button>
+    </div>
+</div>
+
+<script>
+let base64Image = "", base64BGM = "", currentAudio = null, currentPos = "center center";
+
+function loadFile(event, type) {
+    const file = event.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        if(type === 'img') base64Image = e.target.result;
+        else base64BGM = e.target.result;
+        updatePreview();
+    };
+    reader.readAsDataURL(file);
+}
+
+function clearLogo() { base64Image = ""; document.getElementById('logoFile').value = ""; updatePreview(); }
+
+function setPos(pos, btn) {
+    currentPos = pos;
+    document.querySelectorAll('.pos-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updatePreview();
+}
+
+function toggleSoundUI() {
+    const isCustom = document.getElementById('soundSource').value === 'custom';
+    document.getElementById('customBox').style.display = isCustom ? 'block' : 'none';
+    document.getElementById('presetBox').style.display = isCustom ? 'none' : 'block';
+}
+
+function stopAll() { if(currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; } }
+
+function playSE() {
+    const type = document.getElementById('presetType').value;
+    if(type === 'none') return;
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const now = ctx.currentTime;
+        if(type === 'mist') { [440, 554, 659, 880].forEach((f, i) => { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(f, now + (i*0.05)); g.gain.setValueAtTime(0, now); g.gain.linearRampToValueAtTime(0.04, now+0.2+(i*0.1)); g.gain.exponentialRampToValueAtTime(0.001, now+1.5); o.connect(g); g.connect(ctx.destination); o.start(); o.stop(now+2); }); }
+        else if(type === 'soft-bell') { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(659, now); g.gain.setValueAtTime(0.1, now); g.gain.exponentialRampToValueAtTime(0.001, now+1.2); o.connect(g); g.connect(ctx.destination); o.start(); o.stop(now+1.2); }
+        else if(type === 'water') { const o = ctx.createOscillator(), g = ctx.createGain(); o.frequency.setValueAtTime(1200, now); o.frequency.exponentialRampToValueAtTime(400, now+0.2); g.gain.setValueAtTime(0.1, now); g.gain.exponentialRampToValueAtTime(0.001, now+0.3); o.connect(g); g.connect(ctx.destination); o.start(); o.stop(now+0.3); }
+    } catch(e) {}
+}
+
+function updatePreview(test = false) {
+    const name = document.getElementById('appName').value, ver = document.getElementById('appVersion').value;
+    const bg = document.getElementById('bgColor').value, tx = document.getElementById('textColor').value;
+    const font = document.getElementById('fontFamily').value;
+    const bc = document.getElementById('borderColor').value, bw = document.getElementById('borderWidth').value;
+    const lw = document.getElementById('logoWidth').value, gap = document.getElementById('itemGap').value;
+    const dur = document.getElementById('duration').value, isCircle = document.getElementById('circleLogo').checked;
+    const loader = document.getElementById('loaderType').value;
+
+    let lHtml = "";
+    if(loader === 'percent') lHtml = `<div style="display:flex;flex-direction:column;align-items:center;gap:5px;"><div style="width:160px;height:4px;background:rgba(0,0,0,0.1);border-radius:10px;overflow:hidden;"><div style="height:100%;background:${bc};width:0%;animation:p-load ${dur}s forwards linear;"></div></div><div style="font-size:10px;color:${tx};font-weight:bold;"><span id="p-count">0</span>%</div></div>`;
+    else if(loader === 'spin') lHtml = `<div style="border:3px solid rgba(0,0,0,0.1);border-top-color:${bc};border-radius:50%;width:30px;height:30px;animation:spin 0.8s linear infinite;"></div>`;
+    else if(loader === 'dots') lHtml = `<div style="display:flex;gap:6px;">${[0,0.2,0.4].map(d=>`<div style="width:8px;height:8px;background:${bc};border-radius:50%;animation:dot 1.2s infinite ease-in-out;animation-delay:${d}s"></div>`).join('')}</div>`;
+    else if(loader === 'pulse') lHtml = `<div style="width:35px;height:35px;background:${bc};border-radius:50%;animation:pulse 1.2s infinite ease-out;"></div>`;
+    else lHtml = `<div style="width:140px;height:4px;background:rgba(0,0,0,0.1);overflow:hidden;position:relative;"><div style="position:absolute;width:40%;height:100%;background:${bc};animation:bar 1.2s infinite linear;"></div></div>`;
+
+    document.getElementById('preview-container').innerHTML = `<div style="width:100%;height:100%;background:${bg};color:${tx};display:flex;flex-direction:column;justify-content:center;align-items:center;position:relative;font-family:${font};user-select:none;">
+        <div style="display:flex;flex-direction:column;align-items:center;gap:${gap}px;text-align:center;">
+            ${base64Image ? `<img src="${base64Image}" style="width:${lw}px;height:${lw}px;border-radius:50%;border:${isCircle?bw:0}px solid ${bc};object-fit:cover;object-position:${currentPos};">` : ""}
+            <div style="font-size:2rem;font-weight:800;">${name}</div>
+            <div style="min-height:40px;display:flex;align-items:center;justify-content:center;">${lHtml}</div>
+        </div>
+        <div style="position:absolute;bottom:20px;right:20px;font-size:11px;opacity:0.6;">${ver}</div>
+    </div><style>@keyframes spin{to{transform:rotate(360deg)}}@keyframes dot{0%,80%,100%{transform:scale(0.3);opacity:0.3}40%{transform:scale(1);opacity:1}}@keyframes pulse{0%{transform:scale(0.1);opacity:1}100%{transform:scale(1.5);opacity:0}}@keyframes bar{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}@keyframes p-load{to{width:100%}}</style>`;
+
+    if(loader === 'percent') { let c=0; const el=document.getElementById('p-count'); const itv=setInterval(()=>{c++;if(el)el.innerText=c;if(c>=100)clearInterval(itv)},(dur*1000)/100); }
+    if(test) {
+        if(document.getElementById('soundSource').value === 'custom' && base64BGM) {
+            stopAll(); const a = new Audio(base64BGM); a.volume = 0; a.play().catch(()=>{}); currentAudio = a;
+            let s = Date.now(), v = parseFloat(document.getElementById('bgmVol').value), f = parseFloat(document.getElementById('fadeTime').value)*1000;
+            let fi = setInterval(()=>{ let p=(Date.now()-s)/f; if(p>=1){a.volume=v;clearInterval(fi);} else a.volume=v*p; },50);
+        } else { playSE(); }
+    }
+}
+
+function generateCode() {
+    const isCustom = document.getElementById('soundSource').value === 'custom';
+    const p = document.getElementById('presetType').value, dur = document.getElementById('duration').value;
+    const fade = document.getElementById('fadeTime').value, vol = document.getElementById('bgmVol').value;
+    const name = document.getElementById('appName').value, ver = document.getElementById('appVersion').value;
+    const bg = document.getElementById('bgColor').value, tx = document.getElementById('textColor').value;
+    const font = document.getElementById('fontFamily').value;
+    const lw = document.getElementById('logoWidth').value, gap = document.getElementById('itemGap').value;
+    const bc = document.getElementById('borderColor').value, bw = document.getElementById('borderWidth').value;
+    const isCircle = document.getElementById('circleLogo').checked, loader = document.getElementById('loaderType').value;
+
+    let soundJS = "";
+    if(isCustom && base64BGM) {
+        soundJS = `const bgm=new Audio("${base64BGM}");bgm.volume=0;bgm.play().catch(()=>{});let s=Date.now();let f=setInterval(()=>{let p=(Date.now()-s)/(${fade}*1000);if(p>=1){bgm.volume=${vol};clearInterval(f);}else bgm.volume=${vol}*p;},50);`;
+    } else if(!isCustom && p !== 'none') {
+        soundJS = `setTimeout(()=>{const c=new(window.AudioContext||window.webkitAudioContext)();const n=c.currentTime;` +
+        (p==='mist' ? `[440,554,659,880].forEach((f,i)=>{const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(f,n+(i*0.05));g.gain.setValueAtTime(0,n);g.gain.linearRampToValueAtTime(0.04,n+0.2+(i*0.1));g.gain.exponentialRampToValueAtTime(0.001,n+1.5);o.connect(g);g.connect(c.destination);o.start();o.stop(n+2);});` :
+         p==='soft-bell' ? `const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(659,n);g.gain.setValueAtTime(0.1,n);g.gain.exponentialRampToValueAtTime(0.001,n+1.2);o.connect(g);g.connect(c.destination);o.start();o.stop(n+1.2);` :
+         `const o=c.createOscillator(),g=c.createGain();o.frequency.setValueAtTime(1200,n);o.frequency.exponentialRampToValueAtTime(400,n+0.2);g.gain.setValueAtTime(0.1,n);g.gain.exponentialRampToValueAtTime(0.001,n+0.3);o.connect(g);g.connect(c.destination);o.start();o.stop(n+0.3);`) + `},${dur*1000});`;
+    }
+
+    const lH = {
+        percent: `<div class='sp-b'><div class='sp-f'></div></div><div class='sp-pt' style='color:${tx}'><span id='sp-pc'>0</span>%</div>`,
+        spin: `<div class='sp-s'></div>`,
+        dots: `<div class='sp-d'>${[0,0.2,0.4].map(d=>`<div class='sp-dt' style='animation-delay:${d}s'></div>`).join('')}</div>`,
+        pulse: `<div class='sp-p'></div>`,
+        bar: `<div class='sp-bb'><div class='sp-bf'></div></div>`
+    };
+
+    document.getElementById('resultCode').value = `
+<div id="sp-root" style="position:fixed;inset:0;background:${bg};color:${tx};display:flex;flex-direction:column;justify-content:center;align-items:center;z-index:9999999;transition:opacity 0.8s ease;font-family:${font};user-select:none;overflow:hidden;">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:${gap}px;text-align:center;">
+        ${base64Image ? `<img src='${base64Image}' style='width:${lw}px;height:${lw}px;border-radius:50%;border:${isCircle?bw:0}px solid ${bc};object-fit:cover;object-position:${currentPos};'>` : ""}
+        <div style="font-size:2.2rem;font-weight:800;">${name}</div>
+        <div id="sp-ldr-box">${lH[loader]}</div>
+    </div>
+    <div style="position:absolute;bottom:20px;right:20px;font-size:11px;opacity:0.6;">${ver}</div>
+    <style>body.sp-lock{overflow:hidden!important}#sp-ldr-box{min-height:45px;display:flex;flex-direction:column;align-items:center;justify-content:center}.sp-s{border:3px solid rgba(0,0,0,.1);border-top-color:${bc};border-radius:50%;width:30px;height:30px;animation:sp-spin .8s linear infinite}.sp-b{width:160px;height:5px;background:rgba(0,0,0,.1);border-radius:10px;overflow:hidden}.sp-f{height:100%;background:${bc};width:0%;animation:sp-pl ${dur}s forwards linear}.sp-pt{font-size:10px;font-weight:700;margin-top:5px}.sp-d{display:flex;gap:6px}.sp-dt{width:9px;height:9px;background:${bc};border-radius:50%;animation:sp-dot 1.2s infinite ease-in-out}.sp-p{width:35px;height:35px;background:${bc};border-radius:50%;animation:sp-pulse 1.2s infinite ease-out}.sp-bb{width:140px;height:4px;background:rgba(0,0,0,.1);overflow:hidden;position:relative}.sp-bf{position:absolute;width:40%;height:100%;background:${bc};animation:sp-bar 1.2s infinite linear}@keyframes sp-spin{to{transform:rotate(360deg)}}@keyframes sp-pl{to{width:100%}}@keyframes sp-dot{0%,80%,100%{transform:scale(.3);opacity:.3}40%{transform:scale(1);opacity:1}}@keyframes sp-pulse{0%{transform:scale(.1);opacity:1}100%{transform:scale(1.5);opacity:0}}@keyframes sp-bar{0%{transform:translateX(-150%)}100%{transform:translateX(250%)}}</style>
+</div>
+<script>
+(function(){
+    document.body.classList.add('sp-lock');
+    ${soundJS}
+    ${loader==='percent'?'let c=0;const el=document.getElementById("sp-pc");const itv=setInterval(()=>{c++;if(el)el.innerText=c;if(c>=100)clearInterval(itv)},'+(dur*10)+');':''}
+    window.addEventListener('load',()=>{
+        setTimeout(()=>{
+            const r=document.getElementById('sp-root');
+            if(r){r.style.opacity="0";setTimeout(()=>r.remove(),800)}
+            document.body.classList.remove('sp-lock');
+            ${isCustom?`if(typeof bgm!=="undefined"){let so=Date.now();let fo=setInterval(()=>{let p=1-((Date.now()-so)/800);if(p<=0){bgm.pause();clearInterval(fo)}else bgm.volume=${vol}*p},50)}`:''}
+        },${dur*1000})
     })
 })()
 <\/script>`.trim();
