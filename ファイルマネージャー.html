@@ -24,7 +24,7 @@
 
         /* --- UI Elements --- */
         .top-bar { padding: calc(65px + env(safe-area-inset-top)) 20px 10px; background: rgba(0,0,0,0.3); backdrop-filter: blur(20px); display: flex; gap: 10px; align-items: center; }
-        #search-box { flex: 1; padding: 12px 15px; border-radius: 10px; border: none; background: var(--glass); color: #fff; outline: none; font-size: 16px; /* iOSズーム防止 */ }
+        #search-box { flex: 1; padding: 12px 15px; border-radius: 10px; border: none; background: var(--glass); color: #fff; outline: none; font-size: 16px; }
         
         #mini-player { position: fixed; top: calc(env(safe-area-inset-top) + 10px); left: 50%; transform: translateX(-50%); width: 90%; max-width: 500px; height: 44px; background: rgba(0,0,0,0.85); backdrop-filter: blur(15px); border-radius: 22px; z-index: 5500; display: none; align-items: center; padding: 0 20px; border: 1px solid rgba(255,255,255,0.1); cursor: pointer; }
         #mini-player span { flex: 1; font-size: 0.85rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0 12px; }
@@ -150,7 +150,8 @@
             <h4 style="margin-bottom:10px;">時計の文字色</h4>
             <input type="color" id="cfg-clock-color" style="width:100%; height:50px; border:none; background:none; cursor:pointer; margin-bottom:30px;">
             <hr style="margin:20px 0; border:0; border-top:1px solid #333;">
-            <button onclick="exportData()" style="width:100%; padding:18px; margin-bottom:15px; background:var(--accent); color:#000; border:none; border-radius:12px; font-weight:bold; cursor:pointer;">一括バックアップ (JSON)</button>
+            <button onclick="exportData()" style="width:100%; padding:18px; margin-bottom:15px; background:var(--accent); color:#000; border:none; border-radius:12px; font-weight:bold; cursor:pointer;">一括バックアップ (.backup)</button>
+            <button onclick="document.getElementById('f-import-backup').click()" style="width:100%; padding:18px; margin-bottom:15px; background:var(--glass); color:#fff; border:1px solid var(--accent); border-radius:12px; font-weight:bold; cursor:pointer;">バックアップから復元 (.backup)</button>
             <button onclick="resetSystem()" style="width:100%; padding:18px; background:#d00; color:#fff; border:none; border-radius:12px; font-weight:bold; cursor:pointer;">データを全消去 (初期化)</button>
         </div>
     </div>
@@ -172,6 +173,7 @@
 </div>
 
 <input type="file" id="f-up" multiple onchange="handleImport(this.files)" style="display:none;">
+<input type="file" id="f-import-backup" accept=".backup" onchange="importData(this.files[0])" style="display:none;">
 
 <script>
     const DB_NAME = 'GUTTI_OS_V13', STORE = 'FS';
@@ -228,7 +230,6 @@
             const info = getIconInfo(item);
             div.innerHTML = `<i class="${item.customIcon || info.icon}" style="color:${item.customColor || info.color}"></i><div class="node-name">${item.name}</div>`;
 
-            // イベント制御
             div.onmousedown = div.ontouchstart = (e) => { 
                 if(!isSelMode && !isSortMode) {
                     timer = setTimeout(() => openSheet(item), 600); 
@@ -236,7 +237,6 @@
             };
             div.onmouseup = div.ontouchend = () => clearTimeout(timer);
             
-            // PC用の右クリック対応
             div.oncontextmenu = (e) => {
                 e.preventDefault();
                 if(!isSelMode && !isSortMode) openSheet(item);
@@ -254,7 +254,6 @@
                 else { launch(item); } 
             };
 
-            // ドラッグ＆ドロップ (PC/スマホ共通)
             div.ondragstart = (e) => { div.classList.add('dragging'); e.dataTransfer.setData('text/plain', item.id); };
             div.ondragend = () => { div.classList.remove('dragging'); document.querySelectorAll('.node').forEach(n => n.classList.remove('drag-over')); };
             div.ondragover = (e) => { e.preventDefault(); if(isSortMode) div.classList.add('drag-over'); };
@@ -321,11 +320,11 @@
         else { openEditor(item); }
     }
 
-    function decodeContent(c) { 
-        try { 
+    function decodeContent(c) { 
+        try { 
             const base64 = c.split(',')[1] || "";
-            return new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))); 
-        } catch(e) { return ""; } 
+            return new TextDecoder().decode(Uint8Array.from(atob(base64), c => c.charCodeAt(0))); 
+        } catch(e) { return ""; } 
     }
 
     function openSheet(item) {
@@ -426,13 +425,13 @@
 
     // --- System Utils ---
     function openSettings() { document.getElementById('win-settings').style.display='flex'; }
-    function closeWin(id) { 
+    function closeWin(id) { 
         if(id === 'win-settings') {
             localStorage.setItem('GUTTI_BG', document.getElementById('cfg-bg').value);
             localStorage.setItem('GUTTI_CLOCK_COLOR', document.getElementById('cfg-clock-color').value);
             loadConfig();
         }
-        document.getElementById(id).style.display='none'; 
+        document.getElementById(id).style.display='none'; 
     }
     function closePopups(){ 
         const s=document.getElementById('action-sheet'); 
@@ -448,12 +447,64 @@
         render(); 
     }
     async function resetSystem() { if(confirm("すべてのデータを消去しますか？（復元できません）")){ const tx=db.transaction(STORE,'readwrite'); tx.objectStore(STORE).clear(); tx.oncomplete=()=>location.reload(); } }
-    async function exportData() {
-        const tx=db.transaction(STORE,'readonly');
-        const all=await new Promise(r=>{const req=tx.objectStore(STORE).getAll(); req.onsuccess=()=>r(req.result);});
-        const blob=new Blob([JSON.stringify(all)], {type:'application/json'});
-        const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='GUTTI_FS_BACKUP.json'; a.click();
+    
+    // --- 暗号化・復号ヘルパー ---
+    function xorEncryptDecrypt(str) {
+        const key = 0x5A; // 暗号化キー
+        let result = "";
+        for (let i = 0; i < str.length; i++) {
+            result += String.fromCharCode(str.charCodeAt(i) ^ key);
+        }
+        return result;
     }
+
+    async function exportData() {
+        const tx = db.transaction(STORE, 'readonly');
+        const all = await new Promise(r => { const req = tx.objectStore(STORE).getAll(); req.onsuccess = () => r(req.result); });
+        
+        // データをJSON化してから簡易暗号化を適用
+        const jsonStr = JSON.stringify(all);
+        const encryptedStr = xorEncryptDecrypt(jsonStr);
+        
+        const blob = new Blob([encryptedStr], {type: 'application/octet-stream'});
+        const a = document.createElement('a'); 
+        a.href = URL.createObjectURL(blob); 
+        a.download = 'GUTTI_FS_BACKUP.backup'; 
+        a.click();
+    }
+
+    function importData(file) {
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async (e) => {
+            try {
+                // 暗号化されたテキストを復号
+                const decryptedStr = xorEncryptDecrypt(e.target.result);
+                const data = JSON.parse(decryptedStr);
+                
+                if(!Array.isArray(data)) {
+                    alert("無効なバックアップデータ形式です。");
+                    return;
+                }
+                if(confirm("バックアップデータを読み込みますか？（既存の同名IDデータは上書きされます）")) {
+                    const tx = db.transaction(STORE, 'readwrite');
+                    const os = tx.objectStore(STORE);
+                    data.forEach(item => {
+                        if(item.id) os.put(item);
+                    });
+                    tx.oncomplete = () => {
+                        alert("復元が完了しました。");
+                        render();
+                    };
+                }
+            } catch(err) {
+                alert("ファイルの読み込みまたは復号にエラーが発生しました。正規の .backup ファイルではない可能性があります。");
+            }
+        };
+        reader.readAsText(file);
+        document.getElementById('f-import-backup').value = ''; // 選択をリセット
+    }
+
     function bulkDel() { if(confirm("選択した項目をすべて削除しますか？")){ const tx=db.transaction(STORE,'readwrite'); selected.forEach(id=>tx.objectStore(STORE).delete(id)); tx.oncomplete=()=>{toggleSelect(); render();}; } }
     function bulkDl() { const tx=db.transaction(STORE,'readonly'); tx.objectStore(STORE).getAll().onsuccess=e=>{e.target.result.filter(f=>selected.has(f.id)).forEach(f=>{const a=document.createElement('a');a.href=f.content;a.download=f.name;a.click();}); toggleSelect();}; }
     function openPlayerUI(){ document.getElementById('media-player').style.display='flex'; }
