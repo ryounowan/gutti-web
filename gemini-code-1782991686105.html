@@ -1,0 +1,545 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Ultimate Toolkit (Encrypt / Decrypt / Installer)</title>
+    <style>
+        :root { 
+            --accent: #f43f5e; 
+            --primary: #00f2fe; 
+            --installer: #2563eb;
+            --bg: #0f172a; 
+        }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: #fff; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; display: flex; justify-content: center; align-items: flex-start; }
+        .card { background: #1e293b; padding: 30px; border-radius: 24px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 100%; max-width: 700px; border: 1px solid #334155; margin-bottom: 40px; }
+        
+        /* タブシステム */
+        .tabs { display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 2px solid #334155; padding-bottom: 10px; }
+        .tab-btn { flex: 1; padding: 12px; background: #334155; color: #94a3b8; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 14px; }
+        
+        /* アクティブ時の色分け */
+        .tab-btn.active[data-tab="encrypt"] { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #000; }
+        .tab-btn.active[data-tab="decrypt"] { background: var(--accent); color: white; }
+        .tab-btn.active[data-tab="installer"] { background: var(--installer); color: white; }
+        
+        /* コンテンツの表示・非表示判定（CSSで確実に制御） */
+        .tab-content { display: none !important; }
+        .tab-content.active { display: block !important; }
+
+        h2 { text-align: center; margin-top: 0; font-size: 22px; }
+        .encrypt-title { color: var(--primary); }
+        .decrypt-title { color: var(--accent); }
+        .installer-title { color: #3b82f6; }
+        
+        .subtitle { font-size: 12px; color: #94a3b8; text-align: center; margin-bottom: 20px; margin-top: -10px; }
+        
+        /* 共通入力スタイル */
+        .drop-zone { border: 2px dashed #475569; padding: 25px; border-radius: 16px; text-align: center; cursor: pointer; background: rgba(255,255,255,0.02); transition: 0.2s; margin-bottom: 15px; font-size: 14px; }
+        .enc-zone { border-color: var(--primary); background: rgba(0, 242, 254, 0.03); }
+        .dec-zone { border-color: var(--accent); background: rgba(244, 63, 94, 0.03); }
+        .inst-zone { border-color: #3b82f6; background: rgba(59, 130, 246, 0.03); }
+        
+        .separator { text-align: center; color: #64748b; font-size: 11px; font-weight: bold; margin: 10px 0; display: flex; align-items: center; }
+        .separator::before, .separator::after { content: ""; flex: 1; border-bottom: 1px solid #334155; margin: 0 10px; }
+        
+        .form-group { margin-bottom: 15px; }
+        .form-row { display: flex; gap: 10px; margin-bottom: 15px; }
+        .form-row > div { flex: 1; }
+        
+        label { display: block; font-size: 13px; color: #94a3b8; font-weight: bold; margin-bottom: 5px; }
+        input[type="text"], textarea { width: 100%; background: #0f172a; color: #cbd5e1; border: 1px solid #334155; border-radius: 8px; padding: 12px; font-family: monospace; box-sizing: border-box; resize: vertical; }
+        textarea { height: 100px; }
+        .output-area { color: #10b981; height: 200px; }
+        
+        /* ボタン */
+        button.action-btn { width: 100%; padding: 14px; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; cursor: pointer; transition: 0.2s; margin-top: 10px; }
+        button.action-btn:disabled { background: #475569 !important; color: #94a3b8 !important; cursor: not-allowed; box-shadow: none !important; }
+        
+        .enc-btn { background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: #000; box-shadow: 0 4px 15px rgba(0, 242, 254, 0.2); }
+        .dec-btn { background: var(--accent); color: white; }
+        .inst-btn { background: var(--installer); color: white; }
+        
+        .status-msg { text-align: center; font-size: 13px; font-weight: bold; margin: 10px 0; min-height: 1.2em; }
+        .input-options { display: flex; gap: 10px; justify-content: center; margin-bottom: 15px; }
+        .input-btn { background: #0f172a; border: 1px solid #334155; padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; color: #94a3b8; }
+        .input-btn.active-input { background: #3b82f6; color: white; border-color: #3b82f6; }
+        #buildLog { font-size: 0.8rem; background: #0f172a; color: #f1f5f9; padding: 10px; border-radius: 8px; max-height: 100px; overflow-y: auto; display: none; margin-top: 10px; border: 1px solid #334155; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <!-- タブ切り替えコントロール -->
+    <div class="tabs">
+        <button class="tab-btn active" data-tab="encrypt" onclick="switchTab('encrypt')">🔒 完全暗号化</button>
+        <button class="tab-btn" data-tab="decrypt" onclick="switchTab('decrypt')">🔓 ソース解読</button>
+        <button class="tab-btn" data-tab="installer" onclick="switchTab('installer')">🛠️ インストーラー生成</button>
+    </div>
+
+    <!-- ================= 1. 暗号化タブ ================= -->
+    <div id="encrypt" class="tab-content active">
+        <h2 class="encrypt-title">HTML完全暗号化 <span style="font-size: 12px; opacity: 0.7;">Mobile OK</span></h2>
+        <div class="subtitle">HTMLファイルを保護されたコードに変換します</div>
+        
+        <div class="drop-zone enc-zone" id="encDropZone" onclick="document.getElementById('encFileInput').click()">
+            暗号化したいHTMLファイルをドロップ または クリックして選択
+            <input type="file" id="encFileInput" accept=".html" style="display:none">
+        </div>
+        <div class="separator">または</div>
+        <div class="form-group">
+            <label>元のHTMLソースコードを直接貼り付け</label>
+            <textarea id="encTextInput" placeholder="<!DOCTYPE html>... などのコードを直接ここに書き込めます"></textarea>
+        </div>
+        <div class="status-msg" id="encStatus" style="color: var(--primary);"></div>
+        <button id="encBtn" class="action-btn enc-btn" onclick="processEncrypt()" disabled>暗号化HTMLを保存</button>
+    </div>
+
+    <!-- ================= 2. 解読タブ ================= -->
+    <div id="decrypt" class="tab-content">
+        <h2 class="decrypt-title">HTML ソース解読ツール</h2>
+        <div class="subtitle">暗号化されたHTMLから元のコードを復元します</div>
+        
+        <div class="drop-zone dec-zone" id="decDropZone" onclick="document.getElementById('decFileInput').click()">
+            暗号化済みファイルをドロップ または クリックして選択
+            <input type="file" id="decFileInput" accept=".html" style="display:none">
+        </div>
+        <div class="separator">または</div>
+        <div class="form-group">
+            <label>暗号化されたソースコードを直接貼り付け</label>
+            <textarea id="decTextInput" placeholder="const d = { ... } のある暗号化ソースを貼り付けてください"></textarea>
+        </div>
+        <div class="status-msg" id="decStatus"></div>
+        <div class="form-group">
+            <label>解読結果</label>
+            <textarea id="decResultCode" class="output-area" placeholder="ここに解読されたコードが表示されます..." readonly></textarea>
+        </div>
+        <button class="action-btn dec-btn" onclick="copyDecryptedCode()">解読コードをコピー</button>
+    </div>
+
+    <!-- ================= 3. インストーラー作成タブ ================= -->
+    <div id="installer" class="tab-content">
+        <h2 class="installer-title">🛠️ インストーラー作成</h2>
+        <div class="subtitle">複数ファイル・フォルダを1つのHTML配布パッケージにまとめます</div>
+        
+        <div class="form-group">
+            <label>システム名</label>
+            <input type="text" id="sysName" placeholder="例: My App Portal">
+        </div>
+        <div class="form-row">
+            <div><label>バージョン</label><input type="text" id="sysVer" placeholder="1.0.0"></div>
+            <div><label>作成者</label><input type="text" id="sysAuthor" placeholder="Gutti Presents"></div>
+        </div>
+        <div class="form-group">
+            <label>詳細説明</label>
+            <textarea id="sysDesc" style="height:60px;" placeholder="パッケージの説明を入力..."></textarea>
+        </div>
+
+        <div class="input-options">
+            <button class="input-btn active-input" id="modeFile">📄 ファイル単体モード</button>
+            <button class="input-btn" id="modeFolder">📂 フォルダモード</button>
+        </div>
+
+        <div class="drop-zone inst-zone" id="instDropZone" onclick="document.getElementById('instFileInput').click()">
+            ここにファイルをドロップ または クリックして選択
+            <input type="file" id="instFileInput" multiple style="display: none;">
+        </div>
+        <div class="separator">または</div>
+        <div class="form-group">
+            <label>単一ファイルのテキスト直接書き込み（ファイル名: index.html としてパックされます）</label>
+            <textarea id="instTextInput" placeholder="ソースコードを直接書き込んでパックすることができます"></textarea>
+        </div>
+
+        <div class="status-msg" id="instStatus" style="color: #3b82f6;">ファイルまたはテキストが入力されていません</div>
+        <div id="buildLog"></div>
+        <button id="instBuildBtn" class="action-btn inst-btn" onclick="processBuildInstaller()" disabled>インストーラーを出力 (.html)</button>
+    </div>
+</div>
+
+<script>
+    // --- 絶対にバグらない超単純明快なタブ切り替えロジック ---
+    function switchTab(targetTabId) {
+        // 全コンテンツから一回 active クラスを消す
+        document.getElementById('encrypt').classList.remove('active');
+        document.getElementById('decrypt').classList.remove('active');
+        document.getElementById('installer').classList.remove('active');
+        
+        // 全ボタンから一回 active クラスを消す
+        document.querySelectorAll('.tab-btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        
+        // 選ばれたコンテンツとボタンだけをアクティブにする
+        document.getElementById(targetTabId).classList.add('active');
+        document.querySelector(`.tab-btn[data-tab="${targetTabId}"]`).classList.add('active');
+    }
+
+    // =================================================================
+    // 1. 暗号化ロジック
+    // =================================================================
+    const encFileInput = document.getElementById('encFileInput');
+    const encDropZone = document.getElementById('encDropZone');
+    const encTextInput = document.getElementById('encTextInput');
+    const encBtn = document.getElementById('encBtn');
+    const encStatus = document.getElementById('encStatus');
+    let encTargetContent = "";
+    let encTargetName = "encrypted_page.html";
+
+    setupDropZone(encDropZone, encFileInput, (file) => {
+        encTargetName = "m_" + file.name;[cite: 3]
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            encTargetContent = e.target.result;[cite: 3]
+            encTextInput.value = ""; 
+            encStatus.innerText = `ファイル選択済: ${file.name}`;
+            encBtn.disabled = false;[cite: 3]
+        };
+        reader.readAsText(file);[cite: 3]
+    });
+
+    encTextInput.oninput = () => {
+        if(encTextInput.value.trim()) {
+            encTargetContent = encTextInput.value;
+            encTargetName = "m_written_page.html";
+            encStatus.innerText = "直接書き込みソースを認識しました";
+            encBtn.disabled = false;
+        } else {
+            encBtn.disabled = true;
+            encStatus.innerText = "";
+        }
+    };
+
+    async function processEncrypt() {
+        if(!encTargetContent) return;
+        const enc = new TextEncoder();[cite: 3]
+        const rawKey = window.crypto.getRandomValues(new Uint8Array(16));[cite: 3]
+        const key = await window.crypto.subtle.importKey("raw", rawKey, "AES-GCM", false, ["encrypt"]);[cite: 3]
+        const iv = window.crypto.getRandomValues(new Uint8Array(12));[cite: 3]
+        const encrypted = await window.crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc.encode(encTargetContent));[cite: 3]
+
+        const payload = JSON.stringify({[cite: 3]
+            ct: btoa(String.fromCharCode(...new Uint8Array(encrypted))),[cite: 3]
+            iv: btoa(String.fromCharCode(...iv)),[cite: 3]
+            key: btoa(String.fromCharCode(...rawKey))[cite: 3]
+        });[cite: 3]
+
+        const output = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Loading...</title>
+    <style>
+        html, body { margin: 0; padding: 0; width: 100%; height: 100dvh; background: #000; overflow: hidden; }
+        #l { position: fixed; top: 0; left: 0; width: 100%; height: 100dvh; display: flex; justify-content: center; align-items: center; color: #fff; font-family: sans-serif; z-index: 9999; }
+    </style>
+</head>
+<body>
+    <div id="l">読み込み中...</div>
+    <script>
+    (async function(){
+        try {
+            const d = ${payload};
+            const key = await window.crypto.subtle.importKey("raw", new Uint8Array(atob(d.key).split("").map(c=>c.charCodeAt(0))), "AES-GCM", false, ["decrypt"]);
+            const pt = await window.crypto.subtle.decrypt({name:"AES-GCM",iv:new Uint8Array(atob(d.iv).split("").map(c=>c.charCodeAt(0)))}, key, new Uint8Array(atob(d.ct).split("").map(c=>c.charCodeAt(0))));
+            const fullHtml = new TextDecoder().decode(pt);
+            const parser = new DOMParser();
+            const newDoc = parser.parseFromString(fullHtml, 'text/html');
+            document.head.innerHTML = newDoc.head.innerHTML;
+            document.body.innerHTML = newDoc.body.innerHTML;
+            const scripts = Array.from(newDoc.querySelectorAll("script"));
+            for (let oldScript of scripts) {
+                const newScript = document.createElement("script");
+                Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+                if (oldScript.src) { newScript.src = oldScript.src; } else { newScript.textContent = oldScript.textContent; }
+                document.body.appendChild(newScript);
+            }
+        } catch(e) { document.body.innerHTML = "<div style='color:white;text-align:center;padding:50px;'>エラーが発生しました</div>"; }
+    })();
+    <\/script>
+</body>
+</html>`;[cite: 3]
+
+        downloadHtml(output, encTargetName);
+    }
+
+    // =================================================================
+    // 2. 解読ロジック
+    // =================================================================
+    const decFileInput = document.getElementById('decFileInput');
+    const decDropZone = document.getElementById('decDropZone');
+    const decTextInput = document.getElementById('decTextInput');
+    const decResultCode = document.getElementById('decResultCode');
+    const decStatus = document.getElementById('decStatus');
+
+    setupDropZone(decDropZone, decFileInput, (file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            decTextInput.value = "";
+            processDecrypt(e.target.result);[cite: 1]
+        };
+        reader.readAsText(file);[cite: 1]
+    });
+
+    decTextInput.oninput = () => {
+        if(decTextInput.value.trim()) {
+            processDecrypt(decTextInput.value);
+        } else {
+            clearDecOutput();
+        }
+    };
+
+    function clearDecOutput() {
+        decStatus.innerText = "";
+        decResultCode.value = "";
+    }
+
+    async function processDecrypt(rawHtml) {[cite: 1]
+        try {
+            const match = rawHtml.match(/const d = ({.*?});/s);[cite: 1]
+            if (!match) throw new Error("暗号化データが見つかりません");[cite: 1]
+
+            const data = JSON.parse(match[1]);[cite: 1]
+            const dec = new TextDecoder();[cite: 1]
+            const key = await window.crypto.subtle.importKey([cite: 1]
+                "raw", 
+                new Uint8Array(atob(data.key).split("").map(c=>c.charCodeAt(0))),[cite: 1]
+                "AES-GCM", 
+                false, 
+                ["decrypt"]
+            );
+
+            const pt = await window.crypto.subtle.decrypt([cite: 1]
+                { name: "AES-GCM", iv: new Uint8Array(atob(data.iv).split("").map(c=>c.charCodeAt(0))) },[cite: 1]
+                key, 
+                new Uint8Array(atob(data.ct).split("").map(c=>c.charCodeAt(0)))[cite: 1]
+            );
+
+            decResultCode.value = dec.decode(pt);[cite: 1]
+            decStatus.style.color = "#10b981";[cite: 1]
+            decStatus.innerText = "✔ 解読に成功しました！";[cite: 1]
+        } catch (err) {
+            console.error(err);
+            decStatus.style.color = "#f43f5e";[cite: 1]
+            decStatus.innerText = "✘ 解読できない形式です";[cite: 1]
+            decResultCode.value = "";[cite: 1]
+        }
+    }
+
+    function copyDecryptedCode() {
+        if (!decResultCode.value) return;
+        decResultCode.select();[cite: 1]
+        navigator.clipboard.writeText(decResultCode.value);
+        alert("コードをクリップボードにコピーしました！");[cite: 1]
+    }
+
+    // =================================================================
+    // 3. インストーラー作成ロジック
+    // =================================================================
+    const instFileInput = document.getElementById('instFileInput');
+    const instDropZone = document.getElementById('instDropZone');
+    const instTextInput = document.getElementById('instTextInput');
+    const instStatus = document.getElementById('instStatus');
+    const instBuildBtn = document.getElementById('instBuildBtn');
+    const buildLog = document.getElementById('buildLog');
+    const modeFileBtn = document.getElementById('modeFile');
+    const modeFolderBtn = document.getElementById('modeFolder');
+    
+    let packedFiles = [];[cite: 2]
+
+    modeFileBtn.onclick = () => {
+        instFileInput.removeAttribute('webkitdirectory');[cite: 2]
+        modeFileBtn.classList.add('active-input');[cite: 2]
+        modeFolderBtn.classList.remove('active-input');[cite: 2]
+        resetInstallerFiles();[cite: 2]
+    };
+    modeFolderBtn.onclick = () => {
+        instFileInput.setAttribute('webkitdirectory', '');[cite: 2]
+        modeFolderBtn.classList.add('active-input');[cite: 2]
+        modeFileBtn.classList.remove('active-input');[cite: 2]
+        resetInstallerFiles();[cite: 2]
+    };
+
+    function resetInstallerFiles() {
+        packedFiles = [];[cite: 2]
+        instTextInput.value = "";
+        instStatus.innerText = "ファイルを再選択またはテキストを書き込んでください。";
+        instBuildBtn.disabled = true;[cite: 2]
+    }
+
+    setupDropZone(instDropZone, instFileInput, async (dummy, multipleFiles) => {
+        instTextInput.value = ""; 
+        await loadFilesToPack(multipleFiles);
+    });
+
+    instTextInput.oninput = async () => {
+        if (instTextInput.value.trim()) {
+            packedFiles = [{
+                path: "index.html",
+                type: "text/html",
+                data: "data:text/html;base64," + btoa(unescape(encodeURIComponent(instTextInput.value)))
+            }];
+            instStatus.innerText = "書き込まれたテキスト (index.html) をパッケージ対象に設定しました。";
+            instBuildBtn.disabled = false;
+        } else {
+            packedFiles = [];
+            instStatus.innerText = "ファイルまたはテキストが入力されていません";
+            instBuildBtn.disabled = true;
+        }
+    };
+
+    async function loadFilesToPack(files) {
+        packedFiles = [];[cite: 2]
+        instStatus.innerText = `読み込み中... (0/${files.length})`;[cite: 2]
+        buildLog.style.display = 'block';[cite: 2]
+        buildLog.innerHTML = '';[cite: 2]
+        instBuildBtn.disabled = true;[cite: 2]
+
+        for (let i = 0; i < files.length; i++) {[cite: 2]
+            const file = files[i];[cite: 2]
+            const logEntry = document.createElement('div');[cite: 2]
+            logEntry.innerText = `[${i+1}/${files.length}] ${file.name} を処理中...`;[cite: 2]
+            buildLog.appendChild(logEntry);[cite: 2]
+            buildLog.scrollTop = buildLog.scrollHeight;[cite: 2]
+
+            const data = await toBase64(file);[cite: 2]
+            packedFiles.push({[cite: 2]
+                path: file.webkitRelativePath || file.name,[cite: 2]
+                type: file.type,[cite: 2]
+                data: data[cite: 2]
+            });[cite: 2]
+            
+            instStatus.innerText = `読み込み中... (${i+1}/${files.length})`;[cite: 2]
+            await new Promise(r => setTimeout(r, 0));[cite: 2]
+        }
+
+        instStatus.innerText = `完了！ ${packedFiles.length} 個のファイルを認識しました。`;[cite: 2]
+        buildLog.innerHTML += `<div><strong>全ての読み込みが完了しました。</strong></div>`;[cite: 2]
+        buildLog.scrollTop = buildLog.scrollHeight;[cite: 2]
+        instBuildBtn.disabled = packedFiles.length === 0;[cite: 2]
+    }
+
+    const toBase64 = file => new Promise((resolve) => {[cite: 2]
+        const reader = new FileReader();[cite: 2]
+        reader.readAsDataURL(file);[cite: 2]
+        reader.onload = () => resolve(reader.result);[cite: 2]
+        reader.onerror = () => resolve(null);[cite: 2]
+    });
+
+    function processBuildInstaller() {
+        const info = {[cite: 2]
+            name: document.getElementById('sysName').value || "Unnamed System",[cite: 2]
+            ver: document.getElementById('sysVer').value || "1.0.0",[cite: 2]
+            author: document.getElementById('sysAuthor').value || "Unknown",[cite: 2]
+            desc: document.getElementById('sysDesc').value || ""[cite: 2]
+        };[cite: 2]
+
+        const finalHtml = generateInstallerTemplate(info, packedFiles);[cite: 2]
+        downloadHtml(finalHtml, `${info.name}_Setup.html`);[cite: 2]
+    }
+
+    function generateInstallerTemplate(info, files) {[cite: 2]
+        const jsonFiles = JSON.stringify(files);[cite: 2]
+        return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>${info.name} Setup</title>
+    <style>
+        body { font-family: sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;}
+        .window { background: white; width: 100%; max-width: 520px; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; color: #1e293b; }
+        .header { background: #1f2937; color: white; padding: 18px 25px; font-weight: bold; display: flex; justify-content: space-between; font-size: 1.1rem; }
+        .content { padding: 30px; }
+        h3 { margin-top: 0; color: #111; }
+        .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.95rem; }
+        .info-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        .desc-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; font-size: 0.9rem; height: 100px; overflow-y: auto; white-space: pre-wrap; color: #64748b; border-radius: 8px; }
+        .footer { padding: 20px 30px; background: #f8fafc; text-align: right; border-top: 1px solid #e2e8f0; }
+        button { background: #2563eb; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
+        button:hover { background: #1d4ed8; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        #status { font-size: 0.9rem; font-weight: bold; color: #2563eb; margin-top: 15px; display: none; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="header"><span>${info.name} - セットアップ</span><span>v${info.ver}</span></div>
+        <div class="content">
+            <h3>インストール準備完了</h3>
+            <table class="info-table">
+                <tr><td><strong>システム名</strong></td><td>${info.name}</td></tr>
+                <tr><td><strong>バージョン</strong></td><td>${info.ver}</td></tr>
+                <tr><td><strong>作成者</strong></td><td>${info.author}</td></tr>
+            </table>
+            <div class="desc-box">${info.desc}</div>
+            <div id="status"></div>
+        </div>
+        <div class="footer"><button id="installBtn" onclick="startInstall()">インストール実行</button></div>
+    </div>
+    <script>
+        const files = ${jsonFiles};
+        let isInstalling = false;
+        async function startInstall() {
+            if (isInstalling) return;
+            isInstalling = true;
+            const btn = document.getElementById('installBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true; btn.innerText = "インストール中..."; status.style.display = 'block';
+            
+            for(let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if(!file.data) continue;
+                status.innerText = "ファイルを展開中... (" + (i+1) + "/" + files.length + ")";
+                const link = document.createElement('a');
+                link.href = file.data;
+                link.download = file.path.replace(/[\\\\/]/g, '_'); 
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                const delay = (i % 5 === 0) ? 300 : 150; 
+                await new Promise(r => setTimeout(r, delay)); 
+            }
+            status.innerText = "すべてのファイルを保存しました。";
+            status.style.color = "#059669";
+            btn.innerText = "完了";
+        }
+    <\/script>
+</body>
+</html>`;[cite: 2]
+    }
+
+    // =================================================================
+    // 共通ユーティリティ関数
+    // =================================================================
+    function setupDropZone(dropZone, fileInput, callback) {
+        dropZone.ondragover = (e) => { e.preventDefault(); dropZone.style.opacity = "0.7"; };
+        dropZone.ondragleave = () => { dropZone.style.opacity = "1"; };
+        dropZone.ondrop = (e) => {
+            e.preventDefault();
+            dropZone.style.opacity = "1";
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                fileInput.files = files;
+                callback(files[0], files);
+            }
+        };
+        fileInput.onchange = () => {
+            if (fileInput.files && fileInput.files[0]) {
+                callback(fileInput.files[0], fileInput.files);
+            }
+        };
+    }
+
+    function downloadHtml(htmlContent, filename) {
+        const blob = new Blob([htmlContent], {type: 'text/html'});[cite: 2]
+        const a = document.createElement('a');[cite: 2]
+        a.href = URL.createObjectURL(blob);[cite: 2]
+        a.download = filename;[cite: 2]
+        a.target = '_blank'; 
+        document.body.appendChild(a);
+        a.click();[cite: 2]
+        document.body.removeChild(a);
+    }
+</script>
+</body>
+</html>
