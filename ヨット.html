@@ -3,133 +3,215 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ヨット・カスタム決定版 3D</title>
+    <title>ヨット</title>
+    <script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js"></script>
     <style>
-        :root {
-            --dice-size: 60px;
-            --dice-transform-z: 30px; /* サイズの半分 */
-        }
-        body { 
-            font-family: 'Helvetica Neue', Arial, sans-serif; 
-            background: #1a1a1a; 
-            color: white; 
-            text-align: center; 
-            padding: 10px; 
-            margin: 0;
-        }
-        .screen { display: none; max-width: 900px; margin: auto; padding: 10px; }
+        :root { --dice-size: 55px; --dice-transform-z: 27.5px; --primary-color: #0076a3; }
+        body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #1e1e24; color: white; text-align: center; padding: 10px; margin: 0; user-select: none; overflow-x: hidden; }
+        .game-header { display: flex; justify-content: space-between; align-items: center; max-width: 950px; margin: 0 auto 10px auto; padding: 5px 10px; }
+        .logo-text { font-size: 24px; color: #f1c40f; margin: 0; font-weight: bold; }
+        .profile-trigger { display: flex; align-items: center; gap: 8px; background: #2c2c35; border: 1px solid #444; color: white; padding: 6px 12px; border-radius: 20px; cursor: pointer; font-size: 14px; transition: 0.2s; }
+        .profile-trigger:hover { background: #3a3a45; }
+        .avatar-circle { width: 24px; height: 24px; background: #7f8c8d; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; }
+        .screen { display: none; max-width: 950px; margin: auto; padding: 10px; }
         .active { display: block; }
-        
-        /* 設定画面 */
-        .setup-card { background: #333; padding: 30px 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 500px; margin: 40px auto; }
-        .btn-mode { background: #555; color: white; padding: 12px 20px; border: 2px solid transparent; margin: 5px; cursor: pointer; border-radius: 5px; font-weight: bold; width: 100%; max-width: 240px; }
-        .btn-mode.active { background: #f1c40f; color: black; border-color: #fff; }
-        input { padding: 12px; border-radius: 5px; border: none; width: 80%; max-width: 250px; margin-bottom: 10px; font-size: 16px; }
-
-        /* ゲーム画面レスポンシブレイアウト */
+        .setup-card { background: #2c2c35; padding: 25px 15px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); max-width: 600px; margin: 15px auto; text-align: center; }
+        input[type="text"], select { padding: 12px; border-radius: 5px; border: none; width: 80%; max-width: 250px; margin-bottom: 10px; font-size: 16px; background: #fff; color: #333; }
+        .mode-section { border-top: 1px solid #444; padding-top: 15px; margin-top: 15px; }
+        .modal-overlay { display: none; position: fixed; top:0; left:0; width:100vw; height:100vh; background:rgba(0,0,0,0.8); z-index:10000; justify-content:center; align-items:center; }
+        .modal-overlay.show { display: flex; }
+        .modal-content { background:#2c2c35; border-radius:15px; width:92%; max-width:600px; max-height:85vh; overflow-y:auto; padding:20px; text-align:left; border:1px solid #555; position:relative; }
+        .modal-close { position:absolute; top:15px; right:15px; font-size:24px; cursor:pointer; color:#aaa; }
+        .modal-close:hover { color:#fff; }
+        .profile-section-title { font-size: 15px; color: #f1c40f; margin: 15px 0 5px 0; border-bottom: 1px solid #444; padding-bottom: 3px; font-weight: bold; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .stats-card { background:#1e1e24; padding:10px; border-radius:8px; border:1px solid #333; }
+        .stats-num { font-size: 18px; font-weight: bold; color: #2980b9; }
+        .stats-num.max { color: #e67e22; }
+        .exp-bar-bg { background: #444; width: 100%; height: 12px; border-radius: 6px; overflow: hidden; margin-top: 4px; position: relative; }
+        .exp-bar-fill { background: #27ae60; height: 100%; width: 0%; transition: width 0.5s; }
+        .exp-bar-fill.rank { background: #9b59b6; }
+        .achievement-summary { background: #1e1e24; padding: 10px; border-radius: 8px; margin-bottom: 10px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #f1c40f; }
+        .achievement-grid { display: grid; grid-template-columns: 1fr; gap: 6px; max-height: 250px; overflow-y: auto; padding-right: 5px; }
+        @media (min-width: 500px) { .achievement-grid { grid-template-columns: 1fr 1fr; } }
+        .achievement-row { display: flex; align-items: center; gap: 8px; background: #1e1e24; padding: 6px; border-radius: 6px; opacity: 0.35; filter: grayscale(1); transition: 0.3s; border: 1px solid #333; }
+        .achievement-row.unlocked { opacity: 1; filter: grayscale(0); border: 1px solid #f1c40f; }
+        .ach-info { flex:1; min-width: 0; }
+        .ach-title { font-size: 12px; font-weight: bold; color:#fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .achievement-row.unlocked .ach-title { color: #f1c40f; }
+        .ach-desc { font-size: 10px; color:#aaa; line-height: 1.2; }
         .p-tabs { display: flex; justify-content: center; gap: 8px; margin-bottom: 15px; flex-wrap: wrap; }
         .tab { padding: 8px 12px; background: #444; border-radius: 5px; opacity: 0.6; font-size: 14px; }
-        .tab.current { opacity: 1; background: #27ae60; font-weight: bold; border: 2px solid white; }
-
+        .tab.current { opacity: 1; background: var(--primary-color); font-weight: bold; border: 2px solid white; }
         .game-layout { display: flex; gap: 15px; flex-direction: column; }
-        @media (min-width: 768px) {
-            .game-layout { flex-direction: row; align-items: flex-start; }
-        }
-
-        .dice-box { background: #2c3e50; padding: 20px 10px; border-radius: 15px; flex: 1; }
-        .dice-row { display: flex; justify-content: center; gap: 15px; margin: 30px 0; height: 90px; align-items: center; }
-        
-        /* 🎲 3Dサイコロのスタイリング */
-        .dice-wrapper {
-            perspective: 300px;
-            cursor: pointer;
-            transition: transform 0.2s;
-        }
-        .dice-wrapper.keep {
-            transform: translateY(-10px);
-        }
-        .dice-wrapper.keep .cube .face {
-            border: 3px solid #e74c3c;
-            box-shadow: 0 0 15px rgba(231,76,60,0.6);
-        }
-        .cube {
-            width: var(--dice-size);
-            height: var(--dice-size);
-            position: relative;
-            transform-style: preserve-3d;
-            transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.1);
-        }
-        /* 振り出し中の激しい回転用クラス */
-        .cube.rolling {
-            animation: spin3d 0.5s infinite linear;
-        }
-        @keyframes spin3d {
-            0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
-            100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(180deg); }
-        }
-
-        .face {
-            position: absolute;
-            width: var(--dice-size);
-            height: var(--dice-size);
-            background: white;
-            color: #333;
-            font-size: 32px;
-            font-weight: bold;
-            line-height: var(--dice-size);
-            text-align: center;
-            border-radius: 10px;
-            border: 1px solid #ccc;
-            box-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 3px 5px rgba(0,0,0,0.2);
-            box-sizing: border-box;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-        }
-
-        /* 3Dの各面の配置 */
-        .f1 { transform: rotateY(0deg) translateZ(var(--dice-transform-z)); }
-        .f6 { transform: rotateY(180deg) translateZ(var(--dice-transform-z)); }
+        @media (min-width: 768px) { .game-layout { flex-direction: row; align-items: flex-start; } }
+        .dice-box { background: #2a3b4c; padding: 20px 10px; border-radius: 15px; flex: 1; position: relative; }
+        .turn-announcement { padding: 10px; border-radius: 8px; font-size: 18px; font-weight: bold; margin-bottom: 15px; }
+        .turn-announcement.my-turn { background: #27ae60; color: white; animation: pulse 1.5s infinite; }
+        .turn-announcement.enemy-turn { background: #7f8c8d; color: #ddd; }
+        @keyframes pulse { 0% { opacity: 0.9; } 50% { opacity: 1; transform: scale(1.02); } 100% { opacity: 0.9; } }
+        .dice-row { display: flex; justify-content: center; gap: 12px; margin: 25px 0; height: 85px; align-items: center; }
+        .dice-wrapper { perspective: 300px; cursor: pointer; transition: transform 0.2s; }
+        .dice-wrapper.keep { transform: translateY(-10px); }
+        .dice-wrapper.keep .cube .face { border: 3px solid #e74c3c; box-shadow: 0 0 15px rgba(231,76,60,0.6); }
+        .cube { width: var(--dice-size); height: var(--dice-size); position: relative; transform-style: preserve-3d; transition: transform 0.6s cubic-bezier(0.2, 0.8, 0.3, 1.1); }
+        .cube.rolling { animation: spin3d 0.4s infinite linear; }
+        @keyframes spin3d { 0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); } 100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(180deg); } }
+        .face { position: absolute; width: var(--dice-size); height: var(--dice-size); background: white; color: #333; font-size: 30px; font-weight: bold; line-height: var(--dice-size); text-align: center; border-radius: 10px; border: 1px solid #ccc; box-shadow: inset 0 0 10px rgba(0,0,0,0.1), 0 3px 5px rgba(0,0,0,0.2); box-sizing: border-box; display: flex; justify-content: center; align-items: center; }
+        .f1 { transform: rotateY(0deg) translateZ(var(--dice-transform-z)); color: red; font-size: 38px; }
+        .f2 { transform: rotateX(90deg) translateZ(var(--dice-transform-z)); }
         .f3 { transform: rotateY(90deg) translateZ(var(--dice-transform-z)); }
         .f4 { transform: rotateY(-90deg) translateZ(var(--dice-transform-z)); }
-        .f2 { transform: rotateX(90deg) translateZ(var(--dice-transform-z)); }
         .f5 { transform: rotateX(-90deg) translateZ(var(--dice-transform-z)); }
-
-        /* スコア表 */
-        .score-box { background: white; color: #333; padding: 15px; border-radius: 10px; flex: 1; overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; font-size: 15px; }
-        th, td { border: 1px solid #ddd; padding: 10px 8px; text-align: left; }
+        .f6 { transform: rotateY(180deg) translateZ(var(--dice-transform-z)); }
+        .score-box { background: white; color: #333; padding: 15px; border-radius: 10px; flex: 1; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { border: 1px solid #ddd; padding: 7px 5px; text-align: left; }
         th { background: #f5f5f5; }
         .selectable { cursor: pointer; background: #fdfdfd; }
         .selectable:hover { background: #e3f2fd; }
-        .filled { background: #eee; color: #aaa; font-weight: bold; }
+        .filled { background: #eee; color: #999; font-weight: bold; }
         .preview { color: #2980b9; font-style: italic; font-weight: bold; }
-
+        .bonus-row { background: #fffde7; font-weight: bold; }
         button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 16px; }
         .btn-main { background: #27ae60; color: white; width: 100%; font-size: 20px; margin-top: 15px; padding: 15px; }
         .btn-main:disabled { background: #7f8c8d; opacity: 0.5; cursor: not-allowed; }
         .btn-danger { background: #c0392b; color: white; font-size: 12px; margin-top: 20px; padding: 8px 15px; }
+        .status-msg { margin: 10px 0; color: #f1c40f; font-weight: bold; }
+        #curtain-screen { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 9999; overflow: hidden; }
+        .curtain-side { position: absolute; top: 0; width: 50%; height: 100%; background: #800a0a; box-shadow: 0 0 30px rgba(0,0,0,0.8); transition: transform 1.2s cubic-bezier(0.25, 1, 0.5, 1); }
+        #curtain-left { left: 0; transform: translateX(0); border-right: 2px solid #d4af37; }
+        #curtain-right { right: 0; transform: translateX(0); border-left: 2px solid #d4af37; }
+        #curtain-screen.open #curtain-left { transform: translateX(-100%); }
+        #curtain-screen.open #curtain-right { transform: translateX(100%); }
+        #result-content { position: absolute; width: 100%; height: 100%; background: radial-gradient(circle, #2c3e50, #0f171e); display: flex; flex-direction: column; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.8s; z-index: 9998; }
+        #result-content.show { opacity: 1; }
+        .result-card { background: rgba(255,255,255,0.1); padding: 30px; border-radius: 15px; border: 2px solid #f1c40f; min-width: 320px; max-width: 500px; }
+        .rank-item { font-size: 20px; margin: 12px 0; font-weight: bold; }
+        .rank-1 { color: #f1c40f; font-size: 28px; }
+        .quit-notice { color: #e74c3c; font-size: 14px; margin-top: 5px; font-weight: bold; }
+        #achievement-toast { position: fixed; top: -100px; right: 20px; background: rgba(0, 0, 0, 0.9); color: white; border-left: 5px solid #f1c40f; padding: 12px 20px; border-radius: 4px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: flex; align-items: center; gap: 12px; z-index: 10005; transition: top 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); text-align: left; max-width: 320px; }
+        #achievement-toast.show { top: 20px; }
+        #achievement-toast .title { font-weight: bold; color: #f1c40f; font-size: 14px; }
+        #achievement-toast .desc { font-size: 12px; color: #ccc; }
+        .leaderboard-list { background: #1e1e24; border-radius: 6px; padding: 10px; max-height: 200px; overflow-y: auto; font-size: 12px; }
+        .lb-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid #333; }
+        .lb-row.me { color: #f1c40f; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="setup-screen" class="screen active">
-    <h1>Yacht Dice 3D</h1>
-    <div class="setup-card">
-        <h3>1. モードを選択</h3>
-        <div style="display:flex; flex-direction:column; align-items:center; gap:5px;">
-            <button id="normal-btn" class="btn-mode active" onclick="setSpeed(false)">通常モード (12役)</button>
-            <button id="speed-btn" class="btn-mode" onclick="setSpeed(true)">スピードモード (厳選6役)</button>
-        </div>
+<div class="game-header">
+    <div class="logo-text">YACHT Pro</div>
+    <div class="profile-trigger" onclick="toggleProfileModal(true)">
+        <div class="avatar-circle">👤</div>
+        <span id="header-player-name">Player</span>
+    </div>
+</div>
+
+<div id="achievement-toast">
+    <div style="font-size:28px;">🏆</div>
+    <div>
+        <div class="title" id="toast-title">実績解除!</div>
+        <div class="desc" id="toast-desc">説明</div>
+    </div>
+</div>
+
+<div id="profile-modal" class="modal-overlay" onclick="if(event.target===this) toggleProfileModal(false)">
+    <div class="modal-content">
+        <span class="modal-close" onclick="toggleProfileModal(false)">&times;</span>
+        <h2 style="margin-top:0; color:#f1c40f;">👤 プレイヤープロフィール</h2>
         
-        <h3>2. プレイヤー名入力</h3>
-        <div id="name-inputs">
-            <input type="text" id="p0-name" value="Player 1"><br>
-            <input type="text" id="p1-name" value="Player 2"><br>
+        <div class="profile-section-title">名前の変更</div>
+        <input type="text" id="profile-name-input" onchange="handleNameChange(this.value)" style="width:95%; max-width:none; margin-bottom:5px;">
+        
+        <div class="profile-section-title">🔰 アカウント熟練度 (永続)</div>
+        <div class="stats-card">
+            <div>熟練度 Level: <span class="stats-num" id="stat-player-lv" style="color:#27ae60;">0</span> / 100</div>
+            <div id="stat-lv-exp-text" style="font-size:11px; color:#aaa;">EXP: 0 / 100</div>
+            <div class="exp-bar-bg"><div id="stat-lv-exp-fill" class="exp-bar-fill"></div></div>
         </div>
-        <button onclick="addPlayer()" style="background:#555; color:white; margin:10px; padding:8px 15px; font-size:14px;">＋ プレイヤーを追加</button>
-        <br>
-        <button class="btn-main" onclick="initGame()" style="width:100%; max-width:250px; margin-top:20px;">ゲーム開始</button>
+
+        <div class="profile-section-title">🏆 シーズンランクマッチ (月次更新)</div>
+        <div class="stats-card">
+            <div style="display:flex; justify-content:space-between;">
+                <div>現在のランク: <span class="stats-num" id="stat-rank-string" style="color:#9b59b6;">C</span></div>
+                <div id="stat-rank-exp-text" style="font-size:12px; color:#aaa;">EXP: 0 / 100</div>
+            </div>
+            <div class="exp-bar-bg"><div id="stat-rank-exp-fill" class="exp-bar-fill rank"></div></div>
+            <div style="margin-top:8px; font-size:12px; color:#ccc; display:flex; justify-content:space-between;">
+                <span>現在: <b id="stat-cur-rank-streak">0</b> 連勝</span>
+                <span>最高: <b id="stat-max-rank-streak">0</b> 連勝</span>
+            </div>
+        </div>
+
+        <div class="profile-section-title">📊 記録 (ランダム/オフライン)</div>
+        <div class="stats-grid">
+            <div class="stats-card">
+                <div style="font-size:11px; color:#aaa;">ランダム連勝</div>
+                <div>現在: <span class="stats-num" id="stat-cur-random">0</span></div>
+                <div>最高: <span class="stats-num max" id="stat-max-random">0</span></div>
+            </div>
+            <div class="stats-card">
+                <div style="font-size:11px; color:#aaa;">生涯対戦スタッツ</div>
+                <div style="font-size:12px;">総試合数: <span id="stat-total-games">0</span></div>
+                <div style="font-size:12px;">総ヨット数: <span id="stat-total-yachts">0</span></div>
+            </div>
+        </div>
+
+        <div class="profile-section-title">🥇 前シーズンランキング結果</div>
+        <div class="leaderboard-list" id="modal-leaderboard"></div>
+
+        <div class="profile-section-title">🎖️ 獲得実績一覧 (<span id="ach-percent">0</span>% 達成)</div>
+        <div class="achievement-summary">
+            <span>解除済み: <span id="ach-count-text">0</span> / 30</span>
+        </div>
+        <div class="achievement-grid" id="modal-achievement-list"></div>
+
+        <div class="profile-section-title">💾 セーブデータ管理</div>
+        <div style="display:flex; flex-wrap:wrap; gap:5px; margin-top:5px;">
+            <button onclick="exportSaveData()" style="padding:6px 12px; font-size:12px; background:#444; color:#fff;">保存(DL)</button>
+            <button onclick="document.getElementById('import-file').click()" style="padding:6px 12px; font-size:12px; background:#444; color:#fff;">同期(UP)</button>
+            <button onclick="clearSaveData()" style="padding:6px 12px; font-size:12px; background:#c0392b; color:#fff;">初期化</button>
+        </div>
+        <input type="file" id="import-file" style="display:none;" onchange="importSaveData(this)">
+    </div>
+</div>
+
+<div id="setup-screen" class="screen active">
+    <div class="setup-card">
+        <div id="season-title-display" style="font-weight:bold; color:#f1c40f; margin-bottom:10px; font-size:15px;"></div>
+        
+        <div class="mode-section" style="border:none; margin:0; padding:0;">
+            <button onclick="connectP2P('rank')" style="background:#8e44ad; color:white; font-size:18px; padding:15px; width:90%; border-radius:10px; box-shadow:0 4px 10px rgba(142,68,173,0.4);">⚔️ ランクマッチ開始 ⚔️</button>
+            <div style="font-size:11px; color:#aaa; margin-top:5px;">(同ランクマッチ。不成立時は自動で適正レベルの隠れCPUと即戦えます)</div>
+        </div>
+
+        <div class="mode-section">
+            <h3>【その他の対戦モード】</h3>
+            <div style="display:flex; justify-content:center; gap:8px; margin-bottom:10px;">
+                <button onclick="connectP2P('random')" style="background:#d35400; color:white; font-size:14px; flex:1;">ランダムマッチ</button>
+                <button onclick="startLocalMode(true)" style="background:#2980b9; color:white; font-size:14px; flex:1;">VS CPU戦</button>
+            </div>
+            
+            <input type="text" id="room-code-input" placeholder="部屋コードを入力"><br>
+            <button onclick="connectP2P('code')" style="background:#34495e; color:white; font-size:14px; padding:8px; width:80%;">合言葉でプライベート戦</button>
+            
+            <div id="host-lobby-panel" style="display:none; margin-top:15px; background:rgba(0,0,0,0.3); padding:10px; border-radius:8px;">
+                <p style="margin:5px 0; color:#27ae60; font-weight:bold;">👑 部屋主</p>
+                <div id="member-list" style="font-size:13px; margin-bottom:10px;">待機: </div>
+                <button onclick="hostStartGame()" style="background:#e67e22; color:white; font-size:13px; padding:5px 12px;">ゲーム開始</button>
+            </div>
+        </div>
+
+        <div class="mode-section">
+            <button onclick="startLocalMode(false)" style="background:#27ae60; color:white; font-size:13px; padding:8px 15px;">ローカル対戦 (1台で交代プレイ)</button>
+            <div id="local-setup" style="margin-top:10px; display:none;">
+                <select id="local-player-count" style="width:70px;"><option value="2">2人</option><option value="3">3人</option><option value="4">4人</option><option value="5">5人</option><option value="6">6人</option></select>
+                <button onclick="launchLocalGame()" style="background:#f1c40f; color:black; padding:5px 10px; font-size:13px;">GO</button>
+            </div>
+        </div>
+        <div class="status-msg" id="p2p-status" style="font-size:13px; margin-top:10px;"></div>
     </div>
 </div>
 
@@ -137,253 +219,603 @@
     <div id="tabs" class="p-tabs"></div>
     <div class="game-layout">
         <div class="dice-box">
-            <h2 id="turn-label" style="margin-top:0;"></h2>
-            <p style="font-size:18px;">残り振り直し: <span id="rolls-left" style="font-weight:bold; color:#f1c40f;">3</span></p>
-            
-            <!-- サイコロ表示エリア -->
+            <div id="turn-announcement-bar" class="turn-announcement"></div>
+            <p style="margin:5px 0; font-size:14px;">残り振り直し: <span id="rolls-left" style="font-weight:bold; color:#f1c40f;">3</span></p>
             <div class="dice-row" id="dice-container"></div>
-            
-            <button id="roll-btn" class="btn-main" onclick="handleRoll()">サイコロを振る</button>
+            <button id="roll-btn" class="btn-main" onclick="handleRollClick()">サイコロを振る</button>
             <br>
-            <button class="btn-danger" onclick="forceQuit()">強制終了 (結果発表)</button>
+            <button class="btn-danger" onclick="triggerManualQuit()">ギブアップ (降伏)</button>
         </div>
         <div class="score-box">
             <table>
                 <thead><tr><th>役名</th><th>得点</th></tr></thead>
                 <tbody id="score-tbody"></tbody>
             </table>
-            <h3 style="margin-bottom:0; text-align:right;">合計スコア: <span id="total-val" style="color:#27ae60; font-size:24px;">0</span></h3>
+            <h3 style="margin-top:12px; margin-bottom:0; text-align:right;">合計: <span id="total-val" style="color:#0076a3; font-size:22px;">0</span></h3>
+        </div>
+    </div>
+</div>
+
+<div id="curtain-screen">
+    <div id="curtain-left" class="curtain-side"></div>
+    <div id="curtain-right" class="curtain-side"></div>
+    <div id="result-content">
+        <div class="result-card">
+            <h1 style="color:#f1c40f; margin-top:0; border-bottom:2px solid #f1c40f; padding-bottom:8px; font-size:24px;">🏆 最終結果 🏆</h1>
+            <div id="quit-reason-notice" class="quit-notice"></div>
+            <div id="rank-container" style="margin-top:15px;"></div>
+            <div id="exp-gain-container" style="margin-top:15px; background:rgba(0,0,0,0.4); padding:10px; border-radius:8px; text-align:left; font-size:13px;"></div>
+            <button class="btn-main" onclick="backToMenu()" style="margin-top:20px; font-size:16px; padding:10px;">メニューに戻る</button>
         </div>
     </div>
 </div>
 
 <script>
-    let isSpeedMode = false;
-    let players = [];
-    let currentPlayerIdx = 0;
-    let rolls = 3;
-    let dice = [1,1,1,1,1]; // 初期値
-    let keeps = [false, false, false, false, false];
+    let gameMode = "local"; let players = []; let currentPlayerIdx = 0; let rolls = 3; let dice = [1,1,1,1,1]; let keeps = [false,false,false,false,false];
+    let isGameOverTriggered = false; let quitterName = ""; let peer = null; let conn = null; let connections = []; let isHost = false; let connectedNames = [];
+    let p2pTimeoutTimer = null;
+    const PEER_PREFIX = "yacht-p2p-6p-2026v3-";
 
-    // 各出目に対応するCSS 3Dの角度（1〜6）
-    const rotationAngles = {
-        1: "rotateX(0deg) rotateY(0deg)",
-        2: "rotateX(-90deg) rotateY(0deg)",
-        3: "rotateX(0deg) rotateY(-90deg)",
-        4: "rotateX(0deg) rotateY(90deg)",
-        5: "rotateX(90deg) rotateY(0deg)",
-        6: "rotateX(0deg) rotateY(180deg)"
+    // 固定データベース・ユーザー管理
+    let userDatabase = {}; let myCurrentName = "Player";
+    
+    // 全30個の実績定義
+    const trophies = {
+        r1: {title:"初勝利", desc:"いずれかのモードで1位を取る"},
+        r2: {title:"ヨットの輝き", desc:"役「ヨット」を達成する"},
+        r3: {title:"ボーナスコレクター", desc:"小計ボーナス35点を獲得"},
+        r4: {title:"スコア150超え", desc:"1ゲームで150点以上獲得"},
+        r5: {title:"スコア200超え", desc:"1ゲームで200点以上獲得"},
+        r6: {title:"スコア250超えの伝説", desc:"1ゲームで250点以上獲得"},
+        r7: {title:"ランダム3連勝", desc:"ランダムマッチで3連勝する"},
+        r8: {title:"ランダム5連勝", desc:"ランダムマッチで5連勝する"},
+        r9: {title:"ランダム10連勝の神", desc:"ランダムマッチで10連勝する"},
+        r10: {title:"ランクマッチデビュー", desc:"ランクマッチで1戦プレイする"},
+        r11: {title:"ステップアップ", desc:"ランクBに到達する"},
+        r12: {title:"上級プレイヤー", desc:"ランクAに到達する"},
+        r13: {title:"頂点の証", desc:"ランクSに到達する"},
+        r14: {title:"超絶技巧 S+5", desc:"ランクS+5以上に到達する"},
+        r15: {title:"神の領域 S+10", desc:"ランクS+10以上に到達する"},
+        r16: {title:"ランク3連勝", desc:"ランクマッチで3連勝する"},
+        r17: {title:"ランク7連勝", desc:"ランクマッチで7連勝する"},
+        r18: {title:"熟練度Lv.10", desc:"アカウント熟練度が10に達する"},
+        r19: {title:"熟練度Lv.30", desc:"アカウント熟練度が30に達する"},
+        r20: {title:"熟練度Lv.50", desc:"アカウント熟練度が50に達する"},
+        r21: {title:"熟練度MAX", desc:"アカウント熟練度が100に達する"},
+        r22: {title:"フルハウスの達人", desc:"フルハウスで満点を取る"},
+        r23: {title:"ビッグストレート！", desc:"B.ストレートを成立させる"},
+        r24: {title:"オールマイティ", desc:"全役を0点なしで埋めて勝利する"},
+        r25: {title:"不屈の闘志", desc:"0点ヨットを記録した上で勝利する"},
+        r26: {title:"ゾロ目フィニッシュ", desc:"最終合計スコアをゾロ目(111,222等)にする"},
+        r27: {title:"初めてのギブアップ", desc:"試合中にギブアップを選択する"},
+        r28: {title:"シーズンサバイバー", desc:"シーズンリセットを1回経験する"},
+        r29: {title:"1試合2回ヨット", desc:"ヨットを2回以上振る(チョイス等に適用)"},
+        r30: {title:"完全制覇", desc:"他すべての実績を20個以上解除する"}
     };
 
-    const allCategories = [
-        { id: 'ones', name: '1 (Ones)', speed: true, calc: d => count(d, 1) * 1 },
-        { id: 'twos', name: '2 (Twos)', speed: false, calc: d => count(d, 2) * 2 },
-        { id: 'threes', name: '3 (Threes)', speed: false, calc: d => count(d, 3) * 3 },
-        { id: 'fours', name: '4 (Fours)', speed: false, calc: d => count(d, 4) * 4 },
-        { id: 'fives', name: '5 (Fives)', speed: false, calc: d => count(d, 5) * 5 },
-        { id: 'sixes', name: '6 (Sixes)', speed: true, calc: d => count(d, 6) * 6 },
-        { id: 'choice', name: 'チョイス', speed: true, calc: d => sum(d) },
-        { id: '4card', name: '4ダイス', speed: false, calc: d => hasN(d, 4) ? sum(d) : 0 },
-        { id: 'fullhouse', name: 'フルハウス', speed: true, calc: d => isFullHouse(d) ? sum(d) : 0 },
-        { id: 's_straight', name: 'Sストレート', speed: false, calc: d => isStr(d, 4) ? 15 : 0 },
-        { id: 'b_straight', name: 'Bストレート', speed: true, calc: d => isStr(d, 5) ? 30 : 0 },
-        { id: 'yacht', name: 'ヨット', speed: true, calc: d => hasN(d, 5) ? 50 : 0 }
+    const rotationAngles = { 1: "rotateX(0deg) rotateY(0deg)", 2: "rotateX(-90deg) rotateY(0deg)", 3: "rotateX(0deg) rotateY(-90deg)", 4: "rotateX(0deg) rotateY(90deg)", 5: "rotateX(90deg) rotateY(0deg)", 6: "rotateX(0deg) rotateY(180deg)" };
+    const categories = [
+        { id: 'ones', name: '1 (Ones)', calc: d => count(d, 1) * 1 }, { id: 'twos', name: '2 (Twos)', calc: d => count(d, 2) * 2 },
+        { id: 'threes', name: '3 (Threes)', calc: d => count(d, 3) * 3 }, { id: 'fours', name: '4 (Fours)', calc: d => count(d, 4) * 4 },
+        { id: 'fives', name: '5 (Fives)', calc: d => count(d, 5) * 5 }, { id: 'sixes', name: '6 (Sixes)', calc: d => count(d, 6) * 6 },
+        { id: 'choice', name: 'チョイス', calc: d => sum(d) }, { id: '4card', name: '4ダイス', calc: d => hasN(d, 4) ? sum(d) : 0 },
+        { id: 'fullhouse', name: 'フルハウス', calc: d => isFullHouse(d) ? sum(d) : 0 }, { id: 's_straight', name: 'S.ストレート', calc: d => isStr(d, 4) ? 15 : 0 },
+        { id: 'b_straight', name: 'B.ストレート', calc: d => isStr(d, 5) ? 30 : 0 }, { id: 'yacht', name: 'ヨット', calc: d => hasN(d, 5) ? 50 : 0 }
     ];
-    let activeCategories = [];
 
-    function setSpeed(v) {
-        isSpeedMode = v;
-        document.getElementById('speed-btn').classList.toggle('active', v);
-        document.getElementById('normal-btn').classList.toggle('active', !v);
+    window.onload = function() {
+        loadFromStorage();
+        checkAndApplySeasonReset();
+        document.getElementById('header-player-name').innerText = myCurrentName;
+        document.getElementById('profile-name-input').value = myCurrentName;
+        const now = new Date();
+        document.getElementById('season-title-display').innerText = `🏆 現在開催中: ${now.getFullYear()}年${now.getMonth()+1}月シーズン`;
+        updateProfileModalUI();
+    };
+
+    function createNewUser(name) {
+        return {
+            name: name, total_games: 0, total_yachts: 0,
+            level: 1, level_exp: 0,
+            rank_id: 0, rank_exp: 0, // 0=C, 1=B, 2=A, 3=S, 4=S+1, 5=S+2...
+            random_streak: 0, max_random_streak: 0,
+            rank_streak: 0, max_rank_streak: 0,
+            unlockedAchievements: [], last_reset_month: new Date().getMonth()
+        };
     }
 
-    function addPlayer() {
-        const div = document.getElementById('name-inputs');
-        const id = div.querySelectorAll('input').length;
-        if (id >= 4) return;
-        
-        const newInput = document.createElement('input');
-        newInput.type = 'text';
-        newInput.id = `p${id}-name`;
-        newInput.value = `Player ${id+1}`;
-        div.appendChild(newInput);
-        div.appendChild(document.createElement('br'));
+    // 🌙 シーズンリセット判定＆モックランキング生成
+    function checkAndApplySeasonReset() {
+        let u = userDatabase[myCurrentName];
+        const currentMonth = new Date().getMonth();
+        if (u && u.last_reset_month !== undefined && u.last_reset_month !== currentMonth) {
+            // モックランキング構築
+            generateMockLeaderboard(u);
+            // 1ランクダウンロジック
+            if (u.rank_id > 0) {
+                if (u.rank_id >= 3) u.rank_id = 2; // Sランク以上はAに
+                else u.rank_id -= 1;
+            }
+            u.rank_exp = 0;
+            u.rank_streak = 0;
+            u.last_reset_month = currentMonth;
+            unlockAchievement(myCurrentName, 'r28');
+            saveToStorage();
+        }
     }
 
-    function initGame() {
-        const inputs = document.querySelectorAll('#name-inputs input');
-        players = Array.from(inputs).map(inp => ({ name: inp.value, scores: {} }));
-        activeCategories = isSpeedMode ? allCategories.filter(c => c.speed) : allCategories;
-        
-        document.getElementById('setup-screen').classList.remove('active');
-        document.getElementById('game-screen').classList.add('active');
-        
-        // 初回のみサイコロの初期配置HTMLを生成
-        renderInitialDice();
-        startTurn();
+    function generateMockLeaderboard(user) {
+        let list = [];
+        const botNames = ["Alpha", "Kraken", "YachtGod", "DiceK", "SplatMaster", "Nexus", "Pixel", "Sigma", "Vortex", "Luna"];
+        for(let i=1; i<=100; i++) {
+            let rName = botNames[i%botNames.length] + "_" + Math.floor(Math.random()*900+100);
+            let rRank = 3 + Math.floor(Math.random()*15);
+            list.push({ rank: 0, name: rName, score: `S+${rRank}` });
+        }
+        let myRankStr = getRankString(user.rank_id);
+        list.push({ rank: 0, name: user.name + " (あなた)", score: myRankStr, isMe: true });
+        list.sort((a,b)=> {
+            let numA = a.score.includes('+') ? parseInt(a.score.split('+')[1])+10 : 0;
+            let numB = b.score.includes('+') ? parseInt(b.score.split('+')[1])+10 : 0;
+            return numB - numA;
+        });
+        list.forEach((x, i) => x.rank = i + 1);
+        localStorage.setItem('yacht_pro_last_leaderboard', JSON.stringify(list.slice(0, 10)));
     }
 
+    function getRankString(id) {
+        if (id === 0) return "C"; if (id === 1) return "B"; if (id === 2) return "A"; if (id === 3) return "S";
+        return `S+${id - 3}`;
+    }
+    function getRequiredRankExp(id) {
+        // 上がるごとに必要量増加
+        if (id === 0) return 100; if (id === 1) return 150; if (id === 2) return 200;
+        return 250 + (id - 3) * 50;
+    }
+
+    function handleNameChange(newName) {
+        newName = newName.trim(); if(!newName) return;
+        const oldData = userDatabase[myCurrentName] || createNewUser(myCurrentName);
+        myCurrentName = newName;
+        if(!userDatabase[myCurrentName]) userDatabase[myCurrentName] = { ...oldData, name: newName };
+        document.getElementById('header-player-name').innerText = myCurrentName;
+        localStorage.setItem('yacht_pro_username_2026', myCurrentName);
+        saveToStorage(); updateProfileModalUI();
+    }
+
+    function toggleProfileModal(show) {
+        const modal = document.getElementById('profile-modal');
+        if(show) { updateProfileModalUI(); modal.classList.add('show'); } else { modal.classList.remove('show'); }
+    }
+
+    function updateProfileModalUI() {
+        const u = userDatabase[myCurrentName] || createNewUser(myCurrentName);
+        // 熟練度
+        document.getElementById('stat-player-lv').innerText = u.level;
+        const reqLvExp = u.level * 100;
+        document.getElementById('stat-lv-exp-text').innerText = u.level>=100 ? "MAX" : `EXP: ${u.level_exp} / ${reqLvExp}`;
+        document.getElementById('stat-lv-exp-fill').style.width = u.level>=100 ? "100%" : `${(u.level_exp/reqLvExp)*100}%`;
+        
+        // ランク
+        const rStr = getRankString(u.rank_id);
+        document.getElementById('stat-rank-string').innerText = rStr;
+        const reqRankExp = getRequiredRankExp(u.rank_id);
+        document.getElementById('stat-rank-exp-text').innerText = `EXP: ${u.rank_exp} / ${reqRankExp}`;
+        document.getElementById('stat-rank-exp-fill').style.width = `${(u.rank_exp/reqRankExp)*100}%`;
+        
+        document.getElementById('stat-cur-rank-streak').innerText = u.rank_streak || 0;
+        document.getElementById('stat-max-rank-streak').innerText = u.max_rank_streak || 0;
+        document.getElementById('stat-cur-random').innerText = u.random_streak || 0;
+        document.getElementById('stat-max-random').innerText = u.max_random_streak || 0;
+        document.getElementById('stat-total-games').innerText = u.total_games || 0;
+        document.getElementById('stat-total-yachts').innerText = u.total_yachts || 0;
+
+        // ランキング
+        const lbData = JSON.parse(localStorage.getItem('yacht_pro_last_leaderboard') || "[]");
+        document.getElementById('modal-leaderboard').innerHTML = lbData.length ? lbData.map(l => `
+            <div class="lb-row ${l.isMe?'me':''}"><span>${l.rank}位: ${l.name}</span><span>${l.score}</span></div>
+        `).join('') : "<div style='color:#aaa; text-align:center;'>シーズンエンド後に集計されます</div>";
+
+        // 実績
+        const unlocked = u.unlockedAchievements || [];
+        const totalCount = Object.keys(trophies).length;
+        const unlockedCount = unlocked.length;
+        const percent = Math.round((unlockedCount / totalCount) * 100);
+        document.getElementById('ach-percent').innerText = percent;
+        document.getElementById('ach-count-text').innerText = unlockedCount;
+
+        document.getElementById('modal-achievement-list').innerHTML = Object.keys(trophies).map(id => {
+            const t = trophies[id]; const isUnlocked = unlocked.includes(id);
+            return `<div class="achievement-row ${isUnlocked?'unlocked':''}"><div style="font-size:16px;">${isUnlocked?'🏆':'🔒'}</div><div class="ach-info"><div class="ach-title">${t.title}</div><div class="ach-desc">${t.desc}</div></div></div>`;
+        }).join('');
+    }
+
+    function unlockAchievement(playerName, trophyId) {
+        if (!userDatabase[playerName]) userDatabase[playerName] = createNewUser(playerName);
+        if (userDatabase[playerName].unlockedAchievements.includes(trophyId)) return;
+        userDatabase[playerName].unlockedAchievements.push(trophyId);
+        
+        // 特殊実績r30(20個以上達成)のセルフチェック
+        if(trophyId !== 'r30' && userDatabase[playerName].unlockedAchievements.length >= 20) {
+            setTimeout(() => { unlockAchievement(playerName, 'r30'); }, 500);
+        }
+
+        saveToStorage();
+        if(playerName === myCurrentName) {
+            const toast = document.getElementById('achievement-toast');
+            document.getElementById('toast-title').innerText = `🏆 実績解除！`;
+            document.getElementById('toast-desc').innerText = `${trophies[trophyId].title}`;
+            toast.classList.add('show'); setTimeout(() => { toast.classList.remove('show'); }, 3500);
+            updateProfileModalUI();
+        }
+    }
+
+    /* --- オンライン・隠れCPU統合マッチング --- */
+    function connectP2P(type) {
+        const myName = myCurrentName; const statusEl = document.getElementById('p2p-status');
+        let targetId = ""; if (p2pTimeoutTimer) clearTimeout(p2pTimeoutTimer);
+
+        if (type === 'code') {
+            const code = document.getElementById('room-code-input').value.trim();
+            if(!code) return alert("合言葉が必要です"); gameMode = "p2p_code"; targetId = PEER_PREFIX + "room-" + code;
+        } else if (type === 'random') {
+            gameMode = "p2p_random"; targetId = PEER_PREFIX + "fixed-random";
+        } else if (type === 'rank') {
+            gameMode = "p2p_rank";
+            const currentRankId = userDatabase[myName]?.rank_id || 0;
+            targetId = PEER_PREFIX + "fixed-rank-level-" + currentRankId;
+        }
+
+        statusEl.innerText = "マッチング中（相手を探しています...）";
+        peer = new Peer(); let hasConnected = false;
+
+        peer.on('open', () => {
+            let tryConn = peer.connect(targetId);
+            tryConn.on('open', () => {
+                hasConnected = true; conn = tryConn; isHost = false;
+                conn.send({ type: 'join_request', name: myName });
+                conn.on('close', () => { handleUnexpectedDisconnect(targetId); });
+                conn.on('data', (data) => { handleNetworkData(data); });
+            });
+
+            p2pTimeoutTimer = setTimeout(() => {
+                if(!hasConnected) {
+                    tryConn.close(); peer.destroy();
+                    if(gameMode === 'p2p_rank' || gameMode === 'p2p_random') {
+                        // 🤖 3秒で見つからなければ「隠れCPU」を生成して即座に開始
+                        launchHiddenCpuMatch(gameMode);
+                    } else {
+                        setupAsHost(targetId, myName);
+                    }
+                }
+            }, 3000);
+        });
+    }
+
+    function launchHiddenCpuMatch(mode) {
+        const botNames = ["たかし", "Yoshi_99", "Mamba", "ダイス職人", "シズク", "アイル", "GamerX", "ケン", "アルファ", "マヨネーズ", "グッさん", "くそぐっち", "ストロング=ヤマグチ", "運営"];
+        const cpuName = botNames[Math.floor(Math.random()*botNames.length)] + (Math.random() > 0.5 ? "🐾" : "");
+        gameMode = mode + "_cpu"; 
+        players = [{ name: myCurrentName, scores: {}, isCpu: false, exited: false }, { name: cpuName, scores: {}, isCpu: true, exited: false }];
+        document.getElementById('p2p-status').innerText = "対戦相手が見つかりました！";
+        setTimeout(() => { startGameUI(); }, 500);
+    }
+
+    function setupAsHost(id, myName) {
+        isHost = true; connections = []; connectedNames = [myName];
+        document.getElementById('p2p-status').innerText = "対戦待機中(部屋主)...";
+        if(gameMode === 'p2p_code') { document.getElementById('host-lobby-panel').style.display = 'block'; updateLobbyMembers(); }
+        peer = new Peer(id);
+        peer.on('open', () => {
+            peer.on('connection', (c) => {
+                if(connectedNames.length >= 6 || isGameOverTriggered || document.getElementById('game-screen').classList.contains('active')) {
+                    setTimeout(() => { c.send({ type: 'lobby_full' }); c.close(); }, 500); return;
+                }
+                c.on('open', () => {
+                    connections.push(c);
+                    c.on('close', () => {
+                        connections = connections.filter(x => x !== c);
+                        if(document.getElementById('game-screen').classList.contains('active')) handleUnexpectedDisconnect(c.playerName || "対戦相手");
+                        else { connectedNames = [myCurrentName, ...connections.map(cn => cn.playerName)]; updateLobbyMembers(); broadcast({ type: 'lobby_update', members: connectedNames }); }
+                    });
+                    c.on('data', (data) => {
+                        if(data.type === 'join_request') {
+                            c.playerName = data.name; connectedNames.push(data.name);
+                            if(gameMode === 'p2p_code') { updateLobbyMembers(); broadcast({ type: 'lobby_update', members: connectedNames }); }
+                            else { if(connectedNames.length === 2) { players = connectedNames.map(n => ({ name: n, scores: {}, isCpu: false, exited: false })); broadcast({ type: 'start_game', players: players }); startGameUI(); } }
+                        } else { handleNetworkData(data); }
+                    });
+                });
+            });
+        });
+    }
+
+    function updateLobbyMembers() { document.getElementById('member-list').innerText = "待機: " + connectedNames.join(', '); }
+    function hostStartGame() { if(connectedNames.length < 2) return alert("相手がいません"); players = connectedNames.map(n => ({ name: n, scores: {}, isCpu: false, exited: false })); broadcast({ type: 'start_game', players: players }); startGameUI(); }
+    function broadcast(data) { if(isHost) connections.forEach(c => { if(c.open) c.send(data); }); else if(conn && conn.open) conn.send(data); }
+    function broadcastToOthers(data, senderIdx) { connections.forEach((c, idx) => { if(idx + 1 !== senderIdx && c.open) c.send(data); }); }
+
+    function handleNetworkData(data) {
+        if(data.type === 'lobby_full') { alert("入室できませんでした"); location.reload(); }
+        else if(data.type === 'lobby_update') { document.getElementById('p2p-status').innerText = `マッチ中 (${data.members.length}/6人)`; }
+        else if(data.type === 'start_game') { players = data.players; startGameUI(); }
+        else if(data.type === 'sync_roll') {
+            rolls = data.rolls; for(let i=0;i<5;i++){ if(!keeps[i]) document.getElementById(`cube-${i}`).classList.add('rolling'); }
+            setTimeout(() => {
+                dice = data.dice;
+                for(let i=0; i<5; i++) { const c = document.getElementById(`cube-${i}`); c.classList.remove('rolling'); c.style.transform = rotationAngles[dice[i]]; }
+                updateUI(false);
+            }, 600);
+            if(isHost) broadcastToOthers(data, data.senderIdx);
+        }
+        else if(data.type === 'sync_keep') { keeps = data.keeps; updateUI(false); if(isHost) broadcastToOthers(data, data.senderIdx); }
+        else if(data.type === 'sync_score') {
+            players[currentPlayerIdx].scores[data.catId] = data.scoreVal; currentPlayerIdx = data.nextIdx;
+            if(data.isFinished) triggerResultPresentation(); else startTurn();
+            if(isHost) broadcastToOthers(data, data.senderIdx);
+        }
+        else if(data.type === 'force_quit_match') { quitterName = data.quitter; players.forEach(p => { if(p.name === quitterName) p.exited = true; }); triggerResultPresentation(); }
+    }
+
+    function handleUnexpectedDisconnect(name) { if(isGameOverTriggered) return; quitterName = name; players.forEach(p => { if(p.name === quitterName || (!isHost && p.name !== myCurrentName && connections.length === 0)) p.exited = true; }); triggerResultPresentation(); }
+    function triggerManualQuit() { if(confirm("降伏しますか？負け判定になります。")) { unlockAchievement(myCurrentName, 'r27'); if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) broadcast({ type: 'force_quit_match', quitter: myCurrentName }); quitterName = myCurrentName; players.forEach(p => { if(p.name === myCurrentName) p.exited = true; }); triggerResultPresentation(); } }
+
+    /* --- ローカル/ゲームコア --- */
+    function startLocalMode(isCpu) { const div = document.getElementById('local-setup'); if(isCpu) { gameMode = "cpu"; div.style.display = 'none'; launchCpuGame(); } else { gameMode = "local"; div.style.display = 'block'; } }
+    function launchLocalGame() { const count = parseInt(document.getElementById('local-player-count').value); players = []; for(let i=1; i<=count; i++) players.push({ name: `プレイヤー${i}`, scores: {}, isCpu: false, exited: false }); gameMode = "local"; startGameUI(); }
+    function launchCpuGame() { players = [{ name: myCurrentName, scores: {}, isCpu: false, exited: false }, { name: "カスタムCPU", scores: {}, isCpu: true, exited: false }]; startGameUI(); }
+    
+    function startGameUI() {
+        isGameOverTriggered = false; quitterName = ""; document.getElementById('setup-screen').classList.remove('active'); document.getElementById('game-screen').classList.add('active');
+        renderInitialDice(); startTurn();
+    }
     function renderInitialDice() {
-        const cont = document.getElementById('dice-container');
-        // 3Dの立体サイコロの構造を5個分生成
-        cont.innerHTML = [0,1,2,3,4].map(i => `
-            <div id="dice-wrapper-${i}" class="dice-wrapper" onclick="toggleKeep(${i})">
-                <div id="cube-${i}" class="cube">
-                    <div class="face f1">⚀</div>
-                    <div class="face f6">⚅</div>
-                    <div class="face f3">⚂</div>
-                    <div class="face f4">⚃</div>
-                    <div class="face f2">⚁</div>
-                    <div class="face f5">⚄</div>
-                </div>
-            </div>
+        document.getElementById('dice-container').innerHTML = [0,1,2,3,4].map(i => `
+            <div id="dice-wrapper-${i}" class="dice-wrapper" onclick="toggleKeep(${i})"><div id="cube-${i}" class="cube"><div class="face f1">⚀</div><div class="face f6">⚅</div><div class="face f3">⚂</div><div class="face f4">⚃</div><div class="face f2">⚁</div><div class="face f5">⚄</div></div></div>
         `).join('');
     }
 
     function startTurn() {
-        rolls = 3;
-        keeps = [false, false, false, false, false];
-        dice = [1,1,1,1,1];
-        
-        // 【バグ修正】新ターン開始時にボタンの無効化をしっかり解除
-        const btn = document.getElementById('roll-btn');
-        btn.disabled = false;
-        
-        // サイコロのキープ状態の見た目と角度をリセット
-        for(let i=0; i<5; i++) {
-            const wrapper = document.getElementById(`dice-wrapper-${i}`);
-            const cube = document.getElementById(`cube-${i}`);
-            wrapper.classList.remove('keep');
-            cube.style.transform = rotationAngles[1];
-        }
-        
-        updateUI(true); // 初回はスコア選択させない（一度も振ってないため）
+        rolls = 3; keeps = [false,false,false,false,false]; dice = [1,1,1,1,1]; document.getElementById('roll-btn').disabled = false;
+        for(let i=0; i<5; i++) { document.getElementById(`dice-wrapper-${i}`).classList.remove('keep'); document.getElementById(`cube-${i}`).style.transform = rotationAngles[1]; }
+        updateUI(true);
+        if(players[currentPlayerIdx].isCpu) { document.getElementById('roll-btn').disabled = true; setTimeout(() => { cpuRoutine(); }, 1000); }
     }
-
-    function handleRoll() {
-        if (rolls <= 0) return;
-        const btn = document.getElementById('roll-btn');
-        btn.disabled = true;
-        
-        // キープされていない3Dサイコロに回転アニメーション（ぐるぐる）を付与
-        for(let i = 0; i < 5; i++) {
-            if (!keeps[i]) {
-                document.getElementById(`cube-${i}`).classList.add('rolling');
-            }
-        }
-
+    function isMyTurn() { if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) { return players[currentPlayerIdx].name === myCurrentName; } return !players[currentPlayerIdx].isCpu; }
+    function handleRollClick() { if(!isMyTurn() || rolls <= 0) return; executeRoll(); if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) broadcast({ type: 'sync_roll', dice: dice, rolls: rolls, senderIdx: currentPlayerIdx }); }
+    
+    function executeRoll() {
+        document.getElementById('roll-btn').disabled = true; for(let i = 0; i < 5; i++) { if (!keeps[i]) document.getElementById(`cube-${i}`).classList.add('rolling'); }
+        rolls--; dice = dice.map((v, i) => keeps[i] ? v : Math.floor(Math.random()*6)+1);
         setTimeout(() => {
-            rolls--;
-            // 値の決定
-            dice = dice.map((v, i) => keeps[i] ? v : Math.floor(Math.random()*6)+1);
-            
-            // アニメーションを止め、決定した目の角度へピタッと回す
-            for(let i = 0; i < 5; i++) {
-                const cube = document.getElementById(`cube-${i}`);
-                cube.classList.remove('rolling');
-                if (!keeps[i]) {
-                    cube.style.transform = rotationAngles[dice[i]];
-                }
-            }
-            
-            updateUI(false); // 振ったのでスコア選択可能に
-            
-            // 残り回数があればボタンを再活性化
-            if (rolls > 0) {
-                btn.disabled = false;
-            }
+            for(let i = 0; i < 5; i++) { const c = document.getElementById(`cube-${i}`); c.classList.remove('rolling'); if (!keeps[i]) c.style.transform = rotationAngles[dice[i]]; }
+            updateUI(false); if (rolls > 0 && isMyTurn()) document.getElementById('roll-btn').disabled = false;
         }, 600);
     }
 
     function updateUI(isTurnStart = false) {
         document.getElementById('rolls-left').innerText = rolls;
-        document.getElementById('turn-label').innerText = `${players[currentPlayerIdx].name}の番`;
+        const bar = document.getElementById('turn-announcement-bar');
+        if(isMyTurn()) { bar.innerText = "👉 あなたの番です！"; bar.className = "turn-announcement my-turn"; if(rolls > 0 && !document.getElementById('cube-0').classList.contains('rolling')) document.getElementById('roll-btn').disabled = false; }
+        else { bar.innerText = `⏳ ${players[currentPlayerIdx].name} さんの番（相手の番）`; bar.className = "turn-announcement enemy-turn"; document.getElementById('roll-btn').disabled = true; }
         
-        const tabs = document.getElementById('tabs');
-        tabs.innerHTML = players.map((p, i) => `<div class="tab ${i===currentPlayerIdx?'current':''}">${p.name}</div>`).join('');
+        document.getElementById('tabs').innerHTML = players.map((p, i) => `<div class="tab ${i===currentPlayerIdx?'current':''}">${p.name}${p.exited?'(離脱)':''}</div>`).join('');
+        for(let i=0; i<5; i++) { const w = document.getElementById(`dice-wrapper-${i}`); if(keeps[i]) w.classList.add('keep'); else w.classList.remove('keep'); }
 
-        // キープ状態のクラス適用
-        for(let i=0; i<5; i++) {
-            const wrapper = document.getElementById(`dice-wrapper-${i}`);
-            if(keeps[i]) wrapper.classList.add('keep'); else wrapper.classList.remove('keep');
-        }
+        const tbody = document.getElementById('score-tbody'); const currentScores = players[currentPlayerIdx].scores;
+        let subtotal = 0; ['ones','twos','threes','fours','fives','sixes'].forEach(id => { if(currentScores[id] !== undefined) subtotal += currentScores[id]; });
+        const hasBonus = subtotal >= 63;
 
-        // スコアテーブルの更新
-        const tbody = document.getElementById('score-tbody');
-        let currentTotal = 0;
-        
-        tbody.innerHTML = activeCategories.map(cat => {
-            const val = players[currentPlayerIdx].scores[cat.id];
-            const isFilled = val !== undefined;
-            if(isFilled) currentTotal += val;
-            
-            // まだ一度も振っていない(isTurnStart)ならクリック無効＆プレビューは「-」
-            if (isTurnStart) {
-                return `
-                    <tr class="${isFilled?'filled':''}">
-                        <td>${cat.name}</td>
-                        <td>${isFilled ? val : '-'}</td>
-                    </tr>
-                `;
-            }
-            
-            return `
-                <tr class="${isFilled?'filled':'selectable'}" onclick="selectScore('${cat.id}')">
-                    <td>${cat.name}</td>
-                    <td class="${!isFilled ? 'preview' : ''}">${isFilled ? val : cat.calc(dice)}</td>
-                </tr>
-            `;
-        }).join('');
-        
-        document.getElementById('total-val').innerText = currentTotal;
+        let html = '';
+        categories.forEach((cat, idx) => {
+            const val = currentScores[cat.id]; const isFilled = val !== undefined;
+            if(isFilled) html += `<tr class="filled">`; else html += (isTurnStart || !isMyTurn()) ? `<tr>` : `<tr class="selectable" onclick="selectScore('${cat.id}')">`;
+            html += `<td>${cat.name}</td><td class="${!isFilled && !isTurnStart && isMyTurn() ? 'preview' : ''}">${isFilled ? val : (isTurnStart ? '-' : cat.calc(dice))}</td></tr>`;
+            if(idx === 5) html += `<tr class="bonus-row"><td>ボーナス</td><td>${subtotal}/63 (${hasBonus?'+35':'0'})</td></tr>`;
+        });
+        tbody.innerHTML = html;
+        let total = 0; categories.forEach(cat => { if(currentScores[cat.id] !== undefined) total += currentScores[cat.id]; }); if(hasBonus) total += 35;
+        document.getElementById('total-val').innerText = total;
     }
 
-    function toggleKeep(i) {
-        // まだ一度も振っていない時、または残り回数がない・最初の振り直し前の時はキープ不可
-        if (rolls === 3 || rolls === 0) return;
-        keeps[i] = !keeps[i];
-        updateUI(false);
-    }
+    function toggleKeep(i) { if (!isMyTurn() || rolls === 3 || rolls === 0) return; keeps[i] = !keeps[i]; updateUI(false); if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) broadcast({ type: 'sync_keep', keeps: keeps, senderIdx: currentPlayerIdx }); }
 
     function selectScore(id) {
-        // 1度も振っていない、または既に埋まっている場合は選択不可
-        if (rolls === 3 || players[currentPlayerIdx].scores[id] !== undefined) return;
+        if (!isMyTurn() || rolls === 3 || players[currentPlayerIdx].scores[id] !== undefined) return;
+        const myName = players[currentPlayerIdx].name; const cat = categories.find(c => c.id === id); const scoreVal = cat.calc(dice);
+        players[currentPlayerIdx].scores[id] = scoreVal;
+
+        // ヨットのカウント
+        if(id === 'yacht' && scoreVal === 50) {
+            unlockAchievement(myName, 'r2');
+            if(myName === myCurrentName) userDatabase[myCurrentName].total_yachts = (userDatabase[myCurrentName].total_yachts || 0) + 1;
+        }
         
-        const cat = activeCategories.find(c => c.id === id);
-        players[currentPlayerIdx].scores[id] = cat.calc(dice);
-        
+        const nextIdx = (currentPlayerIdx + 1) % players.length;
+        const isFinished = players.every(p => Object.keys(p.scores).length === categories.length);
+        if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) broadcast({ type: 'sync_score', catId: id, scoreVal: scoreVal, nextIdx: nextIdx, isFinished: isFinished, senderIdx: currentPlayerIdx });
+        currentPlayerIdx = nextIdx; if (isFinished) triggerResultPresentation(); else startTurn();
+    }
+
+    /* --- CPUロジック (ランク調整機能付き) --- */
+    function cpuRoutine() {
+        executeRoll();
+        setTimeout(() => {
+            if(rolls > 0) {
+                // ランクSなどの隠れCPUはより最適にキープする
+                let uRank = userDatabase[myCurrentName]?.rank_id || 0;
+                let mostCommon = 1; let maxC = 0; for(let i=1;i<=6;i++) { let c = count(dice, i); if(c>maxC){maxC=c; mostCommon=i;} }
+                if(maxC >= 2 || uRank >= 2) keeps = dice.map(v => v === mostCommon);
+                updateUI(false); setTimeout(() => { executeRoll(); setTimeout(() => { cpuSelectRow(); }, 700); }, 800);
+            } else { cpuSelectRow(); }
+        }, 700);
+    }
+    function cpuSelectRow() {
+        let bestId = null; let maxV = -1;
+        categories.forEach(cat => { if(players[currentPlayerIdx].scores[cat.id] === undefined) { let v = cat.calc(dice); if(v > maxV) { maxV = v; bestId = cat.id; } } });
+        if(!bestId) bestId = categories.find(cat => players[currentPlayerIdx].scores[cat.id] === undefined).id;
+        players[currentPlayerIdx].scores[bestId] = categories.find(c=>c.id===bestId).calc(dice);
         currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+        if (players.every(p => Object.keys(p.scores).length === categories.length)) triggerResultPresentation(); else startTurn();
+    }
+
+    /* --- 結果＆経験値報酬・実績検知マックス --- */
+    function triggerResultPresentation() {
+        if(isGameOverTriggered) return; isGameOverTriggered = true;
+        const ranking = players.map(p => {
+            let score = 0; categories.forEach(cat => { if(p.scores[cat.id] !== undefined) score += p.scores[cat.id]; });
+            let subtotal = 0; ['ones','twos','threes','fours','fives','sixes'].forEach(id => { if(p.scores[id] !== undefined) subtotal += p.scores[id]; });
+            if(subtotal >= 63) score += 35;
+            
+            // 実績用追加チェック(全役0点なし)
+            let isAllFilledNoZero = Object.keys(p.scores).length === categories.length && Object.values(p.scores).every(v => v > 0);
+            let hasZeroYacht = p.scores['yacht'] === 0;
+            return { name: p.name, score: score, exited: p.exited, noZero: isAllFilledNoZero, zeroYacht: hasZeroYacht };
+        }).sort((a, b) => { if (a.exited && !b.exited) return 1; if (!a.exited && b.exited) return -1; return b.score - a.score; });
+
+        document.getElementById('quit-reason-notice').innerText = quitterName ? `⚠️ [${quitterName}] の離脱・降伏により、現在のスコアで確定しました。` : "";
+
+        // 自分自身のデータオブジェクト
+        let u = userDatabase[myCurrentName]; u.total_games = (u.total_games || 0) + 1;
+        const isWinner = (ranking[0].name === myCurrentName && !ranking[0].exited);
+        const myFinalData = ranking.find(r => r.name === myCurrentName);
+
+        // 🎖️ スコア・ゲーム内容系の実績一括チェック
+        if(myFinalData) {
+            if(isWinner) unlockAchievement(myCurrentName, 'r1');
+            if(myFinalData.score >= 150) unlockAchievement(myCurrentName, 'r4');
+            if(myFinalData.score >= 200) unlockAchievement(myCurrentName, 'r5');
+            if(myFinalData.score >= 250) unlockAchievement(myCurrentName, 'r6');
+            if(isWinner && myFinalData.noZero) unlockAchievement(myCurrentName, 'r24');
+            if(isWinner && myFinalData.zeroYacht) unlockAchievement(myCurrentName, 'r25');
+            
+            // ゾロ目チェック
+            const sStr = String(myFinalData.score);
+            if(sStr.length >= 2 && sStr.split('').every(char => char === sStr[0])) unlockAchievement(myCurrentName, 'r26');
+        }
+
+        // 🟢 経験値計算機 (熟練度用：全員一律獲得、リセットなし)
+        let normalExpGain = isWinner ? 50 : 25;
+        u.level_exp += normalExpGain;
+        while(u.level_exp >= u.level * 100 && u.level < 100) { u.level_exp -= u.level * 100; u.level++; }
+        // 熟練度レベル実績
+        if(u.level >= 10) unlockAchievement(myCurrentName, 'r18');
+        if(u.level >= 30) unlockAchievement(myCurrentName, 'r19');
+        if(u.level >= 50) unlockAchievement(myCurrentName, 'r20');
+        if(u.level >= 100) unlockAchievement(myCurrentName, 'r21');
+
+        // 🟣 ランクマッチ用：勝っても負けても入るが、高ランクほど少なくなり、必要量は増える
+        let rankExpGain = 0;
+        let rankLog = "";
+        const isRankMatch = gameMode.startsWith('p2p_rank');
+
+        if(isRankMatch) {
+            unlockAchievement(myCurrentName, 'r10');
+            // 基本値：勝てば多め、負けても半分入る
+            let baseExp = isWinner ? 60 : 30;
+            // ランク減衰係数（高ランクほど獲得が少なくなる）
+            let attenuation = Math.max(10, 60 - (u.rank_id * 12)); 
+            rankExpGain = Math.round(baseExp * (attenuation / 60));
+
+            u.rank_exp += rankExpGain;
+            let reqRank = getRequiredRankExp(u.rank_id);
+            
+            // 昇格
+            if(u.rank_exp >= reqRank) {
+                u.rank_exp -= reqRank; u.rank_id++;
+            }
+
+            // ランク連勝処理
+            if(isWinner) {
+                u.rank_streak = (u.rank_streak || 0) + 1;
+                if(u.rank_streak > (u.max_rank_streak || 0)) u.max_rank_streak = u.rank_streak;
+                if(u.rank_streak >= 3) unlockAchievement(myCurrentName, 'r16');
+                if(u.rank_streak >= 7) unlockAchievement(myCurrentName, 'r17');
+            } else { u.rank_streak = 0; }
+
+            // ランク到達実績
+            if(u.rank_id >= 1) unlockAchievement(myCurrentName, 'r11'); // B
+            if(u.rank_id >= 2) unlockAchievement(myCurrentName, 'r12'); // A
+            if(u.rank_id >= 3) unlockAchievement(myCurrentName, 'r13'); // S
+            if(u.rank_id >= 8) unlockAchievement(myCurrentName, 'r14'); // S+5
+            if(u.rank_id >= 13) unlockAchievement(myCurrentName, 'r15'); // S+10
+
+            rankLog = `ランク経験値: +${rankExpGain} EXP (現在の階級: ${getRankString(u.rank_id)})<br>ランク連勝: ${u.rank_streak} 連勝`;
+        }
         
-        const finished = players.every(p => Object.keys(p.scores).length === activeCategories.length);
-        if (finished) showResult(); else startTurn();
+        // 🟠 ランダム連勝処理
+        if(gameMode.startsWith('p2p_random')) {
+            if(isWinner) {
+                u.random_streak = (u.random_streak || 0) + 1;
+                if(u.random_streak > (u.max_random_streak || 0)) u.max_random_streak = u.random_streak;
+                if(u.random_streak >= 3) unlockAchievement(myCurrentName, 'r7');
+                if(u.random_streak >= 5) unlockAchievement(myCurrentName, 'r8');
+                if(u.random_streak >= 10) unlockAchievement(myCurrentName, 'r9');
+            } else { u.random_streak = 0; }
+        }
+
+        saveToStorage();
+
+        // 演出表示
+        document.getElementById('exp-gain-container').innerHTML = `
+            <b>獲得熟練度EXP:</b> +${normalExpGain} EXP (現在のLv.${u.level})<br>
+            ${isRankMatch ? rankLog : '※ランクマッチではないためランクは変動しません。'}
+        `;
+
+        document.getElementById('curtain-screen').style.display = 'block';
+        document.getElementById('curtain-screen').classList.remove('open');
+        document.getElementById('result-content').classList.remove('show');
+        
+        setTimeout(() => { document.getElementById('curtain-screen').classList.add('open'); }, 200);
+        setTimeout(() => {
+            document.getElementById('rank-container').innerHTML = ranking.map((r, i) => `
+                <div class="rank-item ${i===0?'rank-1':''}">
+                    ${i+1}位: ${r.name} — ${r.score}点 ${r.exited ? '<span style="color:#e74c3c; font-size:13px;">[降伏/切断]</span>':''}
+                </div>
+            `).join('');
+            document.getElementById('result-content').classList.add('show');
+        }, 1000);
     }
 
-    function forceQuit() {
-        if(confirm("強制終了して順位を出しますか？")) showResult();
+    function backToMenu() { if(peer) peer.destroy(); location.reload(); }
+    function saveToStorage() { localStorage.setItem('yacht_complete_v2026_v3', JSON.stringify(userDatabase)); }
+    function loadFromStorage() {
+        const sUser = localStorage.getItem('yacht_pro_username_2026'); if(sUser) myCurrentName = sUser;
+        const d = localStorage.getItem('yacht_complete_v2026_v3'); if(d) userDatabase = JSON.parse(d);
+        if(!userDatabase[myCurrentName]) userDatabase[myCurrentName] = createNewUser(myCurrentName);
+    }
+    
+    function clearSaveData() {
+        if(confirm("すべてを初期化しますか？")) {
+            userDatabase = {}; myCurrentName = "Player"; localStorage.removeItem('yacht_pro_username_2026');
+            userDatabase[myCurrentName] = createNewUser(myCurrentName); saveToStorage();
+            document.getElementById('header-player-name').innerText = myCurrentName;
+            document.getElementById('profile-name-input').value = myCurrentName; updateProfileModalUI(); alert("リセットしました");
+        }
+    }
+    function exportSaveData() {
+        const s = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(userDatabase));
+        const a = document.createElement('a'); a.setAttribute("href", s); a.setAttribute("download", "yacht_pro_v3_2026.json"); a.click();
+    }
+    function importSaveData(input) {
+        const file = input.files[0]; if(!file) return; const r = new FileReader();
+        r.onload = function(e) {
+            try {
+                const p = JSON.parse(e.target.result); if(typeof p === 'object' && p !== null) {
+                    userDatabase = p; const k = Object.keys(userDatabase); if(k.length>0) myCurrentName = k[0];
+                    localStorage.setItem('yacht_pro_username_2026', myCurrentName); saveToStorage();
+                    document.getElementById('header-player-name').innerText = myCurrentName;
+                    document.getElementById('profile-name-input').value = myCurrentName; updateProfileModalUI(); alert("同期完了");
+                }
+            } catch(err) { alert("不正な形式"); }
+        }; r.readAsText(file);
     }
 
-    function showResult() {
-        const ranking = players.map(p => ({ name: p.name, score: Object.values(p.scores).reduce((a,b)=>a+b, 0) }))
-                               .sort((a,b) => b.score - a.score);
-        alert("🏆 最終結果 🏆\n" + ranking.map((r, i) => `${i+1}位: ${r.name} (${r.score}点)`).join("\n"));
-        location.reload();
-    }
-
-    // 計算用ヘルパー
     const count = (d, v) => d.filter(x => x === v).length;
     const sum = d => d.reduce((a, b) => a + b, 0);
-    const hasN = (d, n) => {
-        const c = d.reduce((a, b) => (a[b]=(a[b]||0)+1, a), {});
-        return Object.values(c).some(v => v >= n);
-    };
-    const isFullHouse = d => {
-        const c = Object.values(d.reduce((a, b) => (a[b]=(a[b]||0)+1, a), {})).sort();
-        return (c.length===2 && c[0]===2 && c[1]===3) || c[0]===5;
-    };
-    const isStr = (d, len) => {
-        const s = [...new Set(d)].sort().join("");
-        return len === 5 ? (s==="12345"||s==="23456") : (s.includes("1234")||s.includes("2345")||s.includes("3456"));
-    };
+    const hasN = (d, n) => { const c = d.reduce((a, b) => (a[b]=(a[b]||0)+1, a), {}); return Object.values(c).some(v => v >= n); };
+    const isFullHouse = d => { const c = Object.values(d.reduce((a, b) => (a[b]=(a[b]||0)+1, a), {})).sort(); return (c.length===2 && c[0]===2 && c[1]===3) || c[0]===5; };
+    const isStr = (d, len) => { const s = [...new Set(d)].sort().join(""); return len === 5 ? (s==="12345"||s==="23456") : (s.includes("1234")||s.includes("2345")||s.includes("3456")); };
 </script>
 </body>
 </html>
