@@ -8,91 +8,258 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         body { touch-action: manipulation; }
-        .lcd-glow { text-shadow: 0 0 10px rgba(34, 197, 94, 0.5); }
+        .lcd-glow { text-shadow: 0 0 10px rgba(34, 197, 94, 0.6); }
         #voice-bar { transition: width 0.05s ease-out; }
         input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
         input[type=number] { -moz-appearance: textfield; }
+        .dial-rotate { transition: transform 0.1s ease-out; }
     </style>
 </head>
 <body class="bg-zinc-950 text-zinc-300 font-mono flex flex-col items-center justify-center min-h-screen p-4 select-none">
 
-    <div class="w-full max-w-sm bg-zinc-900 border-x-8 border-zinc-800 rounded-[3rem] p-8 shadow-2xl border-b-[12px] border-zinc-950 relative">
+    <div class="w-full max-w-sm bg-zinc-900 border-x-8 border-zinc-800 rounded-[3rem] p-6 shadow-2xl border-b-[12px] border-zinc-950 relative overflow-hidden">
         <div class="absolute -top-8 left-12 w-6 h-12 bg-zinc-800 rounded-t-lg shadow-lg"></div>
 
-        <div class="text-center mb-6">
-            <h1 class="text-xs font-bold text-zinc-500 tracking-[0.3em] mb-2 uppercase">Tactical Radio System</h1>
-            <div class="bg-zinc-950 border-2 border-zinc-800 p-4 rounded-lg shadow-inner">
-                <div id="status-text" class="text-[9px] text-zinc-600 mb-1 uppercase font-bold tracking-widest leading-none h-3">OFF-LINE</div>
+        <!-- ヘッダーと設定ボタン -->
+        <div class="flex justify-between items-center mb-2">
+            <h1 class="text-xs font-bold text-zinc-500 tracking-[0.3em] uppercase">Tactical Radio</h1>
+            <button onclick="toggleSettings()" class="text-zinc-400 hover:text-white p-1 text-xl focus:outline-none">⚙</button>
+        </div>
+
+        <!-- LCD ディスプレイ -->
+        <div class="text-center mb-4">
+            <div class="bg-zinc-950 border-2 border-zinc-800 p-3 rounded-lg shadow-inner relative">
+                <div id="status-text" class="text-[9px] text-zinc-600 mb-1 uppercase font-bold tracking-widest h-3">OFF-LINE</div>
                 <div id="ch-display" class="text-3xl font-black text-zinc-800 tracking-widest mb-1">CH: -----</div>
-                <div id="mode-display" class="text-[10px] text-zinc-700 font-bold bg-black/40 py-1 rounded italic uppercase">Ready</div>
+                <div id="mode-display" class="text-[10px] text-zinc-700 font-bold bg-black/40 py-0.5 rounded italic uppercase">Ready</div>
+                <div id="net-display" class="text-[8px] text-zinc-500 mt-1 uppercase">MODE: WI-FI (P2P)</div>
             </div>
         </div>
 
-        <div class="mb-6 bg-zinc-800/50 p-4 rounded-xl border border-zinc-700">
-            <div class="flex flex-col gap-3">
-                <input type="number" id="ch-code" placeholder="CH NO." oninput="if(value.length>5)value=value.slice(0,5)"
-                    class="w-full bg-zinc-900 border border-zinc-700 p-3 rounded text-2xl text-center text-green-400 focus:outline-none appearance-none">
-                <button onclick="togglePower()" id="power-btn" class="bg-zinc-700 text-white font-black py-3 rounded uppercase text-sm">Power ON</button>
+        <!-- 設定パネル (トグル式) -->
+        <div id="settings-panel" class="hidden mb-4 bg-zinc-950 border border-zinc-800 p-3 rounded-lg text-xs flex flex-col gap-3">
+            <div>
+                <div class="font-bold text-zinc-400 mb-1.5 border-b border-zinc-800 pb-1">NETWORK SETTINGS</div>
+                <label class="flex items-center gap-2 mb-1 cursor-pointer">
+                    <input type="radio" name="net-mode" value="wifi" checked onchange="updateNetMode()" class="accent-green-500">
+                    <span>Wi-Fi内限定 (off-line_五桁)</span>
+                </label>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <input type="radio" name="net-mode" value="online" onchange="updateNetMode()" class="accent-green-500">
+                    <span>オンライン経由 (on-line_五桁)</span>
+                </label>
+            </div>
+
+            <div>
+                <div class="font-bold text-zinc-400 mb-1.5 border-b border-zinc-800 pb-1">HARDWARE ASSIGN (PTT)</div>
+                <div class="flex items-center justify-between bg-zinc-900 p-2 rounded border border-zinc-800">
+                    <span>PC Key: <span id="assigned-key-disp" class="text-green-400 font-bold">Space</span></span>
+                    <button onclick="startKeyBinding()" id="bind-btn" class="bg-zinc-800 hover:bg-zinc-700 px-2 py-0.5 rounded text-[10px]">変更</button>
+                </div>
             </div>
         </div>
 
-        <div class="mb-8 px-2">
+        <!-- コントロール部（ハイブリッドダイヤル＆入力） -->
+        <div class="mb-4 bg-zinc-800/40 p-3 rounded-xl border border-zinc-800">
+            <div class="flex items-center gap-3 justify-between">
+                <!-- ダイヤル型 -->
+                <div id="dial-container" class="flex flex-col items-center bg-zinc-900 p-2 rounded border border-zinc-800 w-24">
+                    <span class="text-[8px] text-zinc-500 font-bold mb-1">DIAL</span>
+                    <div class="flex items-center gap-1">
+                        <button onclick="changeChannelDial(-1)" id="dial-down" class="bg-zinc-800 hover:bg-zinc-700 w-5 h-5 text-xs rounded font-bold">-</button>
+                        <div id="dial-knob" class="w-8 h-8 rounded-full bg-zinc-700 border-2 border-zinc-600 relative dial-rotate flex items-center justify-center">
+                            <div class="w-1 h-3 bg-zinc-400 absolute top-0 rounded-full"></div>
+                        </div>
+                        <button onclick="changeChannelDial(1)" id="dial-up" class="bg-zinc-800 hover:bg-zinc-700 w-5 h-5 text-xs rounded font-bold">+</button>
+                    </div>
+                </div>
+
+                <!-- 従来型入力 -->
+                <div class="flex-1">
+                    <span class="text-[8px] text-zinc-500 font-bold block mb-1">DIRECT INPUT (5-DIGIT)</span>
+                    <input type="number" id="ch-code" placeholder="00000" oninput="if(value.length>5)value=value.slice(0,5); syncDialFromInput();"
+                        class="w-full bg-zinc-900 border border-zinc-800 p-2 rounded text-xl text-center text-green-400 font-black focus:outline-none tracking-widest">
+                </div>
+            </div>
+
+            <button onclick="togglePower()" id="power-btn" class="w-full mt-3 bg-zinc-700 hover:bg-zinc-600 text-white font-black py-2.5 rounded uppercase text-xs tracking-wider">Power ON</button>
+        </div>
+
+        <!-- メーター -->
+        <div class="mb-4 px-1">
             <div id="conn-info" class="text-[8px] text-zinc-600 mb-1 font-bold">LINK: 0 DEVICES</div>
-            <div class="w-full h-3 bg-zinc-950 rounded-sm overflow-hidden border border-zinc-800 p-0.5">
-                <div id="voice-bar" class="h-full bg-green-500 w-0 shadow-[0_0_10px_#22c55e]"></div>
+            <div class="w-full h-2.5 bg-zinc-950 rounded-sm overflow-hidden border border-zinc-800 p-0.5">
+                <div id="voice-bar" class="h-full bg-green-500 w-0 shadow-[0_0_8px_#22c55e]"></div>
             </div>
         </div>
 
-        <div class="flex flex-col items-center">
-            <button id="ptt-btn" class="w-44 h-44 rounded-full bg-zinc-800 border-[10px] border-zinc-950 shadow-2xl flex items-center justify-center text-3xl font-black transition-all active:scale-90 active:bg-orange-900 active:text-orange-200 disabled:opacity-10 touch-none" disabled>PUSH</button>
+        <!-- PTTボタン -->
+        <div class="flex flex-col items-center mb-2">
+            <button id="ptt-btn" class="w-36 h-36 rounded-full bg-zinc-800 border-[8px] border-zinc-950 shadow-2xl flex items-center justify-center text-2xl font-black transition-all active:scale-95 active:bg-orange-950 active:text-orange-400 disabled:opacity-20 touch-none" disabled>PUSH</button>
         </div>
     </div>
 
     <script>
-        let peer, audioCtx, localStream, gainNode, masterBusDestination;
+        let peer, audioCtx, localStream, gainNode, masterBusDestination, masterAnalyser;
         let isPowerOn = false;
         let mySlot = -1;
-        let currentCh = "";
+        let currentCh = "00000";
+        let networkMode = "wifi"; 
         let connections = new Map();
+        let dialAngle = 0;
+        let pollInterval = null;
+        
+        // キーバインド用
+        let assignedKey = "Space"; 
+        let isBinding = false;
+        let isKeyPressed = false;
 
         const log = (msg) => document.getElementById('status-text').innerText = msg;
         const setModeDisp = (msg, colorClass) => {
             const el = document.getElementById('mode-display');
             el.innerText = msg;
-            el.className = `text-[10px] font-bold bg-black/40 py-1 rounded ${colorClass}`;
+            el.className = `text-[10px] font-bold bg-black/40 py-0.5 rounded ${colorClass}`;
         };
 
+        function toggleSettings() {
+            const panel = document.getElementById('settings-panel');
+            panel.classList.toggle('hidden');
+        }
+
+        function updateNetMode() {
+            if (isPowerOn) return;
+            networkMode = document.querySelector('input[name="net-mode"]:checked').value;
+            const disp = document.getElementById('net-display');
+            disp.innerText = networkMode === "wifi" ? "MODE: WI-FI (P2P)" : "MODE: ONLINE (GLOBAL)";
+        }
+
+        function changeChannelDial(dir) {
+            if (isPowerOn) return;
+            let val = parseInt(document.getElementById('ch-code').value) || 0;
+            val = (val + dir + 100000) % 100000;
+            document.getElementById('ch-code').value = String(val).padStart(5, '0');
+            dialAngle += dir * 36;
+            document.getElementById('dial-knob').style.transform = `rotate(${dialAngle}deg)`;
+        }
+
+        function syncDialFromInput() {
+            let val = parseInt(document.getElementById('ch-code').value) || 0;
+            dialAngle = val * 36;
+            document.getElementById('dial-knob').style.transform = `rotate(${dialAngle}deg)`;
+        }
+
+        function startKeyBinding() {
+            isBinding = true;
+            const btn = document.getElementById('bind-btn');
+            btn.innerText = "キー入力待ち...";
+            btn.classList.add('text-amber-400');
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (isBinding) {
+                e.preventDefault();
+                assignedKey = e.code === "Space" ? "Space" : e.code;
+                document.getElementById('assigned-key-disp').innerText = e.key === " " ? "Space" : e.key;
+                const btn = document.getElementById('bind-btn');
+                btn.innerText = "変更";
+                btn.classList.remove('text-amber-400');
+                isBinding = false;
+                return;
+            }
+
+            if (!isPowerOn || isKeyPressed || document.activeElement.tagName === 'INPUT') return;
+            
+            const targetCode = assignedKey === "Space" ? "Space" : assignedKey;
+            if (e.code === targetCode) {
+                e.preventDefault();
+                isKeyPressed = true;
+                talk(true);
+                document.getElementById('ptt-btn').classList.add('scale-95', 'bg-orange-950', 'text-orange-400');
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (!isPowerOn || !isKeyPressed) return;
+            const targetCode = assignedKey === "Space" ? "Space" : assignedKey;
+            if (e.code === targetCode) {
+                isKeyPressed = false;
+                talk(false);
+                document.getElementById('ptt-btn').classList.remove('scale-95', 'bg-orange-950', 'text-orange-400');
+            }
+        });
+
+        // スマホ対策：ユーザーのタップイベント内で直ちにマイクとオーディオコンテキストを初期化
         async function setupAudio() {
-            if (audioCtx) return;
+            if (audioCtx) {
+                if (audioCtx.state === 'suspended') {
+                    await audioCtx.resume();
+                }
+                return;
+            }
+            
             const stream = await navigator.mediaDevices.getUserMedia({ 
                 audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } 
             });
+            
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             const micIn = audioCtx.createMediaStreamSource(stream);
             
             gainNode = audioCtx.createGain();
             gainNode.gain.value = 0;
             
-            // 相手に送るための最終的なバス（出力先）
             masterBusDestination = audioCtx.createMediaStreamDestination();
-            
-            // マイク入力をgainNode（PTT制御）を通してマスターバスへ
             micIn.connect(gainNode).connect(masterBusDestination);
             
+            // 統合マスターアナライザー（自分の送信音と相手の受信音を両方キャッチする）
+            masterAnalyser = audioCtx.createAnalyser();
+            masterAnalyser.fftSize = 64;
+            
+            // 自分のマイク入力もアナライザーに繋ぐ（送信中だけ通るようにgainNodeの後に接続）
+            gainNode.connect(masterAnalyser);
+            
             localStream = masterBusDestination.stream;
+
+            // 音量バーのアニメーションループを開始
+            const remoteData = new Uint8Array(masterAnalyser.frequencyBinCount);
+            const updateBar = () => {
+                if(!isPowerOn) {
+                    document.getElementById('voice-bar').style.width = '0%';
+                    return;
+                }
+                requestAnimationFrame(updateBar);
+                masterAnalyser.getByteFrequencyData(remoteData);
+                const avg = remoteData.reduce((a, b) => a + b) / remoteData.length;
+                document.getElementById('voice-bar').style.width = avg > 15 ? Math.min(100, avg * 2.5) + '%' : '0%';
+            };
+            updateBar();
+        }
+
+        function getPeerIdPrefix(ch) {
+            return networkMode === "wifi" ? `off-line_${ch}` : `on-line_${ch}`;
         }
 
         async function togglePower() {
             if (!isPowerOn) {
-                const rawCh = document.getElementById('ch-code').value;
-                if (!rawCh) return alert("番号を入力してください");
+                const rawCh = document.getElementById('ch-code').value || "0";
                 currentCh = rawCh.padStart(5, '0');
+                document.getElementById('ch-code').value = currentCh;
                 
+                document.getElementById('settings-panel').classList.add('hidden');
                 setModeDisp("BOOTING...", "text-amber-500");
-                await setupAudio().catch(() => alert("マイクを許可してください"));
                 
+                // ボタンタップ時のコンテキスト内で最優先でオーディオを起動
+                try {
+                    await setupAudio();
+                } catch(e) {
+                    alert("マイクの使用を許可してください。ブラウザの設定でマイクの権限を確認してください。");
+                    setModeDisp("READY", "text-zinc-500");
+                    return;
+                }
+                
+                const prefix = getPeerIdPrefix(currentCh);
+
                 for (let i = 0; i < 5; i++) {
-                    const testId = `gta-trx-${currentCh}-${i}`;
+                    const testId = `${prefix}-${i}`;
                     const tempPeer = new Peer(testId);
                     const isAvailable = await new Promise(res => {
                         tempPeer.on('open', () => res(true));
@@ -103,9 +270,12 @@
                     else { tempPeer.destroy(); }
                 }
 
-                if (!peer) return setModeDisp("CH BUSY", "text-red-500");
+                if (!peer) return setModeDisp("CH FULL", "text-red-500");
                 initRadio();
-            } else { location.reload(); }
+            } else { 
+                clearInterval(pollInterval);
+                location.reload(); 
+            }
         }
 
         function initRadio() {
@@ -115,17 +285,24 @@
             document.getElementById('ch-display').innerText = `CH: ${currentCh}`;
             document.getElementById('ch-display').classList.add('text-green-500', 'lcd-glow');
             document.getElementById('ptt-btn').disabled = false;
+            
             document.getElementById('ch-code').disabled = true;
+            document.getElementById('dial-up').disabled = true;
+            document.getElementById('dial-down').disabled = true;
 
             peer.on('call', call => {
                 call.answer(localStream);
                 handleCall(call);
             });
 
-            setInterval(() => {
+            const prefix = getPeerIdPrefix(currentCh);
+            pollInterval = setInterval(() => {
                 if(!isPowerOn) return;
-                for (let i = 0; i < mySlot; i++) {
-                    const targetId = `gta-trx-${currentCh}-${i}`;
+                
+                for (let i = 0; i < 5; i++) {
+                    if (i === mySlot) continue;
+                    const targetId = `${prefix}-${i}`;
+                    
                     if (!connections.has(targetId)) {
                         const call = peer.call(targetId, localStream);
                         if (call) handleCall(call);
@@ -136,7 +313,7 @@
 
             setModeDisp(`SLOT-${mySlot} ACTIVE`, "text-green-400");
             log("LISTENING");
-            playSE(800, false); // 起動音は自分だけに
+            playSE(800, false);
         }
 
         function handleCall(call) {
@@ -151,42 +328,39 @@
                 const remoteSource = audioCtx.createMediaStreamSource(remoteStream);
                 remoteSource.connect(audioCtx.destination);
                 
-                const remoteAnalyser = audioCtx.createAnalyser();
-                remoteAnalyser.fftSize = 64;
-                const remoteData = new Uint8Array(remoteAnalyser.frequencyBinCount);
-                remoteSource.connect(remoteAnalyser);
-
-                const updateBar = () => {
-                    if(!isPowerOn || !connections.has(call.peer)) return;
-                    requestAnimationFrame(updateBar);
-                    remoteAnalyser.getByteFrequencyData(remoteData);
-                    const avg = remoteData.reduce((a, b) => a + b) / remoteData.length;
-                    document.getElementById('voice-bar').style.width = avg > 15 ? Math.min(100, avg * 2.5) + '%' : '0%';
-                };
-                updateBar();
+                // 相手から送られてきた音声も一括でマスターアナライザーに繋いでメーターを動かす
+                if (masterAnalyser) {
+                    remoteSource.connect(masterAnalyser);
+                }
+                
                 log("NODE CONNECTED");
             });
 
-            call.on('close', () => connections.delete(call.peer));
-            call.on('error', () => connections.delete(call.peer));
+            const cleanUp = () => {
+                if(connections.has(call.peer)) {
+                    connections.delete(call.peer);
+                    document.getElementById('conn-info').innerText = `LINK: ${connections.size} DEVICES`;
+                    if(connections.size === 0) log("LISTENING");
+                }
+            };
+
+            call.on('close', cleanUp);
+            call.on('error', cleanUp);
         }
 
-        // 相手にも聞こえるSE再生関数
         function playSE(freq, sendToNetwork = true) {
             if(!audioCtx || !isPowerOn) return;
             const osc = audioCtx.createOscillator();
             const g = audioCtx.createGain();
             
             osc.connect(g);
-            g.connect(audioCtx.destination); // 自分の耳に届ける
+            g.connect(audioCtx.destination);
             
-            // 相手に送るストリームにも接続
             if (sendToNetwork && masterBusDestination) {
                 g.connect(masterBusDestination);
             }
 
             osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
-            // GTA風に音量を少しハッキリさせる (0.15)
             g.gain.setValueAtTime(0.15, audioCtx.currentTime);
             g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
             
@@ -196,14 +370,11 @@
 
         const talk = (on) => {
             if (!gainNode || !isPowerOn) return;
-            
             if (on) {
-                // 送信音量を上げる前にビープを鳴らす（相手に届く）
                 playSE(1200, true); 
                 gainNode.gain.setTargetAtTime(1, audioCtx.currentTime, 0.03);
                 log("TRANSMITTING");
             } else {
-                // 送信を止めた直後にビープを鳴らす（相手に届く）
                 gainNode.gain.setTargetAtTime(0, audioCtx.currentTime, 0.03);
                 setTimeout(() => playSE(700, true), 50);
                 log("LISTENING");
@@ -215,6 +386,11 @@
         ptt.addEventListener('touchend', () => talk(false));
         ptt.addEventListener('mousedown', () => talk(true));
         ptt.addEventListener('mouseup', () => talk(false));
+
+        document.getElementById('dial-knob').addEventListener('wheel', (e) => {
+            e.preventDefault();
+            changeChannelDial(e.deltaY > 0 ? -1 : 1);
+        });
     </script>
 </body>
 </html>
