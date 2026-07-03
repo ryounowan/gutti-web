@@ -55,7 +55,11 @@
 </div>
 
 <script>
-    const peer = new Peer(undefined, {
+    // 5桁のランダムな数字IDを生成
+    const customId = Math.floor(10000 + Math.random() * 90000).toString();
+
+    // 自分のIDを指定してPeerを初期化
+    const peer = new Peer(customId, {
         config: {
             'iceServers': [
                 { urls: 'stun:stun.l.google.com:19302' },
@@ -80,8 +84,12 @@
     // 2. 受信側処理
     peer.on('connection', (c) => {
         conn = c;
+        
+        // 相手から接続されたら、相手のIDを自動入力
+        document.getElementById('peer-id').value = conn.peer;
+        
         setupConn();
-        document.getElementById('status').innerText = "接続されました。受信待機中...";
+        document.getElementById('status').innerText = `接続されました(${conn.peer})。受信待機中...`;
     });
 
     function setupConn() {
