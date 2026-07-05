@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gutti LIVE Stream - Ultimate</title>
+    <!-- PeerJSライブラリをCDNから読み込み -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -200,6 +201,7 @@
 </head>
 <body>
 
+    <!-- 配信終了画面 -->
     <div id="end-screen" class="overlay">
         <h1 style="color: var(--accent-red); font-size: 2rem;">📴 配信が終了しました</h1>
         <button class="btn btn-stop" onclick="location.reload()" style="width: auto; padding: 12px 30px;">トップに戻る</button>
@@ -211,11 +213,13 @@
             <p class="subtitle">Ultra Low Latency - P2P Streaming System</p>
         </header>
 
+        <!-- モード切り替えタブ -->
         <div class="mode-tabs" id="modeTabs">
             <button class="tab-btn active" onclick="switchMode('distributor')">🎬 配信モード</button>
             <button class="tab-btn" onclick="switchMode('viewer')">📺 視聴モード</button>
         </div>
 
+        <!-- 【配信モード用パネル】 -->
         <div id="distributor-panel">
             <div class="form-group">
                 <label>合言葉 (ルームID)</label>
@@ -224,12 +228,12 @@
             <div class="form-group">
                 <label>配信ソースの選択</label>
                 <select id="stream-source" onchange="toggleSourceInput()">
-                    <option value="file">動画ファイル (MP4/WebM)</option>
                     <option value="camera">インカメラ / ウェブカメラ</option>
                     <option value="screen">画面共有 (スクリーンキャプチャ)</option>
+                    <option value="file">動画ファイル (MP4/WebM)</option>
                 </select>
             </div>
-            <div class="form-group" id="file-input-group">
+            <div class="form-group" id="file-input-group" style="display: none;">
                 <label>動画ファイルを選択</label>
                 <input type="file" id="video-file" accept="video/mp4,video/webm">
             </div>
@@ -243,6 +247,7 @@
             </div>
         </div>
 
+        <!-- 【視聴モード用パネル】 -->
         <div id="viewer-panel" style="display: none;">
             <div class="form-group">
                 <label>共通の合言葉を入力</label>
@@ -256,6 +261,7 @@
             </div>
         </div>
 
+        <!-- 共通ビデオステージ -->
         <div class="video-container" id="videoStage">
             <button class="fullscreen-btn" id="fsBtn" onclick="toggleFullscreen()" style="display:none;">全画面表示</button>
             <video id="mainVideo" controls playsinline muted></video>
@@ -268,7 +274,6 @@
         let conns = {};
         let activeMode = 'distributor';
 
-        // モード（配信・視聴）の切り替え
         function switchMode(mode) {
             if (peer) {
                 if(!confirm("現在の接続を終了してモードを切り替えますか？")) return;
@@ -283,17 +288,16 @@
                 document.getElementById('distributor-panel').style.display = 'block';
                 document.getElementById('viewer-panel').style.display = 'none';
                 document.getElementById('fsBtn').style.display = 'none';
-                document.getElementById('mainVideo').muted = true; // 配信側はハウリング防止でミュート
+                document.getElementById('mainVideo').muted = true;
             } else {
                 tabs[0].classList.remove('active');
                 tabs[1].classList.add('active');
                 document.getElementById('distributor-panel').style.display = 'none';
                 document.getElementById('viewer-panel').style.display = 'block';
-                document.getElementById('mainVideo').muted = false; // 受信側は音を出す
+                document.getElementById('mainVideo').muted = false;
             }
         }
 
-        // 配信ソースの入力フォーム切り替え
         function toggleSourceInput() {
             const source = document.getElementById('stream-source').value;
             const fileGroup = document.getElementById('file-input-group');
@@ -314,31 +318,52 @@
 
             if (!room) return alert("合言葉を入力してください");
 
-            // 1. 各種ソースから最高画質ストリームを取得
+            document.getElementById('pub-status').innerText = "デバイス準備中...";
+
+            // 1. 各種ソースからストリームを確実に取得するまで次に進まない
             try {
                 if (source === 'file') {
                     const file = document.getElementById('video-file').files[0];
                     if (!file) return alert("動画ファイルを選択してください");
                     videoEl.src = URL.createObjectURL(file);
+                    videoEl.srcObject = null;
+                    
+                    // 動画が再生可能になるのを待つ
+                    await new Promise((resolve) => {
+                        videoEl.onloadedmetadata = resolve;
+                    });
                     await videoEl.play();
-                    // 60fps固定キャプチャ
                     myStream = videoEl.captureStream ? videoEl.captureStream(60) : videoEl.mozCaptureStream(60);
                     videoEl.classList.remove('mirror');
                 } else if (source === 'camera') {
-                    myStream = await navigator.mediaDevices.getUserMedia({ video: { frameRate: { ideal: 60 } }, audio: true });
-                    videoEl.srcObject = myStream;
-                    videoEl.classList.add('mirror'); // カメラは鏡面反転
+                    // カメラの起動と許可待ち
+                    const stream = await navigator.mediaDevices.getUserMedia({ 
+                        video: { frameRate: { ideal: 60 }, width: { ideal: 1280 }, height: { ideal: 720 } }, 
+                        audio: true 
+                    });
+                    videoEl.srcObject = stream;
+                    videoEl.src = '';
+                    await videoEl.play();
+                    myStream = stream;
+                    videoEl.classList.add('mirror');
                 } else if (source === 'screen') {
-                    myStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60 } }, audio: true });
-                    videoEl.srcObject = myStream;
+                    const stream = await navigator.mediaDevices.getDisplayMedia({ 
+                        video: { frameRate: { ideal: 60 } }, 
+                        audio: true 
+                    });
+                    videoEl.srcObject = stream;
+                    videoEl.src = '';
+                    await videoEl.play();
+                    myStream = stream;
                     videoEl.classList.remove('mirror');
                 }
             } catch (err) {
                 console.error(err);
-                return alert("配信ソースの取得に失敗しました。環境や権限を確認してください。");
+                document.getElementById('pub-status').innerText = "エラー：デバイス起動失敗";
+                return alert("配信ソースの取得に失敗しました。カメラのアクセス権限を確認してください。");
             }
 
-            // 2. Peerサーバー接続と高品質SDP設定の適用
+            // 2. 映像が確保できたらPeer接続を開始
             if (peer) peer.destroy();
             peer = new Peer(`${room}-host`, {
                 config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
@@ -349,12 +374,10 @@
                 document.getElementById('pub-status').style.color = "var(--accent-red)";
                 document.getElementById('startPubBtn').style.display = "none";
                 document.getElementById('stopPubBtn').style.display = "block";
-                document.getElementById('modeTabs').style.pointerEvents = 'none'; // 配信中はタブ無効化
+                document.getElementById('modeTabs').style.pointerEvents = 'none';
             });
 
-            // 視聴者からのデータ接続要求を検知
             peer.on('connection', conn => {
-                // 最大8Mbps、最小2Mbpsの超高画質ビットレート制限をSDPに注入して発信
                 const call = peer.call(conn.peer, myStream, {
                     sdpTransform: (sdp) => {
                         return sdp.replace(/a=fmtp:(\d+) (.*)/g, 'a=fmtp:$1 $2;x-google-min-bitrate=2000;x-google-max-bitrate=8000');
@@ -382,6 +405,9 @@
 
         function stopBroadcast() {
             if (!confirm("配信を終了しますか？")) return;
+            if (myStream) {
+                myStream.getTracks().forEach(track => track.stop());
+            }
             Object.values(conns).forEach(c => c.conn.close());
             location.reload();
         }
@@ -393,7 +419,6 @@
             const room = document.getElementById('sub-room-id').value.trim();
             if (!room) return alert("合言葉を入力してください");
 
-            // ランダムなIDを生成して自身を識別
             const myId = `${room}-viewer-${Math.floor(Math.random() * 10000)}`;
             peer = new Peer(myId);
 
@@ -401,14 +426,13 @@
             document.getElementById('joinSubBtn').disabled = true;
 
             peer.on('open', () => {
-                // 配信側のHostへデータ接続を確立してトリガーを弾く
                 const conn = peer.connect(`${room}-host`);
                 
                 conn.on('open', () => {
                     document.getElementById('sub-status').innerText = "📡 接続完了";
                     document.getElementById('sub-status').style.color = "var(--accent-green)";
                     document.getElementById('joinSubBtn').style.display = "none";
-                    document.getElementById('fsBtn').style.display = "block"; // フルスクリーンボタン表示
+                    document.getElementById('fsBtn').style.display = "block";
                     document.getElementById('modeTabs').style.pointerEvents = 'none';
                 });
 
@@ -417,16 +441,14 @@
                 });
             });
 
-            // 配信側から送られてくる高品質ストリームを受信
             peer.on('call', call => {
                 call.answer();
                 call.on('stream', stream => {
                     const videoEl = document.getElementById('mainVideo');
                     videoEl.srcObject = stream;
-                    videoEl.classList.remove('mirror'); // 受信映像は反転しない
+                    videoEl.classList.remove('mirror');
                     document.getElementById('sub-status').innerText = "🔴 LIVE受信中 (超低遅延モード)";
                     
-                    // プレイアウト遅延ヒントを0に固定して、極限まで遅延を削減
                     if ('receiver' in call && call.peerConnection) {
                         call.peerConnection.getReceivers().forEach(r => {
                             if (r.playoutDelayHint !== undefined) r.playoutDelayHint = 0;
@@ -437,26 +459,21 @@
 
             peer.on('error', (err) => {
                 console.error(err);
-                alert("配信ルームが見つかりません。合言葉が正しいか、またはすでに配信が開始されているか確認してください。");
+                alert("配信ルームが見つかりません。合言葉が正しいか確認してください。");
                 location.reload();
             });
         }
 
-        // ==========================================
-        // 🖥️ フルスクリーン（全画面表示）切り替え機能
-        // ==========================================
         function toggleFullscreen() {
             const videoEl = document.getElementById('mainVideo');
             
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                // フルスクリーン開始
                 if (videoEl.requestFullscreen) {
                     videoEl.requestFullscreen();
-                } else if (videoEl.webkitRequestFullscreen) { /* Safari / iOS 用 */
+                } else if (videoEl.webkitRequestFullscreen) {
                     videoEl.webkitRequestFullscreen();
                 }
             } else {
-                // フルスクリーン解除
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
                 } else if (document.webkitExitFullscreen) {
