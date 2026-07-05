@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GMOD 最終統合・注入ツール v2.0</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --accent: #38bdf8;
+            --accent-hover: #0ea5e9;
+            --text: #f1f5f9;
+            --success: #22c55e;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card);
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            border: 1px solid #334155;
+        }
+
+        h2 { margin-top: 0; text-align: center; color: var(--accent); }
+
+        .upload-zone {
+            border: 2px dashed #475569;
+            padding: 1.5rem;
+            margin: 1rem 0;
+            border-radius: 12px;
+            text-align: center;
+            transition: 0.3s;
+            cursor: pointer;
+        }
+
+        .upload-zone:hover { border-color: var(--accent); background: #26364d; }
+
+        input[type="file"] { display: none; }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: bold;
+            color: #94a3b8;
+        }
+
+        button {
+            width: 100%;
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        button:hover { background: var(--accent-hover); }
+
+        #status {
+            margin-top: 1rem;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--success);
+        }
+
+        .file-name { font-size: 0.8rem; color: var(--accent); margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>GMOD Patcher v2.0</h2>
+    
+    <div class="upload-zone" onclick="document.getElementById('html-file').click()">
+        <label>1. HTMLファイルを選択</label>
+        <input type="file" id="html-file">
+        <div id="html-name" class="file-name">未選択</div>
+    </div>
+
+    <div class="upload-zone" onclick="document.getElementById('gmod-file').click()">
+        <label>2. .GMODファイルを選択</label>
+        <input type="file" id="gmod-file">
+        <div id="gmod-name" class="file-name">未選択</div>
+    </div>
+
+    <button onclick="processFiles()">統合して書き出し</button>
+    <div id="status"></div>
+</div>
+
+<script>
+    // ファイル名表示用
+    document.getElementById('html-file').onchange = e => document.getElementById('html-name').textContent = e.target.files[0].name;
+    document.getElementById('gmod-file').onchange = e => document.getElementById('gmod-name').textContent = e.target.files[0].name;
+
+    async function processFiles() {
+        const htmlInput = document.getElementById('html-file').files[0];
+        const gmodInput = document.getElementById('gmod-file').files[0];
+        const status = document.getElementById('status');
+        
+        if (!htmlInput || !gmodInput) {
+            status.textContent = "※両方のファイルを選択してください";
+            status.style.color = "#fb7185";
+            return;
+        }
+
+        status.textContent = "処理中...";
+        
+        const htmlText = await htmlInput.text();
+        const gmodJson = JSON.parse(await gmodInput.text());
+
+        let newHtml = htmlText;
+        
+        // 注入処理
+        const styleTag = `<style>${gmodJson.compiled_styles}</style>`;
+        const scriptTag = `<script>${gmodJson.compiled_behavior_hooks}<\/script>`;
+        
+        if (newHtml.includes('</head>')) {
+            newHtml = newHtml.replace('</head>', styleTag + '</head>');
+        } else {
+            newHtml = styleTag + newHtml;
+        }
+
+        if (newHtml.includes('</body>')) {
+            newHtml = newHtml.replace('</body>', scriptTag + '</body>');
+        } else {
+            newHtml += scriptTag;
+        }
+
+        const blob = new Blob([newHtml], { type: "text/html" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "modded_" + htmlInput.name;
+        a.click();
+        
+        status.textContent = "完了！自動ダウンロードされました。";
+        status.style.color = "var(--success)";
+    }
+</script>
+
+</body>
+</html>
