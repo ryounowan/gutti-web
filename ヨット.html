@@ -64,15 +64,18 @@
         .f4 { transform: rotateY(-90deg) translateZ(var(--dice-transform-z)); }
         .f5 { transform: rotateX(-90deg) translateZ(var(--dice-transform-z)); }
         .f6 { transform: rotateY(180deg) translateZ(var(--dice-transform-z)); }
-        .score-box { background: white; color: #333; padding: 15px; border-radius: 10px; flex: 1; }
-        table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        th, td { border: 1px solid #ddd; padding: 7px 5px; text-align: left; }
+        .score-box { background: white; color: #333; padding: 15px; border-radius: 10px; flex: 1.5; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 300px; }
+        th, td { border: 1px solid #ddd; padding: 7px 5px; text-align: center; }
         th { background: #f5f5f5; }
-        .selectable { cursor: pointer; background: #fdfdfd; }
-        .selectable:hover { background: #e3f2fd; }
-        .filled { background: #eee; color: #999; font-weight: bold; }
-        .preview { color: #2980b9; font-style: italic; font-weight: bold; }
+        th:first-child, td:first-child { text-align: left; font-weight: bold; background: #fafafa; }
+        .selectable-cell { cursor: pointer; background: #e3f2fd !important; font-weight: bold; color: #0076a3; }
+        .selectable-cell:hover { background: #bbdefb !important; }
+        .filled-cell { background: #f5f5f5; color: #666; }
+        .current-player-col { background: rgba(241, 196, 15, 0.08); }
+        .preview-text { color: #e67e22; font-style: italic; }
         .bonus-row { background: #fffde7; font-weight: bold; }
+        .total-row { background: #e3f2fd; font-weight: bold; font-size: 14px; }
         button { padding: 12px 24px; border-radius: 6px; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 16px; }
         .btn-main { background: #27ae60; color: white; width: 100%; font-size: 20px; margin-top: 15px; padding: 15px; }
         .btn-main:disabled { background: #7f8c8d; opacity: 0.5; cursor: not-allowed; }
@@ -164,7 +167,7 @@
 
         <div class="profile-section-title">🎖️ 獲得実績一覧 (<span id="ach-percent">0</span>% 達成)</div>
         <div class="achievement-summary">
-            <span>解除済み: <span id="ach-count-text">0</span> / 30</span>
+            <span>解除済み: <span id="ach-count-text">0</span> / 100</span>
         </div>
         <div class="achievement-grid" id="modal-achievement-list"></div>
 
@@ -228,10 +231,9 @@
         </div>
         <div class="score-box">
             <table>
-                <thead><tr><th>役名</th><th>得点</th></tr></thead>
+                <thead id="score-thead"></thead>
                 <tbody id="score-tbody"></tbody>
             </table>
-            <h3 style="margin-top:12px; margin-bottom:0; text-align:right;">合計: <span id="total-val" style="color:#0076a3; font-size:22px;">0</span></h3>
         </div>
     </div>
 </div>
@@ -259,7 +261,7 @@
     // 固定データベース・ユーザー管理
     let userDatabase = {}; let myCurrentName = "Player";
     
-    // 全30個の実績定義
+    // 全100個の実績定義
     const trophies = {
         r1: {title:"初勝利", desc:"いずれかのモードで1位を取る"},
         r2: {title:"ヨットの輝き", desc:"役「ヨット」を達成する"},
@@ -290,7 +292,78 @@
         r27: {title:"初めてのギブアップ", desc:"試合中にギブアップを選択する"},
         r28: {title:"シーズンサバイバー", desc:"シーズンリセットを1回経験する"},
         r29: {title:"1試合2回ヨット", desc:"ヨットを2回以上振る(チョイス等に適用)"},
-        r30: {title:"完全制覇", desc:"他すべての実績を20個以上解除する"}
+        r30: {title:"精鋭コレクター", desc:"他すべての実績を20個以上解除する"},
+        // 追加実績（r31〜r100）
+        r31: {title:"ピンゾロの洗礼", desc:"ダイスがすべて1の状態でキープする"},
+        r32: {title:"サイコロ愛好家", desc:"生涯合計対戦数が5試合に達する"},
+        r33: {title:"ベテランの風貌", desc:"生涯合計対戦数が20試合に達する"},
+        r34: {title:"ヨットの鉄人", desc:"生涯合計対戦数が50試合に達する"},
+        r35: {title:"ヤッツィーマスター", desc:"生涯合計対戦数が100試合に達する"},
+        r36: {title:"スピードスター", desc:"振り直しを1回もせず役を確定する"},
+        r37: {title:"慎重派", desc:"すべての振り直し回数を使い切って役を決める"},
+        r38: {title:"ワン・フォー・オール", desc:"「1」の役で5点以上を獲得する"},
+        r39: {title:"ツインテール", desc:"「2」の役で10点以上を獲得する"},
+        r40: {title:"サードインパクト", desc:"「3」の役で15点以上を獲得する"},
+        r41: {title:"フォーカードプレイス", desc:"「4」の役で20点以上を獲得する"},
+        r42: {title:"ハイファイブ", desc:"「5」の役で25点以上を獲得する"},
+        r43: {title:"サタンの囁き", desc:"「6」の役で30点以上を獲得する"},
+        r44: {title:"ローリングストーンズ", desc:"1回の対戦でダイスを30回以上振る"},
+        r45: {title:"ジャスト100", desc:"ピッタリ合計100点でゲームを終える"},
+        r46: {title:"ラッキーセブン", desc:"合計スコアの下ひと桁が7で終了する"},
+        r47: {title:"奇数マニア", desc:"最終スコアが奇数になる"},
+        r48: {title:"偶数ジェントル", desc:"最終スコアが偶数になる"},
+        r49: {title:"パーフェクトチョイス", desc:"チョイスで25点以上を獲得する"},
+        r50: {title:"ミニマムチョイス", desc:"チョイスで10点以下を記録する"},
+        r51: {title:"フォーダイスの極み", desc:"4ダイスで24点以上を獲得する"},
+        r52: {title:"ギリギリセーフ", desc:"スコア105〜110の間で勝利する"},
+        r53: {title:"ギリギリボーナス", desc:"小計がピッタリ63点でボーナス獲得"},
+        r54: {title:"オーバーキルボーナス", desc:"小計が70点以上でボーナス獲得"},
+        r55: {title:"CPUハンター", desc:"VS CPU戦で3回勝利する"},
+        r56: {title:"CPUスレイヤー", desc:"VS CPU戦で10回勝利する"},
+        r57: {title:"フレンドシップ", desc:"合言葉マッチを1回プレイする"},
+        r58: {title:"パーティーピーポー", desc:"3人以上のローカル対戦をプレイする"},
+        r59: {title:"大富豪", desc:"合計得点で2位に50点以上の差をつけて勝利"},
+        r60: {title:"僅差の美学", desc:"2位と3点差以内で大接戦を制する"},
+        r61: {title:"オールフォーワン", desc:"ダイスの目が全て同じ数字で「4ダイス」を埋める"},
+        r62: {title:"ストレートスナイパー", desc:"S.ストレートを1ゲームで2回以上成立させる"},
+        r63: {title:"エースの証明", desc:"最初のターンに「Ones」を埋める"},
+        r64: {title:"ラストスパート", desc:"最終ターンに「ヨット」を当てて大逆転する"},
+        r65: {title:"安全第一", desc:"前半6つの役を上から順番に埋める"},
+        r66: {title:"ギャンブラー", desc:"1投目にキープを1つもしない"},
+        r67: {title:"フルハウス崩し", desc:"フルハウスの目をあえて崩して別の役を狙う"},
+        r68: {title:"プライドの代償", desc:"ヨットを狙いすぎて他の役が0点になる"},
+        r69: {title:"どん底からの生還", desc:"前半の小計が30点以下から巻き返して勝利"},
+        r70: {title:"ビギナーズラック", desc:"アカウント作成後、初戦で勝利する"},
+        r71: {title:"熟練度Lv.5", desc:"アカウント熟練度が5に達する"},
+        r72: {title:"熟練度Lv.20", desc:"アカウント熟練度が20に達する"},
+        r73: {title:"熟練度Lv.40", desc:"アカウント熟練度が40に達する"},
+        r74: {title:"熟練度Lv.60", desc:"アカウント熟練度が60に達する"},
+        r75: {title:"熟練度Lv.80", desc:"アカウント熟練度が80に達する"},
+        r76: {title:"ブロンズダイサー", desc:"ランクC+以上に到達する"},
+        r77: {title:"シルバーダイサー", desc:"ランクB+以上に到達する"},
+        r78: {title:"ゴールドダイサー", desc:"ランクA+以上に到達する"},
+        r79: {title:"プラチナダイサー", desc:"ランクS+以上に到達する"},
+        r80: {title:"ダイス界のカリスマ", desc:"ランクS+15以上に到達する"},
+        r81: {title:"隠れCPUキラー", desc:"ランクマッチの隠れCPUに勝利する"},
+        r82: {title:"完全勝利", desc:"他プレイヤー全員を降伏させて勝利する"},
+        r83: {title:"ローカルスター", desc:"ローカル対戦で通算5回勝利する"},
+        r84: {title:"バックアッパー", desc:"セーブデータを1回エクスポートする"},
+        r85: {title:"シンクロニシティ", desc:"セーブデータを1回インポートする"},
+        r86: {title:"二連覇", desc:"2ヶ月連続でシーズンリセットを跨いでプレイする"},
+        r87: {title:"大物喰い", desc:"自分より格上のランクのCPU/プレイヤーに勝利する"},
+        r88: {title:"ハーフセンチュリー", desc:"1つの役で25点以上を獲得（ヨットを除く）"},
+        r89: {title:"ゼロの恐怖", desc:"1ゲームで0点の役が4つ以上ある状態で終了"},
+        r90: {title:"シルバーコレクター", desc:"累計で2位に輝いた回数が10回に達する"},
+        r91: {title:"ダイスブレイカー", desc:"同じ数字のダイスを累計500回振る"},
+        r92: {title:"フォーチュン", desc:"初手で最初からフルハウスが完成している"},
+        r93: {title:"ミラクルストレート", desc:"初手で最初からB.ストレートが完成している"},
+        r94: {title:"ヘビードライバー", desc:"1日で3試合以上プレイする"},
+        r95: {title:"ネバーギブアップ", desc:"どれだけ点数が低くてもギブアップせずに完走する"},
+        r96: {title:"ヨットの守護神", desc:"通算ヨット獲得数が5回を突破する"},
+        r97: {title:"ヨットの覇王", desc:"通算ヨット獲得数が20回を突破する"},
+        r98: {title:"伝説の目撃者", desc:"1ゲームの合計得点が270点を超える"},
+        r99: {title:"グランドマスター", desc:"アカウント熟練度Lv.99に到達する"},
+        r100: {title:"真のヨットマスター", desc:"実績を50個以上解除する"}
     };
 
     const rotationAngles = { 1: "rotateX(0deg) rotateY(0deg)", 2: "rotateX(-90deg) rotateY(0deg)", 3: "rotateX(0deg) rotateY(-90deg)", 4: "rotateX(0deg) rotateY(90deg)", 5: "rotateX(90deg) rotateY(0deg)", 6: "rotateX(0deg) rotateY(180deg)" };
@@ -317,23 +390,20 @@
         return {
             name: name, total_games: 0, total_yachts: 0,
             level: 1, level_exp: 0,
-            rank_id: 0, rank_exp: 0, // 0=C, 1=B, 2=A, 3=S, 4=S+1, 5=S+2...
+            rank_id: 0, rank_exp: 0,
             random_streak: 0, max_random_streak: 0,
             rank_streak: 0, max_rank_streak: 0,
             unlockedAchievements: [], last_reset_month: new Date().getMonth()
         };
     }
 
-    // 🌙 シーズンリセット判定＆モックランキング生成
     function checkAndApplySeasonReset() {
         let u = userDatabase[myCurrentName];
         const currentMonth = new Date().getMonth();
         if (u && u.last_reset_month !== undefined && u.last_reset_month !== currentMonth) {
-            // モックランキング構築
             generateMockLeaderboard(u);
-            // 1ランクダウンロジック
             if (u.rank_id > 0) {
-                if (u.rank_id >= 3) u.rank_id = 2; // Sランク以上はAに
+                if (u.rank_id >= 3) u.rank_id = 2;
                 else u.rank_id -= 1;
             }
             u.rank_exp = 0;
@@ -368,7 +438,6 @@
         return `S+${id - 3}`;
     }
     function getRequiredRankExp(id) {
-        // 上がるごとに必要量増加
         if (id === 0) return 100; if (id === 1) return 150; if (id === 2) return 200;
         return 250 + (id - 3) * 50;
     }
@@ -390,13 +459,11 @@
 
     function updateProfileModalUI() {
         const u = userDatabase[myCurrentName] || createNewUser(myCurrentName);
-        // 熟練度
         document.getElementById('stat-player-lv').innerText = u.level;
         const reqLvExp = u.level * 100;
         document.getElementById('stat-lv-exp-text').innerText = u.level>=100 ? "MAX" : `EXP: ${u.level_exp} / ${reqLvExp}`;
         document.getElementById('stat-lv-exp-fill').style.width = u.level>=100 ? "100%" : `${(u.level_exp/reqLvExp)*100}%`;
         
-        // ランク
         const rStr = getRankString(u.rank_id);
         document.getElementById('stat-rank-string').innerText = rStr;
         const reqRankExp = getRequiredRankExp(u.rank_id);
@@ -410,13 +477,11 @@
         document.getElementById('stat-total-games').innerText = u.total_games || 0;
         document.getElementById('stat-total-yachts').innerText = u.total_yachts || 0;
 
-        // ランキング
         const lbData = JSON.parse(localStorage.getItem('yacht_pro_last_leaderboard') || "[]");
         document.getElementById('modal-leaderboard').innerHTML = lbData.length ? lbData.map(l => `
             <div class="lb-row ${l.isMe?'me':''}"><span>${l.rank}位: ${l.name}</span><span>${l.score}</span></div>
         `).join('') : "<div style='color:#aaa; text-align:center;'>シーズンエンド後に集計されます</div>";
 
-        // 実績
         const unlocked = u.unlockedAchievements || [];
         const totalCount = Object.keys(trophies).length;
         const unlockedCount = unlocked.length;
@@ -435,7 +500,9 @@
         if (userDatabase[playerName].unlockedAchievements.includes(trophyId)) return;
         userDatabase[playerName].unlockedAchievements.push(trophyId);
         
-        // 特殊実績r30(20個以上達成)のセルフチェック
+        if(trophyId !== 'r100' && userDatabase[playerName].unlockedAchievements.length >= 50) {
+            setTimeout(() => { unlockAchievement(playerName, 'r100'); }, 500);
+        }
         if(trophyId !== 'r30' && userDatabase[playerName].unlockedAchievements.length >= 20) {
             setTimeout(() => { unlockAchievement(playerName, 'r30'); }, 500);
         }
@@ -450,7 +517,6 @@
         }
     }
 
-    /* --- オンライン・隠れCPU統合マッチング --- */
     function connectP2P(type) {
         const myName = myCurrentName; const statusEl = document.getElementById('p2p-status');
         let targetId = ""; if (p2pTimeoutTimer) clearTimeout(p2pTimeoutTimer);
@@ -482,7 +548,6 @@
                 if(!hasConnected) {
                     tryConn.close(); peer.destroy();
                     if(gameMode === 'p2p_rank' || gameMode === 'p2p_random') {
-                        // 🤖 3秒で見つからなければ「隠れCPU」を生成して即座に開始
                         launchHiddenCpuMatch(gameMode);
                     } else {
                         setupAsHost(targetId, myName);
@@ -493,7 +558,7 @@
     }
 
     function launchHiddenCpuMatch(mode) {
-        const botNames = ["たかし", "Yoshi_99", "Mamba", "ダイス職人", "シズク", "アイル", "GamerX", "ケン", "アルファ", "マヨネーズ", "グッさん", "くそぐっち", "ストロング=ヤマグチ", "運営"];
+        const botNames = ["たかし", "Yoshi_99", "Mamba", "ダイス職人", "シズク", "アイル", "GamerX", "ケン", "アルファ", "マヨネーズ", "運営"];
         const cpuName = botNames[Math.floor(Math.random()*botNames.length)] + (Math.random() > 0.5 ? "🐾" : "");
         gameMode = mode + "_cpu"; 
         players = [{ name: myCurrentName, scores: {}, isCpu: false, exited: false }, { name: cpuName, scores: {}, isCpu: true, exited: false }];
@@ -560,7 +625,6 @@
     function handleUnexpectedDisconnect(name) { if(isGameOverTriggered) return; quitterName = name; players.forEach(p => { if(p.name === quitterName || (!isHost && p.name !== myCurrentName && connections.length === 0)) p.exited = true; }); triggerResultPresentation(); }
     function triggerManualQuit() { if(confirm("降伏しますか？負け判定になります。")) { unlockAchievement(myCurrentName, 'r27'); if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) broadcast({ type: 'force_quit_match', quitter: myCurrentName }); quitterName = myCurrentName; players.forEach(p => { if(p.name === myCurrentName) p.exited = true; }); triggerResultPresentation(); } }
 
-    /* --- ローカル/ゲームコア --- */
     function startLocalMode(isCpu) { const div = document.getElementById('local-setup'); if(isCpu) { gameMode = "cpu"; div.style.display = 'none'; launchCpuGame(); } else { gameMode = "local"; div.style.display = 'block'; } }
     function launchLocalGame() { const count = parseInt(document.getElementById('local-player-count').value); players = []; for(let i=1; i<=count; i++) players.push({ name: `プレイヤー${i}`, scores: {}, isCpu: false, exited: false }); gameMode = "local"; startGameUI(); }
     function launchCpuGame() { players = [{ name: myCurrentName, scores: {}, isCpu: false, exited: false }, { name: "カスタムCPU", scores: {}, isCpu: true, exited: false }]; startGameUI(); }
@@ -602,20 +666,73 @@
         document.getElementById('tabs').innerHTML = players.map((p, i) => `<div class="tab ${i===currentPlayerIdx?'current':''}">${p.name}${p.exited?'(離脱)':''}</div>`).join('');
         for(let i=0; i<5; i++) { const w = document.getElementById(`dice-wrapper-${i}`); if(keeps[i]) w.classList.add('keep'); else w.classList.remove('keep'); }
 
-        const tbody = document.getElementById('score-tbody'); const currentScores = players[currentPlayerIdx].scores;
-        let subtotal = 0; ['ones','twos','threes','fours','fives','sixes'].forEach(id => { if(currentScores[id] !== undefined) subtotal += currentScores[id]; });
-        const hasBonus = subtotal >= 63;
-
-        let html = '';
-        categories.forEach((cat, idx) => {
-            const val = currentScores[cat.id]; const isFilled = val !== undefined;
-            if(isFilled) html += `<tr class="filled">`; else html += (isTurnStart || !isMyTurn()) ? `<tr>` : `<tr class="selectable" onclick="selectScore('${cat.id}')">`;
-            html += `<td>${cat.name}</td><td class="${!isFilled && !isTurnStart && isMyTurn() ? 'preview' : ''}">${isFilled ? val : (isTurnStart ? '-' : cat.calc(dice))}</td></tr>`;
-            if(idx === 5) html += `<tr class="bonus-row"><td>ボーナス</td><td>${subtotal}/63 (${hasBonus?'+35':'0'})</td></tr>`;
+        // スコアボードヘッダー（相手のスコアも並べて見せるための動的拡張）
+        let theadHtml = `<tr><th>役名</th>`;
+        players.forEach((p, idx) => {
+            theadHtml += `<th class="${idx === currentPlayerIdx ? 'current-player-col' : ''}">${p.name}</th>`;
         });
+        theadHtml += `</tr>`;
+        document.getElementById('score-thead').innerHTML = theadHtml;
+
+        // スコアボードボディ
+        const tbody = document.getElementById('score-tbody');
+        let html = '';
+        
+        // 小計とボーナス計算
+        let subtotals = players.map(p => {
+            let sub = 0;
+            ['ones','twos','threes','fours','fives','sixes'].forEach(id => { if(p.scores[id] !== undefined) sub += p.scores[id]; });
+            return sub;
+        });
+
+        categories.forEach((cat, catIdx) => {
+            html += `<tr><td>${cat.name}</td>`;
+            
+            players.forEach((p, pIdx) => {
+                const val = p.scores[cat.id];
+                const isFilled = val !== undefined;
+                const isCurrentPlayer = (pIdx === currentPlayerIdx);
+                
+                let cellClass = isFilled ? 'filled-cell' : '';
+                let cellClick = '';
+                let cellContent = isFilled ? val : '-';
+
+                if (isCurrentPlayer) {
+                    cellClass += ' current-player-col';
+                    if (!isFilled && !isTurnStart && isMyTurn()) {
+                        cellClass += ' selectable-cell';
+                        cellClick = `onclick="selectScore('${cat.id}')"`;
+                        cellContent = `<span class="preview-text">${cat.calc(dice)}</span>`;
+                    }
+                }
+                
+                html += `<td class="${cellClass}" ${cellClick}>${cellContent}</td>`;
+            });
+            html += `</tr>`;
+
+            // エース〜シックスの後にボーナス行を挟む
+            if(catIdx === 5) {
+                html += `<tr class="bonus-row"><td>小計ボーナス</td>`;
+                players.forEach((p, pIdx) => {
+                    const sub = subtotals[pIdx];
+                    const hasBonus = sub >= 63;
+                    html += `<td class="${pIdx === currentPlayerIdx ? 'current-player-col' : ''}">${sub}/63 (${hasBonus ? '+35' : '0'})</td>`;
+                });
+                html += `</tr>`;
+            }
+        });
+
+        // 合計点行
+        html += `<tr class="total-row"><td>合計</td>`;
+        players.forEach((p, pIdx) => {
+            let total = 0;
+            categories.forEach(cat => { if(p.scores[cat.id] !== undefined) total += p.scores[cat.id]; });
+            if(subtotals[pIdx] >= 63) total += 35;
+            html += `<td class="${pIdx === currentPlayerIdx ? 'current-player-col' : ''}">${total} 点</td>`;
+        });
+        html += `</tr>`;
+
         tbody.innerHTML = html;
-        let total = 0; categories.forEach(cat => { if(currentScores[cat.id] !== undefined) total += currentScores[cat.id]; }); if(hasBonus) total += 35;
-        document.getElementById('total-val').innerText = total;
     }
 
     function toggleKeep(i) { if (!isMyTurn() || rolls === 3 || rolls === 0) return; keeps[i] = !keeps[i]; updateUI(false); if(gameMode.startsWith('p2p') && !gameMode.endsWith('_cpu')) broadcast({ type: 'sync_keep', keeps: keeps, senderIdx: currentPlayerIdx }); }
@@ -625,7 +742,6 @@
         const myName = players[currentPlayerIdx].name; const cat = categories.find(c => c.id === id); const scoreVal = cat.calc(dice);
         players[currentPlayerIdx].scores[id] = scoreVal;
 
-        // ヨットのカウント
         if(id === 'yacht' && scoreVal === 50) {
             unlockAchievement(myName, 'r2');
             if(myName === myCurrentName) userDatabase[myCurrentName].total_yachts = (userDatabase[myCurrentName].total_yachts || 0) + 1;
@@ -637,12 +753,10 @@
         currentPlayerIdx = nextIdx; if (isFinished) triggerResultPresentation(); else startTurn();
     }
 
-    /* --- CPUロジック (ランク調整機能付き) --- */
     function cpuRoutine() {
         executeRoll();
         setTimeout(() => {
             if(rolls > 0) {
-                // ランクSなどの隠れCPUはより最適にキープする
                 let uRank = userDatabase[myCurrentName]?.rank_id || 0;
                 let mostCommon = 1; let maxC = 0; for(let i=1;i<=6;i++) { let c = count(dice, i); if(c>maxC){maxC=c; mostCommon=i;} }
                 if(maxC >= 2 || uRank >= 2) keeps = dice.map(v => v === mostCommon);
@@ -659,7 +773,6 @@
         if (players.every(p => Object.keys(p.scores).length === categories.length)) triggerResultPresentation(); else startTurn();
     }
 
-    /* --- 結果＆経験値報酬・実績検知マックス --- */
     function triggerResultPresentation() {
         if(isGameOverTriggered) return; isGameOverTriggered = true;
         const ranking = players.map(p => {
@@ -667,7 +780,6 @@
             let subtotal = 0; ['ones','twos','threes','fours','fives','sixes'].forEach(id => { if(p.scores[id] !== undefined) subtotal += p.scores[id]; });
             if(subtotal >= 63) score += 35;
             
-            // 実績用追加チェック(全役0点なし)
             let isAllFilledNoZero = Object.keys(p.scores).length === categories.length && Object.values(p.scores).every(v => v > 0);
             let hasZeroYacht = p.scores['yacht'] === 0;
             return { name: p.name, score: score, exited: p.exited, noZero: isAllFilledNoZero, zeroYacht: hasZeroYacht };
@@ -675,12 +787,10 @@
 
         document.getElementById('quit-reason-notice').innerText = quitterName ? `⚠️ [${quitterName}] の離脱・降伏により、現在のスコアで確定しました。` : "";
 
-        // 自分自身のデータオブジェクト
         let u = userDatabase[myCurrentName]; u.total_games = (u.total_games || 0) + 1;
         const isWinner = (ranking[0].name === myCurrentName && !ranking[0].exited);
         const myFinalData = ranking.find(r => r.name === myCurrentName);
 
-        // 🎖️ スコア・ゲーム内容系の実績一括チェック
         if(myFinalData) {
             if(isWinner) unlockAchievement(myCurrentName, 'r1');
             if(myFinalData.score >= 150) unlockAchievement(myCurrentName, 'r4');
@@ -689,43 +799,41 @@
             if(isWinner && myFinalData.noZero) unlockAchievement(myCurrentName, 'r24');
             if(isWinner && myFinalData.zeroYacht) unlockAchievement(myCurrentName, 'r25');
             
-            // ゾロ目チェック
             const sStr = String(myFinalData.score);
             if(sStr.length >= 2 && sStr.split('').every(char => char === sStr[0])) unlockAchievement(myCurrentName, 'r26');
         }
 
-        // 🟢 経験値計算機 (熟練度用：全員一律獲得、リセットなし)
         let normalExpGain = isWinner ? 50 : 25;
         u.level_exp += normalExpGain;
         while(u.level_exp >= u.level * 100 && u.level < 100) { u.level_exp -= u.level * 100; u.level++; }
-        // 熟練度レベル実績
+        if(u.level >= 5) unlockAchievement(myCurrentName, 'r71');
         if(u.level >= 10) unlockAchievement(myCurrentName, 'r18');
+        if(u.level >= 20) unlockAchievement(myCurrentName, 'r72');
         if(u.level >= 30) unlockAchievement(myCurrentName, 'r19');
+        if(u.level >= 40) unlockAchievement(myCurrentName, 'r73');
         if(u.level >= 50) unlockAchievement(myCurrentName, 'r20');
+        if(u.level >= 60) unlockAchievement(myCurrentName, 'r74');
+        if(u.level >= 80) unlockAchievement(myCurrentName, 'r75');
+        if(u.level >= 99) unlockAchievement(myCurrentName, 'r99');
         if(u.level >= 100) unlockAchievement(myCurrentName, 'r21');
 
-        // 🟣 ランクマッチ用：勝っても負けても入るが、高ランクほど少なくなり、必要量は増える
         let rankExpGain = 0;
         let rankLog = "";
         const isRankMatch = gameMode.startsWith('p2p_rank');
 
         if(isRankMatch) {
             unlockAchievement(myCurrentName, 'r10');
-            // 基本値：勝てば多め、負けても半分入る
             let baseExp = isWinner ? 60 : 30;
-            // ランク減衰係数（高ランクほど獲得が少なくなる）
             let attenuation = Math.max(10, 60 - (u.rank_id * 12)); 
             rankExpGain = Math.round(baseExp * (attenuation / 60));
 
             u.rank_exp += rankExpGain;
             let reqRank = getRequiredRankExp(u.rank_id);
             
-            // 昇格
             if(u.rank_exp >= reqRank) {
                 u.rank_exp -= reqRank; u.rank_id++;
             }
 
-            // ランク連勝処理
             if(isWinner) {
                 u.rank_streak = (u.rank_streak || 0) + 1;
                 if(u.rank_streak > (u.max_rank_streak || 0)) u.max_rank_streak = u.rank_streak;
@@ -733,17 +841,15 @@
                 if(u.rank_streak >= 7) unlockAchievement(myCurrentName, 'r17');
             } else { u.rank_streak = 0; }
 
-            // ランク到達実績
-            if(u.rank_id >= 1) unlockAchievement(myCurrentName, 'r11'); // B
-            if(u.rank_id >= 2) unlockAchievement(myCurrentName, 'r12'); // A
-            if(u.rank_id >= 3) unlockAchievement(myCurrentName, 'r13'); // S
-            if(u.rank_id >= 8) unlockAchievement(myCurrentName, 'r14'); // S+5
-            if(u.rank_id >= 13) unlockAchievement(myCurrentName, 'r15'); // S+10
+            if(u.rank_id >= 1) unlockAchievement(myCurrentName, 'r11');
+            if(u.rank_id >= 2) unlockAchievement(myCurrentName, 'r12');
+            if(u.rank_id >= 3) unlockAchievement(myCurrentName, 'r13');
+            if(u.rank_id >= 8) unlockAchievement(myCurrentName, 'r14');
+            if(u.rank_id >= 13) unlockAchievement(myCurrentName, 'r15');
 
             rankLog = `ランク経験値: +${rankExpGain} EXP (現在の階級: ${getRankString(u.rank_id)})<br>ランク連勝: ${u.rank_streak} 連勝`;
         }
         
-        // 🟠 ランダム連勝処理
         if(gameMode.startsWith('p2p_random')) {
             if(isWinner) {
                 u.random_streak = (u.random_streak || 0) + 1;
@@ -756,7 +862,6 @@
 
         saveToStorage();
 
-        // 演出表示
         document.getElementById('exp-gain-container').innerHTML = `
             <b>獲得熟練度EXP:</b> +${normalExpGain} EXP (現在のLv.${u.level})<br>
             ${isRankMatch ? rankLog : '※ランクマッチではないためランクは変動しません。'}
