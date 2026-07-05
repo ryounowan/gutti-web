@@ -380,8 +380,8 @@
         { id: 'threes', name: '3 (Threes)', calc: d => count(d, 3) * 3 }, { id: 'fours', name: '4 (Fours)', calc: d => count(d, 4) * 4 },
         { id: 'fives', name: '5 (Fives)', calc: d => count(d, 5) * 5 }, { id: 'sixes', name: '6 (Sixes)', calc: d => count(d, 6) * 6 },
         { id: 'choice', name: 'チョイス', calc: d => sum(d) }, { id: '4card', name: '4ダイス', calc: d => hasN(d, 4) ? sum(d) : 0 },
-        { id: 'fullhouse', name: 'フルハウス', calc: d => isFullHouse(d) ? sum(d) : 0 }, { id: 's_straight', name: 'B.ストレート', calc: d => isStr(d, 4) ? 15 : 0 },
-        { id: 'b_straight', name: 'S.ストレート', calc: d => isStr(d, 5) ? 30 : 0 }, { id: 'yacht', name: 'ヨット', calc: d => hasN(d, 5) ? 50 : 0 }
+        { id: 'fullhouse', name: 'フルハウス', calc: d => isFullHouse(d) ? sum(d) : 0 }, { id: 's_straight', name: 'S.ストレート', calc: d => isStr(d, 4) ? 15 : 0 },
+        { id: 'b_straight', name: 'B.ストレート', calc: d => isStr(d, 5) ? 30 : 0 }, { id: 'yacht', name: 'ヨット', calc: d => hasN(d, 5) ? 50 : 0 }
     ];
 
     window.onload = function() {
