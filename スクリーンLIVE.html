@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Gutti LIVE Stream - Ultimate Pro</title>
-    <!-- PeerJSライブラリの読み込み -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -194,7 +193,6 @@
 </head>
 <body>
 
-    <!-- 配信終了画面 -->
     <div id="end-screen" class="overlay">
         <h1 style="color: var(--accent-red); font-size: 2rem;">📴 配信が終了しました</h1>
         <button class="btn btn-stop" onclick="location.reload()" style="width: auto; padding: 12px 30px;">トップに戻る</button>
@@ -206,13 +204,12 @@
             <p class="subtitle">Ultra Low Latency - P2P Streaming System</p>
         </header>
 
-        <!-- モード切り替えタブ -->
         <div class="mode-tabs" id="modeTabs">
             <button class="tab-btn active" onclick="switchMode('distributor')">🎬 配信モード</button>
             <button class="tab-btn" onclick="switchMode('viewer')">📺 視聴モード</button>
         </div>
 
-        <!-- 【配信者モードパネル】 -->
+        <!-- 【配信モード】 -->
         <div id="distributor-panel">
             <div class="form-group">
                 <label>合言葉 (ルームID)</label>
@@ -240,7 +237,7 @@
             </div>
         </div>
 
-        <!-- 【視聴者モードパネル】 -->
+        <!-- 【視聴モード】 -->
         <div id="viewer-panel" style="display: none;">
             <div class="form-group">
                 <label>共通の合言葉を入力</label>
@@ -254,7 +251,6 @@
             </div>
         </div>
 
-        <!-- ビデオ再生ステージ -->
         <div class="video-container" id="videoStage">
             <button class="fullscreen-btn" id="fsBtn" onclick="toggleFullscreen()" style="display:none;">全画面表示</button>
             <video id="mainVideo" controls playsinline muted></video>
@@ -267,7 +263,6 @@
         let conns = {};
         let activeMode = 'distributor';
 
-        // モードの切り替え管理
         function switchMode(mode) {
             if (peer) {
                 if(!confirm("現在の接続を終了してモードを切り替えますか？")) return;
@@ -292,27 +287,27 @@
             }
         }
 
-        // ファイル入力欄のトグル表示
         function toggleSourceInput() {
             const source = document.getElementById('stream-source').value;
             const fileGroup = document.getElementById('file-input-group');
             fileGroup.style.display = (source === 'file') ? 'flex' : 'none';
         }
 
-        // 映像コールを生成して送信する関数（ビットレート調整対応）
+        // 映像のストリーミング送信処理（SDPビットレートチューニング付）
         function sendMediaCall(targetPeerId) {
-            if (!myStream) return null;
+            if (!myStream) return;
             
-            // 最大8Mbps・最小2Mbpsの超高画質指定[cite: 2]
-            return peer.call(targetPeerId, myStream, {
+            const call = peer.call(targetPeerId, myStream, {
                 sdpTransform: (sdp) => {
+                    // 最大8Mbps・最小2Mbpsの超高画質指定[cite: 2]
                     return sdp.replace(/a=fmtp:(\d+) (.*)/g, 'a=fmtp:$1 $2;x-google-min-bitrate=2000;x-google-max-bitrate=8000');
                 }
             });
+            return call;
         }
 
         // ==========================================
-        // 🎬 配信者モード (Distributor) ロジック
+        // 🎬 配信者モード (Distributor)
         // ==========================================
         async function startBroadcast() {
             const room = document.getElementById('pub-room-id').value.trim();
@@ -330,8 +325,7 @@
                     videoEl.srcObject = null;
                     await new Promise(r => videoEl.onloadedmetadata = r);
                     await videoEl.play();
-                    // 高フレームレート対応[cite: 2]
-                    myStream = videoEl.captureStream ? videoEl.captureStream(60) : videoEl.mozCaptureStream(60);
+                    myStream = videoEl.captureStream ? videoEl.captureStream(60) : videoEl.mozCaptureStream(60); // 60fps[cite: 2]
                     videoEl.classList.remove('mirror');
                 } else if (source === 'camera') {
                     const stream = await navigator.mediaDevices.getUserMedia({ 
@@ -354,12 +348,12 @@
             } catch (err) {
                 console.error(err);
                 document.getElementById('pub-status').innerText = "エラー：デバイス起動失敗";
-                return alert("配信ソースが確保できませんでした。カメラのアクセス権限を確認してください。");
+                return alert("デバイスを取得できませんでした。権限を確認してください。");
             }
 
             if (peer) peer.destroy();
             peer = new Peer(`${room}-host`, {
-                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }[cite: 2]
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] } //[cite: 2]
             });
 
             peer.on('open', () => {
@@ -370,12 +364,12 @@
                 document.getElementById('modeTabs').style.pointerEvents = 'none';
             });
 
-            // 視聴者からの接続要求の処理
+            // 視聴者からの接続を処理
             peer.on('connection', conn => {
-                // まずデータシグナリングをバインド[cite: 2]
+                // まずデータ接続を確保[cite: 2]
                 conns[conn.peer] = { conn: conn, call: null };
                 
-                // 【最重要】データ回線が開通したタイミングで、確実に配信映像をプッシュ送信する
+                // 【超重要】接続が「完全に確立した瞬間」に映像ストリームを確実に送信
                 conn.on('open', () => {
                     const call = sendMediaCall(conn.peer);
                     if(conns[conn.peer]) conns[conn.peer].call = call;
@@ -406,20 +400,20 @@
         }
 
         // ==========================================
-        // 📺 視聴者モード (Viewer) ロジック
+        // 📺 視聴者モード (Viewer)
         // ==========================================
         function joinLive() {
             const room = document.getElementById('sub-room-id').value.trim();
             if (!room) return alert("合言葉を入力してください");
 
-            const myId = `${room}-viewer-${Math.floor(Math.random() * 10000)}`;[cite: 1]
+            const myId = `${room}-viewer-${Math.floor(Math.random() * 10000)}`; //[cite: 1]
             peer = new Peer(myId);
 
             document.getElementById('joinSubBtn').innerText = "接続中...";
             document.getElementById('joinSubBtn').disabled = true;
 
             peer.on('open', () => {
-                const conn = peer.connect(`${room}-host`);[cite: 1]
+                const conn = peer.connect(`${room}-host`); //[cite: 1]
                 
                 conn.on('open', () => {
                     document.getElementById('sub-status').innerText = "📡 接続完了";
@@ -430,23 +424,23 @@
                 });
 
                 conn.on('close', () => {
-                    document.getElementById('end-screen').style.display = 'flex';[cite: 1]
+                    document.getElementById('end-screen').style.display = 'flex'; //[cite: 1]
                 });
             });
 
-            // 配信側から送られてくる映像コールイベントを検出して描画
+            // 配信側から送られてくる映像コールを待ち受けて再生
             peer.on('call', call => {
-                call.answer();[cite: 1]
+                call.answer(); //[cite: 1]
                 call.on('stream', stream => {
                     const videoEl = document.getElementById('mainVideo');
                     videoEl.srcObject = stream;
                     videoEl.classList.remove('mirror');
-                    document.getElementById('sub-status').innerText = "🔴 LIVE受信中 (超低遅延モード)";[cite: 1]
+                    document.getElementById('sub-status').innerText = "🔴 LIVE受信中 (超低遅延モード)"; //[cite: 1]
                     
-                    // ブラウザのバッファ遅延を極限まで引き下げるパラメータ設定[cite: 1]
+                    // 遅延を極限まで削る設定[cite: 1]
                     if ('receiver' in call && call.peerConnection) {
                         call.peerConnection.getReceivers().forEach(r => {
-                            if (r.playoutDelayHint !== undefined) r.playoutDelayHint = 0;[cite: 1]
+                            if (r.playoutDelayHint !== undefined) r.playoutDelayHint = 0; //[cite: 1]
                         });
                     }
                 });
@@ -454,7 +448,7 @@
 
             peer.on('error', (err) => {
                 console.error(err);
-                alert("配信ルームが見つかりません。合言葉をもう一度確認してください。");
+                alert("配信ルームが見つかりません。合言葉を確認してください。");
                 location.reload();
             });
         }
