@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gutti LIVE Stream - Ultimate</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --bg: #0b0f19;
+            --panel: #161f30;
+            --panel-inner: #0f1522;
+            --border: #24324d;
+            --accent-red: #ef4444;
+            --accent-green: #10b981;
+            --accent-blue: #38bdf8;
+            --text: #f1f5f9;
+            --text-muted: #64748b;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 600px;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 25px;
+        }
+
+        h1 {
+            font-size: 1.6rem;
+            font-weight: 700;
+            letter-spacing: -0.02em;
+            margin-bottom: 4px;
+            background: linear-gradient(to right, #fff, var(--accent-blue));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .subtitle { color: var(--text-muted); font-size: 0.85rem; }
+
+        /* モード切り替えタブ */
+        .mode-tabs {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            background: var(--panel-inner);
+            padding: 6px;
+            border-radius: 12px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+
+        .tab-btn {
+            background: transparent;
+            border: none;
+            color: var(--text-muted);
+            padding: 12px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            background: var(--panel);
+            color: var(--text);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+        }
+
+        /* 共通フォーム */
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 16px;
+            text-align: left;
+        }
+
+        label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
+
+        input[type="text"], input[type="file"], select {
+            background: var(--panel-inner);
+            border: 1px solid var(--border);
+            padding: 14px;
+            border-radius: 12px;
+            color: var(--text);
+            font-size: 0.95rem;
+            outline: none;
+            width: 100%;
+        }
+
+        input[type="text"]:focus, select:focus {
+            border-color: var(--accent-blue);
+        }
+
+        /* ボタン */
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 10px;
+        }
+
+        .btn-stream { background: var(--accent-red); color: white; }
+        .btn-stream:hover { opacity: 0.9; }
+        .btn-view { background: var(--accent-green); color: white; }
+        .btn-view:hover { opacity: 0.9; }
+        .btn-stop { background: #475569; color: white; }
+
+        /* ステータス & 統計 */
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--panel-inner);
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            border: 1px solid var(--border);
+        }
+
+        .badge {
+            background: var(--border);
+            padding: 2px 10px;
+            border-radius: 20px;
+            font-weight: bold;
+            color: var(--accent-green);
+        }
+
+        /* ビデオ要素 */
+        .video-container {
+            background: #000;
+            border-radius: 16px;
+            overflow: hidden;
+            aspect-ratio: 16 / 9;
+            border: 1px solid var(--border);
+            position: relative;
+            margin-top: 15px;
+        }
+
+        video { width: 100%; height: 100%; object-fit: contain; }
+
+        /* 受信側フルスクリーン用特別クラス */
+        video:fullscreen { object-fit: contain; background: #000; }
+        video:-webkit-full-screen { object-fit: contain; background: #000; }
+
+        .fullscreen-btn {
+            position: absolute;
+            bottom: 12px;
+            right: 12px;
+            background: rgba(15, 21, 34, 0.8);
+            border: 1px solid var(--border);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            cursor: pointer;
+            backdrop-filter: blur(4px);
+            z-index: 5;
+        }
+        .fullscreen-btn:hover { background: var(--accent-blue); }
+
+        /* 配信終了用オーバレイ */
+        .overlay {
+            display: none; position: fixed; inset: 0; background: rgba(11, 15, 25, 0.95);
+            z-index: 100; flex-direction: column; justify-content: center; align-items: center; gap: 20px;
+        }
+
+        .mirror { transform: scaleX(-1); }
+    </style>
+</head>
+<body>
+
+    <div id="end-screen" class="overlay">
+        <h1 style="color: var(--accent-red); font-size: 2rem;">📴 配信が終了しました</h1>
+        <button class="btn btn-stop" onclick="location.reload()" style="width: auto; padding: 12px 30px;">トップに戻る</button>
+    </div>
+
+    <div class="app-container">
+        <header>
+            <h1>Gutti LIVE Portal</h1>
+            <p class="subtitle">Ultra Low Latency - P2P Streaming System</p>
+        </header>
+
+        <div class="mode-tabs" id="modeTabs">
+            <button class="tab-btn active" onclick="switchMode('distributor')">🎬 配信モード</button>
+            <button class="tab-btn" onclick="switchMode('viewer')">📺 視聴モード</button>
+        </div>
+
+        <div id="distributor-panel">
+            <div class="form-group">
+                <label>合言葉 (ルームID)</label>
+                <input type="text" id="pub-room-id" value="live2026">
+            </div>
+            <div class="form-group">
+                <label>配信ソースの選択</label>
+                <select id="stream-source" onchange="toggleSourceInput()">
+                    <option value="file">動画ファイル (MP4/WebM)</option>
+                    <option value="camera">インカメラ / ウェブカメラ</option>
+                    <option value="screen">画面共有 (スクリーンキャプチャ)</option>
+                </select>
+            </div>
+            <div class="form-group" id="file-input-group">
+                <label>動画ファイルを選択</label>
+                <input type="file" id="video-file" accept="video/mp4,video/webm">
+            </div>
+
+            <button class="btn btn-stream" id="startPubBtn" onclick="startBroadcast()">ライブ配信開始</button>
+            <button class="btn btn-stop" id="stopPubBtn" onclick="stopBroadcast()" style="display:none;">配信終了</button>
+
+            <div class="status-bar" style="margin-top: 20px; margin-bottom: 0;">
+                <div>状態: <span id="pub-status" style="font-weight:bold;">待機中</span></div>
+                <div>視聴者数: <span id="viewer-count" class="badge">0</span></div>
+            </div>
+        </div>
+
+        <div id="viewer-panel" style="display: none;">
+            <div class="form-group">
+                <label>共通の合言葉を入力</label>
+                <input type="text" id="sub-room-id" value="live2026">
+            </div>
+
+            <button class="btn btn-view" id="joinSubBtn" onclick="joinLive()">視聴開始</button>
+
+            <div class="status-bar" style="margin-top: 20px; margin-bottom: 0;">
+                <div>状態: <span id="sub-status" style="font-weight:bold;">未接続</span></div>
+            </div>
+        </div>
+
+        <div class="video-container" id="videoStage">
+            <button class="fullscreen-btn" id="fsBtn" onclick="toggleFullscreen()" style="display:none;">全画面表示</button>
+            <video id="mainVideo" controls playsinline muted></video>
+        </div>
+    </div>
+
+    <script>
+        let peer = null;
+        let myStream = null;
+        let conns = {};
+        let activeMode = 'distributor';
+
+        // モード（配信・視聴）の切り替え
+        function switchMode(mode) {
+            if (peer) {
+                if(!confirm("現在の接続を終了してモードを切り替えますか？")) return;
+                location.reload();
+                return;
+            }
+            activeMode = mode;
+            const tabs = document.getElementById('modeTabs').children;
+            if (mode === 'distributor') {
+                tabs[0].classList.add('active');
+                tabs[1].classList.remove('active');
+                document.getElementById('distributor-panel').style.display = 'block';
+                document.getElementById('viewer-panel').style.display = 'none';
+                document.getElementById('fsBtn').style.display = 'none';
+                document.getElementById('mainVideo').muted = true; // 配信側はハウリング防止でミュート
+            } else {
+                tabs[0].classList.remove('active');
+                tabs[1].classList.add('active');
+                document.getElementById('distributor-panel').style.display = 'none';
+                document.getElementById('viewer-panel').style.display = 'block';
+                document.getElementById('mainVideo').muted = false; // 受信側は音を出す
+            }
+        }
+
+        // 配信ソースの入力フォーム切り替え
+        function toggleSourceInput() {
+            const source = document.getElementById('stream-source').value;
+            const fileGroup = document.getElementById('file-input-group');
+            if (source === 'file') {
+                fileGroup.style.display = 'flex';
+            } else {
+                fileGroup.style.display = 'none';
+            }
+        }
+
+        // ==========================================
+        // 🎬 配信者モード (Distributor) のロジック
+        // ==========================================
+        async function startBroadcast() {
+            const room = document.getElementById('pub-room-id').value.trim();
+            const source = document.getElementById('stream-source').value;
+            const videoEl = document.getElementById('mainVideo');
+
+            if (!room) return alert("合言葉を入力してください");
+
+            // 1. 各種ソースから最高画質ストリームを取得
+            try {
+                if (source === 'file') {
+                    const file = document.getElementById('video-file').files[0];
+                    if (!file) return alert("動画ファイルを選択してください");
+                    videoEl.src = URL.createObjectURL(file);
+                    await videoEl.play();
+                    // 60fps固定キャプチャ
+                    myStream = videoEl.captureStream ? videoEl.captureStream(60) : videoEl.mozCaptureStream(60);
+                    videoEl.classList.remove('mirror');
+                } else if (source === 'camera') {
+                    myStream = await navigator.mediaDevices.getUserMedia({ video: { frameRate: { ideal: 60 } }, audio: true });
+                    videoEl.srcObject = myStream;
+                    videoEl.classList.add('mirror'); // カメラは鏡面反転
+                } else if (source === 'screen') {
+                    myStream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60 } }, audio: true });
+                    videoEl.srcObject = myStream;
+                    videoEl.classList.remove('mirror');
+                }
+            } catch (err) {
+                console.error(err);
+                return alert("配信ソースの取得に失敗しました。環境や権限を確認してください。");
+            }
+
+            // 2. Peerサーバー接続と高品質SDP設定の適用
+            if (peer) peer.destroy();
+            peer = new Peer(`${room}-host`, {
+                config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }
+            });
+
+            peer.on('open', () => {
+                document.getElementById('pub-status').innerText = "🔴 配信中";
+                document.getElementById('pub-status').style.color = "var(--accent-red)";
+                document.getElementById('startPubBtn').style.display = "none";
+                document.getElementById('stopPubBtn').style.display = "block";
+                document.getElementById('modeTabs').style.pointerEvents = 'none'; // 配信中はタブ無効化
+            });
+
+            // 視聴者からのデータ接続要求を検知
+            peer.on('connection', conn => {
+                // 最大8Mbps、最小2Mbpsの超高画質ビットレート制限をSDPに注入して発信
+                const call = peer.call(conn.peer, myStream, {
+                    sdpTransform: (sdp) => {
+                        return sdp.replace(/a=fmtp:(\d+) (.*)/g, 'a=fmtp:$1 $2;x-google-min-bitrate=2000;x-google-max-bitrate=8000');
+                    }
+                });
+
+                conns[conn.peer] = { conn, call };
+                updateViewerCount();
+
+                conn.on('close', () => {
+                    delete conns[conn.peer];
+                    updateViewerCount();
+                });
+            });
+
+            peer.on('error', err => {
+                if(err.type === 'unavailable-id') alert("その合言葉はすでに使用されています。");
+                console.error(err);
+            });
+        }
+
+        function updateViewerCount() {
+            document.getElementById('viewer-count').innerText = Object.keys(conns).length;
+        }
+
+        function stopBroadcast() {
+            if (!confirm("配信を終了しますか？")) return;
+            Object.values(conns).forEach(c => c.conn.close());
+            location.reload();
+        }
+
+        // ==========================================
+        // 📺 視聴者モード (Viewer) のロジック
+        // ==========================================
+        function joinLive() {
+            const room = document.getElementById('sub-room-id').value.trim();
+            if (!room) return alert("合言葉を入力してください");
+
+            // ランダムなIDを生成して自身を識別
+            const myId = `${room}-viewer-${Math.floor(Math.random() * 10000)}`;
+            peer = new Peer(myId);
+
+            document.getElementById('joinSubBtn').innerText = "接続中...";
+            document.getElementById('joinSubBtn').disabled = true;
+
+            peer.on('open', () => {
+                // 配信側のHostへデータ接続を確立してトリガーを弾く
+                const conn = peer.connect(`${room}-host`);
+                
+                conn.on('open', () => {
+                    document.getElementById('sub-status').innerText = "📡 接続完了";
+                    document.getElementById('sub-status').style.color = "var(--accent-green)";
+                    document.getElementById('joinSubBtn').style.display = "none";
+                    document.getElementById('fsBtn').style.display = "block"; // フルスクリーンボタン表示
+                    document.getElementById('modeTabs').style.pointerEvents = 'none';
+                });
+
+                conn.on('close', () => {
+                    document.getElementById('end-screen').style.display = 'flex';
+                });
+            });
+
+            // 配信側から送られてくる高品質ストリームを受信
+            peer.on('call', call => {
+                call.answer();
+                call.on('stream', stream => {
+                    const videoEl = document.getElementById('mainVideo');
+                    videoEl.srcObject = stream;
+                    videoEl.classList.remove('mirror'); // 受信映像は反転しない
+                    document.getElementById('sub-status').innerText = "🔴 LIVE受信中 (超低遅延モード)";
+                    
+                    // プレイアウト遅延ヒントを0に固定して、極限まで遅延を削減
+                    if ('receiver' in call && call.peerConnection) {
+                        call.peerConnection.getReceivers().forEach(r => {
+                            if (r.playoutDelayHint !== undefined) r.playoutDelayHint = 0;
+                        });
+                    }
+                });
+            });
+
+            peer.on('error', (err) => {
+                console.error(err);
+                alert("配信ルームが見つかりません。合言葉が正しいか、またはすでに配信が開始されているか確認してください。");
+                location.reload();
+            });
+        }
+
+        // ==========================================
+        // 🖥️ フルスクリーン（全画面表示）切り替え機能
+        // ==========================================
+        function toggleFullscreen() {
+            const videoEl = document.getElementById('mainVideo');
+            
+            if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+                // フルスクリーン開始
+                if (videoEl.requestFullscreen) {
+                    videoEl.requestFullscreen();
+                } else if (videoEl.webkitRequestFullscreen) { /* Safari / iOS 用 */
+                    videoEl.webkitRequestFullscreen();
+                }
+            } else {
+                // フルスクリーン解除
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                } else if (document.webkitExitFullscreen) {
+                    document.webkitExitFullscreen();
+                }
+            }
+        }
+    </script>
+</body>
+</html>
