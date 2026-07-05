@@ -3,7 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gutti LIVE Stream - Ultimate Pro Studio</title>
+    <title>Gutti LIVE Stream - Ultimate Pro</title>
+    <!-- PeerJSライブラリの読み込み -->
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root {
@@ -14,7 +15,6 @@
             --accent-red: #ef4444;
             --accent-green: #10b981;
             --accent-blue: #38bdf8;
-            --accent-purple: #a855f7;
             --text: #f1f5f9;
             --text-muted: #64748b;
         }
@@ -34,7 +34,7 @@
 
         .app-container {
             width: 100%;
-            max-width: 700px;
+            max-width: 600px;
             background: var(--panel);
             border: 1px solid var(--border);
             border-radius: 24px;
@@ -89,56 +89,41 @@
             border: 1px solid var(--border);
         }
 
-        .section-title {
-            font-size: 0.9rem;
-            color: var(--accent-blue);
-            margin: 15px 0 10px 0;
-            font-weight: bold;
-            border-left: 3px solid var(--accent-blue);
-            padding-left: 8px;
-        }
-
         .form-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            margin-bottom: 12px;
+            gap: 8px;
+            margin-bottom: 16px;
             text-align: left;
         }
 
-        .sub-group {
-            background: var(--panel-inner);
-            padding: 12px;
-            border-radius: 12px;
-            border: 1px solid var(--border);
-            margin-bottom: 12px;
-        }
-
-        label { font-size: 0.8rem; color: var(--text-muted); font-weight: 500; }
+        label { font-size: 0.85rem; color: var(--text-muted); font-weight: 500; }
 
         input[type="text"], input[type="file"], select {
             background: var(--panel-inner);
             border: 1px solid var(--border);
-            padding: 12px;
-            border-radius: 10px;
+            padding: 14px;
+            border-radius: 12px;
             color: var(--text);
-            font-size: 0.9rem;
+            font-size: 0.95rem;
             outline: none;
             width: 100%;
         }
 
-        input[type="text"]:focus, select:focus { border-color: var(--accent-blue); }
+        input[type="text"]:focus, select:focus {
+            border-color: var(--accent-blue);
+        }
 
         .btn {
             width: 100%;
-            padding: 14px;
+            padding: 15px;
             border-radius: 12px;
-            font-size: 0.95rem;
+            font-size: 1rem;
             font-weight: 700;
             border: none;
             cursor: pointer;
             transition: all 0.2s;
-            margin-top: 5px;
+            margin-top: 10px;
         }
 
         .btn-stream { background: var(--accent-red); color: white; }
@@ -146,36 +131,6 @@
         .btn-view { background: var(--accent-green); color: white; }
         .btn-view:hover { opacity: 0.9; }
         .btn-stop { background: #475569; color: white; }
-        
-        /* スイッチャーボタン */
-        .switcher-container {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .btn-switch {
-            background: #1e293b;
-            color: var(--text);
-            border: 1px solid var(--border);
-            padding: 12px;
-            font-weight: bold;
-            border-radius: 10px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-        }
-        .btn-switch.active-live {
-            background: linear-gradient(135deg, #dc2626, #ef4444);
-            color: white;
-            border-color: #f87171;
-            box-shadow: 0 0 12px rgba(239, 68, 68, 0.4);
-        }
-        .btn-switch.active-standby {
-            background: linear-gradient(135deg, #7c3aed, #a855f7);
-            color: white;
-            border-color: #c084fc;
-            box-shadow: 0 0 12px rgba(168, 85, 247, 0.4);
-        }
 
         .status-bar {
             display: flex;
@@ -185,7 +140,7 @@
             padding: 12px 16px;
             border-radius: 10px;
             font-size: 0.85rem;
-            margin-top: 15px;
+            margin-bottom: 20px;
             border: 1px solid var(--border);
         }
 
@@ -197,7 +152,6 @@
             color: var(--accent-green);
         }
 
-        /* 🎬 配信・送信用キャンバス＆ビデオシステム */
         .video-container {
             background: #000;
             border-radius: 16px;
@@ -205,27 +159,13 @@
             aspect-ratio: 16 / 9;
             border: 1px solid var(--border);
             position: relative;
-            margin-top: 20px;
+            margin-top: 15px;
         }
 
-        /* プレビュー表示用キャンバス */
-        canvas#previewCanvas {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: block;
-        }
+        video { width: 100%; height: 100%; object-fit: contain; }
 
-        /* 受信側専用リアルビデオ */
-        video#mainVideo {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            display: none;
-        }
-
-        video:fullscreen, canvas:fullscreen { object-fit: contain; background: #000; }
-        video:-webkit-full-screen, canvas:-webkit-full-screen { object-fit: contain; background: #000; }
+        video:fullscreen { object-fit: contain; background: #000; }
+        video:-webkit-full-screen { object-fit: contain; background: #000; }
 
         .fullscreen-btn {
             position: absolute;
@@ -242,14 +182,13 @@
             backdrop-filter: blur(4px);
             z-index: 5;
         }
+        .fullscreen-btn:hover { background: var(--accent-blue); }
 
         .overlay {
             display: none; position: fixed; inset: 0; background: rgba(11, 15, 25, 0.95);
             z-index: 100; flex-direction: column; justify-content: center; align-items: center; gap: 20px;
         }
-        
-        /* 非表示状態で素材をロードするための隠しエリア */
-        #hidden-assets { display: none; }
+
         .mirror { transform: scaleX(-1); }
     </style>
 </head>
@@ -264,90 +203,44 @@
     <div class="app-container">
         <header>
             <h1>Gutti LIVE Portal</h1>
-            <p class="subtitle">Ultra Low Latency - Studio Switcher System</p>
+            <p class="subtitle">Ultra Low Latency - P2P Streaming System</p>
         </header>
 
+        <!-- モード切り替えタブ -->
         <div class="mode-tabs" id="modeTabs">
             <button class="tab-btn active" onclick="switchMode('distributor')">🎬 配信モード</button>
             <button class="tab-btn" onclick="switchMode('viewer')">📺 視聴モード</button>
         </div>
 
-        <!-- ================= 【配信者モード】 ================= -->
+        <!-- 【配信者モードパネル】 -->
         <div id="distributor-panel">
             <div class="form-group">
                 <label>合言葉 (ルームID)</label>
                 <input type="text" id="pub-room-id" value="live2026">
             </div>
-
-            <!-- ① 本編配信用ソースの設定 -->
-            <div class="section-title">1. 本編用の配信ソース</div>
-            <div class="sub-group">
-                <div class="form-group">
-                    <label>ソース種別</label>
-                    <select id="stream-source" onchange="toggleSourceInput()">
-                        <option value="camera">インカメラ / ウェブカメラ</option>
-                        <option value="screen">画面共有 (スクリーンキャプチャ)</option>
-                        <option value="file">動画ファイル (MP4/WebM)</option>
-                    </select>
-                </div>
-                <div class="form-group" id="file-input-group" style="display: none;">
-                    <label>本編動画ファイル (配信中も変更可能)</label>
-                    <input type="file" id="video-file" accept="video/mp4,video/webm" onchange="loadLiveVideoFile()">
-                </div>
+            <div class="form-group">
+                <label>配信ソースの選択</label>
+                <select id="stream-source" onchange="toggleSourceInput()">
+                    <option value="camera">インカメラ / ウェブカメラ</option>
+                    <option value="screen">画面共有 (スクリーンキャプチャ)</option>
+                    <option value="file">動画ファイル (MP4/WebM)</option>
+                </select>
             </div>
-
-            <!-- ② 待機画面用の設定 -->
-            <div class="section-title">2. 待機画面のセットアップ (配信中も変更可能)</div>
-            <div class="sub-group">
-                <div class="form-group">
-                    <label>待機画面のタイプ</label>
-                    <select id="standby-type" onchange="toggleStandbyInput()">
-                        <option value="image-mp3">画像ファイル ＋ MP3音源</option>
-                        <option value="mp4">待機用動画ファイル (MP4)</option>
-                    </select>
-                </div>
-                
-                <!-- 画像+MP3用 -->
-                <div id="standby-image-group">
-                    <div class="form-group">
-                        <label>待機用 画像ファイル</label>
-                        <input type="file" id="standby-img-file" accept="image/*" onchange="loadStandbyImage()">
-                    </div>
-                    <div class="form-group">
-                        <label>待機用 BGMファイル (MP3)</label>
-                        <input type="file" id="standby-audio-file" accept="audio/mp3" onchange="loadStandbyAudio()">
-                    </div>
-                </div>
-
-                <!-- MP4用 -->
-                <div id="standby-video-group" style="display: none;">
-                    <div class="form-group">
-                        <label>待機用 動画ファイル (MP4)</label>
-                        <input type="file" id="standby-vid-file" accept="video/mp4,video/webm" onchange="loadStandbyVideo()">
-                    </div>
-                </div>
-            </div>
-
-            <!-- ③ スイッチャーコントローラー -->
-            <div id="switcher-panel" style="display: none;">
-                <div class="section-title">3. ライブ映像スイッチャー (フェード切り替え)</div>
-                <div class="switcher-container">
-                    <button id="switchToLiveBtn" class="btn-switch active-live" onclick="setTargetSource('live')">💻 本編画面へ</button>
-                    <button id="switchToStandbyBtn" class="btn-switch" onclick="setTargetSource('standby')">⏳ 待機画面へ</button>
-                </div>
-                <div style="font-size:0.75rem; color:var(--text-muted); text-align:center; margin-top:5px;">※本編がMP4の場合、本編画面へ切り替えると同時に自動再生が開始されます</div>
+            <div class="form-group" id="file-input-group" style="display: none;">
+                <label>動画ファイルを選択</label>
+                <input type="file" id="video-file" accept="video/mp4,video/webm">
             </div>
 
             <button class="btn btn-stream" id="startPubBtn" onclick="startBroadcast()">ライブ配信開始</button>
-            <button class="btn btn-stop" id="stopPubBtn" onclick="stopBroadcast()" style="display:none; margin-top: 15px;">配信終了</button>
+            <button class="btn btn-stop" id="stopPubBtn" onclick="stopBroadcast()" style="display:none;">配信終了</button>
 
-            <div class="status-bar">
+            <div class="status-bar" style="margin-top: 20px; margin-bottom: 0;">
                 <div>状態: <span id="pub-status" style="font-weight:bold;">待機中</span></div>
                 <div>視聴者数: <span id="viewer-count" class="badge">0</span></div>
             </div>
         </div>
 
-        <!-- ================= 【視聴者モード】 ================= -->
+        <!-- 【視聴者モードパネル】 -->
         <div id="viewer-panel" style="display: none;">
             <div class="form-group">
                 <label>共通の合言葉を入力</label>
@@ -356,61 +249,25 @@
 
             <button class="btn btn-view" id="joinSubBtn" onclick="joinLive()">視聴開始</button>
 
-            <div class="status-bar">
+            <div class="status-bar" style="margin-top: 20px; margin-bottom: 0;">
                 <div>状態: <span id="sub-status" style="font-weight:bold;">未接続</span></div>
             </div>
         </div>
 
-        <!-- ================= 共通ステージ ================= -->
+        <!-- ビデオ再生ステージ -->
         <div class="video-container" id="videoStage">
             <button class="fullscreen-btn" id="fsBtn" onclick="toggleFullscreen()" style="display:none;">全画面表示</button>
-            <!-- 配信側：Canvasを使ってフェードや合成処理をリアルタイム送出 -->
-            <canvas id="previewCanvas"></canvas>
-            <!-- 視聴側：配信側キャンバスから送られてくるStreamをそのまま再生 -->
-            <video id="mainVideo" controls playsinline></video>
+            <video id="mainVideo" controls playsinline muted></video>
         </div>
-    </div>
-
-    <!-- 内部処理用の隠しアセットエレメント群 -->
-    <div id="hidden-assets">
-        <video id="sourceVideo" loop muted playsinline></video>
-        <video id="standbyVideo" loop muted playsinline></video>
-        <audio id="standbyAudio" loop></audio>
-        <img id="standbyImage" src="">
     </div>
 
     <script>
         let peer = null;
+        let myStream = null;
         let conns = {};
         let activeMode = 'distributor';
 
-        // 🎥 映像ミキシング・スイッチャー用変数
-        let canvas, ctx;
-        let canvasStream = null;
-        let animationFrameId = null;
-        let cameraStreamTrack = null;
-
-        // スイッチ・フェード制御情報
-        let currentSource = 'live';  // 現在表示中 ('live' or 'standby')
-        let targetSource = 'live';   // 切り替え目標
-        let fadeAlpha = 1.0;         // 1.0 = 完全本編, 0.0 = 完全待機
-
-        // ソース素材オブジェクトの参照
-        const vLive = document.getElementById('sourceVideo');
-        const vStandby = document.getElementById('standbyVideo');
-        const aStandby = document.getElementById('standbyAudio');
-        const iStandby = document.getElementById('standbyImage');
-
-        window.addEventListener('DOMContentLoaded', () => {
-            canvas = document.getElementById('previewCanvas');
-            ctx = canvas.getContext('2d');
-            canvas.width = 1280;
-            canvas.height = 720;
-            // 初期状態は黒画面を描画
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-        });
-
+        // モードの切り替え管理
         function switchMode(mode) {
             if (peer) {
                 if(!confirm("現在の接続を終了してモードを切り替えますか？")) return;
@@ -419,189 +276,39 @@
             }
             activeMode = mode;
             const tabs = document.getElementById('modeTabs').children;
-            const vMain = document.getElementById('mainVideo');
-            
             if (mode === 'distributor') {
                 tabs[0].classList.add('active');
                 tabs[1].classList.remove('active');
                 document.getElementById('distributor-panel').style.display = 'block';
                 document.getElementById('viewer-panel').style.display = 'none';
                 document.getElementById('fsBtn').style.display = 'none';
-                canvas.style.display = 'block';
-                vMain.style.display = 'none';
+                document.getElementById('mainVideo').muted = true;
             } else {
                 tabs[0].classList.remove('active');
                 tabs[1].classList.add('active');
                 document.getElementById('distributor-panel').style.display = 'none';
                 document.getElementById('viewer-panel').style.display = 'block';
-                canvas.style.display = 'none';
-                vMain.style.display = 'block';
+                document.getElementById('mainVideo').muted = false;
             }
         }
 
+        // ファイル入力欄のトグル表示
         function toggleSourceInput() {
             const source = document.getElementById('stream-source').value;
-            document.getElementById('file-input-group').style.display = (source === 'file') ? 'flex' : 'none';
+            const fileGroup = document.getElementById('file-input-group');
+            fileGroup.style.display = (source === 'file') ? 'flex' : 'none';
         }
 
-        function toggleStandbyInput() {
-            const type = document.getElementById('standby-type').value;
-            document.getElementById('standby-image-group').style.display = (type === 'image-mp3') ? 'block' : 'none';
-            document.getElementById('standby-video-group').style.display = (type === 'mp4') ? 'block' : 'none';
-        }
-
-        // ==========================================
-        // 📥 配信中も変更可能なファイルのリアルタイム読み込み
-        // ==========================================
-        function loadLiveVideoFile() {
-            const file = document.getElementById('video-file').files[0];
-            if (file) {
-                const url = URL.createObjectURL(file);
-                vLive.src = url;
-                vLive.load();
-                // 配信中に差し替えた場合、現在本編を選択中なら即座に再生
-                if (targetSource === 'live' && peer) {
-                    vLive.play().catch(e => console.log("再生待機中"));
+        // 映像コールを生成して送信する関数（ビットレート調整対応）
+        function sendMediaCall(targetPeerId) {
+            if (!myStream) return null;
+            
+            // 最大8Mbps・最小2Mbpsの超高画質指定[cite: 2]
+            return peer.call(targetPeerId, myStream, {
+                sdpTransform: (sdp) => {
+                    return sdp.replace(/a=fmtp:(\d+) (.*)/g, 'a=fmtp:$1 $2;x-google-min-bitrate=2000;x-google-max-bitrate=8000');
                 }
-            }
-        }
-
-        function loadStandbyImage() {
-            const file = document.getElementById('standby-img-file').files[0];
-            if (file) {
-                const reader = new FileReader();
-                reader.onload = (e) => { iStandby.src = e.target.result; };
-                reader.readAsDataURL(file);
-            }
-        }
-
-        function loadStandbyAudio() {
-            const file = document.getElementById('standby-audio-file').files[0];
-            if (file) {
-                aStandby.src = URL.createObjectURL(file);
-                aStandby.load();
-                if (targetSource === 'standby' && peer) {
-                    aStandby.play().catch(e => console.log(e));
-                }
-            }
-        }
-
-        function loadStandbyVideo() {
-            const file = document.getElementById('standby-vid-file').files[0];
-            if (file) {
-                vStandby.src = URL.createObjectURL(file);
-                vStandby.load();
-                if (targetSource === 'standby' && peer) {
-                    vStandby.play().catch(e => console.log(e));
-                }
-            }
-        }
-
-        // ==========================================
-        // 🎛️ フェードスイッチャー処理
-        // ==========================================
-        function setTargetSource(source) {
-            targetSource = source;
-            const liveBtn = document.getElementById('switchToLiveBtn');
-            const stdBtn = document.getElementById('switchToStandbyBtn');
-
-            if (source === 'live') {
-                liveBtn.classList.add('active-live');
-                stdBtn.classList.remove('active-standby');
-                
-                // 本編へ切り替え：本編が動画ファイルなら再生開始
-                const sourceType = document.getElementById('stream-source').value;
-                if (sourceType === 'file') {
-                    vLive.play().catch(e => console.error("動画再生に失敗:", e));
-                }
-                
-                // 待機画面素材はフェードアウト完了後に止めるためここでは静観
-            } else {
-                liveBtn.classList.remove('active-live');
-                stdBtn.classList.add('active-standby');
-                
-                // 待機画面へ切り替え：選択されている待機アセットを再生
-                const standbyType = document.getElementById('standby-type').value;
-                if (standbyType === 'mp4') {
-                    vStandby.play().catch(e => console.log(e));
-                } else {
-                    aStandby.play().catch(e => console.log(e));
-                }
-            }
-        }
-
-        // 🎨 リアルタイムキャンバスレンダラーループ (ここでフェードイン・アウトを制御)
-        function renderLoop() {
-            // フェード値の更新 (0.05ステップで滑らかに切り替え)
-            if (targetSource === 'live' && fadeAlpha < 1.0) {
-                fadeAlpha = Math.min(1.0, fadeAlpha + 0.05);
-            } else if (targetSource === 'standby' && fadeAlpha > 0.0) {
-                fadeAlpha = Math.max(0.0, fadeAlpha - 0.05);
-            }
-
-            // フェード完了後の自動停止処理
-            if (fadeAlpha === 1.0 && currentSource !== 'live') {
-                currentSource = 'live';
-                vStandby.pause();
-                aStandby.pause();
-            } else if (fadeAlpha === 0.0 && currentSource !== 'standby') {
-                currentSource = 'standby';
-                const sourceType = document.getElementById('stream-source').value;
-                if (sourceType === 'file') vLive.pause();
-            }
-
-            // キャンバスの初期化
-            ctx.fillStyle = '#000000';
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // 1. 背面に「待機画面」を描画 (Alphaが1.0未満のとき)
-            if (fadeAlpha < 1.0) {
-                const standbyType = document.getElementById('standby-type').value;
-                if (standbyType === 'mp4' && vStandby.readyState >= 2) {
-                    ctx.drawImage(vStandby, 0, 0, canvas.width, canvas.height);
-                } else if (standbyType === 'image-mp3' && iStandby.src) {
-                    ctx.drawImage(iStandby, 0, 0, canvas.width, canvas.height);
-                } else {
-                    // 素材がない時は紫色のデフォルト待機画面
-                    ctx.fillStyle = '#1e1b4b';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = '#ffffff';
-                    ctx.font = 'bold 40px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('STANDBY...', canvas.width / 2, canvas.height / 2);
-                }
-            }
-
-            // 2. 前面に「本編画面」を重ねて描画 (フェード値を適用)
-            if (fadeAlpha > 0.0) {
-                ctx.save();
-                ctx.globalAlpha = fadeAlpha;
-                
-                const sourceType = document.getElementById('stream-source').value;
-                if (sourceType === 'file' && vLive.readyState >= 2) {
-                    ctx.drawImage(vLive, 0, 0, canvas.width, canvas.height);
-                } else if ((sourceType === 'camera' || sourceType === 'screen') && vLive.readyState >= 2) {
-                    if (sourceType === 'camera') {
-                        // カメラの場合は鏡面反転処理
-                        ctx.translate(canvas.width, 0);
-                        ctx.scale(-1, 1);
-                        ctx.drawImage(vLive, 0, 0, canvas.width, canvas.height);
-                    } else {
-                        ctx.drawImage(vLive, 0, 0, canvas.width, canvas.height);
-                    }
-                } else {
-                    // 本編準備中
-                    ctx.fillStyle = '#0f172a';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
-                    ctx.fillStyle = '#64748b';
-                    ctx.font = '30px sans-serif';
-                    ctx.textAlign = 'center';
-                    ctx.fillText('LIVE SOURCE READY', canvas.width / 2, canvas.height / 2);
-                }
-                ctx.restore();
-            }
-
-            animationFrameId = requestAnimationFrame(renderLoop);
+            });
         }
 
         // ==========================================
@@ -610,92 +317,67 @@
         async function startBroadcast() {
             const room = document.getElementById('pub-room-id').value.trim();
             const source = document.getElementById('stream-source').value;
+            const videoEl = document.getElementById('mainVideo');
 
             if (!room) return alert("合言葉を入力してください");
-            document.getElementById('pub-status').innerText = "配信環境の初期化中...";
+            document.getElementById('pub-status').innerText = "デバイス準備中...";
 
             try {
-                // デバイス、画面、またはファイルのキャプチャ初期化
                 if (source === 'file') {
                     const file = document.getElementById('video-file').files[0];
-                    if (!file) return alert("本編用の動画ファイルを選択してください。");
-                    // 読み込み自体は行うが、再生（.play()）はさせずに一時停止状態で待機
-                    const url = URL.createObjectURL(file);
-                    vLive.src = url;
-                    vLive.load();
-                    await new Promise(r => vLive.onloadedmetadata = r);
+                    if (!file) return alert("動画ファイルを選択してください");
+                    videoEl.src = URL.createObjectURL(file);
+                    videoEl.srcObject = null;
+                    await new Promise(r => videoEl.onloadedmetadata = r);
+                    await videoEl.play();
+                    // 高フレームレート対応[cite: 2]
+                    myStream = videoEl.captureStream ? videoEl.captureStream(60) : videoEl.mozCaptureStream(60);
+                    videoEl.classList.remove('mirror');
                 } else if (source === 'camera') {
                     const stream = await navigator.mediaDevices.getUserMedia({ 
                         video: { frameRate: { ideal: 60 }, width: { ideal: 1280 }, height: { ideal: 720 } }, 
                         audio: true 
                     });
-                    cameraStreamTrack = stream;
-                    vLive.srcObject = stream;
-                    vLive.src = '';
-                    await vLive.play();
+                    videoEl.srcObject = stream;
+                    videoEl.src = '';
+                    await videoEl.play();
+                    myStream = stream;
+                    videoEl.classList.add('mirror');
                 } else if (source === 'screen') {
                     const stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 60 } }, audio: true });
-                    cameraStreamTrack = stream;
-                    vLive.srcObject = stream;
-                    vLive.src = '';
-                    await vLive.play();
+                    videoEl.srcObject = stream;
+                    videoEl.src = '';
+                    await videoEl.play();
+                    myStream = stream;
+                    videoEl.classList.remove('mirror');
                 }
-
-                // 待機画面の初期ロードチェック
-                const standbyType = document.getElementById('standby-type').value;
-                if (standbyType === 'mp4' && document.getElementById('standby-vid-file').files[0]) {
-                    loadStandbyVideo();
-                } else if (standbyType === 'image-mp3') {
-                    loadStandbyImage();
-                    loadStandbyAudio();
-                }
-
             } catch (err) {
                 console.error(err);
-                document.getElementById('pub-status').innerText = "エラー：ソースの確保失敗";
-                return alert("ソースの起動に失敗しました。ファイルや権限を再度確認してください。");
+                document.getElementById('pub-status').innerText = "エラー：デバイス起動失敗";
+                return alert("配信ソースが確保できませんでした。カメラのアクセス権限を確認してください。");
             }
 
-            // ミキシングキャンバスクリップの配信ストリーム化 (高画質60fps送出指定)[cite: 2]
-            canvasStream = canvas.captureStream(60);
-
-            // カメラ・画面共有時の実音声をストリームに合成する処理
-            if ((source === 'camera' || source === 'screen') && cameraStreamTrack && cameraStreamTrack.getAudioTracks().length > 0) {
-                canvasStream.addTrack(cameraStreamTrack.getAudioTracks()[0]);
-            }
-
-            // レンダーミキサーのループ駆動開始
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            renderLoop();
-
-            // 初期状態を「待機画面」からスタートするようにセット
-            setTargetSource('standby');
-
-            // PeerJSサーバーへの接続シグナリング確立[cite: 2]
             if (peer) peer.destroy();
             peer = new Peer(`${room}-host`, {
                 config: { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] }[cite: 2]
             });
 
             peer.on('open', () => {
-                document.getElementById('pub-status').innerText = "🔴 配信中 (スタジオモード)";
+                document.getElementById('pub-status').innerText = "🔴 配信中";
                 document.getElementById('pub-status').style.color = "var(--accent-red)";
                 document.getElementById('startPubBtn').style.display = "none";
                 document.getElementById('stopPubBtn').style.display = "block";
-                document.getElementById('switcher-panel').style.display = "block"; // スイッチャー解禁
                 document.getElementById('modeTabs').style.pointerEvents = 'none';
             });
 
+            // 視聴者からの接続要求の処理
             peer.on('connection', conn => {
+                // まずデータシグナリングをバインド[cite: 2]
                 conns[conn.peer] = { conn: conn, call: null };
                 
+                // 【最重要】データ回線が開通したタイミングで、確実に配信映像をプッシュ送信する
                 conn.on('open', () => {
-                    // キャンバスの合成ストリームを各視聴者に個別プッシュ
-                    const call = peer.call(conn.peer, canvasStream, {
-                        sdpTransform: (sdp) => {
-                            return sdp.replace(/a=fmtp:(\d+) (.*)/g, 'a=fmtp:$1 $2;x-google-min-bitrate=2500;x-google-max-bitrate=8500');[cite: 2]
-                        }
-                    });
+                    const call = sendMediaCall(conn.peer);
                     if(conns[conn.peer]) conns[conn.peer].call = call;
                     updateViewerCount();
                 });
@@ -717,10 +399,8 @@
         }
 
         function stopBroadcast() {
-            if (!confirm("ライブ配信を終了しますか？")) return;
-            if (animationFrameId) cancelAnimationFrame(animationFrameId);
-            if (cameraStreamTrack) cameraStreamTrack.getTracks().forEach(t => t.stop());
-            vLive.pause(); vStandby.pause(); aStandby.pause();
+            if (!confirm("配信を終了しますか？")) return;
+            if (myStream) myStream.getTracks().forEach(t => t.stop());
             Object.values(conns).forEach(c => c.conn.close());
             location.reload();
         }
@@ -735,14 +415,14 @@
             const myId = `${room}-viewer-${Math.floor(Math.random() * 10000)}`;[cite: 1]
             peer = new Peer(myId);
 
-            document.getElementById('joinSubBtn').innerText = "スタジオに接続中...";
+            document.getElementById('joinSubBtn').innerText = "接続中...";
             document.getElementById('joinSubBtn').disabled = true;
 
             peer.on('open', () => {
                 const conn = peer.connect(`${room}-host`);[cite: 1]
                 
                 conn.on('open', () => {
-                    document.getElementById('sub-status').innerText = "📡 受信待機完了";
+                    document.getElementById('sub-status').innerText = "📡 接続完了";
                     document.getElementById('sub-status').style.color = "var(--accent-green)";
                     document.getElementById('joinSubBtn').style.display = "none";
                     document.getElementById('fsBtn').style.display = "block";
@@ -754,14 +434,16 @@
                 });
             });
 
+            // 配信側から送られてくる映像コールイベントを検出して描画
             peer.on('call', call => {
                 call.answer();[cite: 1]
                 call.on('stream', stream => {
                     const videoEl = document.getElementById('mainVideo');
                     videoEl.srcObject = stream;
-                    videoEl.play().catch(e => console.log("ユーザーインタラクション制限対応用プレイ:", e));
-                    document.getElementById('sub-status').innerText = "🔴 LIVE受信中 (超低遅延スイッチャー)";[cite: 1]
+                    videoEl.classList.remove('mirror');
+                    document.getElementById('sub-status').innerText = "🔴 LIVE受信中 (超低遅延モード)";[cite: 1]
                     
+                    // ブラウザのバッファ遅延を極限まで引き下げるパラメータ設定[cite: 1]
                     if ('receiver' in call && call.peerConnection) {
                         call.peerConnection.getReceivers().forEach(r => {
                             if (r.playoutDelayHint !== undefined) r.playoutDelayHint = 0;[cite: 1]
@@ -772,16 +454,16 @@
 
             peer.on('error', (err) => {
                 console.error(err);
-                alert("配信ルームが見つかりません。合言葉が正しいか、配信が開始されているか確認してください。");
+                alert("配信ルームが見つかりません。合言葉をもう一度確認してください。");
                 location.reload();
             });
         }
 
         function toggleFullscreen() {
-            const targetEl = (activeMode === 'distributor') ? canvas : document.getElementById('mainVideo');
+            const videoEl = document.getElementById('mainVideo');
             if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-                if (targetEl.requestFullscreen) targetEl.requestFullscreen();
-                else if (targetEl.webkitRequestFullscreen) targetEl.webkitRequestFullscreen();
+                if (videoEl.requestFullscreen) videoEl.requestFullscreen();
+                else if (videoEl.webkitRequestFullscreen) videoEl.webkitRequestFullscreen();
             } else {
                 if (document.exitFullscreen) document.exitFullscreen();
                 else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
