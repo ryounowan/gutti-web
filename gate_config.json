@@ -74,5 +74,14 @@
     "msg": "",
     "camId": "0c676c1bf179b45df621e9b2ba04c9582be39099edb1abb6b01d94df534fa08d",
     "p2pId": "GT-4QHQC"
+  },
+  {
+    "id": "1783241213665",
+    "name": "支払い",
+    "type": "OUT",
+    "pts": 100000000,
+    "msg": "おけ",
+    "camId": "f22f53a8984ff09feefbefa544a293f685c4b22e122010ba0ab6889a4b2fcaca",
+    "p2pId": "GT-JCPN2"
   }
 ]
