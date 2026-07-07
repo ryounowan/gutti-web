@@ -6,20 +6,41 @@
     <title>Radio Listener - Mobile Ready</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; box-sizing: border-box; }
         .box { background: #1e293b; padding: 30px; border-radius: 24px; width: 85%; max-width: 320px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         h2 { margin-bottom: 20px; font-size: 24px; }
-        input { width: 100%; padding: 15px; margin-bottom: 15px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 18px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 18px; transition: 0.2s; }
+        input, select { width: 100%; padding: 15px; margin-bottom: 10px; border-radius: 12px; border: 1px solid #334155; background: #0f172a; color: white; text-align: center; font-size: 16px; box-sizing: border-box; }
+        select { text-align-last: center; cursor: pointer; }
+        .btn-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        button { width: 100%; padding: 15px; border-radius: 15px; border: none; background: #10b981; color: white; font-weight: bold; cursor: pointer; font-size: 16px; transition: 0.2s; }
         button:active { transform: scale(0.95); background: #059669; }
         button:disabled { background: #334155; cursor: not-allowed; }
-        .btn-reset { background: #64748b; margin-top: 20px; display: none; font-size: 14px; padding: 12px; }
+        .btn-save { background: #3b82f6; width: auto; white-space: nowrap; padding: 15px 20px; }
+        .btn-save:active { background: #2563eb; }
+        
+        /* 検索・並び替えコントロール用 */
+        .list-controls { display: flex; gap: 8px; margin-bottom: 10px; }
+        .search-input { padding: 10px; font-size: 14px; margin-bottom: 0; text-align: left; }
+        .sort-select { padding: 10px; font-size: 14px; margin-bottom: 0; width: 120px; }
+
+        /* チャンネルリストのスタイル */
+        .channel-area { background: #0f172a; border-radius: 12px; padding: 10px; margin-bottom: 15px; display: none; }
+        .channel-list { text-align: left; max-height: 150px; overflow-y: auto; }
+        .channel-item { display: flex; justify-content: space-between; align-items: center; padding: 8px 5px; border-bottom: 1px solid #1e293b; font-size: 14px; }
+        .channel-item:last-child { border-bottom: none; }
+        .channel-name { cursor: pointer; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-right: 10px; }
+        .channel-name:hover { text-decoration: underline; }
+        .status-badge { font-size: 11px; padding: 2px 6px; border-radius: 6px; font-weight: bold; margin-right: 8px; }
+        .badge-online { background: #10b981; color: white; }
+        .badge-offline { background: #475569; color: #94a3b8; }
+        .btn-delete { background: none; border: none; color: #f87171; cursor: pointer; padding: 0 5px; width: auto; font-size: 14px; }
+        
+        .btn-reset { background: #64748b; margin-top: 20px; display: none; font-size: 14px; padding: 12px; width: 100%; }
         #status { margin-top: 25px; color: #94a3b8; font-weight: bold; line-height: 1.6; }
         .status-on { color: #10b981; animation: blink 2s infinite; }
         .status-off { color: #f87171; }
         @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         
-        /* スマホ用通知バッジ */
         .badge { display: inline-block; padding: 4px 10px; border-radius: 8px; font-size: 12px; background: #334155; margin-bottom: 10px; }
     </style>
 </head>
@@ -29,8 +50,22 @@
     <h2>リスナー</h2>
     
     <div id="setup-ui">
-        <input type="text" id="room" value="Gutti Presents" placeholder="ルームIDを入力">
-        <button id="listenBtn" onclick="listen()">受信開始</button>
+        <input type="text" id="room" value="" placeholder="ルームIDを入力">
+        <div class="btn-group">
+            <button id="listenBtn" onclick="listen()">受信開始</button>
+            <button class="btn-save" onclick="saveChannel()">★ 保存</button>
+        </div>
+    </div>
+
+    <div id="channelArea" class="channel-area">
+        <div class="list-controls">
+            <input type="text" id="searchInput" class="search-input" placeholder="🔍 検索..." oninput="renderChannelList()">
+            <select id="sortSelect" class="sort-select" onchange="renderChannelList()">
+                <option value="added">登録順</option>
+                <option value="name">A-Z順</option>
+            </select>
+        </div>
+        <div id="channelList" class="channel-list"></div>
     </div>
 
     <div id="status">待機中</div>
@@ -42,8 +77,10 @@
 
 <script>
     let peer = null;
+    let savedChannels = JSON.parse(localStorage.getItem('savedRadioChannels') || '[]');
+    // 各チャンネルのオンライン状態を記録するオブジェクト
+    let onlineStatusMap = {};
 
-    // 通信を中継するTURNサーバーの設定（違うWi-Fi同士でも繋がるようにする）
     const PEER_CONFIG = {
         config: {
             'iceServers': [
@@ -59,6 +96,116 @@
         }
     };
 
+    window.onload = () => {
+        renderChannelList();
+        checkChannelsOnlineStatus();
+        setInterval(checkChannelsOnlineStatus, 30000);
+    };
+
+    function saveChannel() {
+        const roomInput = document.getElementById('room');
+        const roomName = roomInput.value.trim();
+        
+        if (!roomName) { alert("IDを入力してください"); return; }
+        if (savedChannels.includes(roomName)) { alert("既に保存されています"); return; }
+        
+        savedChannels.push(roomName);
+        localStorage.setItem('savedRadioChannels', JSON.stringify(savedChannels));
+        
+        renderChannelList();
+        checkChannelsOnlineStatus();
+    }
+
+    function deleteChannel(roomName) {
+        savedChannels = savedChannels.filter(ch => ch !== roomName);
+        localStorage.setItem('savedRadioChannels', JSON.stringify(savedChannels));
+        delete onlineStatusMap[roomName];
+        renderChannelList();
+    }
+
+    function selectChannel(roomName) {
+        document.getElementById('room').value = roomName;
+        listen();
+    }
+
+    // リストの描画（検索と並び替えを適用）
+    function renderChannelList() {
+        const areaEl = document.getElementById('channelArea');
+        const listEl = document.getElementById('channelList');
+        const keyword = document.getElementById('searchInput').value.toLowerCase();
+        const sortBy = document.getElementById('sortSelect').value;
+
+        if (savedChannels.length === 0) {
+            areaEl.style.display = 'none';
+            return;
+        }
+        
+        areaEl.style.display = 'block';
+        listEl.innerHTML = '';
+        
+        // 1. 検索キーワードで絞り込み
+        let displayList = savedChannels.filter(room => room.toLowerCase().includes(keyword));
+        
+        // 2. 並び替えの処理
+        if (sortBy === 'name') {
+            displayList.sort((a, b) => a.localeCompare(b, undefined, {numeric: true, sensitivity: 'base'}));
+        } // 'added' の場合は配列の元の順序（登録順）のまま
+        
+        displayList.forEach(room => {
+            const item = document.createElement('div');
+            item.className = 'channel-item';
+            const safeId = btoa(encodeURIComponent(room)).replace(/=/g, '');
+            
+            // すでに判明しているステータスを適用、なければ 'checking'
+            const currentStatus = onlineStatusMap[room] || 'checking';
+            const badgeClass = currentStatus === 'on-line' ? 'badge-online' : 'badge-offline';
+
+            item.innerHTML = `
+                <span class="status-badge ${badgeClass}" id="badge-${safeId}">${currentStatus}</span>
+                <span class="channel-name" onclick="selectChannel('${room.replace(/'/g, "\\'")}')">${room}</span>
+                <button class="btn-delete" onclick="deleteChannel('${room.replace(/'/g, "\\'")}')">×</button>
+            `;
+            listEl.appendChild(item);
+        });
+    }
+
+    function checkChannelsOnlineStatus() {
+        if (savedChannels.length === 0) return;
+
+        const checkPeer = new Peer(`checker-${Math.floor(Math.random() * 9999)}`, { debug: 0 });
+        
+        checkPeer.on('open', () => {
+            savedChannels.forEach(room => {
+                const safeId = btoa(encodeURIComponent(room)).replace(/=/g, '');
+                const conn = checkPeer.connect(`${room}-host`, { reliable: false });
+                
+                let timeout = setTimeout(() => {
+                    onlineStatusMap[room] = 'off-line';
+                    updateBadgeUI(safeId, 'off-line');
+                    conn.close();
+                }, 3000);
+
+                conn.on('open', () => {
+                    clearTimeout(timeout);
+                    onlineStatusMap[room] = 'on-line';
+                    updateBadgeUI(safeId, 'on-line');
+                    conn.close();
+                });
+            });
+            
+            setTimeout(() => checkPeer.destroy(), 4000);
+        });
+    }
+
+    // バッジの表示をリアルタイムに書き換えるヘルパー
+    function updateBadgeUI(safeId, status) {
+        const badge = document.getElementById(`badge-${safeId}`);
+        if (badge) {
+            badge.innerText = status;
+            badge.className = `status-badge ${status === 'on-line' ? 'badge-online' : 'badge-offline'}`;
+        }
+    }
+
     function listen() {
         const room = document.getElementById('room').value;
         const status = document.getElementById('status');
@@ -70,16 +217,13 @@
         document.getElementById('listenBtn').disabled = true;
         status.innerText = "🔍 放送を探しています...";
 
-        // スマホの「自動再生ブロック」を解除するために、ボタンを押した瞬間に空の音を再生させる
         audio.play().catch(() => {});
 
-        // リスナーIDをランダム生成
         const myId = `${room}-listener-${Math.floor(Math.random() * 9999)}`;
         peer = new Peer(myId, PEER_CONFIG);
 
         peer.on('open', () => {
             status.innerText = "📡 接続を確立中...";
-            // 配信者に接続
             const conn = peer.connect(`${room}-host`);
             
             conn.on('open', () => {
@@ -98,7 +242,6 @@
             
             call.on('stream', s => {
                 audio.srcObject = s;
-                // スマホ対策：ユーザー操作直後でないとplay()が失敗するためエラーハンドリング
                 audio.play().catch(e => {
                     status.innerHTML = "⚠️ ブラウザが音をブロックしました<br>ここをタップして再生を許可してください";
                     status.style.cursor = "pointer";
