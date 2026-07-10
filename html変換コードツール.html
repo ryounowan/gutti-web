@@ -13,12 +13,14 @@
         input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
         
         /* ボタンエリア */
-        .btn-zone { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+        .btn-zone { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
         button { padding: 12px 5px; font-size: 14px; font-weight: bold; color: white; border: none; border-radius: 4px; cursor: pointer; text-align: center; }
         .btn-hta { background: #0078d4; }
         .btn-electron { background: #2f3241; }
         .btn-tauri { background: #ffc107; color: #333; }
+        .btn-exe { background: #e040fb; }
         .btn-pwa { background: #0288d1; }
+        .btn-apk { background: #4caf50; }
         button:hover { opacity: 0.9; }
 
         /* 出力エリア */
@@ -27,13 +29,15 @@
         pre { background: #222; color: #fff; padding: 12px; overflow-x: auto; border-radius: 4px; font-size: 13px; margin: 5px 0 15px 0; }
         .dl-btn { background: #555; color: white; border: none; padding: 5px 10px; font-size: 12px; cursor: pointer; border-radius: 3px; margin-bottom: 5px; display: inline-block; text-decoration: none; }
         .dl-btn:hover { background: #333; }
+        ol { margin: 5px 0 15px 20px; padding: 0; }
+        li { margin-bottom: 5px; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>マルチ・アプリ変換ジェネレーター</h2>
-    <p>HTMLコードを入力し、お好みのアプリ形式を選択してください。必要なファイルやコードを出力します。</p>
+    <h2>マルチ・アプリ変換ジェネレーター (Pro)</h2>
+    <p>HTMLコードを入力し、お好みのアプリ形式を選択してください。必要なファイルやビルド手順を出力します。</p>
 
     <div class="input-group">
         <label for="appTitle">アプリ名（半角英数字推奨）</label>
@@ -47,18 +51,18 @@
 
     <div class="btn-zone">
         <button class="btn-hta" onclick="generateHTA()">① HTA<br>(Win専用・即起動)</button>
-        <button class="btn-electron" onclick="generateElectron()">② Electron<br>(デスクトップ大手の構成)</button>
-        <button class="btn-tauri" onclick="generateTauri()">③ Tauri<br>(超軽量デスクトップの構成)</button>
-        <button class="btn-pwa" onclick="generatePWA()">④ PWA<br>(Webアプリ化の設定)</button>
+        <button class="btn-electron" onclick="generateElectron()">② Electron<br>(開発・デバッグ用)</button>
+        <button class="btn-tauri" onclick="generateTauri()">③ Tauri<br>(軽量デスクトップ構成)</button>
+        <button class="btn-exe" onclick="generateExe()">④ .exe 抽出化<br>(Electronパッケージ化)</button>
+        <button class="btn-pwa" onclick="generatePWA()">⑤ PWA<br>(Webアプリ化の設定)</button>
+        <button class="btn-apk" onclick="generateApk()">⑥ .apk (Android)<br>(モバイルアプリ化の構成)</button>
     </div>
 
-    <!-- HTA用メッセージ -->
     <div id="htaOutput" class="output-zone" style="border-color: #0078d4;">
         <h3>HTAファイルの出力完了</h3>
         <p>自動的に <code>.hta</code> ファイルがダウンロードされました。Windowsパソコンでダブルクリックすればそのまま起動します。</p>
     </div>
 
-    <!-- Electron用出力 -->
     <div id="electronOutput" class="output-zone" style="border-color: #2f3241;">
         <h3>Electron 構成ファイル</h3>
         <p>同じフォルダに以下のファイルを作成し、<code>npm install electron</code> 後、<code>npx electron .</code> で起動します。</p>
@@ -67,7 +71,6 @@
         <h4>3. main.js</h4><pre><code id="codeElectronMain"></code></pre>
     </div>
 
-    <!-- Tauri用出力 -->
     <div id="tauriOutput" class="output-zone" style="border-color: #ffc107;">
         <h3>Tauri 構成ファイル</h3>
         <p>Tauriプロジェクト内の <code>src-tauri/tauri.conf.json</code> を以下に書き換え、HTMLは <code>src/index.html</code> に配置します。</p>
@@ -75,7 +78,26 @@
         <h4>2. tauri.conf.json (設定例)</h4><pre><code id="codeTauriConf"></code></pre>
     </div>
 
-    <!-- PWA用出力 -->
+    <div id="exeOutput" class="output-zone" style="border-color: #e040fb;">
+        <h3>④ Windows用 .exe アプリケーションの作成手順</h3>
+        <p>Electronと<code>electron-builder</code>を利用して、配布可能な独自の<code>.exe</code>ファイルを生成する手順と設定です。</p>
+        <button class="dl-btn" id="dlExeHtml">1. index.html をダウンロード</button>
+        
+        <h4>2. package.json (ビルド設定入り)</h4>
+        <pre><code id="codeExePkg"></code></pre>
+        
+        <h4>3. main.js</h4>
+        <pre><code id="codeExeMain"></code></pre>
+        
+        <h4>4. .exe 作成手順コマンド</h4>
+        <ol>
+            <li>空のフォルダを作成し、上記の <b>index.html</b>, <b>package.json</b>, <b>main.js</b> を配置します。</li>
+            <li>そのフォルダでターミナル（コマンドプロンプト等）を開き、以下を実行して依存関係をインストールします：<br><pre><code>npm install</code></pre></li>
+            <li>インストール完了後、以下のコマンドで<code>.exe</code>ファイルのビルドを実行します：<br><pre><code>npm run dist</code></pre></li>
+            <li>ビルドが成功すると、新しく作られた <code>dist/</code> フォルダー内に <b><span class="appNameText"></span> Setup.exe</b>（またはポータブル版exe）が生成されます！</li>
+        </ol>
+    </div>
+
     <div id="pwaOutput" class="output-zone" style="border-color: #0288d1;">
         <h3>PWA (Progressive Web Apps) 構成ファイル</h3>
         <p>Webサーバー（HTTPS）にこれらを配置すると、スマホやPCのブラウザから「アプリとしてインストール」可能になります。</p>
@@ -83,18 +105,43 @@
         <h4>2. manifest.json (アプリの設定)</h4><pre><code id="codePwaManifest"></code></pre>
         <h4>3. sw.js (サービスワーカー/オフライン化)</h4><pre><code id="codePwaSw"></code></pre>
     </div>
+
+    <div id="apkOutput" class="output-zone" style="border-color: #4caf50;">
+        <h3>⑥ Android用 .apk アプリケーションの作成手順</h3>
+        <p>モダンなWeb-to-Appフレームワークである<b>Capacitor</b>を利用し、このHTMLをAndroidアプリ（.apk）にビルドする手順です。</p>
+        <button class="dl-btn" id="dlApkHtml">1. index.html をダウンロード</button>
+
+        <h4>2. capacitor.config.json</h4>
+        <pre><code id="codeApkConfig"></code></pre>
+
+        <h4>3. package.json (Android用)</h4>
+        <pre><code id="codeApkPkg"></code></pre>
+
+        <h4>4. .apk 作成手順コマンド</h4>
+        <blockquote style="background: #fff3cd; padding: 10px; border-left: 4px solid #ffc107; margin: 10px 0;">
+            ※PCに <b>Node.js</b>、<b>Android Studio</b>、および<b>Android SDK</b>がインストールされている必要があります。
+        </blockquote>
+        <ol>
+            <li>作業用フォルダを作成し、上記の <b>package.json</b> を配置して、ターミナルで以下を実行します：<br><pre><code>npm install</code></pre></li>
+            <li>フォルダ内に <code>www</code> という名前のフォルダを作り、その中にダウンロードした <b>index.html</b> を配置します。</li>
+            <li>同じ場所に上記の <b>capacitor.config.json</b> を配置します。</li>
+            <li>以下のコマンドを順番に実行して、Androidプロジェクトを同期・展開します：<br><pre><code>npx cap add android&#10;npx cap sync</code></pre></li>
+            <li>最後にAndroid Studioを起動してプロジェクトを開くか、以下のコマンドで直接Android Studioを立ち上げます：<br><pre><code>npx cap open android</code></pre></li>
+            <li>Android Studioが起動したら、上部メニューの <b>Build &gt; Build Bundle(s) / APK(s) &gt; Build APK(s)</b> を選択すると、デバッグ・テスト用の <code>.apk</code> ファイルが自動生成されます！</li>
+        </ol>
+    </div>
 </div>
 
 <script>
-// 全ての出力ゾーンを閉じる
 function hideAllZones() {
     document.getElementById('htaOutput').style.display = 'none';
     document.getElementById('electronOutput').style.display = 'none';
     document.getElementById('tauriOutput').style.display = 'none';
+    document.getElementById('exeOutput').style.display = 'none';
     document.getElementById('pwaOutput').style.display = 'none';
+    document.getElementById('apkOutput').style.display = 'none';
 }
 
-// 共通ダウンロード処理
 function downloadFile(content, filename, type) {
     const blob = new Blob([content], { type: type });
     const link = document.createElement("a");
@@ -153,7 +200,50 @@ function generateTauri() {
     document.getElementById('tauriOutput').style.display = 'block';
 }
 
-// ④ PWA
+// ④ .exe 化 (Electron-builder連携)
+function generateExe() {
+    hideAllZones();
+    const title = document.getElementById('appTitle').value;
+    const bodyContent = document.getElementById('htmlInput').value;
+    const cleanName = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    const pkg = {
+        "name": cleanName,
+        "version": "1.0.0",
+        "main": "main.js",
+        "scripts": {
+            "start": "electron .",
+            "dist": "electron-builder --win --portable"
+        },
+        "dependencies": {
+            "electron": "^30.0.0"
+        },
+        "devDependencies": {
+            "electron-builder": "^24.13.0"
+        },
+        "build": {
+            "appId": `com.example.${cleanName}`,
+            "productName": title,
+            "win": {
+                "target": "portable"
+            }
+        }
+    };
+
+    const main = `const { app, BrowserWindow } = require('electron');\nfunction createWindow () {\n  const win = new BrowserWindow({ width: 800, height: 600 });\n  win.loadFile('index.html');\n}\napp.whenReady().then(createWindow);\napp.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });`;
+    const html = `<!DOCTYPE html>\n<html>\n<head><meta charset="UTF-8"><title>${title}</title></head>\n<body>\n${bodyContent}\n</body>\n</html>`;
+
+    document.getElementById('codeExePkg').textContent = JSON.stringify(pkg, null, 2);
+    document.getElementById('codeExeMain').textContent = main;
+    
+    const elements = document.getElementsByClassName('appNameText');
+    for(let el of elements) { el.textContent = title; }
+
+    document.getElementById('dlExeHtml').onclick = () => downloadFile(html, "index.html", "text/html");
+    document.getElementById('exeOutput').style.display = 'block';
+}
+
+// ⑤ PWA
 function generatePWA() {
     hideAllZones();
     const title = document.getElementById('appTitle').value;
@@ -177,6 +267,38 @@ function generatePWA() {
     document.getElementById('codePwaSw').textContent = sw;
     document.getElementById('dlPwaHtml').onclick = () => downloadFile(html, "index.html", "text/html");
     document.getElementById('pwaOutput').style.display = 'block';
+}
+
+// ⑥ .apk 化 (Capacitor連携)
+function generateApk() {
+    hideAllZones();
+    const title = document.getElementById('appTitle').value;
+    const bodyContent = document.getElementById('htmlInput').value;
+    const cleanName = title.toLowerCase().replace(/[^a-z0-9]/g, "");
+
+    const capConfig = {
+        "appId": `com.example.${cleanName}`,
+        "appName": title,
+        "webDir": "www",
+        "bundledWebRuntime": false
+    };
+
+    const pkg = {
+        "name": cleanName,
+        "version": "1.0.0",
+        "dependencies": {
+            "@capacitor/core": "^6.0.0",
+            "@capacitor/cli": "^6.0.0",
+            "@capacitor/android": "^6.0.0"
+        }
+    };
+
+    const html = `<!DOCTYPE html>\n<html>\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">\n<title>${title}</title>\n</head>\n<body>\n${bodyContent}\n</body>\n</html>`;
+
+    document.getElementById('codeApkConfig').textContent = JSON.stringify(capConfig, null, 2);
+    document.getElementById('codeApkPkg').textContent = JSON.stringify(pkg, null, 2);
+    document.getElementById('dlApkHtml').onclick = () => downloadFile(html, "index.html", "text/html");
+    document.getElementById('apkOutput').style.display = 'block';
 }
 </script>
 </body>
