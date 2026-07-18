@@ -17,6 +17,8 @@
             --bar-border: #ccc;
             --switch-blue: #00c6ff;
             --card-shadow: rgba(0,0,0,0.15);
+            --red: #ff3b30;
+            --orange: #ff9500;
         }
         /* 🌗 ダークモード用カラー定義 */
         .dark-theme {
@@ -49,7 +51,7 @@
 
         .system-controls { display: flex; align-items: center; gap: 20px; }
         .p2p-status { font-size: 14px; display: flex; align-items: center; gap: 8px; }
-        .my-id-display { background: var(--panel-bg); padding: 2px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--bar-border); }
+        .my-id-display { background: var(--panel-bg); padding: 2px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--bar-border); transition: color 0.2s; }
 
         /* ホームメニュー */
         .home-menu-wrapper { position: relative; display: flex; align-items: center; }
@@ -296,11 +298,17 @@
             theme: "light",
             user: { name: "", avatar: "" },
             globalApps: [],
-            friends: []
+            friends: [],
+            myPermanentId: "" // 💾 固定用通信ID用スロット
         };
         let selectedAppIndex = null;
         let p2pMode = null;
         let peer;
+        
+        // 🔄 再接続制御用のグローバル状態
+        let retryDelay = 5000;
+        let rebootTimeoutId = null;
+        let isRebooting = false;
 
         // 禁止処理
         document.addEventListener('contextmenu', e => e.preventDefault());
@@ -409,12 +417,39 @@
             openModal("modal-profile");
         }
 
-        // 📡 PeerJS通信初期化
-        function initPeerJS() {
-            peer = new Peer("os-" + Math.random().toString(36).substring(2, 8));
+        // 📡 PeerJS通信初期化 (固定ID割り当て & 出禁時のバックオフ制御機能)
+        async function initPeerJS() {
+            if (rebootTimeoutId) clearTimeout(rebootTimeoutId);
+
+            // 💾 過去に生成した固定IDがあるか確認
+            let mySavedId = osState.myPermanentId;
+            
+            if (!mySavedId) {
+                // なければ新しくランダムなIDを生成してIndexedDBに固定する
+                mySavedId = "os-" + Math.random().toString(36).substring(2, 8);
+                osState.myPermanentId = mySavedId;
+                await saveOSState();
+            }
+
+            const customConfig = {
+                host: '0.peerjs.com',
+                port: 443,
+                secure: true,
+                pingInterval: 5000
+            };
+
+            // 💡 保存されていた唯一無二の固定IDを指定してPeerオブジェクトを作成
+            peer = new Peer(mySavedId, customConfig);
+            
             peer.on('open', (id) => {
-                document.getElementById("my-peer-id").innerText = id;
+                const display = document.getElementById("my-peer-id");
+                if(display) {
+                    display.innerText = id;
+                    display.style.color = "";
+                }
+                retryDelay = 5000; // 接続に成功したらリトライ遅延時間をリセット
             });
+
             peer.on('connection', (conn) => {
                 conn.on('data', async (data) => {
                     if (data.type === "RECEIVE_APP") {
@@ -427,6 +462,7 @@
                             const expDate = new Date();
                             expDate.setDate(expDate.getDate() + data.days);
                             data.app.borrowedUntil = expDate.toISOString();
+                            delete data.app.lockUntil; // 念のためロックフラグを相殺
                         }
                         alert(msg);
                         osState.globalApps.push(data.app);
@@ -435,6 +471,69 @@
                     }
                 });
             });
+
+            // ⚠️ インテリジェント・エラーハンドラ（出禁・制限対策用）
+            peer.on('error', (err) => {
+                console.error("PeerJS接続エラー検出:", err.type, err.message);
+                const display = document.getElementById("my-peer-id");
+                
+                // サーバー制限(429)やハンドシェイクエラーなど通信周りのエラーの場合
+                if (err.type === 'network' || err.message.includes('429') || err.message.includes('handshake')) {
+                    if (display) {
+                        display.innerText = `出禁制限中(再試行まで ${Math.round(retryDelay/1000)}秒)`;
+                        display.style.color = "var(--red)";
+                    }
+
+                    console.warn(`【システム警告】サーバー制限のため、${retryDelay / 1000}秒後に段階的トラブルシューティングを実行します...`);
+                    
+                    if (rebootTimeoutId) clearTimeout(rebootTimeoutId);
+                    rebootTimeoutId = setTimeout(() => {
+                        // 次回のリトライ時間を倍に増やす（最大60秒）ことでブロックの長期化を防ぐ
+                        retryDelay = Math.min(retryDelay * 2, 60000);
+                        triggerInternalReboot(false);
+                    }, retryDelay);
+                }
+            });
+        }
+
+        // 🔄 安全な内部セッション再起動処理
+        async function triggerInternalReboot(showAlert = false) {
+            if (isRebooting) return;
+            isRebooting = true;
+
+            const display = document.getElementById("my-peer-id");
+            if (display) {
+                display.innerText = "修復中...";
+                display.style.color = "var(--orange)";
+            }
+
+            try {
+                if (peer) {
+                    peer.disconnect();
+                    peer.destroy();
+                }
+                
+                // キャッシュされている古いPeerJSセッションIDをクリア
+                localStorage.removeItem('peerjs-id');
+                
+                // サーバー側の解放を少し待つために2秒猶予を持たせる
+                await new Promise(resolve => setTimeout(resolve, 2000));
+                
+                // 💡 固定IDを維持したまま、再初期化関数をコール
+                initPeerJS();
+                
+                if (showAlert) {
+                    alert("🔧 セッションのクリーンアップを行いました。\n数秒後に同じ固定IDで再接続されます。");
+                }
+            } catch (e) {
+                console.error("再起動エラー:", e);
+                if (display) {
+                    display.innerText = "修復失敗";
+                    display.style.color = "var(--red)";
+                }
+            } finally {
+                isRebooting = false;
+            }
         }
 
         function refreshOSHome() {
@@ -602,6 +701,9 @@
             const targetId = document.getElementById("p2p-target-id").value.trim();
             if (!targetId) return alert("送信先のIDを入力または選択してください。");
 
+            // 自身への送信を防止
+            if (targetId === osState.myPermanentId) return alert("自分自身へアプリを送信することはできません。");
+
             const app = osState.globalApps[selectedAppIndex];
             const conn = peer.connect(targetId);
 
@@ -658,7 +760,7 @@
             });
         }
 
-        // フレンドの追加（ファイルアップロード対応版）
+        // フレンドの追加
         async function addFriend() {
             if(osState.friends.length >= 10) return alert("フレンドは最大10人までしか登録できません。");
             const id = document.getElementById("new-friend-id").value.trim();
@@ -698,6 +800,9 @@
         async function factoryResetOS() {
             if (!confirm("本当にOSを完全初期化しますか？\nインポートしたアプリ、フレンド、セーブデータを含むすべてが完全に消去され元に戻せなくなります。")) return;
             
+            if (rebootTimeoutId) clearTimeout(rebootTimeoutId);
+            localStorage.removeItem('peerjs-id');
+
             const tx1 = db.transaction(["system"], "readwrite");
             tx1.objectStore("system").clear();
             const tx2 = db.transaction(["app_saves"], "readwrite");
