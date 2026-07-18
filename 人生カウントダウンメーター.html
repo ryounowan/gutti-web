@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>⏳ 人生カウントダウンメーター</title>
+    <style>
+        :root {
+            --bg: #090d16;
+            --card: #151f32;
+            --text: #f8fafc;
+            --muted: #64748b;
+            --primary: #ef4444;
+            --accent: #3b82f6;
+            --border: #22314d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 30px 15px; min-height: 100vh; }
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { font-size: 1.8rem; color: #fff; margin-bottom: 8px; letter-spacing: 1px; }
+        p.subtitle { color: var(--muted); font-size: 0.95rem; }
+
+        /* 設定パネル */
+        .config-panel {
+            background: var(--card); border: 1px solid var(--border);
+            padding: 20px; border-radius: 12px; margin-bottom: 25px;
+            display: flex; flex-wrap: wrap; gap: 15px; align-items: center; justify-content: center;
+        }
+        .input-group { display: flex; align-items: center; gap: 8px; }
+        .input-group label { font-size: 0.9rem; color: #cbd5e1; }
+        input[type="date"], input[type="number"] {
+            background: #090d16; color: #fff; border: 1px solid var(--border);
+            padding: 8px 12px; border-radius: 6px; font-size: 1rem; outline: none;
+        }
+
+        /* メインメーター（砂時計・プログレス） */
+        .display-section {
+            background: linear-gradient(180deg, var(--card), #0d1624);
+            border: 1px solid var(--border); border-radius: 16px;
+            padding: 30px 20px; margin-bottom: 25px; text-align: center;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.4);
+        }
+        
+        /* 進捗バー */
+        .progress-container {
+            width: 100%; height: 24px; background: #090d16; 
+            border-radius: 12px; border: 1px solid var(--border); overflow: hidden; margin-bottom: 25px;
+            position: relative;
+        }
+        .progress-bar {
+            height: 100%; background: linear-gradient(90deg, var(--primary), #f97316);
+            width: 0%; transition: width 0.5s ease;
+        }
+        .progress-text {
+            position: absolute; width: 100%; text-align: center; top: 0; left: 0;
+            line-height: 24px; font-size: 0.85rem; font-weight: bold; color: #fff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+        }
+
+        /* カウンター表示 */
+        .countdown-grid {
+            display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 10px;
+        }
+        @media (min-width: 600px) {
+            .countdown-grid { grid-template-columns: repeat(4, 1fr); }
+        }
+        .count-card {
+            background: rgba(9, 13, 22, 0.6); border: 1px solid var(--border);
+            padding: 15px 10px; border-radius: 8px;
+        }
+        .count-val { font-size: 1.6rem; font-weight: bold; font-family: monospace; color: #fff; }
+        .count-label { font-size: 0.8rem; color: var(--muted); margin-top: 5px; }
+        
+        .exact-seconds {
+            margin-top: 20px; font-size: 1.1rem; color: var(--primary); font-family: monospace; font-weight: bold;
+        }
+
+        /* ライフイベント統計 */
+        .stats-section {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 25px; text-align: left;
+        }
+        .section-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;}
+        
+        .stat-row {
+            display: flex; justify-content: space-between; padding: 12px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.95rem;
+        }
+        .stat-row:last-child { border-bottom: none; }
+        .stat-desc { color: #cbd5e1; }
+        .stat-number { font-weight: bold; font-family: monospace; color: #f59e0b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>⏳ 人生カウントダウンメーター</h1>
+        <p class="subtitle">時間は最も貴重な資産。あなたの人生の「残り」をリアルタイムで可視化します</p>
+    </header>
+
+    <!-- 条件入力エリア -->
+    <div class="config-panel">
+        <div class="input-group">
+            <label for="birthDate">📅 生年月日:</label>
+            <input type="date" id="birthDate" value="1995-01-01" onchange="calculateAll()">
+        </div>
+        <div class="input-group">
+            <label for="lifeExpectancy">💀 想定寿命 (才):</label>
+            <input type="number" id="lifeExpectancy" value="85" min="1" max="120" onchange="calculateAll()">
+        </div>
+    </div>
+
+    <!-- メインメーター -->
+    <div class="display-section">
+        <!-- 人生消化率バー -->
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+            <div class="progress-text" id="progressText">人生の 0% を消化</div>
+        </div>
+
+        <!-- カウンターグリッド -->
+        <div class="countdown-grid">
+            <div class="count-card"><div class="count-val" id="resYears">0</div><div class="count-label">残り年数</div></div>
+            <div class="count-card"><div class="count-val" id="resDays">0</div><div class="count-label">残り日数</div></div>
+            <div class="count-card"><div class="count-val" id="resHours">0</div><div class="count-label">残り時間</div></div>
+            <div class="count-card"><div class="count-val" id="resMins">0</div><div class="count-label">残り分数</div></div>
+        </div>
+
+        <!-- リアルタイムの秒メーター -->
+        <div class="exact-seconds">
+            残り約 <span id="resSeconds">0</span> 秒
+        </div>
+    </div>
+
+    <!-- ライフインサイト -->
+    <div class="stats-section">
+        <div class="section-title">📊 あなたに残された「具体的な時間と回数」</div>
+        <div id="statsContainer">
+            <!-- JSで動的に計算結果を挿入 -->
+        </div>
+    </div>
+</div>
+
+<script>
+    // ブラウザに前回の入力を保存するための仕組み
+    window.onload = function() {
+        const savedDate = localStorage.getItem('life_countdown_birth');
+        const savedAge = localStorage.getItem('life_countdown_expect');
+        if(savedDate) document.getElementById('birthDate').value = savedDate;
+        if(savedAge) document.getElementById('lifeExpectancy').value = savedAge;
+        
+        // 1秒ごとにリアルタイム更新
+        setInterval(calculateAll, 1000);
+        calculateAll();
+    };
+
+    function calculateAll() {
+        const birthInput = document.getElementById('birthDate').value;
+        const expectInput = parseInt(document.getElementById('lifeExpectancy').value) || 85;
+        
+        if(!birthInput) return;
+
+        // ローカルストレージに保存
+        localStorage.setItem('life_countdown_birth', birthInput);
+        localStorage.setItem('life_countdown_expect', expectInput);
+
+        const birthDate = new Date(birthInput);
+        const now = new Date();
+        
+        // 寿命を迎える日を計算
+        const deathDate = new Date(birthDate.getTime());
+        deathDate.setFullYear(deathDate.getFullYear() + expectInput);
+
+        // 全体の人生の長さ (ミリ秒) と 経過した長さ (ミリ秒)
+        const totalLifeMs = deathDate.getTime() - birthDate.getTime();
+        const passedLifeMs = now.getTime() - birthDate.getTime();
+        const remainingMs = deathDate.getTime() - now.getTime();
+
+        // 万が一、寿命をすでに超えている場合の処理
+        if (remainingMs <= 0) {
+            document.getElementById('progressBar').style.width = '100%';
+            document.getElementById('progressText').innerText = '設定された寿命に達しました！ここからはボーナスタイムです！';
+            document.getElementById('resYears').innerText = '0';
+            document.getElementById('resDays').innerText = '0';
+            document.getElementById('resHours').innerText = '0';
+            document.getElementById('resMins').innerText = '0';
+            document.getElementById('resSeconds').innerText = '0';
+            return;
+        }
+
+        // 消化率（％）の計算
+        const passedPercent = ((passedLifeMs / totalLifeMs) * 100).toFixed(4);
+        document.getElementById('progressBar').style.width = passedPercent + '%';
+        document.getElementById('progressText').innerText = `人生の ${passedPercent}% を消化（残り ${(100 - passedPercent).toFixed(4)}%）`;
+
+        // 各単位の残り時間を算出
+        const totalSeconds = Math.floor(remainingMs / 1000);
+        const totalMinutes = Math.floor(totalSeconds / 60);
+        const totalHours = Math.floor(totalMinutes / 60);
+        const totalDays = Math.floor(totalHours / 24);
+        const remainingYears = (totalDays / 365.25).toFixed(1);
+
+        // 画面に適用
+        document.getElementById('resYears').innerText = remainingYears;
+        document.getElementById('resDays').innerText = totalDays.toLocaleString();
+        document.getElementById('resHours').innerText = totalHours.toLocaleString();
+        document.getElementById('resMins').innerText = totalMinutes.toLocaleString();
+        document.getElementById('resSeconds').innerText = totalSeconds.toLocaleString();
+
+        // ライフインサイトの各種計算
+        // 一般的な統計データに基づく概算
+        const sleepDays = Math.floor(totalDays * (8 / 24)); // 1日8時間睡眠とした場合
+        const activeHours = totalHours - (sleepDays * 24);  // 起きている時間
+        const weekendCount = Math.floor(totalDays / 7) * 2; // 残りの土日の日数
+        const mealsCount = totalDays * 3;                   // 残りの食事の回数 (1日3回)
+        
+        // 日本人平均の年間有給・休日数を加味した「完全な自由時間」の目安（起きている時間の約30%と仮定）
+        const freeTimeHours = Math.floor(activeHours * 0.35);
+
+        const statsHtml = `
+            <div class="stat-row">
+                <span class="stat-desc">😴 残りの人生のうち、**睡眠**に費やす時間（1日8時間換算）</span>
+                <span class="stat-number">約 ${sleepDays.toLocaleString()} 日分</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-desc">☀️ 命があるうちに**起きて活動できる時間**</span>
+                <span class="stat-number">約 ${activeHours.toLocaleString()} 時間</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-desc">🌴 残された**週末（土曜日・日曜日）**の回数</span>
+                <span class="stat-number">約 ${weekendCount.toLocaleString()} 回</span>
+            </div>
+            <div class="stat-row">
+                <span class="stat-desc">🍱 これから楽しめる**食事**の回数</span>
+                <span class="stat-number">約 ${mealsCount.toLocaleString()} 回</span>
+            </div>
+            <div class="stat-row" style="border-top: 1px dashed var(--border); margin-top: 5px; padding-top: 15px;">
+                <span class="stat-desc" style="color: #f43f5e; font-weight: bold;">💡 仕事や義務を除いた「純粋な自由時間」の目安</span>
+                <span class="stat-number" style="color: #f43f5e; font-size: 1.1rem;">約 ${freeTimeHours.toLocaleString()} 時間</span>
+            </div>
+        `;
+        document.getElementById('statsContainer').innerHTML = statsHtml;
+    }
+</script>
+</body>
+</html>
