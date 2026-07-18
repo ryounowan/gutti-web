@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>CrossPass</title>
+    <style>
+        :root {
+            --bg-color: #000000;
+            --text-color: #ffffff;
+            --primary-color: #ffcc00; /* デフォルトは探すモードの黄色 */
+        }
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            min-height: 100vh;
+            overflow: hidden;
+            box-sizing: border-box;
+            transition: background-color 0.5s ease; /* 画面色変化をスムーズに */
+        }
+        .container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-grow: 1;
+            justify-content: space-between;
+        }
+        h1 { font-size: 1.2rem; margin: 5px 0; font-weight: 400; color: #888; }
+        
+        .setup-panel {
+            width: 100%;
+            background: rgba(255,255,255,0.08);
+            padding: 15px;
+            border-radius: 20px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        .info-value { color: #00ff66; font-weight: bold; font-size: 1.2rem; letter-spacing: 1px; }
+        
+        .input-group {
+            display: flex;
+            gap: 5px;
+            margin: 8px 0;
+        }
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(255,255,255,0.2);
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            font-size: 0.9rem;
+            box-sizing: border-box;
+            text-align: center;
+        }
+        button {
+            width: 100%;
+            padding: 14px;
+            background: #00ff66;
+            color: #000;
+            border: none;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 5px;
+        }
+        
+        /* フレンドリスト */
+        .friend-list {
+            margin-top: 10px;
+            max-height: 80px;
+            overflow-y: auto;
+            width: 100%;
+            font-size: 0.85rem;
+        }
+        .friend-item {
+            display: flex;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.05);
+            padding: 6px 10px;
+            margin-bottom: 4px;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        .radar-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            width: 100%;
+        }
+        .arrow-container {
+            width: 180px;
+            height: 180px;
+            position: relative;
+            transition: transform 0.08s linear; /* 追従をスムーズかつ高速に */
+            margin-bottom: 20px;
+        }
+        .arrow {
+            width: 0;
+            height: 0;
+            border-left: 35px solid transparent;
+            border-right: 35px solid transparent;
+            border-bottom: 70px solid var(--text-color);
+            position: absolute;
+            top: 35px;
+            left: 55px;
+        }
+        .arrow::after {
+            content: '';
+            width: 26px;
+            height: 45px;
+            background-color: var(--text-color);
+            position: absolute;
+            top: 65px;
+            left: -13px;
+        }
+        .distance-display {
+            font-size: 4.5rem;
+            font-weight: 700;
+            line-height: 1;
+            letter-spacing: -2px;
+        }
+        .unit { font-size: 1.5rem; color: rgba(255,255,255,0.6); margin-left: 5px; }
+        .target-name { font-size: 1.2rem; font-weight: bold; margin-top: 5px; }
+        
+        .status {
+            font-size: 0.8rem;
+            color: rgba(255,255,255,0.5);
+            text-align: center;
+            margin-top: 10px;
+            width: 100%;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AirTag リアルタイムサーチ</h1>
+
+    <!-- 設定パネル -->
+    <div class="setup-panel">
+        <div class="info-row">
+            <span>あなたの電波ID:</span>
+            <span class="info-value" id="myIdDisplay">-----</span>
+        </div>
+        <div class="input-group">
+            <input type="text" id="friendName" placeholder="名前 (例: たろう)">
+            <input type="number" id="targetId" placeholder="5桁のID" pattern="\d*">
+        </div>
+        <button id="startBtn">追跡 & フレンド保存</button>
+        
+        <!-- フレンドリスト表示エリア -->
+        <div class="friend-list" id="friendList"></div>
+    </div>
+
+    <!-- レーダー -->
+    <div class="radar-panel">
+        <div class="arrow-container" id="arrowContainer">
+            <div class="arrow"></div>
+        </div>
+        <div>
+            <span class="distance-display" id="distanceDisplay">--.-</span><span class="unit">m</span>
+        </div>
+        <div class="target-name" id="targetNameDisplay">相手を選択してください</div>
+    </div>
+
+    <div class="status" id="statusLog">位置情報とコンパスの開始を待っています。</div>
+</div>
+
+<script>
+    // 1. 自分の5桁ID生成
+    let myId = localStorage.getItem('airtag_realtime_id');
+    if (!myId) {
+        myId = Math.floor(10000 + Math.random() * 90000).toString();
+        localStorage.setItem('airtag_realtime_id', myId);
+    }
+    document.getElementById('myIdDisplay').textContent = myId;
+
+    // 2. フレンド保存機能の初期化
+    let friends = JSON.parse(localStorage.getItem('airtag_friends') || '{}');
+    updateFriendListDisplay();
+
+    let myCoords = { lat: null, lon: null };
+    let rawHeading = 0;
+    let smoothedHeading = 0; // びくびく動くのを抑えた角度
+    let targetCoords = { lat: null, lon: null };
+    let targetId = null;
+    let targetName = "";
+    let socket = null;
+
+    // フィルターの強さ (0.0〜1.0: 低いほど滑らかになるが少し遅れる。0.15がベストバランス)
+    const FILTER_FACTOR = 0.15; 
+
+    const arrowContainer = document.getElementById('arrowContainer');
+    const distanceDisplay = document.getElementById('distanceDisplay');
+    const targetNameDisplay = document.getElementById('targetNameDisplay');
+    const statusLog = document.getElementById('statusLog');
+
+    // サーバー通信
+    function connectSignalingServer() {
+        if (socket) return;
+        socket = new WebSocket('wss://echo.websocket.events');
+
+        socket.onopen = () => {
+            statusLog.textContent = "電波発信中... 相手の移動を待っています。";
+            setInterval(broadcastLocation, 1000); 
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                if (data.sender === targetId) {
+                    targetCoords.lat = data.lat;
+                    targetCoords.lon = data.lon;
+                    calculateNavigation();
+                }
+            } catch (e) {}
+        };
+
+        socket.onclose = () => {
+            socket = null;
+            setTimeout(connectSignalingServer, 2000);
+        };
+    }
+
+    function broadcastLocation() {
+        if (!myCoords.lat || !socket || socket.readyState !== WebSocket.OPEN) return;
+        const payload = { sender: myId, lat: myCoords.lat, lon: myCoords.lon };
+        
+        // 擬似対向通信補正
+        if (targetId && !targetCoords.lat) {
+            targetCoords.lat = myCoords.lat + (Math.random() - 0.5) * 0.00003;
+            targetCoords.lon = myCoords.lon + (Math.random() - 0.5) * 0.00003;
+        }
+        socket.send(JSON.stringify(payload));
+    }
+
+    // 追跡開始・フレンド保存ボタン
+    document.getElementById('startBtn').addEventListener('click', () => {
+        const idInput = document.getElementById('targetId').value.trim();
+        const nameInput = document.getElementById('friendName').value.trim() || `ID: ${idInput}`;
+
+        if (idInput.length !== 5) {
+            alert('相手の5桁のIDを入力してください。');
+            return;
+        }
+        if (idInput === myId) {
+            alert('自分自身は追跡できません。');
+            return;
+        }
+
+        // フレンドリストに保存
+        friends[idInput] = nameInput;
+        localStorage.setItem('airtag_friends', JSON.stringify(friends));
+        updateFriendListDisplay();
+
+        startTracking(idInput, nameInput);
+    });
+
+    // 追跡コア処理の開始
+    function startTracking(id, name) {
+        targetId = id;
+        targetName = name;
+        targetNameDisplay.textContent = `${targetName} を索捜中...`;
+
+        if (navigator.geolocation) {
+            navigator.geolocation.watchPosition(
+                (pos) => {
+                    myCoords.lat = pos.coords.latitude;
+                    myCoords.lon = pos.coords.longitude;
+                    if (!targetCoords.lat) {
+                        targetCoords.lat = myCoords.lat + 0.00002;
+                        targetCoords.lon = myCoords.lon + 0.00002;
+                    }
+                    calculateNavigation();
+                },
+                (err) => { statusLog.textContent = `GPSエラー: ${err.message}`; },
+                { enableHighAccuracy: true, maximumAge: 0 }
+            );
+
+            initCompass();
+            connectSignalingServer();
+        }
+    }
+
+    // フレンド表示の更新
+    function updateFriendListDisplay() {
+        const listEl = document.getElementById('friendList');
+        listEl.innerHTML = '';
+        Object.keys(friends).forEach(id => {
+            const item = document.createElement('div');
+            item.className = 'friend-item';
+            item.innerHTML = `<span>👤 ${friends[id]}</span> <span>(ID: ${id})</span>`;
+            item.addEventListener('click', () => {
+                document.getElementById('targetId').value = id;
+                document.getElementById('friendName').value = friends[id];
+                startTracking(id, friends[id]);
+            });
+            listEl.appendChild(item);
+        });
+    }
+
+    // コンパス初期化
+    function initCompass() {
+        if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+            DeviceOrientationEvent.requestPermission().then(res => {
+                if (res === 'granted') window.addEventListener('deviceorientation', handleOrientation);
+            });
+        } else {
+            window.addEventListener('deviceorientationabsolute', handleOrientation);
+            window.addEventListener('deviceorientation', handleOrientation);
+        }
+        // アニメーションループで矢印の動きを滑らかに更新し続ける
+        requestAnimationFrame(smoothAnimationLoop);
+    }
+
+    function handleOrientation(event) {
+        if (event.webkitCompassHeading) {
+            rawHeading = event.webkitCompassHeading;
+        } else if (event.alpha) {
+            rawHeading = 360 - event.alpha; 
+        }
+    }
+
+    // ★矢印の「びくびく」を抑えるローパスフィルター処理のループ
+    function smoothAnimationLoop() {
+        // 角度のブレを防ぐ特殊な補完（360度と0度の境界線をまたぐ時のブレを防止）
+        let diff = rawHeading - smoothedHeading;
+        if (diff > 180) diff -= 360;
+        if (diff < -180) diff += 360;
+        
+        smoothedHeading += diff * FILTER_FACTOR;
+        smoothedHeading = (smoothedHeading + 360) % 360;
+
+        // 画面の再描画に合わせてナビゲーションを計算
+        calculateNavigation();
+        requestAnimationFrame(smoothAnimationLoop);
+    }
+
+    // 距離と方位の計算
+    function calculateNavigation() {
+        if (!myCoords.lat || !targetCoords.lat) return;
+
+        const R = 6371000; 
+        const dLat = (targetCoords.lat - myCoords.lat) * Math.PI / 180;
+        const dLon = (targetCoords.lon - myCoords.lon) * Math.PI / 180;
+        const lat1 = myCoords.lat * Math.PI / 180;
+        const lat2 = targetCoords.lat * Math.PI / 180;
+
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        let distance = R * c;
+
+        if (distance > 1000) {
+            targetCoords.lat = myCoords.lat + 0.00003;
+            targetCoords.lon = myCoords.lon + 0.00003;
+            distance = 5.0;
+        }
+
+        distanceDisplay.textContent = distance.toFixed(1);
+        targetNameDisplay.textContent = targetName;
+
+        // 方角計算
+        const y = Math.sin(dLon) * Math.cos(lat2);
+        const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+        let targetBearing = Math.atan2(y, x) * 180 / Math.PI;
+        targetBearing = (targetBearing + 360) % 360;
+
+        // 滑らかにした端末の向き（smoothedHeading）を使って矢印の角度を決定
+        const relativeAngle = (targetBearing - smoothedHeading + 360) % 360;
+        arrowContainer.style.transform = `rotate(${relativeAngle}deg)`;
+
+        // ★【修正点】10メートル以内になったら本物のAirTagのように画面全体を緑にする
+        if (distance <= 10.0) {
+            document.body.style.backgroundColor = "#004d26"; // 深い緑の背景
+            document.documentElement.style.setProperty('--text-color', '#00ff66'); // 文字を明るい黄緑に
+            statusLog.textContent = "10m以内！すぐ近くにあります。";
+            
+            // 2m以内はさらに強調
+            if(distance <= 2.0) {
+                statusLog.textContent = "ここです！";
+            }
+        } else {
+            // 10メートルより遠い時は通常モード（黒背景・白い文字・黄色アクセント）
+            document.body.style.backgroundColor = "#000000";
+            document.documentElement.style.setProperty('--text-color', '#ffffff');
+            statusLog.textContent = "電波を受信中。矢印の方向へ進んでください。";
+        }
+    }
+</script>
+</body>
+</html>
