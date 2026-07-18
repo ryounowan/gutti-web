@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Module Battle</title>
+    <!-- Tailwind CSS (UI装飾) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome (アイコン用) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 暗い宇宙・サイバー風のスクロールバー */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 3px; }
+        ::-webkit-scrollbar-thumb:hover { background: #38bdf8; }
+        
+        .active-tab {
+            border-color: #38bdf8;
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.05);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-height-screen flex flex-col justify-between">
+
+    <!-- ヘッダー -->
+    <header class="bg-slate-900 border-b border-slate-800 p-4 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-center gap-4">
+            <h1 class="text-2xl font-black tracking-wider text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 flex items-center gap-2">
+                <i class="fa-solid fa-robot animate-pulse"></i>MODULE BATTLE
+            </h1>
+            
+            <!-- ナビゲーションタブ -->
+            <nav class="flex rounded-lg bg-slate-950 p-1 border border-slate-800">
+                <button onclick="switchTab('garage')" id="tab-garage" class="active-tab px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2">
+                    <i class="fa-solid fa-warehouse"></i> ガレージ
+                </button>
+                <button onclick="switchTab('lab')" id="tab-lab" class="px-4 py-2 text-sm font-bold rounded-md text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center gap-2">
+                    <i class="fa-solid fa-flask"></i> 開発部 (ガチャ)
+                </button>
+                <button onclick="switchTab('arena')" id="tab-arena" class="px-4 py-2 text-sm font-bold rounded-md text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center gap-2">
+                    <i class="fa-solid fa-skull-crossbones"></i> アリーナ (戦闘)
+                </button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="max-w-6xl w-full mx-auto p-4 flex-grow">
+
+        <!-- ==================== ① ガレージ画面 ==================== -->
+        <section id="section-garage" class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <!-- 装備中の機体 -->
+            <div class="md:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-6">
+                <h2 class="text-lg font-extrabold text-cyan-400 mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-shield-halved"></i> 現在の主力アセンブル
+                </h2>
+                <div id="active-unit-card" class="bg-slate-950 border border-slate-800 rounded-xl p-5 relative overflow-hidden">
+                    <!-- JSで動的に詳細が挿入されます -->
+                </div>
+            </div>
+
+            <!-- インベントリ（保管庫） -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col h-[500px]">
+                <h2 class="text-lg font-extrabold text-amber-500 mb-4 flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-boxes-stacked"></i> 保管用モジュール
+                </h2>
+                <div id="inventory-list" class="flex-grow overflow-y-auto space-y-3 pr-1">
+                    <!-- インベントリリスト -->
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ==================== ② 開発部（ガチャ）画面 ==================== -->
+        <section id="section-lab" class="hidden max-w-2xl mx-auto bg-slate-900 border border-slate-800 rounded-xl p-8 text-center">
+            <h2 class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-500 mb-2">
+                <i class="fa-solid fa-microchip"></i> 新型モジュール開発室
+            </h2>
+            <p class="text-sm text-slate-400 mb-8">
+                ランダムなフレーム、動力、武装、特殊装甲パーツを複合アセンブルし、1万種以上の組み合わせから固有の特化モジュールを開発します。
+            </p>
+
+            <div class="bg-slate-950 border border-slate-800 rounded-xl p-8 mb-6 relative overflow-hidden flex flex-col items-center justify-center min-h-[250px]">
+                <div id="lab-animation-placeholder" class="text-slate-500 space-y-4">
+                    <i class="fa-solid fa-cubes text-6xl animate-bounce text-emerald-500"></i>
+                    <p class="font-bold">設計図を展開して、新規アセンブルを開始してください。</p>
+                </div>
+                <div id="lab-result-card" class="w-full hidden">
+                    <!-- ロールアウトされたカード -->
+                </div>
+            </div>
+
+            <button onclick="rollGacha()" id="gacha-btn" class="w-full py-4 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 text-lg font-black rounded-lg shadow-lg hover:shadow-emerald-500/20 transition-all duration-300 transform active:scale-95">
+                ⚡ 新型モジュールをロールアウト (開発開始)
+            </button>
+        </section>
+
+
+        <!-- ==================== ③ アリーナ（バトル）画面 ==================== -->
+        <section id="section-arena" class="hidden grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- バトルステージ (Canvas) -->
+            <div class="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col">
+                <div class="flex justify-between items-center mb-3">
+                    <h2 class="text-lg font-extrabold text-rose-500 flex items-center gap-2">
+                        <i class="fa-solid fa-crosshairs"></i> バトルシミュレーション
+                    </h2>
+                    <div id="battle-status-badge" class="px-3 py-1 bg-slate-950 text-xs font-bold border border-slate-800 rounded-full text-slate-400">
+                        READY
+                    </div>
+                </div>
+
+                <!-- アニメーションCanvas -->
+                <div class="relative bg-slate-950 border border-slate-800 rounded-lg overflow-hidden flex-grow flex items-center justify-center">
+                    <canvas id="battle-canvas" width="700" height="350" class="w-full block"></canvas>
+                </div>
+
+                <div class="mt-4 flex gap-3">
+                    <button id="start-battle-btn" onclick="startSimulatedBattle()" class="flex-grow py-3 bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-lg shadow-lg hover:shadow-rose-600/20 transition-all duration-200">
+                        ⚔️ シミュレーションバトル開始
+                    </button>
+                    <button id="rematch-btn" onclick="scoutNewEnemy()" class="px-5 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-lg transition-all">
+                        <i class="fa-solid fa-arrows-rotate"></i> 別の敵をスキャン
+                    </button>
+                </div>
+            </div>
+
+            <!-- バトルの文字ログ -->
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 flex flex-col h-[480px] lg:h-auto">
+                <h2 class="text-lg font-extrabold text-slate-300 mb-3 flex items-center gap-2 border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-list-ul"></i> タクティカルログ
+                </h2>
+                <div id="tactical-log" class="flex-grow overflow-y-auto bg-slate-950 border border-slate-800 rounded-lg p-4 font-mono text-xs text-emerald-400 space-y-2">
+                    <div class="text-slate-500">// シミュレータのログ待機中...</div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- フッター -->
+    <footer class="bg-slate-900 border-t border-slate-800 p-4 text-center text-xs text-slate-500">
+        <p>&copy; 2026 INFINITE MODULE BATTLE. Powered by HTML5 Canvas & Tailwind.</p>
+    </footer>
+
+    <script>
+        // --- 1. データ定義（10,000通り以上の組み合わせの核となるパーツ） ---
+        const prefixes = [
+            { name: "漆黒の", color: "#111827", glow: "#374151" },
+            { name: "烈火の", color: "#ef4444", glow: "#f87171" },
+            { name: "雷電の", color: "#eab308", glow: "#facc15" },
+            { name: "氷河の", color: "#06b6d4", glow: "#22d3ee" },
+            { name: "量子型", color: "#a855f7", glow: "#c084fc" },
+            { name: "鋼鉄の", color: "#64748b", glow: "#94a3b8" },
+            { name: "黄金の", color: "#fbbf24", glow: "#fde047" },
+            { name: "ドレッドノート級", color: "#b91c1c", glow: "#f87171" },
+            { name: "光輝なる", color: "#f8fafc", glow: "#ffffff" },
+            { name: "アポカリプス", color: "#dc2626", glow: "#f87171" }
+        ];
+
+        const frames = [
+            { name: "人型チタン骨格", baseHp: 650, baseSpd: 70 },
+            { name: "多脚型重装甲殻", baseHp: 900, baseSpd: 40 },
+            { name: "浮遊型高機動セル", baseHp: 500, baseSpd: 95 },
+            { name: "無限軌道重機", baseHp: 1100, baseSpd: 30 }
+        ];
+
+        const cores = [
+            { name: "核融合炉", statBonus: "HP +15%" },
+            { name: "ダークマターコア", statBonus: "ATK +20%" },
+            { name: "超電導セル", statBonus: "SPD +25%" },
+            { name: "ボイドドライブ", statBonus: "DEF +20%" }
+        ];
+
+        const weapons = [
+            { name: "高エネルギーレーザー", type: "laser", baseAtk: 95 },
+            { name: "超振動ブレード", type: "blade", baseAtk: 110 },
+            { name: "レールガン Mk-IV", type: "railgun", baseAtk: 85 },
+            { name: "追尾型マイクロミサイル", type: "missile", baseAtk: 75 }
+        ];
+
+        const armors = [
+            { name: "ナノマシン自己修復壁", baseDef: 35 },
+            { name: "電磁バリアフィールド", baseDef: 25 },
+            { name: "積層セラミック盾", baseDef: 50 },
+            { name: "位相シフト防壁", baseDef: 40 }
+        ];
+
+        // 状態保持
+        let playerModule = null;
+        let enemyModule = null;
+        let inventory = [];
+        let currentTab = 'garage';
+
+        // --- 2. モジュール生成システム ---
+        function generateModule() {
+            const pre = prefixes[Math.floor(Math.random() * prefixes.length)];
+            const fr = frames[Math.floor(Math.random() * frames.length)];
+            const co = cores[Math.floor(Math.random() * cores.length)];
+            const we = weapons[Math.floor(Math.random() * weapons.length)];
+            const ar = armors[Math.floor(Math.random() * armors.length)];
+
+            // 個体値 (0.50〜1.50)
+            const ivHp = Number((Math.random() * 1.0 + 0.5).toFixed(2));
+            const ivAtk = Number((Math.random() * 1.0 + 0.5).toFixed(2));
+            const ivDef = Number((Math.random() * 1.0 + 0.5).toFixed(2));
+            const ivSpd = Number((Math.random() * 1.0 + 0.5).toFixed(2));
+
+            // ベースステータスとの掛け合わせ
+            let hp = Math.floor(fr.baseHp * ivHp);
+            let atk = Math.floor(we.baseAtk * ivAtk);
+            let def = Math.floor(ar.baseDef * ivDef);
+            let spd = Math.floor(fr.baseSpd * ivSpd);
+
+            // コア補正の適用
+            if (co.name === "核融合炉") hp = Math.floor(hp * 1.15);
+            if (co.name === "ダークマターコア") atk = Math.floor(atk * 1.20);
+            if (co.name === "超電導セル") spd = Math.floor(spd * 1.25);
+            if (co.name === "ボイドドライブ") def = Math.floor(def * 1.20);
+
+            return {
+                id: Date.now() + Math.random().toString(36).substr(2, 9),
+                name: `${pre.name}${fr.name}`,
+                fullName: `${pre.name}${fr.name} [${we.name}・${ar.name}]`,
+                prefix: pre,
+                frame: fr,
+                core: co,
+                weapon: we,
+                armor: ar,
+                hp: hp,
+                maxHp: hp,
+                atk: atk,
+                def: def,
+                spd: spd,
+                iv: { hp: ivHp, atk: ivAtk, def: ivDef, spd: ivSpd }
+            };
+        }
+
+        // --- 3. UI管理 ---
+        function switchTab(tabId) {
+            // タブ表示の切り替え
+            ['garage', 'lab', 'arena'].forEach(t => {
+                const btn = document.getElementById(`tab-${t}`);
+                const sec = document.getElementById(`section-${t}`);
+                if (t === tabId) {
+                    btn.className = "active-tab px-4 py-2 text-sm font-bold rounded-md transition-all duration-200 flex items-center gap-2";
+                    sec.classList.remove('hidden');
+                } else {
+                    btn.className = "px-4 py-2 text-sm font-bold rounded-md text-slate-400 hover:text-slate-200 transition-all duration-200 flex items-center gap-2";
+                    sec.classList.add('hidden');
+                }
+            });
+
+            currentTab = tabId;
+
+            // アリーナに切り替わった場合、Canvasの初期描画を行う
+            if(tabId === 'arena') {
+                initCanvas();
+            }
+        }
+
+        // 装備カードHTMLのレンダリング
+        function updateGarageUI() {
+            const cardContainer = document.getElementById('active-unit-card');
+            if (!playerModule) {
+                cardContainer.innerHTML = `
+                    <div class="text-center py-10 text-slate-500">
+                        <i class="fa-solid fa-circle-exclamation text-4xl mb-2"></i>
+                        <p>アクティブな機体がありません。開発部で新規ロールアウトしてください。</p>
+                    </div>`;
+                return;
+            }
+
+            cardContainer.innerHTML = `
+                <!-- パーツカラー反映の装飾 -->
+                <div class="absolute top-0 right-0 w-32 h-32 rounded-full opacity-10 blur-3xl" style="background: ${playerModule.prefix.color};"></div>
+                
+                <div class="flex items-start justify-between">
+                    <div>
+                        <span class="text-xs font-black uppercase tracking-widest text-slate-500">アセンブル名称</span>
+                        <h3 class="text-xl font-black text-slate-100" style="text-shadow: 0 0 10px ${playerModule.prefix.glow};">${playerModule.fullName}</h3>
+                        <p class="text-xs text-slate-400 mt-1 flex items-center gap-2">
+                            <span class="px-2 py-0.5 bg-slate-800 rounded border border-slate-700">動力コア: ${playerModule.core.name}</span>
+                            <span class="px-2 py-0.5 bg-slate-800 rounded border border-slate-700">${playerModule.core.statBonus}</span>
+                        </p>
+                    </div>
+                    <div class="w-10 h-10 rounded-lg flex items-center justify-center border" style="border-color: ${playerModule.prefix.color}; background: rgba(0,0,0,0.3);">
+                        <i class="fa-solid fa-robot text-xl" style="color: ${playerModule.prefix.glow};"></i>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+                    <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800/80">
+                        <div class="text-xs text-slate-500 font-bold">耐久値 (HP)</div>
+                        <div class="text-lg font-black text-rose-400">${playerModule.hp} <span class="text-xs text-slate-500 font-normal">x${playerModule.iv.hp}</span></div>
+                    </div>
+                    <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800/80">
+                        <div class="text-xs text-slate-500 font-bold">攻撃性能 (ATK)</div>
+                        <div class="text-lg font-black text-amber-400">${playerModule.atk} <span class="text-xs text-slate-500 font-normal">x${playerModule.iv.atk}</span></div>
+                    </div>
+                    <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800/80">
+                        <div class="text-xs text-slate-500 font-bold">物理装甲 (DEF)</div>
+                        <div class="text-lg font-black text-cyan-400">${playerModule.def} <span class="text-xs text-slate-500 font-normal">x${playerModule.iv.def}</span></div>
+                    </div>
+                    <div class="bg-slate-900/50 p-3 rounded-lg border border-slate-800/80">
+                        <div class="text-xs text-slate-500 font-bold">演算速度 (SPD)</div>
+                        <div class="text-lg font-black text-emerald-400">${playerModule.spd} <span class="text-xs text-slate-500 font-normal">x${playerModule.iv.spd}</span></div>
+                    </div>
+                </div>
+            `;
+
+            // インベントリの表示
+            const invContainer = document.getElementById('inventory-list');
+            invContainer.innerHTML = '';
+            if (inventory.length === 0) {
+                invContainer.innerHTML = `<div class="text-center py-10 text-slate-600 text-sm">予備パーツは現在ありません。</div>`;
+                return;
+            }
+
+            inventory.forEach((mod, idx) => {
+                const item = document.createElement('div');
+                item.className = "bg-slate-950 border border-slate-850 p-3 rounded-lg hover:border-slate-700 transition flex items-center justify-between";
+                item.innerHTML = `
+                    <div class="overflow-hidden pr-2">
+                        <h4 class="text-xs font-bold truncate text-slate-200" style="color:${mod.prefix.glow};">${mod.fullName}</h4>
+                        <p class="text-[10px] text-slate-500 mt-0.5">HP:${mod.hp} / ATK:${mod.atk} / SPD:${mod.spd}</p>
+                    </div>
+                    <button onclick="equipFromInventory('${mod.id}')" class="px-2 py-1 bg-slate-800 hover:bg-cyan-500 hover:text-slate-950 text-[10px] font-black rounded border border-slate-700 hover:border-cyan-400 transition-all duration-200">
+                        換装
+                    </button>
+                `;
+                invContainer.appendChild(item);
+            });
+        }
+
+        // ガチャを回す
+        function rollGacha() {
+            const btn = document.getElementById('gacha-btn');
+            btn.disabled = true;
+
+            const placeholder = document.getElementById('lab-animation-placeholder');
+            const resultCard = document.getElementById('lab-result-card');
+            
+            resultCard.classList.add('hidden');
+            placeholder.innerHTML = `
+                <i class="fa-solid fa-gear text-6xl animate-spin text-emerald-400"></i>
+                <p class="font-bold text-emerald-400">アセンブラを同調中... 動力伝達率120%</p>
+            `;
+            placeholder.classList.remove('hidden');
+
+            setTimeout(() => {
+                const newMod = generateModule();
+                
+                // ガレージの主力機を退避、あるいは新規適用
+                if (playerModule) {
+                    inventory.push(playerModule);
+                }
+                playerModule = newMod;
+
+                // ガレージ＆ラボ結果UIをアップデート
+                updateGarageUI();
+                
+                placeholder.classList.add('hidden');
+                
+                resultCard.innerHTML = `
+                    <div class="p-6 border border-emerald-500 bg-slate-900/60 rounded-xl max-w-md mx-auto relative overflow-hidden">
+                        <span class="px-3 py-1 bg-emerald-500 text-slate-950 text-xs font-black rounded-full absolute -top-3 -right-3 rotate-12">SUCCESS</span>
+                        <div class="text-xs font-bold text-slate-500 mb-1">新型機 ロールアウト完了</div>
+                        <h3 class="text-lg font-black mb-3" style="color: ${newMod.prefix.glow}; text-shadow:0 0 5px ${newMod.prefix.color};">${newMod.fullName}</h3>
+                        <div class="grid grid-cols-2 gap-2 text-left text-xs mb-4">
+                            <div class="bg-slate-950/60 p-2 rounded">HP: <span class="font-bold text-slate-200">${newMod.hp}</span></div>
+                            <div class="bg-slate-950/60 p-2 rounded">ATK: <span class="font-bold text-slate-200">${newMod.atk}</span></div>
+                            <div class="bg-slate-950/60 p-2 rounded">DEF: <span class="font-bold text-slate-200">${newMod.def}</span></div>
+                            <div class="bg-slate-950/60 p-2 rounded">SPD: <span class="font-bold text-slate-200">${newMod.spd}</span></div>
+                        </div>
+                        <p class="text-[10px] text-slate-400">この機体は現在「ガレージ」の主力アセンブルに配備されています。</p>
+                    </div>
+                `;
+                resultCard.classList.remove('hidden');
+                
+                btn.disabled = false;
+            }, 1500);
+        }
+
+        // 装備換装
+        function equipFromInventory(id) {
+            const index = inventory.findIndex(m => m.id === id);
+            if (index !== -1) {
+                const oldModule = playerModule;
+                playerModule = inventory[index];
+                inventory.splice(index, 1);
+                if (oldModule) {
+                    inventory.push(oldModule);
+                }
+                updateGarageUI();
+            }
+        }
+
+        // 敵の再選定
+        function scoutNewEnemy() {
+            enemyModule = generateModule();
+            // 名前が被らないように「E-」をつける
+            enemyModule.name = "E-" + enemyModule.name;
+            enemyModule.fullName = "Enemy Unit [" + enemyModule.fullName + "]";
+            initCanvas();
+            
+            const log = document.getElementById('tactical-log');
+            log.innerHTML = `<div class="text-slate-500">// 新たな敵性モジュール【${enemyModule.name}】を捕捉しました。シミュレーション準備完了。</div>`;
+        }
+
+
+        // ==================== 🛠️ 4. CANVAS バトルアニメーションエンジン ====================
+        const canvas = document.getElementById('battle-canvas');
+        const ctx = canvas.getContext('2d');
+
+        // アニメーション状態パラメータ
+        let animState = {
+            running: false,
+            pUnit: { x: 180, y: 180, ox: 180, oy: 180, scale: 1, color: '#38bdf8', glow: '#0284c7', hp: 100, maxHp: 100, anim: 'idle', shake: 0 },
+            eUnit: { x: 520, y: 180, ox: 520, oy: 180, scale: 1, color: '#f43f5e', glow: '#be123c', hp: 100, maxHp: 100, anim: 'idle', shake: 0 },
+            particles: [],
+            projectiles: [],
+            damageTexts: []
+        };
+
+        function initCanvas() {
+            if(!playerModule) return;
+            if(!enemyModule) enemyModule = generateModule();
+
+            animState.pUnit.hp = playerModule.hp;
+            animState.pUnit.maxHp = playerModule.hp;
+            animState.pUnit.color = playerModule.prefix.color;
+            animState.pUnit.glow = playerModule.prefix.glow;
+            animState.pUnit.x = 180;
+            animState.pUnit.y = 180;
+
+            animState.eUnit.hp = enemyModule.hp;
+            animState.eUnit.maxHp = enemyModule.hp;
+            animState.eUnit.color = enemyModule.prefix.color;
+            animState.eUnit.glow = enemyModule.prefix.glow;
+            animState.eUnit.x = 520;
+            animState.eUnit.y = 180;
+
+            animState.particles = [];
+            animState.projectiles = [];
+            animState.damageTexts = [];
+
+            drawStage();
+        }
+
+        // 基本のレンダリング
+        function drawStage() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // サイバーグリッド背景
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 1;
+            for(let x=0; x<canvas.width; x+=40) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+            }
+            for(let y=0; y<canvas.height; y+=40) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+            }
+
+            // グラウンドライン
+            ctx.strokeStyle = '#1e293b';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(0, 240); ctx.lineTo(canvas.width, 240); ctx.stroke();
+
+            // ユニット＆HPバーの描画
+            if(playerModule) {
+                drawUnit(animState.pUnit, playerModule, true);
+            }
+            if(enemyModule) {
+                drawUnit(animState.eUnit, enemyModule, false);
+            }
+
+            // プロジェクタイル (飛び道具) の描画
+            animState.projectiles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // 光彩
+                ctx.shadowColor = p.color;
+                ctx.shadowBlur = 10;
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.size + 2, 0, Math.PI*2); ctx.fill();
+                ctx.shadowBlur = 0; // リセット
+            });
+
+            // パーティクルエフェクト
+            animState.particles.forEach(p => {
+                ctx.fillStyle = p.color;
+                ctx.globalAlpha = p.alpha;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1.0;
+
+            // ダメージテキスト
+            animState.damageTexts.forEach(t => {
+                ctx.fillStyle = t.color;
+                ctx.font = 'bold 20px monospace';
+                ctx.fillText(t.text, t.x, t.y);
+            });
+        }
+
+        // 単一ユニットの描画
+        function drawUnit(u, mod, isPlayer) {
+            ctx.save();
+            
+            // 被弾揺れ (シェイク)
+            let sx = 0;
+            if (u.shake > 0) {
+                sx = (Math.random() - 0.5) * u.shake * 5;
+                u.shake -= 0.1;
+            }
+
+            // アイドル時の縦揺れ
+            let dy = Math.sin(Date.now() * 0.005) * 5;
+
+            ctx.translate(u.x + sx, u.y + dy);
+
+            // 影
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+            ctx.beginPath();
+            ctx.ellipse(0, 60 - dy, 30, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 機体グラフィックの簡易レンダリング (武器・フレーム別に形状変化)
+            ctx.shadowColor = u.glow;
+            ctx.shadowBlur = 15;
+            
+            // コア（真ん中）
+            ctx.fillStyle = u.color;
+            ctx.beginPath();
+            ctx.arc(0, 0, 18, 0, Math.PI*2);
+            ctx.fill();
+
+            // フレームごとの外装
+            ctx.fillStyle = '#1e293b';
+            ctx.strokeStyle = u.glow;
+            ctx.lineWidth = 2;
+            if(mod.frame.name.includes("多脚")) {
+                // 4つの脚
+                ctx.fillRect(-22, 10, 8, 30);
+                ctx.fillRect(14, 10, 8, 30);
+                ctx.fillRect(-10, 15, 6, 25);
+                ctx.fillRect(4, 15, 6, 25);
+            } else if (mod.frame.name.includes("浮遊")) {
+                // スラスター
+                ctx.beginPath();
+                ctx.moveTo(-15, 10); ctx.lineTo(0, 30); ctx.lineTo(15, 10);
+                ctx.closePath(); ctx.fill(); ctx.stroke();
+            } else {
+                // 通常２脚
+                ctx.fillRect(-12, 15, 8, 25);
+                ctx.fillRect(4, 15, 8, 25);
+            }
+
+            // 武装 (左か右に向かって配置)
+            ctx.fillStyle = '#475569';
+            let dir = isPlayer ? 1 : -1;
+            if(mod.weapon.type === 'laser') {
+                ctx.fillRect(dir * 15, -8, dir * 25, 6); // ビームキャノン砲身
+            } else if (mod.weapon.type === 'blade') {
+                ctx.strokeStyle = '#00f5d4'; // 熱線ブレード
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(dir * 10, 5);
+                ctx.lineTo(dir * 35, -15);
+                ctx.stroke();
+            } else {
+                ctx.fillRect(dir * 12, -4, dir * 20, 8); // 通常ライフル
+            }
+
+            ctx.shadowBlur = 0; // リセット
+            ctx.restore();
+
+            // ライフバー、名前表示 (上に固定)
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText(mod.name, u.x, u.y - 45);
+
+            // バー背景
+            ctx.fillStyle = '#334155';
+            ctx.fillRect(u.x - 40, u.y - 35, 80, 5);
+            
+            // バー実値
+            const hpRatio = Math.max(0, u.hp / u.maxHp);
+            ctx.fillStyle = hpRatio > 0.5 ? '#22c55e' : (hpRatio > 0.25 ? '#f97316' : '#ef4444');
+            ctx.fillRect(u.x - 40, u.y - 35, 80 * hpRatio, 5);
+        }
+
+        // パーティクルの追加
+        function addParticles(x, y, color, count=10) {
+            for(let i=0; i<count; i++) {
+                animState.particles.push({
+                    x: x, y: y,
+                    vx: (Math.random() - 0.5) * 8,
+                    vy: (Math.random() - 0.5) * 8,
+                    size: Math.random() * 4 + 2,
+                    color: color,
+                    alpha: 1,
+                    decay: Math.random() * 0.05 + 0.02
+                });
+            }
+        }
+
+        // ダメージテキストのポップアップ追加
+        function addDamageText(x, y, value, isCritical=false) {
+            animState.damageTexts.push({
+                x: x, y: y - 20,
+                text: value + (isCritical ? "!!" : ""),
+                color: isCritical ? '#facc15' : '#ef4444',
+                vy: -1.5,
+                alpha: 1
+            });
+        }
+
+
+        // ==================== ⚔️ 5. バトルロジックと同期システム ====================
+        let battleTimer = null;
+
+        function startSimulatedBattle() {
+            if (!playerModule) {
+                alert("まずは「開発部」で自分用のモジュールを開発してください！");
+                return;
+            }
+            if (animState.running) return;
+
+            document.getElementById('start-battle-btn').disabled = true;
+            document.getElementById('rematch-btn').disabled = true;
+            document.getElementById('battle-status-badge').innerText = "ENGAGED";
+            document.getElementById('battle-status-badge').className = "px-3 py-1 bg-rose-950 text-xs font-bold border border-rose-500 rounded-full text-rose-400";
+
+            initCanvas();
+            animState.running = true;
+
+            const log = document.getElementById('tactical-log');
+            log.innerHTML = `<div class="text-rose-400">[TACTICAL LOG INITIALIZED]</div>`;
+            log.innerHTML += `<div class="text-slate-400">自機: HDG-${playerModule.name} vs 敵機: HDG-${enemyModule.name}</div>`;
+
+            let turn = 1;
+            
+            // アニメーションループ開始
+            function updateFrame() {
+                if(!animState.running) return;
+
+                // パーティクル更新
+                for(let i = animState.particles.length-1; i >= 0; i--) {
+                    let p = animState.particles[i];
+                    p.x += p.vx; p.y += p.vy;
+                    p.alpha -= p.decay;
+                    if(p.alpha <= 0) animState.particles.splice(i, 1);
+                }
+
+                // プロジェクタイル（飛び道具）更新
+                for(let i = animState.projectiles.length-1; i >= 0; i--) {
+                    let proj = animState.projectiles[i];
+                    proj.x += proj.vx; proj.y += proj.vy;
+                    
+                    // ターゲット(敵/味方)への接触判定
+                    let targetUnit = proj.target === 'enemy' ? animState.eUnit : animState.pUnit;
+                    let dist = Math.abs(proj.x - targetUnit.x);
+                    if(dist < 20) {
+                        // ヒット時の演出発振
+                        targetUnit.shake = 3;
+                        addParticles(proj.x, proj.y, proj.color, 12);
+                        animState.projectiles.splice(i, 1);
+                    }
+                }
+
+                // ダメージテキスト更新
+                for(let i = animState.damageTexts.length-1; i >= 0; i--) {
+                    let t = animState.damageTexts[i];
+                    t.y += t.vy;
+                    t.alpha -= 0.02;
+                    if(t.alpha <= 0) animState.damageTexts.splice(i, 1);
+                }
+
+                drawStage();
+                requestAnimationFrame(updateFrame);
+            }
+            requestAnimationFrame(updateFrame);
+
+            // ターン毎のゲームロジックイベント（遅延付きシーケンス）
+            let p_combat = { ...playerModule, animStateRef: animState.pUnit };
+            let e_combat = { ...enemyModule, animStateRef: animState.eUnit };
+
+            function executeTurn() {
+                if (p_combat.hp <= 0 || e_combat.hp <= 0 || turn > 20) {
+                    endBattle(p_combat, e_combat);
+                    return;
+                }
+
+                log.innerHTML += `<div class="text-yellow-400 font-bold mt-2">-- TURN ${turn} --</div>`;
+
+                // SPD（演算速度）に応じて先攻判定
+                let first = (p_combat.spd >= e_combat.spd) ? p_combat : e_combat;
+                let second = (p_combat.spd >= e_combat.spd) ? e_combat : p_combat;
+
+                // 第一行動者の攻撃
+                performAttack(first, second);
+
+                // 少し遅延をおいて第二行動者の反撃 (生存している場合)
+                setTimeout(() => {
+                    if (second.hp > 0 && first.hp > 0) {
+                        performAttack(second, first);
+                    }
+                    
+                    turn++;
+                    // 次のターンへ
+                    setTimeout(executeTurn, 1000);
+                }, 800);
+            }
+
+            // シミュレーション実行開始
+            setTimeout(executeTurn, 800);
+        }
+
+        // アタックシーケンス＆描画トリガー
+        function performAttack(attacker, defender) {
+            const isPlayerAttacking = (attacker.id === playerModule.id);
+            const attackSign = isPlayerAttacking ? 1 : -1;
+
+            // アニメーションアクション
+            if (attacker.weapon.type === 'blade') {
+                // 近接攻撃：急接近して切る
+                let startX = attacker.animStateRef.x;
+                attacker.animStateRef.x = defender.animStateRef.x - (attackSign * 50); // 近づく
+                setTimeout(() => {
+                    // スラッシュ火花
+                    addParticles(defender.animStateRef.x, defender.animStateRef.y, '#00f5d4', 15);
+                    attacker.animStateRef.x = startX; // 元の戻る
+                }, 200);
+            } else if (attacker.weapon.type === 'laser') {
+                // 極太ビーム
+                ctx.save();
+                ctx.strokeStyle = attacker.prefix.glow;
+                ctx.lineWidth = 12;
+                ctx.shadowColor = attacker.prefix.glow;
+                ctx.shadowBlur = 20;
+                ctx.beginPath();
+                ctx.moveTo(attacker.animStateRef.x, attacker.animStateRef.y);
+                ctx.lineTo(defender.animStateRef.x, defender.animStateRef.y);
+                ctx.stroke();
+                ctx.restore();
+                addParticles(defender.animStateRef.x, defender.animStateRef.y, attacker.prefix.color, 10);
+            } else {
+                // 実弾、ミサイルの飛び道具オブジェクト射出
+                animState.projectiles.push({
+                    x: attacker.animStateRef.x,
+                    y: attacker.animStateRef.y,
+                    vx: attackSign * 12,
+                    vy: 0,
+                    size: attacker.weapon.type === 'missile' ? 6 : 4,
+                    color: attacker.prefix.color,
+                    target: isPlayerAttacking ? 'enemy' : 'player'
+                });
+            }
+
+            // ダメージ計算（基本攻撃力 - 防御力 + ランダム要素）
+            const rangeFactor = Math.random() * 0.3 + 0.85; // 0.85 〜 1.15倍
+            let rawDamage = Math.max(15, Math.floor((attacker.atk - (defender.def * 0.35)) * rangeFactor));
+            
+            // クリティカル判定
+            const isCritical = Math.random() < 0.15;
+            if(isCritical) rawDamage = Math.floor(rawDamage * 1.5);
+
+            defender.hp -= rawDamage;
+            if(defender.hp < 0) defender.hp = 0;
+
+            // ライフ反映
+            defender.animStateRef.hp = defender.hp;
+
+            // ログとダメージ表示の出力
+            addDamageText(defender.animStateRef.x, defender.animStateRef.y, rawDamage, isCritical);
+            
+            const log = document.getElementById('tactical-log');
+            let logMsg = `<div class="pl-2 border-l border-slate-700">`;
+            logMsg += `<b>[${attacker.name}]</b> が [${attacker.weapon.name}] で攻撃！<br>`;
+            if (isCritical) logMsg += `<span class="text-yellow-500 font-bold">▶ クリティカルヒット！</span> `;
+            logMsg += `[${defender.name}] に <span class="text-rose-500 font-bold">${rawDamage}</span> の有効打撃。（残りHP: ${defender.hp})`;
+            logMsg += `</div>`;
+            log.innerHTML += logMsg;
+
+            // 自動スクロール
+            log.scrollTop = log.scrollHeight;
+        }
+
+        // バトル決着
+        function endBattle(p, e) {
+            animState.running = false;
+            
+            const log = document.getElementById('tactical-log');
+            log.innerHTML += `<div class="text-blue-400 font-bold mt-4">==============================</div>`;
+
+            if (p.hp <= 0 && e.hp <= 0) {
+                log.innerHTML += `<div class="text-slate-400 font-bold">[!] 両者相討ち。大破判定。</div>`;
+            } else if (p.hp <= 0) {
+                log.innerHTML += `<div class="text-red-500 font-bold">[LOSE] シミュレーション敗北。機体の更なる強化が必要です。</div>`;
+            } else if (e.hp <= 0) {
+                log.innerHTML += `<div class="text-emerald-400 font-bold">[WIN] シミュレーション完全勝利！おめでとうございます。</div>`;
+            } else {
+                log.innerHTML += `<div class="text-slate-400 font-bold">[TIMEOUT] 規定ターン終了。時間切れ引き分け。</div>`;
+            }
+
+            log.scrollTop = log.scrollHeight;
+
+            document.getElementById('start-battle-btn').disabled = false;
+            document.getElementById('rematch-btn').disabled = false;
+            document.getElementById('battle-status-badge').innerText = "READY";
+            document.getElementById('battle-status-badge').className = "px-3 py-1 bg-slate-950 text-xs font-bold border border-slate-800 rounded-full text-slate-400";
+        }
+
+
+        // --- 6. 初期化 ---
+        window.onload = function() {
+            // 最初の一体を作成
+            rollGacha();
+            scoutNewEnemy();
+            switchTab('garage');
+        };
+    </script>
+</body>
+</html>
