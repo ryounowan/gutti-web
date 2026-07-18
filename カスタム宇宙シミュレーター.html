@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>🪐 カスタム宇宙重力シミュレーター</title>
+    <style>
+        body {
+            margin: 0; padding: 0; background: #020617; color: #fff;
+            font-family: 'Helvetica Neue', Arial, sans-serif; overflow: hidden; height: 100vh;
+            user-select: none;
+        }
+        #canvas { display: block; cursor: crosshair; }
+        
+        /* コントロールパネル */
+        .ui-panel {
+            position: absolute; top: 15px; left: 15px;
+            background: rgba(15, 23, 42, 0.9); padding: 20px;
+            border-radius: 12px; border: 1px solid #334155;
+            pointer-events: auto; width: 300px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+            max-height: 90vh; overflow-y: auto;
+        }
+        h1 { font-size: 1.2rem; margin: 0 0 5px 0; color: #38bdf8; text-align: center; }
+        p.desc { font-size: 0.75rem; color: #94a3b8; margin: 0 0 15px 0; line-height: 1.4; }
+        
+        .section-title {
+            font-size: 0.85rem; font-weight: bold; color: #f59e0b;
+            margin: 15px 0 8px 0; border-bottom: 1px solid #334155; padding-bottom: 3px;
+        }
+
+        /* フォーム要素 */
+        .form-group { margin-bottom: 12px; }
+        .form-group label { display: block; font-size: 0.8rem; color: #cbd5e1; margin-bottom: 4px; }
+        .input-row { display: flex; gap: 5px; }
+        input[type="text"], input[type="number"] {
+            flex: 1; background: #0f172a; color: #fff; border: 1px solid #475569;
+            padding: 6px 10px; border-radius: 6px; font-size: 0.85rem; outline: none;
+        }
+        input[type="color"] {
+            width: 40px; height: 31px; background: none; border: 1px solid #475569; border-radius: 6px; cursor: pointer; padding: 0;
+        }
+        
+        .btn-dice {
+            background: #334155; color: white; border: none; padding: 0 10px;
+            border-radius: 6px; cursor: pointer; font-size: 1rem;
+        }
+        .btn-dice:hover { background: #475569; }
+
+        /* メインボタン */
+        .btn-launch {
+            width: 100%; background: #2563eb; color: white; border: none; padding: 10px;
+            font-size: 0.9rem; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 10px;
+            box-shadow: 0 4px 12px rgba(37,99,235,0.3);
+        }
+        .btn-launch:hover { background: #3b82f6; }
+        
+        .btn-clear {
+            width: 100%; background: #none; color: #ef4444; border: 1px solid #ef4444; padding: 6px;
+            font-size: 0.8rem; font-weight: bold; border-radius: 6px; cursor: pointer; margin-top: 8px;
+        }
+        .btn-clear:hover { background: rgba(239,68,68,0.1); }
+
+        /* スライダー調整 */
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #cbd5e1;}
+        input[type="range"] { width: 100%; margin-top: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="ui-panel">
+        <h1>🪐 カスタム宇宙シミュレーター</h1>
+        <p class="desc">自分だけの惑星を設定して配置するか、画面をドラッグ＆ドロップしてスリングショット発射できます。</p>
+        
+        <div class="section-title">🚀 次に生まれる惑星の設定</div>
+        
+        <div class="form-group">
+            <label>星の名前</label>
+            <div class="input-row">
+                <input type="text" id="pName" value="ゼノン-IV">
+                <button class="btn-dice" onclick="generateRandomName()" title="ランダムな名前を生成">🎲</button>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="slider-label"><span>質量（重さ・大きさ）</span><span id="massVal">10</span></label>
+            <input type="range" id="pMass" min="1" max="500" value="10" oninput="document.getElementById('massVal').innerText=this.value">
+        </div>
+
+        <div class="form-group">
+            <label>星の色</label>
+            <input type="color" id="pColor" value="#38bdf8">
+        </div>
+
+        <div class="form-group">
+            <label class="slider-label"><span>初速（ドラッグ時追加）</span><span id="speedVal">1.0</span></label>
+            <input type="range" id="pSpeedMultiplier" min="0.1" max="3.0" step="0.1" value="1.0" oninput="document.getElementById('speedVal').innerText=this.value">
+        </div>
+
+        <button class="btn-launch" onclick="launchAtCenter()">✨ 画面中央付近にそっと配置</button>
+        
+        <div class="section-title">⚙️ 宇宙全体のシステム</div>
+        <div class="form-group">
+            <label class="slider-label"><span>太陽の質量</span><span id="sunMassVal">15000</span></label>
+            <input type="range" id="sunMass" min="0" max="50000" step="1000" value="15000" oninput="document.getElementById('sunMassVal').innerText=this.value; sun.mass=Number(this.value)">
+        </div>
+
+        <button class="btn-clear" onclick="clearPlanets()">🗑️ すべての惑星をリセット</button>
+    </div>
+
+    <canvas id="canvas"></canvas>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    function resize() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
+    const G = 0.15; // 重力定数
+    
+    // 中心の太陽（動的な位置を持つようにオブジェクト化）
+    let sun = {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+        vx: 0, vy: 0,
+        mass: 15000,
+        radius: 25
+    };
+
+    let planets = [];
+    let isDragging = false;
+    let dragStart = { x: 0, y: 0 };
+    let mousePos = { x: 0, y: 0 };
+
+    // ランダムな名前のパーツ
+    const namePrefix = ["アストラル", "ゼノン", "ネビュラ", "クロノ", "タイタン", "オリオン", "ルミナス", "ケプラー", "コスモ", "ヴォイド"];
+    const nameSuffix = ["I", "IV", "IX", "Prime", "B", "-7", "ネオ", "-アルファ", "Ω", "ズータ"];
+
+    function generateRandomName() {
+        const pre = namePrefix[Math.floor(Math.random() * namePrefix.length)];
+        const suf = nameSuffix[Math.floor(Math.random() * nameSuffix.length)];
+        document.getElementById('pName').value = `${pre}-${suf}`;
+        
+        // 色もついでにランダムチェンジ
+        document.getElementById('pColor').value = '#' + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+    }
+
+    // ドラッグ開始
+    canvas.addEventListener('mousedown', (e) => {
+        // UIパネル上のクリックは無視する
+        if(e.clientX < 330 && e.clientY < canvas.height * 0.95) return;
+        
+        isDragging = true;
+        dragStart.x = e.clientX;
+        dragStart.y = e.clientY;
+        mousePos.x = e.clientX;
+        mousePos.y = e.clientY;
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!isDragging) return;
+        mousePos.x = e.clientX;
+        mousePos.y = e.clientY;
+    });
+
+    canvas.addEventListener('mouseup', (e) => {
+        if (!isDragging) return;
+        isDragging = false;
+
+        const dx = dragStart.x - e.clientX;
+        const dy = dragStart.y - e.clientY;
+        
+        createPlanet(dragStart.x, dragStart.y, dx, dy);
+        generateRandomName(); // 次のために名前を自動更新
+    });
+
+    // パネルから直接「そっと置く」機能
+    function launchAtCenter() {
+        // 太陽の少し斜め上に配置して、緩やかに回りやすいように横方向の初期速度を与える
+        const rx = sun.x + (Math.random() * 60 + 120);
+        const ry = sun.y - (Math.random() * 60 + 120);
+        
+        // 円軌道に近い速度をざっくり計算して与える
+        createPlanet(rx, ry, -25, -25);
+        generateRandomName();
+    }
+
+    // 惑星オブジェクトの生成
+    function createPlanet(x, y, dx, dy) {
+        const name = document.getElementById('pName').value || '名無しの星';
+        const mass = Number(document.getElementById('pMass').value);
+        const color = document.getElementById('pColor').value;
+        const speedMultiplier = Number(document.getElementById('pSpeedMultiplier').value);
+
+        // 質量に応じて半径の見た目を変える
+        const radius = Math.max(3, Math.min(20, Math.pow(mass, 0.4)));
+
+        planets.push({
+            name: name,
+            x: x, y: y,
+            vx: dx * 0.05 * speedMultiplier,
+            vy: dy * 0.05 * speedMultiplier,
+            mass: mass,
+            radius: radius,
+            color: color,
+            path: []
+        });
+    }
+
+    function clearPlanets() { planets = []; sun.x = canvas.width/2; sun.y = canvas.height/2; sun.vx = 0; sun.vy = 0; }
+
+    // メインループ
+    function loop() {
+        // 残像エフェクト背景
+        ctx.fillStyle = 'rgba(2, 6, 23, 0.25)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 1. 太陽の物理更新（惑星があまりに重いと太陽も動くアクション）
+        sun.x += sun.vx;
+        sun.y += sun.vy;
+        // 太陽が画面外に逃げすぎないように、中心へ緩やかに引き戻す抵抗をかける
+        sun.vx *= 0.98; sun.vy *= 0.98;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        sun.vx += (centerX - sun.x) * 0.001;
+        sun.vy += (centerY - sun.y) * 0.001;
+
+        // 太陽のグラデーション描画
+        if (sun.mass > 0) {
+            const sunGrad = ctx.createRadialGradient(sun.x, sun.y, 0, sun.x, sun.y, sun.radius * 1.5);
+            sunGrad.addColorStop(0, '#fffbeb'); sunGrad.addColorStop(0.2, '#f59e0b'); sunGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+            ctx.fillStyle = sunGrad; ctx.beginPath(); ctx.arc(sun.x, sun.y, sun.radius * 1.5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // ドラッグ中の発射予測線の描画
+        if (isDragging) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
+            ctx.lineWidth = 1.5; ctx.setLineDash([4, 4]);
+            ctx.beginPath(); ctx.moveTo(dragStart.x, dragStart.y); ctx.lineTo(mousePos.x, mousePos.y); ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = document.getElementById('pColor').value;
+            ctx.beginPath(); ctx.arc(dragStart.x, dragStart.y, 5, 0, Math.PI * 2); ctx.fill();
+        }
+
+        // 2. 各惑星の計算
+        for (let i = planets.length - 1; i >= 0; i--) {
+            let p = planets[i];
+
+            const dx = sun.x - p.x;
+            const dy = sun.y - p.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            // 太陽に衝突
+            if (distance < sun.radius && sun.mass > 0) {
+                planets.splice(i, 1);
+                continue;
+            }
+
+            // 万有引力の計算 (太陽 -> 惑星)
+            if (sun.mass > 0) {
+                const force = (G * sun.mass) / (distance * distance);
+                const ax = force * (dx / distance);
+                const ay = force * (dy / distance);
+                p.vx += ax; p.vy += ay;
+
+                // 作用反作用の法則：惑星の重さによって太陽も影響を受ける
+                const sunForce = (G * p.mass) / (distance * distance);
+                sun.vx -= sunForce * (dx / distance);
+                sun.vy -= sunForce * (dy / distance);
+            }
+
+            // 位置更新
+            p.x += p.vx; p.y += p.vy;
+
+            // 速度（km/sっぽいダミー表示用）
+            const velocity = Math.sqrt(p.vx * p.vx + p.vy * p.vy) * 15;
+
+            // 軌跡の保存と描画
+            p.path.push({ x: p.x, y: p.y });
+            if (p.path.length > 60) p.path.shift();
+            if (p.path.length > 1) {
+                ctx.strokeStyle = p.color; ctx.lineWidth = 1; ctx.globalAlpha = 0.3;
+                ctx.beginPath(); ctx.moveTo(p.path[0].x, p.path[0].y);
+                for (let j = 1; j < p.path.length; j++) ctx.lineTo(p.path[j].x, p.path[j].y);
+                ctx.stroke(); ctx.globalAlpha = 1.0;
+            }
+
+            // 惑星本体の描画
+            ctx.fillStyle = p.color; ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fill();
+
+            // ⭐【新規】星の名前とステータスを追従表示
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.font = '11px sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(p.name, p.x + p.radius + 5, p.y - 2);
+            
+            ctx.fillStyle = p.color;
+            ctx.font = '9px monospace';
+            ctx.fillText(`${velocity.toFixed(1)} km/s`, p.x + p.radius + 5, p.y + 9);
+
+            // 宇宙の果てへ吹き飛んだら削除
+            if (distance > Math.max(canvas.width, canvas.height) * 4) {
+                planets.splice(i, 1);
+            }
+        }
+
+        requestAnimationFrame(loop);
+    }
+
+    // 初期起動
+    generateRandomName();
+    loop();
+</script>
+</body>
+</html>
