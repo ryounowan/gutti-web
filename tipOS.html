@@ -3,233 +3,779 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>素材 → .tip 一括ファイル生成ツール</title>
+    <title>tipOS</title>
+    <!-- 必要なライブラリ -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
     <style>
         :root {
-            --primary: #007aff;
-            --success: #34c759;
-            --bg: #f5f5f7;
-            --card: #ffffff;
-            --text: #1d1d1f;
-            --border: #d2d2d7;
+            --bg-color: #e0e0e0;
+            --panel-bg: #fff;
+            --text-color: #333;
+            --sub-text: #666;
+            --bar-bg: #d8d8d8;
+            --bar-border: #ccc;
+            --switch-blue: #00c6ff;
+            --card-shadow: rgba(0,0,0,0.15);
         }
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background-color: var(--bg);
-            color: var(--text);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }
-        .container {
-            max-width: 700px;
-            width: 100%;
-            background: var(--card);
-            padding: 30px;
-            border-radius: 20px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-            box-sizing: border-box;
-        }
-        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 25px; }
-        .section {
-            border: 1px solid #e5e5e7;
-            padding: 20px;
-            border-radius: 12px;
-            margin-bottom: 20px;
-        }
-        .section-title { font-weight: bold; margin-bottom: 15px; font-size: 0.95rem; color: #8e8e93; text-transform: uppercase; }
-        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
-        
-        input[type="text"], textarea {
-            width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border);
-            border-radius: 8px;
-            font-size: 0.95rem;
-            box-sizing: border-box;
-            margin-bottom: 15px;
-            background: #fafafa;
-        }
-        textarea { height: 120px; resize: vertical; font-family: monospace; }
-        
-        .profile-preview {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            margin-bottom: 10px;
-        }
-        .avatar-preview {
-            width: 60px;
-            height: 60px;
-            border-radius: 50%;
-            object-fit: cover;
-            background: #e5e5e7;
-            border: 1px solid var(--border);
+        /* 🌗 ダークモード用カラー定義 */
+        .dark-theme {
+            --bg-color: #1e1e1e;
+            --panel-bg: #2d2d2d;
+            --text-color: #f5f5f5;
+            --sub-text: #aaa;
+            --bar-bg: #252525;
+            --bar-border: #444;
+            --card-shadow: rgba(0,0,0,0.5);
         }
 
-        .btn-group {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        button {
-            flex: 1;
-            padding: 14px;
-            color: white;
-            border: none;
-            border-radius: 10px;
-            font-size: 1rem;
-            font-weight: bold;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-        button:hover { opacity: 0.9; }
-        .btn-primary { background: var(--primary); }
-        .btn-success { background: var(--success); }
+        /* 🔵 選択反転・右クリックの完全禁止 */
+        * { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; box-sizing: border-box; }
         
-        .status-msg {
-            font-size: 0.85rem;
-            color: #8e8e93;
-            margin-top: -10px;
-            margin-bottom: 15px;
+        body {
+            margin: 0; background-color: var(--bg-color); color: var(--text-color);
+            font-family: 'Helvetica Neue', Arial, sans-serif; overflow: hidden; transition: background 0.3s, color 0.3s;
         }
+
+        /* ステータスバー */
+        .statusbar {
+            display: flex; justify-content: space-between; align-items: center; padding: 10px 40px; font-size: 18px; font-weight: bold; background: var(--bar-bg); border-bottom: 2px solid var(--bar-border);
+        }
+        .user-profile-trigger {
+            display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 4px 12px; border-radius: 20px; transition: 0.1s;
+        }
+        .user-profile-trigger:hover { background: rgba(0,0,0,0.1); }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; border: 2px solid var(--switch-blue); }
+
+        .system-controls { display: flex; align-items: center; gap: 20px; }
+        .p2p-status { font-size: 14px; display: flex; align-items: center; gap: 8px; }
+        .my-id-display { background: var(--panel-bg); padding: 2px 8px; border-radius: 4px; font-family: monospace; border: 1px solid var(--bar-border); }
+
+        /* ホームメニュー */
+        .home-menu-wrapper { position: relative; display: flex; align-items: center; }
+        .home-menu {
+            display: flex; align-items: center; padding: 40px 60px; gap: 25px; overflow-x: auto; height: 260px; scroll-behavior: smooth; width: 100%;
+        }
+        .home-menu::-webkit-scrollbar { display: none; }
+
+        /* アプリボックス・バッジ */
+        .app-container-box { position: relative; min-width: 180px; max-width: 180px; height: 180px; }
+        .app-card {
+            width: 100%; height: 100%; background: var(--panel-bg); border: 4px solid transparent; border-radius: 12px; box-shadow: 0 6px 15px var(--card-shadow); cursor: pointer; overflow: hidden; transition: transform 0.1s, border-color 0.1s; position: relative;
+        }
+        .app-card:hover { border-color: var(--switch-blue); transform: scale(1.05); }
+        .app-card img { width: 100%; height: 100%; object-fit: cover; }
+        
+        /* 🎁 プレゼントマーク (左上) */
+        .gift-badge {
+            position: absolute; top: 8px; left: 8px; width: 28px; height: 28px; background: #ff4b72; color: white; border-radius: 50%; text-align: center; line-height: 28px; font-size: 14px; z-index: 5; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        }
+
+        /* 🔒 ロック・残り日数オーバーレイ */
+        .app-locked-overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; color: white; font-weight: bold; pointer-events: none; font-size: 13px; text-align: center; padding: 10px;
+        }
+
+        /* ⚙️ 三点リーダー */
+        .app-menu-trigger {
+            position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; background: rgba(0,0,0,0.75); color: white; border-radius: 50%; text-align: center; line-height: 24px; font-weight: bold; cursor: pointer; z-index: 10; font-size: 16px; border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        /* Switch風全表示ボタン */
+        .all-apps-btn {
+            min-width: 80px; height: 180px; background: var(--panel-bg); border-radius: 12px; display: flex; flex-direction: column; justify-content: center; align-items: center; cursor: pointer; box-shadow: 0 6px 15px var(--card-shadow); font-weight: bold; border: 4px solid transparent; transition: 0.1s;
+        }
+        .all-apps-btn:hover { border-color: var(--switch-blue); color: var(--switch-blue); }
+
+        /* 説明バー */
+        .info-bar { background: var(--panel-bg); margin: 0 60px; padding: 25px; border-radius: 12px; min-height: 70px; box-shadow: inset 0 2px 8px rgba(0,0,0,0.05); }
+        .info-title { font-size: 24px; font-weight: bold; margin-bottom: 6px; }
+        .info-desc { font-size: 16px; color: var(--sub-text); }
+
+        /* フッター */
+        .footer { position: absolute; bottom: 25px; right: 40px; left: 40px; display: flex; justify-content: space-between; align-items: center; }
+        .file-input-btn { background: #313131; color: white; padding: 12px 24px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+        .system-sett-btn { background: #555; color: white; padding: 12px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; border: none; margin-right: 10px; }
+
+        /* モーダル基本構造 */
+        .overlay {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(15, 15, 15, 0.9); z-index: 20000;
+            display: flex; justify-content: center; align-items: center; color: #333; display: none;
+        }
+        .card {
+            background: #fff; padding: 30px; border-radius: 16px; box-shadow: 0 15px 40px rgba(0,0,0,0.5); max-width: 460px; width: 90%; position: relative;
+        }
+        .card h3, .card h2 { margin-top: 0; font-size: 20px; border-bottom: 2px solid #eee; padding-bottom: 10px; color: #333; }
+        .card p { color: #666; font-size: 13px; }
+        .form-label { font-size: 12px; font-weight: bold; color: #444; display: block; margin-top: 8px; }
+        
+        .menu-list-item {
+            padding: 12px; border-radius: 8px; cursor: pointer; font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 8px; background: #f5f5f5; color: #333; align-items: center;
+        }
+        .menu-list-item:hover { background: #e0e0e0; }
+        .menu-list-item.danger { color: #ff3b30; }
+        .menu-list-item.danger:hover { background: #ffebeb; }
+        .menu-list-item.disabled { opacity: 0.4; cursor: not-allowed; }
+
+        /* フレンドリスト用 */
+        .friend-box { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #f9f9f9; border-radius: 6px; margin-bottom: 6px; border: 1px solid #eee; }
+        .friend-info { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 14px; }
+        .friend-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; }
+
+        /* 全表示グリッド */
+        .grid-container { width: 85%; height: 80%; background: #fff; border-radius: 16px; padding: 40px; overflow-y: auto; position: relative; }
+        .app-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 25px; margin-top: 20px; }
+
+        /* フォームパーツ */
+        .input-field { width: 100%; padding: 10px; font-size: 14px; border: 2px solid #ccc; border-radius: 6px; margin: 5px 0 10px 0; box-sizing: border-box; }
+        .file-select-input { width: 100%; padding: 5px; font-size: 13px; margin: 5px 0; }
+        .btn { padding: 10px 20px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 14px; margin-top: 5px; }
+        .btn-primary { background: var(--switch-blue); color: white; }
+        .btn-danger { background: #ff3b30; color: white; }
+        .btn-close { position: absolute; top: 15px; right: 15px; background: none; border: none; font-size: 20px; cursor: pointer; color: #999; }
+
+        /* アプリ画面 */
+        .app-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: white; display: none; z-index: 9999; }
+        .app-frame { width: 100%; height: 100%; border: none; }
+        .close-app-btn { position: fixed; top: 15px; right: 15px; z-index: 100000; background: rgba(0,0,0,0.85); color: white; border: 2px solid rgba(255,255,255,0.4); padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <h1>素材 → .tip ファイル生成ツール</h1>
-
-    <!-- ユーザー情報設定 -->
-    <div class="section">
-        <div class="section-title">ユーザー情報 (リフレッシュ後も保持)</div>
-        <div class="profile-preview">
-            <img id="user-avatar" class="avatar-preview" src="" alt="未設定">
-            <div style="flex-grow: 1;">
-                <label for="username-input">ユーザー名</label>
-                <input type="text" id="username-input" placeholder="名前を入力...">
-            </div>
+    <!-- ステータスバー -->
+    <div class="statusbar">
+        <div class="user-profile-trigger" onclick="openProfileModal()">
+            <img src="" id="status-user-avatar" class="user-avatar" alt="Avatar">
+            <span id="status-user-name">---</span>
         </div>
-        <label for="avatar-file">アイコン画像アップロード (`icon.jpg`等)</label>
-        <input type="file" id="avatar-file" accept="image/*">
+        <div class="system-controls">
+            <div class="p2p-status">
+                <span>📡 ID:</span>
+                <span class="my-id-display" id="my-peer-id">接続中...</span>
+            </div>
+            <div id="current-time">00:00</div>
+        </div>
     </div>
 
-    <!-- 複数ファイル素材の読み込み機能 -->
-    <div class="section">
-        <div class="section-title">アプリ素材の一括読み込み</div>
-        <label for="material-files">関連するファイルを選択 (`index.html`, `info.txt` など複数選択可)</label>
-        <input type="file" id="material-files" multiple>
-        <div id="file-status" class="status-msg">選択されていません</div>
-
-        <label for="app-description">アプリ解説 / ソースコード (自動統合用)</label>
-        <textarea id="app-description" placeholder="ファイルを選択すると、ここの内容が自動で更新・統合されます..."></textarea>
+    <!-- メインメニュー -->
+    <div class="home-menu-wrapper">
+        <div class="home-menu" id="home-menu"></div>
     </div>
 
-    <!-- アクションボタン -->
-    <div class="btn-group">
-        <button class="btn-primary" onclick="updatePreviewAndData()">データを統合する</button>
-        <button class="btn-success" onclick="downloadTipFile()">.tip ファイルをダウンロード</button>
+    <!-- 情報バー -->
+    <div class="info-bar">
+        <div class="info-title" id="info-title">ファイルをインポートしてください</div>
+        <div class="info-desc" id="info-desc">右下のボタンからアプリパッケージを追加できます。</div>
     </div>
-</div>
 
-<script>
-    let uploadedMaterials = {};
+    <!-- フッター -->
+    <div class="footer">
+        <div>
+            <button class="system-sett-btn" onclick="openModal('modal-system-settings')">⚙️ OS設定</button>
+            <button class="system-sett-btn" onclick="openFriendModal()">👥 フレンド機能</button>
+        </div>
+        <label class="file-input-btn">
+            ＋ .tipをインポート
+            <input type="file" id="file-picker" accept=".tip" style="display: none;" multiple>
+        </label>
+    </div>
 
-    // ページ起動時にLocalStorageからユーザーデータを復元
-    window.addEventListener('DOMContentLoaded', () => {
-        const savedName = localStorage.getItem('tip_username');
-        const savedAvatar = localStorage.getItem('tip_avatar');
-
-        if (savedName) document.getElementById('username-input').value = savedName;
-        if (savedAvatar) document.getElementById('user-avatar').src = savedAvatar;
-        
-        // ユーザー名の変更をリアルタイムでLocalStorageに保存
-        document.getElementById('username-input').addEventListener('input', (e) => {
-            localStorage.setItem('tip_username', e.target.value);
-        });
-    });
-
-    // アイコン画像をBase64形式に変換して保持
-    document.getElementById('avatar-file').addEventListener('change', (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const base64Data = event.target.result;
-            document.getElementById('user-avatar').src = base64Data;
-            localStorage.setItem('tip_avatar', base64Data);
-        };
-        reader.readAsDataURL(file);
-    });
-
-    // 複数素材ファイル（HTMLやテキスト）を同時に読み込んでマージする
-    document.getElementById('material-files').addEventListener('change', async (e) => {
-        const files = e.target.files;
-        if (!files.length) return;
-
-        uploadedMaterials = {};
-        let statusTexts = [];
-        let combinedText = "";
-
-        for (let file of files) {
-            statusTexts.push(`${file.name} (${Math.round(file.size / 1024)} KB)`);
+    <!-- 👤 初回起動＆プロフィール再設定モーダル -->
+    <div id="modal-profile" class="overlay">
+        <div class="card">
+            <button id="profile-close-btn" class="btn-close" onclick="closeModal('modal-profile')">✕</button>
+            <h2>ユーザープロフィール設定</h2>
+            <p>OS内で表示する名前と、アイコン画像（ファイルまたはURL）を設定してください。</p>
             
-            // ファイルの中身をテキストとして読み込む
-            const text = await file.text();
-            uploadedMaterials[file.name] = text;
+            <label class="form-label">ユーザー名</label>
+            <input type="text" id="setup-username" class="input-field" placeholder="ユーザー名を入力">
+            
+            <label class="form-label">アイコン画像 (デバイスから選ぶ)</label>
+            <input type="file" id="setup-avatar-file" accept="image/*" class="file-select-input">
+            
+            <label class="form-label">または、画像のURLを入力</label>
+            <input type="text" id="setup-avatar-url" class="input-field" placeholder="https://example.com/icon.png">
+            
+            <button class="btn btn-primary" style="width: 100%; margin-top:10px;" onclick="saveProfile()">設定を保存して適用</button>
+        </div>
+    </div>
 
-            // テキストエリアに統合して表示するための整形
-            combinedText += `=== 【ファイル名: ${file.name}】 ===\n${text}\n\n`;
+    <!-- 🎛 アプリメニュー -->
+    <div id="modal-app-menu" class="overlay">
+        <div class="card">
+            <button class="btn-close" onclick="closeModal('modal-app-menu')">✕</button>
+            <h3 id="menu-app-title">アプリの設定</h3>
+            <div id="menu-give-btn" class="menu-list-item" onclick="openP2PModal('give')">🎁 誰かにあげる (プレゼント)</div>
+            <div class="menu-list-item" onclick="openP2PModal('lend')">🔑 誰かに貸す (期間限定)</div>
+            <div class="menu-list-item danger" onclick="deleteTargetApp()">🗑 この端末から消去</div>
+        </div>
+    </div>
+
+    <!-- 📡 P2P受送信モーダル -->
+    <div id="modal-p2p" class="overlay">
+        <div class="card">
+            <button class="btn-close" onclick="closeModal('modal-p2p')">✕</button>
+            <h3 id="p2p-modal-title">P2P送信</h3>
+            
+            <label style="font-weight: bold; font-size: 13px;">👥 フレンドから選ぶ:</label>
+            <select id="p2p-friend-select" class="input-field" onchange="syncFriendIdToInput()">
+                <option value="">-- フレンドを選択 --</option>
+            </select>
+
+            <label style="font-weight: bold; font-size: 13px;">直接IDを入力:</label>
+            <input type="text" id="p2p-target-id" class="input-field" placeholder="通信IDを入力">
+            
+            <div id="lend-days-container" style="display: none; text-align: left; margin-top: 5px;">
+                <label style="font-weight: bold; font-size: 13px;">貸出期間 (1〜7日間):</label>
+                <input type="number" id="lend-days" class="input-field" min="1" max="7" value="1">
+            </div>
+
+            <button class="btn btn-primary" style="width:100%; margin-top:15px;" onclick="executeP2PTransfer()">送信実行</button>
+        </div>
+    </div>
+
+    <!-- 👥 フレンド管理モーダル -->
+    <div id="modal-friends" class="overlay">
+        <div class="card">
+            <button class="btn-close" onclick="closeModal('modal-friends')">✕</button>
+            <h3>フレンド機能 (最大10人)</h3>
+            <div style="margin-bottom: 15px; background: #fcfcfc; padding: 10px; border-radius: 8px; border: 1px dashed #ccc;">
+                <input type="text" id="new-friend-id" class="input-field" placeholder="フレンドの通信IDを入力">
+                <input type="text" id="new-friend-name" class="input-field" placeholder="フレンドのニックネームを入力">
+                
+                <label class="form-label" style="margin-top:0;">フレンド画像 (デバイスから選ぶ)</label>
+                <input type="file" id="new-friend-avatar-file" accept="image/*" class="file-select-input">
+                
+                <label class="form-label">または、画像URLを入力</label>
+                <input type="text" id="new-friend-avatar" class="input-field" placeholder="画像URL(任意)">
+                
+                <button class="btn btn-primary" style="width: 100%;" onclick="addFriend()">フレンドを追加</button>
+            </div>
+            <div id="friend-list-box" style="max-height: 200px; overflow-y: auto;"></div>
+        </div>
+    </div>
+
+    <!-- ⚙️ OS設定モーダル -->
+    <div id="modal-system-settings" class="overlay">
+        <div class="card">
+            <button class="btn-close" onclick="closeModal('modal-system-settings')">✕</button>
+            <h3>⚙️ システム設定</h3>
+            
+            <label style="font-weight: bold; font-size: 14px;">画面モード設定:</label>
+            <div style="display: flex; gap: 10px; margin: 10px 0;">
+                <button class="btn style-btn" style="flex:1; background:#fff; color:#333; border:1px solid #ccc;" onclick="setThemeMode('light')">☀️ ライト</button>
+                <button class="btn style-btn" style="flex:1; background:#222; color:#fff;" onclick="setThemeMode('dark')">🌙 ダーク</button>
+            </div>
+            
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+            <label style="font-weight: bold; color: #ff3b30; font-size: 14px;">危険ゾーン:</label>
+            <p style="margin: 5px 0 10px 0;">OS内の全アプリ、設定、セーブデータを完全に工場出荷状態に戻します。</p>
+            <button class="btn btn-danger" style="width: 100%;" onclick="factoryResetOS()">データを全消去（初期化）</button>
+        </div>
+    </div>
+
+    <!-- 📱 全表示モーダル -->
+    <div id="modal-all-apps" class="overlay">
+        <div class="grid-container">
+            <button class="btn-close" onclick="closeModal('modal-all-apps')">✕</button>
+            <h2 style="color:#333;">すべてのアプリ一覧</h2>
+            <div class="app-grid" id="all-apps-grid"></div>
+        </div>
+    </div>
+
+    <!-- アプリ枠 -->
+    <div id="app-container" class="app-container">
+        <button class="close-app-btn" onclick="closeApp()">✕ ホームに戻る</button>
+        <iframe id="app-frame" class="app-frame" sandbox="allow-scripts allow-same-origin allow-modals allow-popups allow-forms"></iframe>
+    </div>
+
+    <script>
+        let db;
+        let osState = {
+            theme: "light",
+            user: { name: "", avatar: "" },
+            globalApps: [],
+            friends: []
+        };
+        let selectedAppIndex = null;
+        let p2pMode = null;
+        let peer;
+
+        // 禁止処理
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('selectstart', e => e.preventDefault());
+
+        function initDB() {
+            return new Promise((resolve, reject) => {
+                const request = indexedDB.open("UltimateOS_Database", 3);
+                request.onupgradeneeded = (e) => {
+                    const d = e.target.result;
+                    if (!d.objectStoreNames.contains("system")) d.createObjectStore("system");
+                    if (!d.objectStoreNames.contains("app_saves")) d.createObjectStore("app_saves"); 
+                };
+                request.onsuccess = (e) => { db = e.target.result; resolve(); };
+                request.onerror = (e) => reject(e.target.error);
+            });
         }
 
-        document.getElementById('file-status').innerText = `読み込み済み: ${statusTexts.join(', ')}`;
-        document.getElementById('app-description').value = combinedText.trim();
-    });
+        async function saveOSState() {
+            const transaction = db.transaction(["system"], "readwrite");
+            transaction.objectStore("system").put(osState, "state");
+        }
 
-    // 内部データの最新化処理
-    function getTipDataObject() {
-        return {
-            generator: "Material-to-Tip Converter v2",
-            timestamp: new Date().toISOString(),
-            user: {
-                name: document.getElementById('username-input').value || 'ユーザー',
-                avatar: document.getElementById('user-avatar').src || ''
-            },
-            app: {
-                description: document.getElementById('app-description').value || '',
-                raw_materials: uploadedMaterials
-            }
+        // ファイルをBase64に変換する共通ヘルパー
+        function fileToDataUrl(file) {
+            return new Promise((resolve) => {
+                if (!file) return resolve(null);
+                const reader = new FileReader();
+                reader.onload = (e) => resolve(e.target.result);
+                reader.readAsDataURL(file);
+            });
+        }
+
+        window.onload = async () => {
+            await initDB();
+            updateClock(); setInterval(updateClock, 1000);
+            
+            const transaction = db.transaction(["system"], "readonly");
+            const req = transaction.objectStore("system").get("state");
+            req.onsuccess = async (e) => {
+                const saved = e.target.result;
+                if (saved && saved.user && saved.user.name) {
+                    osState = saved;
+                    if(!osState.friends) osState.friends = [];
+                    applyTheme();
+                    checkLendExpirations();
+                    refreshOSHome();
+                    initPeerJS();
+                } else {
+                    // 初回起動処理
+                    document.getElementById("profile-close-btn").style.display = "none";
+                    openModal("modal-profile");
+                }
+            };
         };
-    }
 
-    function updatePreviewAndData() {
-        alert("全データを正常に統合しました！そのまま「.tip ファイルをダウンロード」を実行してください。");
-    }
+        function applyTheme() {
+            if (osState.theme === "dark") {
+                document.body.classList.add("dark-theme");
+            } else {
+                document.body.classList.remove("dark-theme");
+            }
+        }
 
-    // すべての構成情報を詰め込んだ「.tip」ファイルを生成してダウンロードさせる
-    function downloadTipFile() {
-        const dataObject = getTipDataObject();
-        const jsonString = JSON.stringify(dataObject, null, 2);
-        
-        // Blobオブジェクトを作成してダウンロードリンクをシミュレート
-        const blob = new Blob([jsonString], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        // ファイル名を決めてダウンロードさせる
-        a.download = `${dataObject.user.name || 'app'}_data.tip`;
-        document.body.appendChild(a);
-        a.click();
-        
-        // 後片付け
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-    }
-</script>
+        function setThemeMode(mode) {
+            osState.theme = mode;
+            saveOSState();
+            applyTheme();
+        }
 
+        // プロフィール保存
+        async function saveProfile() {
+            const name = document.getElementById("setup-username").value.trim();
+            let avatarUrl = document.getElementById("setup-avatar-url").value.trim();
+            const avatarFile = document.getElementById("setup-avatar-file").files[0];
+            
+            if (!name) return alert("名前を入力してください。");
+
+            let finalAvatar = "";
+            
+            // アップロードファイルを最優先
+            if (avatarFile) {
+                finalAvatar = await fileToDataUrl(avatarFile);
+            } else if (avatarUrl) {
+                finalAvatar = avatarUrl;
+            } else {
+                // 未指定の場合はデフォルトのSVG
+                finalAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='100' height='100'><circle cx='50' cy='50' r='50' fill='%2300c6ff'/></svg>";
+            }
+
+            osState.user = { name, avatar: finalAvatar };
+            await saveOSState();
+            
+            document.getElementById("profile-close-btn").style.display = "block";
+            // ファイルの選択状態をクリア
+            document.getElementById("setup-avatar-file").value = "";
+            closeModal("modal-profile");
+            refreshOSHome();
+            if (!peer) initPeerJS();
+        }
+
+        function openProfileModal() {
+            document.getElementById("setup-username").value = osState.user.name;
+            document.getElementById("setup-avatar-url").value = osState.user.avatar.startsWith("data:image/") ? "" : osState.user.avatar;
+            document.getElementById("setup-avatar-file").value = "";
+            openModal("modal-profile");
+        }
+
+        // 📡 PeerJS通信初期化
+        function initPeerJS() {
+            peer = new Peer("os-" + Math.random().toString(36).substring(2, 8));
+            peer.on('open', (id) => {
+                document.getElementById("my-peer-id").innerText = id;
+            });
+            peer.on('connection', (conn) => {
+                conn.on('data', async (data) => {
+                    if (data.type === "RECEIVE_APP") {
+                        let msg = "";
+                        if (data.mode === "give") {
+                            msg = `🎁 フレンドからアプリ「${data.app.title}」をプレゼントされました！`;
+                            data.app.isGift = true;
+                        } else {
+                            msg = `🔑 アプリ「${data.app.title}」を ${data.days}日間 借り受けました！`;
+                            const expDate = new Date();
+                            expDate.setDate(expDate.getDate() + data.days);
+                            data.app.borrowedUntil = expDate.toISOString();
+                        }
+                        alert(msg);
+                        osState.globalApps.push(data.app);
+                        await saveOSState();
+                        refreshOSHome();
+                    }
+                });
+            });
+        }
+
+        function refreshOSHome() {
+            document.getElementById("status-user-name").innerText = osState.user.name;
+            document.getElementById("status-user-avatar").src = osState.user.avatar;
+
+            const menu = document.getElementById("home-menu");
+            menu.innerHTML = "";
+
+            osState.globalApps.forEach((app, index) => {
+                const box = document.createElement('div');
+                box.className = 'app-container-box';
+                
+                const isLended = app.lockUntil && new Date(app.lockUntil) > new Date();
+                const isBorrowed = app.borrowedUntil && new Date(app.borrowedUntil) > new Date();
+
+                let overlayContent = "";
+                if(isLended) {
+                    const rest = Math.ceil((new Date(app.lockUntil) - new Date()) / (1000*60*60*24));
+                    overlayContent = `<div class="app-locked-overlay">🔒 貸出中<br>(あと ${rest}日)</div>`;
+                } else if(isBorrowed) {
+                    const rest = Math.ceil((new Date(app.borrowedUntil) - new Date()) / (1000*60*60*24));
+                    overlayContent = `<div class="app-locked-overlay" style="background:rgba(0,198,255,0.65);">🔑 借用中<br>(残り ${rest}日)</div>`;
+                }
+
+                const giftIcon = app.isGift ? `<div class="gift-badge">🎁</div>` : "";
+
+                box.innerHTML = `
+                    <div class="app-menu-trigger" onclick="openAppMenu(event, ${index})">⋮</div>
+                    <div class="app-card" onclick="tryLaunchApp(${index})">
+                        ${giftIcon}
+                        <img src="${app.iconDataUrl}" alt="${app.title}">
+                        ${overlayContent}
+                    </div>
+                `;
+
+                box.onmouseenter = () => {
+                    document.getElementById('info-title').innerText = app.title;
+                    let desc = app.description;
+                    if(isLended) desc = `【貸出中】期限まで使用できません。`;
+                    if(isBorrowed) desc = `【借り物】残り期限の間だけ自由に遊べます。`;
+                    document.getElementById('info-desc').innerText = desc;
+                };
+                menu.appendChild(box);
+            });
+
+            if (osState.globalApps.length >= 5) {
+                const allBtn = document.createElement('div');
+                allBtn.className = 'all-apps-btn';
+                allBtn.innerHTML = `<div style="font-size:32px; margin-bottom:8px;">㗊</div><div style="font-size:12px;">全表示</div>`;
+                allBtn.onclick = openAllAppsModal;
+                menu.appendChild(allBtn);
+            }
+        }
+
+        function checkLendExpirations() {
+            let changed = false;
+            const now = new Date();
+            for (let i = osState.globalApps.length - 1; i >= 0; i--) {
+                const app = osState.globalApps[i];
+                if (app.lockUntil && new Date(app.lockUntil) <= now) {
+                    delete app.lockUntil;
+                    changed = true;
+                }
+                if (app.borrowedUntil && new Date(app.borrowedUntil) <= now) {
+                    const tx = db.transaction(["app_saves"], "readwrite");
+                    tx.objectStore("app_saves").delete(`global_user_${app.appId}`);
+                    osState.globalApps.splice(i, 1);
+                    changed = true;
+                }
+            }
+            if (changed) saveOSState();
+        }
+
+        function tryLaunchApp(index) {
+            const app = osState.globalApps[index];
+            if (app.lockUntil && new Date(app.lockUntil) > new Date()) {
+                return alert("他のユーザーへ貸出中のため起動できません。");
+            }
+            launchApp(index);
+        }
+
+        async function launchApp(index) {
+            const app = osState.globalApps[index];
+            const container = document.getElementById("app-container");
+            const frame = document.getElementById("app-frame");
+
+            const saveKey = `global_user_${app.appId}`;
+            const saveData = await getSaveData(saveKey);
+
+            window.WebOS = {
+                user: { name: osState.user.name, uid: "global_user" },
+                saveData: saveData,
+                save: function(data) {
+                    const tx = db.transaction(["app_saves"], "readwrite");
+                    tx.objectStore("app_saves").put(data, saveKey);
+                }
+            };
+
+            const bridgeScript = `<script>Object.defineProperty(window,'WebOS',{get:function(){return window.parent.WebOS;}});<\/script>`;
+            frame.srcdoc = bridgeScript + app.htmlText;
+            container.style.display = "block";
+        }
+
+        function closeApp() {
+            document.getElementById("app-container").style.display = "none";
+            document.getElementById("app-frame").srcdoc = ""; 
+        }
+
+        function openAppMenu(event, index) {
+            event.stopPropagation();
+            selectedAppIndex = index;
+            const app = osState.globalApps[index];
+            document.getElementById("menu-app-title").innerText = `🔧 ${app.title}`;
+            
+            const giveBtn = document.getElementById("menu-give-btn");
+            if (app.isGift) {
+                giveBtn.className = "menu-list-item disabled";
+                giveBtn.style.pointerEvents = "none";
+                giveBtn.innerText = "🔒 プレゼント品のため譲渡不可";
+            } else {
+                giveBtn.className = "menu-list-item";
+                giveBtn.style.pointerEvents = "auto";
+                giveBtn.innerText = "🎁 誰かにあげる (プレゼント)";
+            }
+
+            openModal('modal-app-menu');
+        }
+
+        async function deleteTargetApp() {
+            if (!confirm("このツールを消去しますか？セーブデータも同時に削除されます。")) return;
+            const app = osState.globalApps[selectedAppIndex];
+            const tx = db.transaction(["app_saves"], "readwrite");
+            tx.objectStore("app_saves").delete(`global_user_${app.appId}`);
+            osState.globalApps.splice(selectedAppIndex, 1);
+            await saveOSState();
+            closeModal('modal-app-menu');
+            refreshOSHome();
+        }
+
+        function openP2PModal(mode) {
+            p2pMode = mode;
+            closeModal('modal-app-menu');
+            
+            const select = document.getElementById("p2p-friend-select");
+            select.innerHTML = '<option value="">-- フレンドを選択 --</option>';
+            osState.friends.forEach(f => {
+                const opt = document.createElement("option");
+                opt.value = f.id;
+                opt.innerText = f.name;
+                select.appendChild(opt);
+            });
+
+            document.getElementById("lend-days-container").style.display = (mode === 'lend') ? 'block' : 'none';
+            document.getElementById("p2p-modal-title").innerText = mode === 'give' ? "🎁 アプリをプレゼントする" : "🔑 アプリを貸し出す";
+            openModal('modal-p2p');
+        }
+
+        function syncFriendIdToInput() {
+            const select = document.getElementById("p2p-friend-select");
+            if(select.value) document.getElementById("p2p-target-id").value = select.value;
+        }
+
+        function executeP2PTransfer() {
+            const targetId = document.getElementById("p2p-target-id").value.trim();
+            if (!targetId) return alert("送信先のIDを入力または選択してください。");
+
+            const app = osState.globalApps[selectedAppIndex];
+            const conn = peer.connect(targetId);
+
+            conn.on('open', async () => {
+                if (p2pMode === 'give') {
+                    conn.send({ type: "RECEIVE_APP", mode: "give", app: app });
+                    const tx = db.transaction(["app_saves"], "readwrite");
+                    tx.objectStore("app_saves").delete(`global_user_${app.appId}`);
+                    osState.globalApps.splice(selectedAppIndex, 1);
+                    alert(`「${app.title}」をプレゼントしました！本体から削除されました。`);
+                } else {
+                    const days = parseInt(document.getElementById("lend-days").value) || 1;
+                    const lockDate = new Date();
+                    lockDate.setDate(lockDate.getDate() + days);
+
+                    conn.send({ type: "RECEIVE_APP", mode: "lend", app: app, days: days });
+                    app.lockUntil = lockDate.toISOString();
+                    alert(`「${app.title}」を ${days}日間 貸し出しました。期間中は使用できません。`);
+                }
+
+                await saveOSState();
+                closeModal('modal-p2p');
+                document.getElementById("p2p-target-id").value = "";
+                refreshOSHome();
+            });
+
+            conn.on('error', () => alert("接続できませんでした。通信IDをご確認ください。"));
+        }
+
+        // 👥 フレンド機能
+        function openFriendModal() {
+            refreshFriendList();
+            openModal("modal-friends");
+        }
+
+        function refreshFriendList() {
+            const box = document.getElementById("friend-list-box");
+            box.innerHTML = "";
+            osState.friends.forEach((f, idx) => {
+                const div = document.createElement("div");
+                div.className = "friend-box";
+                const av = f.avatar || "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30'><circle cx='15' cy='15' r='15' fill='%23999'/></svg>";
+                div.innerHTML = `
+                    <div class="friend-info">
+                        <img src="${av}" class="friend-avatar">
+                        <div>
+                            <div>${f.name}</div>
+                            <div style="font-size:10px; font-family:monospace; color:#888;">ID: ${f.id}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-danger" style="padding:4px 8px; font-size:11px; margin:0;" onclick="removeFriend(${idx})">削除</button>
+                `;
+                box.appendChild(div);
+            });
+        }
+
+        // フレンドの追加（ファイルアップロード対応版）
+        async function addFriend() {
+            if(osState.friends.length >= 10) return alert("フレンドは最大10人までしか登録できません。");
+            const id = document.getElementById("new-friend-id").value.trim();
+            const name = document.getElementById("new-friend-name").value.trim();
+            let avatarUrl = document.getElementById("new-friend-avatar").value.trim();
+            const avatarFile = document.getElementById("new-friend-avatar-file").files[0];
+
+            if(!id || !name) return alert("通信IDとニックネームを入力してください。");
+            
+            let finalAvatar = "";
+            if(avatarFile) {
+                finalAvatar = await fileToDataUrl(avatarFile);
+            } else if(avatarUrl) {
+                finalAvatar = avatarUrl;
+            } else {
+                finalAvatar = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='30' height='30'><circle cx='15' cy='15' r='15' fill='%23999'/></svg>";
+            }
+
+            osState.friends.push({ id, name, avatar: finalAvatar });
+            saveOSState();
+            refreshFriendList();
+
+            // フォーム初期化
+            document.getElementById("new-friend-id").value = "";
+            document.getElementById("new-friend-name").value = "";
+            document.getElementById("new-friend-avatar").value = "";
+            document.getElementById("new-friend-avatar-file").value = "";
+        }
+
+        function removeFriend(idx) {
+            if(!confirm("このフレンドを削除しますか？")) return;
+            osState.friends.splice(idx, 1);
+            saveOSState();
+            refreshFriendList();
+        }
+
+        async function factoryResetOS() {
+            if (!confirm("本当にOSを完全初期化しますか？\nインポートしたアプリ、フレンド、セーブデータを含むすべてが完全に消去され元に戻せなくなります。")) return;
+            
+            const tx1 = db.transaction(["system"], "readwrite");
+            tx1.objectStore("system").clear();
+            const tx2 = db.transaction(["app_saves"], "readwrite");
+            tx2.objectStore("app_saves").clear();
+
+            alert("初期化が完了しました。システムを再起動します。");
+            window.location.reload();
+        }
+
+        document.getElementById('file-picker').addEventListener('change', async (e) => {
+            for (let file of e.target.files) {
+                if (!file.name.endsWith('.tip')) continue;
+                try {
+                    const zip = await JSZip.loadAsync(file);
+                    let title = file.name.replace(".tip", ""), description = "カスタムアプリ", iconDataUrl = "";
+                    
+                    const infoFile = zip.file("info.txt");
+                    if (infoFile) {
+                        const lines = (await infoFile.async("string")).split('\n');
+                        if (lines[0]) title = lines[0].trim();
+                        if (lines[1]) description = lines[1].trim();
+                    }
+                    const iconFile = zip.file("icon.png") || zip.file("icon.jpg");
+                    if (iconFile) {
+                        const b64 = await iconFile.async("base64");
+                        iconDataUrl = `data:image/${iconFile.name.endsWith(".png")?"png":"jpeg"};base64,${b64}`;
+                    } else {
+                        iconDataUrl = "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><rect width='100%' height='100%' fill='%23333'/></svg>";
+                    }
+                    const htmlFile = zip.file("index.html");
+                    if (!htmlFile) throw new Error("index.htmlがありません");
+                    const htmlText = await htmlFile.async("string");
+
+                    osState.globalApps.push({ appId: "app_" + Date.now() + "_" + Math.random().toString(36).substr(2,5), title, description, iconDataUrl, htmlText });
+                    await saveOSState(); refreshOSHome();
+                } catch (err) { alert("パックのインポートに失敗しました。"); console.error(err); }
+            }
+        });
+
+        function openAllAppsModal() {
+            const grid = document.getElementById("all-apps-grid");
+            grid.innerHTML = "";
+            osState.globalApps.forEach((app, index) => {
+                const isLended = app.lockUntil && new Date(app.lockUntil) > new Date();
+                const isBorrowed = app.borrowedUntil && new Date(app.borrowedUntil) > new Date();
+                let overlay = "";
+                if(isLended) overlay = `<div class="app-locked-overlay">🔒 貸出中</div>`;
+                if(isBorrowed) overlay = `<div class="app-locked-overlay" style="background:rgba(0,198,255,0.65);">🔑 借用中</div>`;
+
+                const item = document.createElement('div');
+                item.className = 'app-container-box';
+                item.innerHTML = `
+                    <div class="app-menu-trigger" onclick="openAppMenu(event, ${index})">⋮</div>
+                    <div class="app-card" onclick="closeModal('modal-all-apps'); tryLaunchApp(${index});">
+                        ${app.isGift ? `<div class="gift-badge">🎁</div>` : ""}
+                        <img src="${app.iconDataUrl}">
+                        ${overlay}
+                    </div>
+                    <div style="text-align:center; font-weight:bold; font-size:12px; margin-top:5px; text-overflow:ellipsis; overflow:hidden; white-space:nowrap; color:#333;">${app.title}</div>
+                `;
+                grid.appendChild(item);
+            });
+            openModal('modal-all-apps');
+        }
+
+        function openModal(id) { document.getElementById(id).style.display = "flex"; }
+        function closeModal(id) { document.getElementById(id).style.display = "none"; }
+        function getSaveData(key) {
+            return new Promise((resolve) => {
+                const tx = db.transaction(["app_saves"], "readonly");
+                const req = tx.objectStore("app_saves").get(key);
+                req.onsuccess = (e) => resolve(e.target.result || {});
+            });
+        }
+        function updateClock() {
+            const now = new Date();
+            document.getElementById('current-time').innerText = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+    </script>
 </body>
 </html>
