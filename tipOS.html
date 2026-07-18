@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>素材 → .tip 一括ファイル生成ツール</title>
+    <style>
+        :root {
+            --primary: #007aff;
+            --success: #34c759;
+            --bg: #f5f5f7;
+            --card: #ffffff;
+            --text: #1d1d1f;
+            --border: #d2d2d7;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 700px;
+            width: 100%;
+            background: var(--card);
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+            box-sizing: border-box;
+        }
+        h1 { font-size: 1.5rem; text-align: center; margin-bottom: 25px; }
+        .section {
+            border: 1px solid #e5e5e7;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        .section-title { font-weight: bold; margin-bottom: 15px; font-size: 0.95rem; color: #8e8e93; text-transform: uppercase; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; font-size: 0.9rem; }
+        
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            box-sizing: border-box;
+            margin-bottom: 15px;
+            background: #fafafa;
+        }
+        textarea { height: 120px; resize: vertical; font-family: monospace; }
+        
+        .profile-preview {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 10px;
+        }
+        .avatar-preview {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: #e5e5e7;
+            border: 1px solid var(--border);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        button {
+            flex: 1;
+            padding: 14px;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.9; }
+        .btn-primary { background: var(--primary); }
+        .btn-success { background: var(--success); }
+        
+        .status-msg {
+            font-size: 0.85rem;
+            color: #8e8e93;
+            margin-top: -10px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>素材 → .tip ファイル生成ツール</h1>
+
+    <!-- ユーザー情報設定 -->
+    <div class="section">
+        <div class="section-title">ユーザー情報 (リフレッシュ後も保持)</div>
+        <div class="profile-preview">
+            <img id="user-avatar" class="avatar-preview" src="" alt="未設定">
+            <div style="flex-grow: 1;">
+                <label for="username-input">ユーザー名</label>
+                <input type="text" id="username-input" placeholder="名前を入力...">
+            </div>
+        </div>
+        <label for="avatar-file">アイコン画像アップロード (`icon.jpg`等)</label>
+        <input type="file" id="avatar-file" accept="image/*">
+    </div>
+
+    <!-- 複数ファイル素材の読み込み機能 -->
+    <div class="section">
+        <div class="section-title">アプリ素材の一括読み込み</div>
+        <label for="material-files">関連するファイルを選択 (`index.html`, `info.txt` など複数選択可)</label>
+        <input type="file" id="material-files" multiple>
+        <div id="file-status" class="status-msg">選択されていません</div>
+
+        <label for="app-description">アプリ解説 / ソースコード (自動統合用)</label>
+        <textarea id="app-description" placeholder="ファイルを選択すると、ここの内容が自動で更新・統合されます..."></textarea>
+    </div>
+
+    <!-- アクションボタン -->
+    <div class="btn-group">
+        <button class="btn-primary" onclick="updatePreviewAndData()">データを統合する</button>
+        <button class="btn-success" onclick="downloadTipFile()">.tip ファイルをダウンロード</button>
+    </div>
+</div>
+
+<script>
+    let uploadedMaterials = {};
+
+    // ページ起動時にLocalStorageからユーザーデータを復元
+    window.addEventListener('DOMContentLoaded', () => {
+        const savedName = localStorage.getItem('tip_username');
+        const savedAvatar = localStorage.getItem('tip_avatar');
+
+        if (savedName) document.getElementById('username-input').value = savedName;
+        if (savedAvatar) document.getElementById('user-avatar').src = savedAvatar;
+        
+        // ユーザー名の変更をリアルタイムでLocalStorageに保存
+        document.getElementById('username-input').addEventListener('input', (e) => {
+            localStorage.setItem('tip_username', e.target.value);
+        });
+    });
+
+    // アイコン画像をBase64形式に変換して保持
+    document.getElementById('avatar-file').addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64Data = event.target.result;
+            document.getElementById('user-avatar').src = base64Data;
+            localStorage.setItem('tip_avatar', base64Data);
+        };
+        reader.readAsDataURL(file);
+    });
+
+    // 複数素材ファイル（HTMLやテキスト）を同時に読み込んでマージする
+    document.getElementById('material-files').addEventListener('change', async (e) => {
+        const files = e.target.files;
+        if (!files.length) return;
+
+        uploadedMaterials = {};
+        let statusTexts = [];
+        let combinedText = "";
+
+        for (let file of files) {
+            statusTexts.push(`${file.name} (${Math.round(file.size / 1024)} KB)`);
+            
+            // ファイルの中身をテキストとして読み込む
+            const text = await file.text();
+            uploadedMaterials[file.name] = text;
+
+            // テキストエリアに統合して表示するための整形
+            combinedText += `=== 【ファイル名: ${file.name}】 ===\n${text}\n\n`;
+        }
+
+        document.getElementById('file-status').innerText = `読み込み済み: ${statusTexts.join(', ')}`;
+        document.getElementById('app-description').value = combinedText.trim();
+    });
+
+    // 内部データの最新化処理
+    function getTipDataObject() {
+        return {
+            generator: "Material-to-Tip Converter v2",
+            timestamp: new Date().toISOString(),
+            user: {
+                name: document.getElementById('username-input').value || 'ユーザー',
+                avatar: document.getElementById('user-avatar').src || ''
+            },
+            app: {
+                description: document.getElementById('app-description').value || '',
+                raw_materials: uploadedMaterials
+            }
+        };
+    }
+
+    function updatePreviewAndData() {
+        alert("全データを正常に統合しました！そのまま「.tip ファイルをダウンロード」を実行してください。");
+    }
+
+    // すべての構成情報を詰め込んだ「.tip」ファイルを生成してダウンロードさせる
+    function downloadTipFile() {
+        const dataObject = getTipDataObject();
+        const jsonString = JSON.stringify(dataObject, null, 2);
+        
+        // Blobオブジェクトを作成してダウンロードリンクをシミュレート
+        const blob = new Blob([jsonString], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        
+        const a = document.createElement('a');
+        a.href = url;
+        // ファイル名を決めてダウンロードさせる
+        a.download = `${dataObject.user.name || 'app'}_data.tip`;
+        document.body.appendChild(a);
+        a.click();
+        
+        // 後片付け
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+</script>
+
+</body>
+</html>
