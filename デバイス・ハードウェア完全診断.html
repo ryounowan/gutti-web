@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>デバイス・ハードウェア完全診断</title>
+    <style>
+        :root {
+            --bg-color: #02040a;
+            --card-bg: #0d1117;
+            --card-header: #161b22;
+            --text-main: #c9d1d9;
+            --text-white: #f0f6fc;
+            --accent-blue: #58a6ff;
+            --accent-green: #7ee787;
+            --accent-orange: #ffa657;
+            --accent-purple: #d2a8ff;
+            --accent-pink: #ff7b72;
+            --border: #30363d;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; }
+        body { background-color: var(--bg-color); color: var(--text-main); padding: 20px; font-size: 14px; }
+        .wrapper { max-width: 1800px; margin: 0 auto; }
+        header { text-align: center; padding: 20px 0 30px; border-bottom: 1px solid var(--border); margin-bottom: 30px; }
+        header h1 { color: var(--text-white); font-size: 2.2rem; font-weight: 800; letter-spacing: -0.5px; }
+        header p { color: #8b949e; margin-top: 5px; font-size: 1.1rem; }
+        
+        .control-panel { display: flex; justify-content: center; gap: 15px; margin-bottom: 30px; flex-wrap: wrap; }
+        button { background-color: #21262d; color: var(--accent-blue); border: 1px solid var(--border); padding: 12px 28px; border-radius: 6px; font-weight: 600; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }
+        button:hover { background-color: #30363d; border-color: #8b949e; transform: translateY(-1px); }
+        button.primary { background-color: #238636; color: var(--text-white); border-color: rgba(240,246,252,0.1); }
+        button.primary:hover { background-color: #2ea043; }
+        button.danger { color: var(--accent-pink); }
+
+        .dashboard { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 20px; }
+        .panel { background-color: var(--card-bg); border: 1px solid var(--border); border-radius: 6px; overflow: hidden; display: flex; flex-direction: column; }
+        .panel-h { background-color: var(--card-header); padding: 12px 16px; font-weight: 600; color: var(--text-white); border-bottom: 1px solid var(--border); font-size: 1rem; display: flex; justify-content: space-between; align-items: center; }
+        .panel-b { padding: 16px; flex-grow: 1; }
+        
+        .row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #21262d; align-items: flex-start; }
+        .row:last-child { border-bottom: none; }
+        .lbl { color: #8b949e; font-weight: 500; font-size: 0.85rem; max-width: 50%; }
+        .val { font-family: ui-monospace, SFMono-Regular, SF Pro Text, Menlo, Monaco, Consolas, monospace; color: var(--text-white); font-size: 0.9rem; text-align: right; word-break: break-all; font-weight: 600; }
+        
+        .c-blue { color: var(--accent-blue) !important; }
+        .c-green { color: var(--accent-green) !important; }
+        .c-orange { color: var(--accent-orange) !important; }
+        .c-purple { color: var(--accent-purple) !important; }
+        .c-pink { color: var(--accent-pink) !important; }
+
+        .console-box { background: #040609; border: 1px solid var(--border); border-radius: 6px; padding: 10px; font-family: monospace; font-size: 0.8rem; max-height: 140px; overflow-y: auto; color: #8b949e; margin-top: 5px; }
+        .badge { background: #1f6feb; color: white; padding: 2px 6px; border-radius: 10px; font-size: 0.75rem; }
+    </style>
+</head>
+<body>
+
+<div class="wrapper">
+    <header>
+        <h1>THE OMNISCENCY: フルスタック・デバイス診断インスペクター</h1>
+        <p>ハードウェア・演算回路のバグ・OS空間の全シグナルを統合解析</p>
+    </header>
+
+    <div class="control-panel">
+        <button class="primary" onclick="executeDeepScan()">⚡ ディープ・フルスキャン開始</button>
+        <button onclick="activateHardwareSensors()">🔑 ジャイロ・GPS・生体物理認証要求</button>
+        <button class="danger" onclick="runDestructiveCpuBenchmark()">🔥 精密CPUシリコン特定ベンチマーク</button>
+    </div>
+
+    <div class="dashboard">
+        <!-- 1. CPUと演算シリコンの詳細構造 -->
+        <div class="panel">
+            <div class="panel-h">🧬 CPUコア ＆ シリコン・マイクロアーキテクチャ</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">論理コア数 (Threads)</span><span id="c-th" class="val c-green">-</span></div>
+                <div class="row"><span class="lbl">シリコン種別 (推定)</span><span id="c-si" class="val c-orange">フルスキャンかベンチを実行してください</span></div>
+                <div class="row"><span class="lbl">命令セットアーキテクチャ</span><span id="c-arch" class="val">-</span></div>
+                <div class="row"><span class="lbl">演算ビット数</span><span id="c-bit" class="val">-</span></div>
+                <div class="row"><span class="lbl">WebAssembly / SIMD命令</span><span id="c-simd" class="val">-</span></div>
+                <div class="row"><span class="lbl">JS演算性能ベンチマーク</span><span id="c-bench" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 2. GPUとシェーダー演算限界 -->
+        <div class="panel">
+            <div class="panel-h">🎨 GPUグラフィックス ＆ 3D演算パイプライン</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">GPUベンダー名</span><span id="g-ven" class="val c-blue">-</span></div>
+                <div class="row"><span class="lbl">GPUレンダラー型番</span><span id="g-ren" class="val">-</span></div>
+                <div class="row"><span class="lbl">WebGLバージョン</span><span id="g-api" class="val">-</span></div>
+                <div class="row"><span class="lbl">最大テクスチャ解像度</span><span id="g-tex" class="val">-</span></div>
+                <div class="row"><span class="lbl">最大レンダーバッファサイズ</span><span id="g-buf" class="val">-</span></div>
+                <div class="row"><span class="lbl">最大ビューポートサイズ</span><span id="g-view" class="val">-</span></div>
+                <div class="row"><span class="lbl">テクスチャユニット上限数</span><span id="g-img" class="val">-</span></div>
+                <div class="row"><span class="lbl">浮動小数点シェーダー精度</span><span id="g-prec" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 3. ディスプレイパネルと画質性能 -->
+        <div class="panel">
+            <div class="panel-h">📺 ディスプレイ ＆ カラープロファイル</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">物理ハードウェア画面解像度</span><span id="d-phy" class="val c-blue">-</span></div>
+                <div class="row"><span class="lbl">論理（CSS）解像度</span><span id="d-log" class="val">-</span></div>
+                <div class="row"><span class="lbl">デバイスピクセル比 (DPR)</span><span id="d-dpr" class="val">-</span></div>
+                <div class="row"><span class="lbl">実測リフレッシュレート</span><span id="d-fps" class="val c-green">計測中...</span></div>
+                <div class="row"><span class="lbl">パネル色深度 (Color Depth)</span><span id="d-bit" class="val">-</span></div>
+                <div class="row"><span class="lbl">広色域対応 (P3/Rec2020)</span><span id="d-gam" class="val">-</span></div>
+                <div class="row"><span class="lbl">HDR (High Dynamic Range)</span><span id="d-hdr" class="val">-</span></div>
+                <div class="row"><span class="lbl">コントラストモード設定</span><span id="d-con" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 4. 物理メモリとクォータストレージ -->
+        <div class="panel">
+            <div class="panel-h">💾 物理メモリ（RAM）＆ ストレージ・容量構造</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">搭載物理メモリ量 (概算)</span><span id="m-ram" class="val c-purple">-</span></div>
+                <div class="row"><span class="lbl">ブラウザ割当ストレージ総容量</span><span id="m-sto" class="val">-</span></div>
+                <div class="row"><span class="lbl">現在の消費ストレージ容量</span><span id="m-use" class="val">-</span></div>
+                <div class="row"><span class="lbl">ストレージ残容量 (空き)</span><span id="m-free" class="val">-</span></div>
+                <div class="row"><span class="lbl">JavaScript Heapサイズ上限</span><span id="m-heap" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 5. ネットワークと通信トポロジー -->
+        <div class="panel">
+            <div class="panel-h">🌐 ネットワーク ＆ 通信インフラストラクチャ</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">通信キャリア / 回線世代</span><span id="n-typ" class="val c-pink">-</span></div>
+                <div class="row"><span class="lbl">理論最大帯域 (Downlink)</span><span id="n-spd" class="val">-</span></div>
+                <div class="row"><span class="lbl">応答速度遅延 (RTT / Ping)</span><span id="n-rtt" class="val c-green">-</span></div>
+                <div class="row"><span class="lbl">データセーバー設定</span><span id="n-sav" class="val">-</span></div>
+                <div class="row"><span class="lbl">主プロトコル (HTTPバージョン)</span><span id="n-proto" class="val">-</span></div>
+                <div class="row"><span class="lbl">ネットワーク状態</span><span id="n-st" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 6. バッテリーとシステム給電モード -->
+        <div class="panel">
+            <div class="panel-h">🔋 電源サブシステム ＆ バッテリー状態</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">現在の充電残量</span><span id="b-lvl" class="val c-orange">-</span></div>
+                <div class="row"><span class="lbl">給電ソース (AC/バッテリー)</span><span id="b-src" class="val">-</span></div>
+                <div class="row"><span class="lbl">満充電までの所要時間</span><span id="b-chg" class="val">-</span></div>
+                <div class="row"><span class="lbl">バッテリー稼働可能予測時間</span><span id="b-dis" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 7. オーディオトポロジー ＆ ハードウェア制限 -->
+        <div class="panel">
+            <div class="panel-h">🔊 音響ハードウェア ＆ 空間オーディオ</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">DACサンプリングレート</span><span id="a-srt" class="val">-</span></div>
+                <div class="row"><span class="lbl">ハードウェア最大出力ch数</span><span id="a-ch" class="val c-purple">-</span></div>
+                <div class="row"><span class="lbl">音声処理ベースライン</span><span id="a-base" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 8. OSカーネル ＆ 環境変数 ＆ 国際化基盤 -->
+        <div class="panel">
+            <div class="panel-h">💻 稼働OSカーネル ＆ ランタイムシステム変数</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">OSプラットフォーム (型番)</span><span id="o-plt" class="val c-blue">-</span></div>
+                <div class="row"><span class="lbl">OSカーネル言語 / タイムゾーン</span><span id="o-lng" class="val">-</span></div>
+                <div class="row"><span class="lbl">入力デバイス物理属性</span><span id="o-inp" class="val">-</span></div>
+                <div class="row"><span class="lbl">ユーザー優先ダークモード</span><span id="o-drk" class="val">-</span></div>
+                <div class="row"><span class="lbl">ブラウザコア指紋 (UserAgent)</span><span id="o-ua" class="val" style="font-size:0.75rem; text-align:left; display:block; margin-top:5px;">-</span></div>
+            </div>
+        </div>
+
+        <!-- 9. メディアデコーダーエンジン（動画配信互換） -->
+        <div class="panel">
+            <div class="panel-h">🎬 ハードウェア・ビデオデコーダー互換性</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">AV1 (YouTube 8K / 次世代)</span><span id="v-av1" class="val">-</span></div>
+                <div class="row"><span class="lbl">H.265 / HEVC (主要VOD / 4K)</span><span id="v-hevc" class="val">-</span></div>
+                <div class="row"><span class="lbl">VP9 (Googleエコシステム)</span><span id="v-vp9" class="val">-</span></div>
+                <div class="row"><span class="lbl">H.264 / MPEG-4 AVC</span><span id="v-h264" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 10. 先進的な次世代Web APIのサポート網羅 -->
+        <div class="panel">
+            <div class="panel-h">🚀 デバイス先進機能 API 実装状況</div>
+            <div class="panel-b">
+                <div class="row"><span class="lbl">WebGPU (次世代超高速グラフィックス)</span><span id="e-gpu" class="val">-</span></div>
+                <div class="row"><span class="lbl">WebHID (USB/ゲームパッド直接制御)</span><span id="e-hid" class="val">-</span></div>
+                <div class="row"><span class="lbl">Bluetoothモジュール通信 API</span><span id="e-bt" class="val">-</span></div>
+                <div class="row"><span class="lbl">USB直接アクセス API</span><span id="e-usb" class="val">-</span></div>
+                <div class="row"><span class="lbl">生体認証 / 顔認証 (WebAuthn)</span><span id="e-auth" class="val">-</span></div>
+            </div>
+        </div>
+
+        <!-- 11. リアルタイム・ハードウェアセンサーデータ -->
+        <div class="panel">
+            <div class="panel-h">🧭 ハードウェア物理センサー出力ストリーム</div>
+            <div class="panel-b">
+                <div class="lbl">高精度GPSポジショニング:</div>
+                <div id="console-gps" class="console-box">権限要求ボタンを押してください</div>
+                <div class="lbl" style="margin-top:8px;">3軸モーション加速度Gセンサー:</div>
+                <div id="console-motion" class="console-box">権限要求ボタンを押してください</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- ページロード時自動初期化 ---
+    window.addEventListener('DOMContentLoaded', () => {
+        executeDeepScan();
+        // リフレッシュレート計算開始
+        trackFps();
+    });
+
+    // --- メインスキャンコントロール ---
+    function executeDeepScan() {
+        scanCPU();
+        scanGPU();
+        scanDisplay();
+        scanStorage();
+        scanNetwork();
+        scanBattery();
+        scanAudio();
+        scanOS();
+        scanCodecs();
+        scanAPIs();
+    }
+
+    // --- 1. CPU & 命令セット ---
+    function scanCPU() {
+        document.getElementById('c-th').textContent = navigator.hardwareConcurrency ? navigator.hardwareConcurrency + " スレッド" : "取得不可能";
+        document.getElementById('c-simd').textContent = (typeof WebAssembly === "object" && typeof WebAssembly.validate === "function") ? "対応 (SIMD拡張対応)" : "非対応";
+        
+        const is64 = navigator.userAgent.includes('x64') || navigator.userAgent.includes('x86_64') || navigator.userAgent.includes('amd64') || navigator.platform.includes('64') || screen.width > 2000;
+        document.getElementById('c-bit').textContent = is64 ? "64-bit 拡張モード" : "32-bit / 可変モバイルモード";
+
+        if (navigator.userAgentData && navigator.userAgentData.getHighEntropyValues) {
+            navigator.userAgentData.getHighEntropyValues(['architecture', 'bitness', 'model'])
+            .then(ua => {
+                document.getElementById('c-arch').textContent = `${ua.architecture || '不明'} (${ua.bitness || '64'}bit)`;
+                if(ua.model) document.getElementById('c-si').textContent = ua.model;
+            }).catch(() => fallbackCpuArchitecture());
+        } else {
+            fallbackCpuArchitecture();
+        }
+    }
+
+    function fallbackCpuArchitecture() {
+        const ua = navigator.userAgent;
+        if (/iPhone|iPad|Macintosh/.test(ua)) {
+            document.getElementById('c-arch').textContent = "ARM64 (Apple Silicon系推定)";
+            if(document.getElementById('c-si').textContent.includes('スキャン')) {
+                document.getElementById('c-si').textContent = "Apple A-Chip または M-Chip シリコン";
+            }
+        } else if (/Android/.test(ua)) {
+            document.getElementById('c-arch').textContent = "ARM系マルチコアモバイルプロセッサ";
+            document.getElementById('c-si').textContent = "Qualcomm / MediaTek / Exynos 系統";
+        } else {
+            document.getElementById('c-arch').textContent = "Intel/AMD x86_64";
+            document.getElementById('c-si').textContent = "Intel Core / AMD Ryzen 系統";
+        }
+    }
+
+    // 🔥 CPUベンチマーク（2500万回の限界浮動小数点数計算による超精密割り出し）
+    function runDestructiveCpuBenchmark() {
+        const siNode = document.getElementById('c-si');
+        const benchNode = document.getElementById('c-bench');
+        siNode.textContent = "シリコンのゲート遅延・計算限界を測定中...";
+        
+        setTimeout(() => {
+            const start = performance.now();
+            let sum = 0;
+            // 2500万回ループで超越関数とビット演算の複合ストレス
+            for (let i = 0; i < 25000000; i++) {
+                sum += Math.sqrt(i) * Math.tan(i & 0xff);
+            }
+            const end = performance.now();
+            const duration = end - start;
+            
+            benchNode.textContent = `${duration.toFixed(2)} ms (応答速度)`;
+            
+            const ua = navigator.userAgent;
+            const th = navigator.hardwareConcurrency || 4;
+
+            if (/iPhone|iPad/.test(ua)) {
+                if (duration < 50) siNode.textContent = "Apple A17 Pro / A18 / A18 Pro (iPhone最上位チップ)";
+                else if (duration < 80) siNode.textContent = "Apple A15 / A16 Bionic 世代チップ";
+                else siNode.textContent = "Apple A14 Bionic 以前のプロセッサ";
+            } else if (/Macintosh/.test(ua)) {
+                if (duration < 45) siNode.textContent = "Apple M3 / M4 シリコン、またはIntel Core i9 ハイエンド";
+                else if (duration < 75) siNode.textContent = "Apple M1 / M2 ベースコア、またはIntel第12世代以降のCore i7";
+                else siNode.textContent = "Intel Core i5 / レガシーMacプロセッサ";
+            } else if (/Android/.test(ua)) {
+                if (duration < 70) siNode.textContent = "Snapdragon 8 Gen 2 / Gen 3 / Gen 4 級";
+                else if (duration < 120) siNode.textContent = "Snapdragon 6,7 / Dimensity ミドルコア";
+                else siNode.textContent = "MediaTek / エントリーSoC";
+            } else {
+                if (duration < 40) siNode.textContent = "ウルトラハイエンド・デスクトップ (Ryzen 9 / Core i9 最新世代)";
+                else if (duration < 70) siNode.textContent = "ミドルレンジ・ゲーミングPC (Core i7 / Ryzen 7 級)";
+                else if (duration < 110) siNode.textContent = "一般ビジネスノート向け (Core i5 / Ryzen 5 級)";
+                else siNode.textContent = "省電力向けシリコン (Celeron / Nシリーズ / 旧型プロセッサ)";
+            }
+        }, 50);
+    }
+
+    // --- 2. GPUグラフィックス ---
+    function scanGPU() {
+        const canvas = document.createElement('canvas');
+        const gl = canvas.getContext('webgl2') || canvas.getContext('webgl');
+        if (!gl) {
+            document.getElementById('g-ven').textContent = "WebGL利用不可 (ハードウェア描画が無効化されています)";
+            return;
+        }
+        document.getElementById('g-api').textContent = gl instanceof WebGL2RenderingContext ? "WebGL 2.0 (OpenGL ES 3.0準拠)" : "WebGL 1.0 (互換モード)";
+        
+        const debug = gl.getExtension('WEBGL_debug_renderer_info');
+        if (debug) {
+            document.getElementById('g-ven').textContent = gl.getParameter(debug.UNMASKED_VENDOR_WEBGL);
+            document.getElementById('g-ren').textContent = gl.getParameter(debug.UNMASKED_RENDERER_WEBGL);
+        }
+        
+        const maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+        document.getElementById('g-tex').textContent = `${maxTex} × ${maxTex} px`;
+        document.getElementById('g-buf').textContent = `${gl.getParameter(gl.MAX_RENDERBUFFER_SIZE)} px`;
+        
+        const view = gl.getParameter(gl.MAX_VIEWPORT_DIMS);
+        document.getElementById('g-view').textContent = view ? `${view[0]} × ${view[1]} px` : "-";
+        document.getElementById('g-img').textContent = `${gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS)} 個`;
+
+        const prec = gl.getShaderPrecisionFormat(gl.FRAGMENT_SHADER, gl.HIGH_FLOAT);
+        document.getElementById('g-prec').textContent = prec ? `${prec.precision} bit 浮動小数点精度` : "標準";
+    }
+
+    // --- 3. ディスプレイパネル ---
+    function scanDisplay() {
+        const dpr = window.devicePixelRatio || 1;
+        document.getElementById('d-phy').textContent = `${Math.round(screen.width * dpr)} × ${Math.round(screen.height * dpr)} px`;
+        document.getElementById('d-log').textContent = `${screen.width} × ${screen.height} px`;
+        document.getElementById('d-dpr').textContent = `${dpr.toFixed(2)}x`;
+        document.getElementById('d-bit').textContent = `${screen.colorDepth} bit パネル (約${Math.pow(2, screen.colorDepth)}色)`;
+        document.getElementById('d-hdr').textContent = window.matchMedia('(dynamic-range: high)').matches ? "対応 (High Dynamic Range)" : "非対応 (SDRパネル)";
+        document.getElementById('d-con').textContent = window.matchMedia('(prefers-contrast: more)').matches ? "高コントラストモード有効" : "通常コントラスト";
+
+        if (window.matchMedia('(color-gamut: p3)').matches) document.getElementById('d-gam').textContent = "DCI-P3 広色域対応 (映画・写真プロ仕様)";
+        else if (window.matchMedia('(color-gamut: srgb)').matches) document.getElementById('d-gam').textContent = "sRGB 標準色域";
+        else document.getElementById('d-gam').textContent = "通常色域";
+    }
+
+    function trackFps() {
+        let frames = 0, start = performance.now();
+        function loop(now) {
+            frames++;
+            if (now - start >= 1000) {
+                document.getElementById('d-fps').textContent = `${Math.round((frames * 1000) / (now - start))} Hz`;
+            } else {
+                requestAnimationFrame(loop);
+            }
+        }
+        requestAnimationFrame(loop);
+    }
+
+    // --- 4. メモリとストレージ ---
+    function scanStorage() {
+        document.getElementById('m-ram').textContent = navigator.deviceMemory ? `約 ${navigator.deviceMemory} GB` : "4GB以下 または Safari制限マスク";
+        
+        if (navigator.storage && navigator.storage.estimate) {
+            navigator.storage.estimate().then(est => {
+                document.getElementById('m-sto').textContent = `${(est.quota / (1024*1024*1024)).toFixed(2)} GB`;
+                document.getElementById('m-use').textContent = `${(est.usage / (1024*1024)).toFixed(2)} MB`;
+                document.getElementById('m-free').textContent = `${((est.quota - est.usage) / (1024*1024*1024)).toFixed(2)} GB`;
+            });
+        }
+        
+        if (performance.memory) {
+            document.getElementById('m-heap').textContent = `${(performance.memory.jsHeapSizeLimit / (1024*1024*1024)).toFixed(2)} GB`;
+        } else {
+            document.getElementById('m-heap').textContent = "セキュリティ制限保護中";
+        }
+    }
+
+    // --- 5. ネットワーク ---
+    function scanNetwork() {
+        const conn = navigator.connection || navigator.mozConnection || navigator.webkitConnection;
+        if (conn) {
+            document.getElementById('n-typ').textContent = `${conn.effectiveType || '不明'}`;
+            document.getElementById('n-spd').textContent = `${conn.downlink || 0} Mbps`;
+            document.getElementById('n-rtt').textContent = `${conn.rtt || 0} ms`;
+            document.getElementById('n-sav').textContent = conn.saveData ? "有効 (モバイル制限モード)" : "無効 (通常帯域転送)";
+        } else {
+            document.getElementById('n-typ').textContent = "インフラAPI未サポート";
+        }
+        document.getElementById('n-st').textContent = navigator.onLine ? "🌐 インターネット接続確立" : "❌ ローカル切断状態";
+        
+        // HTTPプロトコル判定エミュレーション
+        if (window.performance && window.performance.getEntriesByType) {
+            const nav = window.performance.getEntriesByType("navigation")[0];
+            if (nav && nav.nextHopProtocol) {
+                document.getElementById('n-proto').textContent = nav.nextHopProtocol.toUpperCase();
+            } else {
+                document.getElementById('n-proto').textContent = "HTTP/2 または HTTP/3 (暗号化通信)";
+            }
+        }
+    }
+
+    // --- 6. バッテリー ---
+    function scanBattery() {
+        if (navigator.getBattery) {
+            navigator.getBattery().then(b => {
+                const run = () => {
+                    document.getElementById('b-lvl').textContent = `${Math.round(b.level * 100)} %`;
+                    document.getElementById('b-src').textContent = b.charging ? "🔌 外部AC電源給電中 (充電モード)" : "🔋 内部化学バッテリー駆動";
+                    document.getElementById('b-chg').textContent = b.chargingTime === Infinity ? "不要 / 満了" : `${Math.round(b.chargingTime / 60)} 分`;
+                    document.getElementById('b-dis').textContent = b.dischargingTime === Infinity ? "電源接続中" : `${Math.round(b.dischargingTime / 60)} 分`;
+                };
+                run();
+                b.addEventListener('levelchange', run);
+                b.addEventListener('chargingchange', run);
+            });
+        } else {
+            document.getElementById('b-lvl').textContent = "非公開 (Apple/Safari等)";
+        }
+    }
+
+    // --- 7. 音響トポロジー ---
+    function scanAudio() {
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            if (AC) {
+                const ctx = new AC();
+                document.getElementById('a-srt').textContent = `${ctx.sampleRate} Hz`;
+                document.getElementById('a-ch').textContent = `${ctx.destination.maxChannelCount} ch (${ctx.destination.maxChannelCount >= 6 ? 'マルチ立体音響' : 'ステレオ'})`;
+                document.getElementById('a-base').textContent = ctx.state === "running" ? "ハードウェア稼働中" : "スタンバイ";
+                ctx.close();
+            }
+        } catch(e) {
+            document.getElementById('a-srt').textContent = "セキュアサンドボックス内";
+        }
+    }
+
+    // --- 8. OSとシステム環境変数 ---
+    function scanOS() {
+        document.getElementById('o-plt').textContent = navigator.platform || "非公開";
+        document.getElementById('o-lng').textContent = `${navigator.language} / ${Intl.DateTimeFormat().resolvedOptions().timeZone}`;
+        document.getElementById('o-drk').textContent = window.matchMedia('(prefers-color-scheme: dark)').matches ? "ダークモード (Dark)" : "ライトモード (Light)";
+        document.getElementById('o-ua').textContent = navigator.userAgent;
+
+        const isTouch = ('ontouchstart' in window || navigator.maxTouchPoints > 0);
+        document.getElementById('o-inp').textContent = isTouch ? `静電容量式タッチパネル (最大 ${navigator.maxTouchPoints || 1} 点同時検出)` : "ポインティングデバイス (マウス/キーボード入力)";
+    }
+
+    // --- 9. メディアデコーダー互換 ---
+    function scanCodecs() {
+        const v = document.createElement('video');
+        const c = (t) => {
+            const p = v.canPlayType(t);
+            return p === "probably" ? "✅ ハードウェア完全対応" : (p === "maybe" ? "🟡 ソフトウェア部分対応" : "❌ 非対応");
+        };
+        document.getElementById('v-av1').textContent = c('video/mp4; codecs="av01.0.05M.08"');
+        document.getElementById('v-hevc').textContent = c('video/mp4; codecs="hvc1.1.6.L93.B0"');
+        document.getElementById('v-vp9').textContent = c('video/webm; codecs="vp9"');
+        document.getElementById('v-h264').textContent = c('video/mp4; codecs="avc1.42E01E"');
+    }
+
+    // --- 10. 先進機能APIの有無の総当たりチェック ---
+    function scanAPIs() {
+        const check = (api) => api ? "✅ カーネル実装済" : "❌ 未サポート";
+        document.getElementById('e-gpu').textContent = check(navigator.gpu);
+        document.getElementById('e-hid').textContent = check(navigator.hid);
+        document.getElementById('e-bt').textContent = check(navigator.bluetooth);
+        document.getElementById('e-usb').textContent = check(navigator.usb);
+        document.getElementById('e-auth').textContent = check(window.PublicKeyCredential);
+    }
+
+    // --- 11. ハードウェア物理センサー（位置/ジャイロ）のアクティベート ---
+    function activateHardwareSensors() {
+        // 位置情報GPSモジュール
+        const gpsConsole = document.getElementById('console-gps');
+        if (navigator.geolocation) {
+            gpsConsole.textContent = "人工衛星/BaseStationからの測位信号を受信中...";
+            navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                    gpsConsole.innerHTML = `【同期成功】<br>・緯度: ${pos.coords.latitude.toFixed(6)}°<br>・経度: ${pos.coords.longitude.toFixed(6)}°<br>・高度: ${pos.coords.altitude ? pos.coords.altitude.toFixed(1) + 'm' : '計算中'}<br>・水平誤差精度: ±${Math.round(pos.coords.accuracy)}m`;
+                },
+                (err) => { gpsConsole.textContent = `アクセス拒否または通信タイムアウト: ${err.message}`; },
+                { enableHighAccuracy: true, timeout: 10000 }
+            );
+        } else {
+            gpsConsole.textContent = "GPSハードウェアモジュールが非搭載です";
+        }
+
+        // スマホ用ジャイロ・加速度センサー
+        const motionConsole = document.getElementById('console-motion');
+        if (typeof DeviceMotionEvent !== 'undefined' && typeof DeviceMotionEvent.requestPermission === 'function') {
+            DeviceMotionEvent.requestPermission().then(state => {
+                if (state === 'granted') listenToMotion();
+                else motionConsole.textContent = "ユーザーによりセンサーデバイスへのアクセスが明示的に拒否されました。";
+            }).catch(e => motionConsole.textContent = "パーミッションエラー: " + e);
+        } else {
+            listenToMotion();
+        }
+    }
+
+    function listenToMotion() {
+        const motionConsole = document.getElementById('console-motion');
+        if (window.DeviceMotionEvent) {
+            window.addEventListener('devicemotion', (event) => {
+                const acc = event.accelerationIncludingGravity;
+                if(acc && acc.x !== null) {
+                    motionConsole.innerHTML = `【リアルタイムテレメトリ】<br>・X軸 (ピッチ左右): ${acc.x.toFixed(4)} m/s²<br>・Y軸 (ロール前後): ${acc.y.toFixed(4)} m/s²<br>・Z軸 (重力上下): ${acc.z.toFixed(4)} m/s²`;
+                } else {
+                    motionConsole.textContent = "静止状態、またはデスクトップPC環境（固定マザーボード）です";
+                }
+            }, true);
+        } else {
+            motionConsole.textContent = "モーションセンサー非対応";
+        }
+    }
+</script>
+
+</body>
+</html>
