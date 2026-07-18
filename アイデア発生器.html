@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>⚡ アイデア強制連結発想器（アイデア・スロット）</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --muted: #94a3b8;
+            --primary: #6366f1;
+            --accent: #f59e0b;
+            --success: #10b981;
+            --border: #334155;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
+        body { background: var(--bg); color: var(--text); padding: 30px 15px; }
+        .container { max-width: 900px; margin: 0 auto; text-align: center; }
+        
+        header { margin-bottom: 30px; }
+        h1 { font-size: 1.8rem; color: var(--primary); margin-bottom: 5px; }
+        p.subtitle { color: var(--muted); font-size: 0.95rem; }
+
+        /* スロットマシン本体 */
+        .slot-machine {
+            background: linear-gradient(135deg, #1e293b, #0f172a);
+            border: 4px solid var(--primary); border-radius: 16px;
+            padding: 30px 20px; margin-bottom: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+        .slot-container {
+            display: table; width: 100%; table-layout: fixed; margin-bottom: 25px;
+        }
+        .slot-reel {
+            display: table-cell; background: #020617; border: 2px solid var(--border);
+            border-radius: 8px; padding: 25px 10px; font-size: 1.3rem; font-weight: bold;
+            color: #fff; vertical-align: middle; text-align: center; height: 100px;
+            transition: all 0.1s ease;
+        }
+        .slot-reel.rolling {
+            color: var(--muted); filter: blur(1px); transform: scale(0.98);
+        }
+        .slot-connector {
+            display: table-cell; width: 30px; font-size: 1.5rem; color: var(--primary);
+            vertical-align: middle; font-weight: bold;
+        }
+
+        /* 操作ボタン */
+        .action-group { display: flex; gap: 15px; justify-content: center; margin-bottom: 30px; }
+        .btn {
+            border: none; padding: 15px 35px; font-size: 1.2rem; font-weight: bold;
+            border-radius: 8px; cursor: pointer; transition: all 0.2s; color: #fff;
+        }
+        .btn-spin { background: var(--primary); box-shadow: 0 4px 14px rgba(99,102,241,0.4); width: 220px; }
+        .btn-spin:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-keep { background: var(--accent); font-size: 1rem; padding: 15px 20px; }
+        .btn-keep:hover { opacity: 0.9; }
+
+        /* お気に入り・キープエリア */
+        .keep-section {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; margin-bottom: 40px; text-align: left;
+        }
+        .section-title { font-size: 1.1rem; font-weight: bold; margin-bottom: 15px; color: var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 5px;}
+        .keep-list { list-style: none; }
+        .keep-item {
+            background: #0f172a; border-radius: 6px; padding: 10px 15px; margin-bottom: 8px;
+            display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--border);
+        }
+        .delete-btn { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; }
+
+        /* 単語編集エリア */
+        .edit-section {
+            background: var(--card); border: 1px solid var(--border);
+            border-radius: 12px; padding: 20px; text-align: left;
+        }
+        .edit-grid { display: table; width: 100%; table-layout: fixed; }
+        .edit-column { display: table-cell; padding: 0 10px; width: 33.333%; }
+        .edit-column h3 { font-size: 0.95rem; margin-bottom: 10px; color: var(--primary); }
+        .word-input-group { display: flex; gap: 5px; margin-bottom: 10px; }
+        .word-input-group input {
+            flex: 1; background: #0f172a; color: #fff; border: 1px solid var(--border);
+            padding: 6px 10px; border-radius: 4px; font-size: 0.85rem;
+        }
+        .add-btn { background: var(--primary); border: none; color: white; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .word-tags { height: 150px; overflow-y: auto; background: #0f172a; border: 1px solid var(--border); padding: 8px; border-radius: 4px; }
+        .tag {
+            display: inline-flex; align-items: center; background: #334155; color: #fff;
+            padding: 3px 8px; font-size: 0.75rem; border-radius: 12px; margin: 3px;
+        }
+        .tag-remove { margin-left: 5px; cursor: pointer; color: #94a3b8; }
+        .tag-remove:hover { color: #ef4444; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>⚡ アイデア強制連結発想器</h1>
+        <p class="subtitle">全く関係のない3つの要素を強制的に掛け合わせて、革新的なアイデアを生み出します</p>
+    </header>
+
+    <!-- スロットマシン -->
+    <div class="slot-machine">
+        <div class="slot-container">
+            <div class="slot-reel" id="reel1">???</div>
+            <div class="slot-connector">×</div>
+            <div class="slot-reel" id="reel2">???</div>
+            <div class="slot-connector">×</div>
+            <div class="slot-reel" id="reel3">???</div>
+        </div>
+        
+        <div class="action-group">
+            <button class="btn btn-spin" onclick="spinSlot()">🎰 スロットを回す</button>
+            <button class="btn btn-keep" onclick="keepIdea()">💡 この発想をキープ</button>
+        </div>
+    </div>
+
+    <!-- キープ一覧 -->
+    <div class="keep-section">
+        <div class="section-title">📌 キープされたアイデアのタネ</div>
+        <ul class="keep-list" id="keepList">
+            <!-- JavaScriptで動的生成 -->
+        </ul>
+    </div>
+
+    <!-- 単語のカスタマイズ編集 -->
+    <div class="edit-section">
+        <div class="section-title">⚙️ 出現する単語のカスタマイズ（自由に追加・変更できます）</div>
+        <div class="edit-grid">
+            <!-- 軸1 -->
+            <div class="edit-column">
+                <h3>ターゲット（誰に）</h3>
+                <div class="word-input-group">
+                    <input type="text" id="input1" placeholder="例: シニア層">
+                    <button class="add-btn" onclick="addWord(1)">追加</button>
+                </div>
+                <div class="word-tags" id="tags1"></div>
+            </div>
+            <!-- 軸2 -->
+            <div class="edit-column">
+                <h3>分野・テーマ（何を）</h3>
+                <div class="word-input-group">
+                    <input type="text" id="input2" placeholder="例: 文房具">
+                    <button class="add-btn" onclick="addWord(2)">追加</button>
+                </div>
+                <div class="word-tags" id="tags2"></div>
+            </div>
+            <!-- 軸3 -->
+            <div class="edit-column">
+                <h3>手法・テクノロジー（どうやって）</h3>
+                <div class="word-input-group">
+                    <input type="text" id="input3" placeholder="例: サブスク型">
+                    <button class="add-btn" onclick="addWord(3)">追加</button>
+                </div>
+                <div class="word-tags" id="tags3"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // デフォルトの単語リスト
+    const defaultWords = {
+        list1: ["ソロ活女子", "受験生", "ズボラな人", "シニア世代", "猫の飼い主", "在宅ワーカー", "ミニマリスト", "地方移住者"],
+        list2: ["料理・レシピ", "文房具", "筋トレ・フィットネス", "睡眠・快眠", "旅行・観光", "防災・防犯", "片付け・掃除", "カフェ・喫茶"],
+        list3: ["AI自動化", "音声配信", "サブスク（定額）", "ガチャ・ランダム", "レトロ復刻", "超コンパクト化", "ゲーミフィケーション", "完全非接触"]
+    };
+
+    // ローカルストレージからデータを読み込み（無ければデフォルト）
+    let wordsData = JSON.parse(localStorage.getItem('idea_slot_words')) || defaultWords;
+    let keptIdeas = JSON.parse(localStorage.getItem('idea_slot_keeps')) || [];
+
+    // 初回起動処理
+    renderTags();
+    renderKeptIdeas();
+    setRandomInitial();
+
+    function setRandomInitial() {
+        document.getElementById('reel1').innerText = getRandomWord(wordsData.list1);
+        document.getElementById('reel2').innerText = getRandomWord(wordsData.list2);
+        document.getElementById('reel3').innerText = getRandomWord(wordsData.list3);
+    }
+
+    function getRandomWord(arr) {
+        if(arr.length === 0) return "（登録なし）";
+        return arr[Math.floor(Math.random() * arr.length)];
+    }
+
+    // スロットを回すメインロジック
+    function spinSlot() {
+        const reels = [document.getElementById('reel1'), document.getElementById('reel2'), document.getElementById('reel3')];
+        const lists = [wordsData.list1, wordsData.list2, wordsData.list3];
+        
+        reels.forEach(r => r.classList.add('rolling'));
+
+        let count = 0;
+        // シャッフル中のパラパラ動くアニメーション
+        const interval = setInterval(() => {
+            reels[0].innerText = getRandomWord(lists[0]);
+            reels[1].innerText = getRandomWord(lists[1]);
+            reels[2].innerText = getRandomWord(lists[2]);
+            count++;
+            
+            if(count > 10) {
+                clearInterval(interval);
+                reels.forEach(r => r.classList.remove('rolling'));
+            }
+        }, 60);
+    }
+
+    // アイデアをキープ
+    function keepIdea() {
+        const r1 = document.getElementById('reel1').innerText;
+        const r2 = document.getElementById('reel2').innerText;
+        const r3 = document.getElementById('reel3').innerText;
+
+        if(r1.includes('なし') || r2.includes('なし') || r3.includes('なし')) return;
+
+        const ideaText = `${r1} ❌ ${r2} ❌ ${r3}`;
+        
+        // 重複チェック
+        if(keptIdeas.some(item => item.text === ideaText)) return;
+
+        keptIdeas.unshift({ id: Date.now(), text: ideaText });
+        localStorage.setItem('idea_slot_keeps', JSON.stringify(keptIdeas));
+        renderKeptIdeas();
+    }
+
+    // キープの削除
+    function deleteKeep(id) {
+        keptIdeas = keptIdeas.filter(item => item.id !== id);
+        localStorage.setItem('idea_slot_keeps', JSON.stringify(keptIdeas));
+        renderKeptIdeas();
+    }
+
+    // 単語の追加
+    function addWord(idx) {
+        const input = document.getElementById(`input${idx}`);
+        const word = input.value.trim();
+        if(!word) return;
+
+        wordsData[`list${idx}`].push(word);
+        localStorage.setItem('idea_slot_words', JSON.stringify(wordsData));
+        
+        input.value = '';
+        renderTags();
+    }
+
+    // 単語の削除
+    function removeWord(idx, wordIndex) {
+        wordsData[`list${idx}`].splice(wordIndex, 1);
+        localStorage.setItem('idea_slot_words', JSON.stringify(wordsData));
+        renderTags();
+    }
+
+    // 画面への描画処理（タグ一覧）
+    function renderTags() {
+        for(let i=1; i<=3; i++) {
+            const tagContainer = document.getElementById(`tags${i}`);
+            tagContainer.innerHTML = '';
+            wordsData[`list${i}`].forEach((word, index) => {
+                const tag = document.createElement('span');
+                tag.className = 'tag';
+                tag.innerHTML = `${escapeHtml(word)}<span class="tag-remove" onclick="removeWord(${i}, ${index})">×</span>`;
+                tagContainer.appendChild(tag);
+            });
+        }
+    }
+
+    // 画面への描画処理（キープ一覧）
+    function renderKeptIdeas() {
+        const listContainer = document.getElementById('keepList');
+        listContainer.innerHTML = '';
+        
+        if(keptIdeas.length === 0) {
+            listContainer.innerHTML = '<li style="color: var(--muted); font-size: 0.9rem; text-align: center;">まだキープされたアイデアはありません。「スロットを回す」➔「発想をキープ」を押してみましょう！</li>';
+            return;
+        }
+
+        keptIdeas.forEach(item => {
+            const li = document.createElement('li');
+            li.className = 'keep-item';
+            li.innerHTML = `
+                <span>${escapeHtml(item.text)}</span>
+                <button class="delete-btn" onclick="deleteKeep(${item.id})">🗑️</button>
+            `;
+            listContainer.appendChild(li);
+        });
+    }
+
+    function escapeHtml(str) {
+        return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+</script>
+</body>
+</html>
