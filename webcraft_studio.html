@@ -1,0 +1,2044 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebCraft Studio Ultra Max - AI Integrated Workspace</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0f172a; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        .tab-active {
+            border-bottom: 2px solid #6366f1;
+            color: #a5b4fc;
+        }
+        
+        /* コードエディタの行番号スタイル */
+        .line-numbers {
+            text-align: right;
+            padding-right: 12px;
+            user-select: none;
+            color: #475569;
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 20px;
+        }
+        
+        .code-textarea {
+            font-family: monospace;
+            font-size: 12px;
+            line-height: 20px;
+            resize: none;
+            outline: none;
+            white-space: pre;
+        }
+
+        .glow-indigo { box-shadow: 0 0 15px rgba(99, 102, 241, 0.4); }
+        .glow-emerald { box-shadow: 0 0 15px rgba(16, 185, 129, 0.3); }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 flex flex-col h-screen overflow-hidden font-sans">
+
+    <header class="bg-slate-900 border-b border-slate-800 px-6 py-4 flex flex-wrap justify-between items-center shrink-0 shadow-2xl z-10 gap-4">
+        <div class="flex items-center gap-3">
+            <div class="bg-gradient-to-tr from-indigo-600 to-violet-500 p-2.5 rounded-xl shadow-lg shadow-indigo-950/40 animate-pulse">
+                <i class="fa-solid fa-wand-magic-sparkles text-xl text-white"></i>
+            </div>
+            <div>
+                <h1 class="text-lg font-bold tracking-tight text-white flex items-center gap-2">
+                    WebCraft Studio Ultra Max
+                    <span class="text-xs bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full font-bold">AI Core v4.0</span>
+                </h1>
+                <p class="text-xs text-slate-400">Gemini 3.1 & 3.0 / Imagen 4.0 / 双方向シームレスインポート / P2P通信統合</p>
+            </div>
+        </div>
+        
+        <!-- モード・タブ切替 -->
+        <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+            <button onclick="switchTab('block')" id="tab-block" class="tab-active text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2">
+                <i class="fa-solid fa-cubes text-indigo-400"></i> ブロック設計
+            </button>
+            <button onclick="switchTab('code')" id="tab-code" class="text-slate-400 text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2">
+                <i class="fa-solid fa-code text-emerald-400"></i> コードエディタ
+            </button>
+            <button onclick="switchTab('copilot')" id="tab-copilot" class="text-slate-400 text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2">
+                <i class="fa-solid fa-robot text-violet-400"></i> AIコパイロット
+            </button>
+        </div>
+        
+        <div class="flex items-center gap-3">
+            <!-- APIキー設定（グローバル） -->
+            <div class="flex items-center gap-2 bg-slate-950 px-3 py-1.5 rounded-xl border border-slate-800">
+                <i class="fa-solid fa-key text-amber-400 text-xs"></i>
+                <input type="password" id="global-api-key" placeholder="Gemini APIキー (任意)" class="bg-transparent text-xs text-slate-200 outline-none w-32 focus:w-44 transition-all duration-300" title="空欄の場合、Canvasの自動API実行が使われます（外部実行にはキー推奨）">
+            </div>
+
+            <!-- ファイルインポートボタン -->
+            <label class="bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl cursor-pointer border border-slate-700 transition flex items-center gap-2">
+                <i class="fa-solid fa-file-import text-indigo-400"></i> 復元・インポート
+                <input type="file" id="import-file-input" class="hidden" accept=".html" onchange="handleFileImport(event)">
+            </label>
+
+            <button onclick="clearAll()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold px-4 py-2.5 rounded-xl transition flex items-center gap-2 border border-slate-700/50">
+                <i class="fa-solid fa-trash-can"></i> クリア
+            </button>
+            
+            <button onclick="exportHTML()" class="bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white text-xs font-bold px-5 py-2.5 rounded-xl shadow-lg shadow-indigo-950/30 transition flex items-center gap-2">
+                <i class="fa-solid fa-download"></i> アプリを保存・書き出し
+            </button>
+        </div>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <!-- ==================== 1. ブロックビルド画面 ==================== -->
+        <div id="view-block" class="flex flex-1 overflow-hidden">
+            <!-- 左サイドバー: コンポーネントパレット -->
+            <aside class="w-80 bg-slate-900 border-r border-slate-800 flex flex-col overflow-y-auto p-4 shrink-0 gap-5">
+                <div>
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">🧩 パーツライブラリ</h2>
+                    
+                    <!-- AIコグニティブブロック -->
+                    <div class="mb-4">
+                        <span class="text-[10px] text-indigo-400 font-bold block mb-1.5 uppercase">🤖 AI・コグニティブ (Gemini API)</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addPart('gemini_text')" class="group flex flex-col items-center justify-center p-2.5 bg-indigo-950/40 hover:bg-indigo-900/60 border border-indigo-800/50 hover:border-indigo-600 rounded-xl transition text-center glow-indigo">
+                                <i class="fa-solid fa-brain text-indigo-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-indigo-200 font-bold">GeminiテキストAI</span>
+                            </button>
+                            <button onclick="addPart('imagen_art')" class="group flex flex-col items-center justify-center p-2.5 bg-violet-950/40 hover:bg-violet-900/60 border border-violet-800/50 hover:border-violet-600 rounded-xl transition text-center">
+                                <i class="fa-solid fa-image text-violet-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-violet-200 font-bold">Imagen画像生成</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-[10px] text-slate-500 font-bold block mb-1.5 uppercase">基本・テキスト</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addPart('heading')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-heading text-slate-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">大見出し</span>
+                            </button>
+                            <button onclick="addPart('text')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-align-left text-slate-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">テキスト</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-[10px] text-slate-500 font-bold block mb-1.5 uppercase">フォーム入力 & 変数バインド</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addPart('input')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-keyboard text-emerald-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">入力ボックス</span>
+                            </button>
+                            <button onclick="addPart('slider')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-sliders text-emerald-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">スライダー</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <span class="text-[10px] text-slate-500 font-bold block mb-1.5 uppercase">処理 & アクション</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addPart('calc')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-square-root-variable text-amber-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">計算結果表示</span>
+                            </button>
+                            <button onclick="addPart('button')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-square-caret-right text-rose-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">ボタンアクション</span>
+                            </button>
+                            <button onclick="addPart('list')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-list-ul text-cyan-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">動的リスト</span>
+                            </button>
+                            <button onclick="addPart('canvas')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-palette text-purple-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">お絵描きボード</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <span class="text-[10px] text-slate-500 font-bold block mb-1.5 uppercase">高度なP2P・DB・ハック</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="addPart('p2p')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-network-wired text-sky-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-bold">P2P合言葉通信</span>
+                            </button>
+                            <button onclick="addPart('storage')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-database text-amber-500 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">データ保存DB</span>
+                            </button>
+                            <button onclick="addPart('graph')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-chart-line text-lime-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">可視化グラフ</span>
+                            </button>
+                            <button onclick="addPart('crypto')" class="group flex flex-col items-center justify-center p-2.5 bg-slate-800/40 hover:bg-slate-800 border border-slate-800 hover:border-slate-700 rounded-xl transition text-center">
+                                <i class="fa-solid fa-lock text-red-400 group-hover:scale-110 transition mb-1 text-sm"></i>
+                                <span class="text-[11px] text-slate-300 font-medium">暗号化・復号化</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- デザイン全体設定 -->
+                <div class="mt-2 border-t border-slate-800 pt-4">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">🎨 アプリ全体設定</h2>
+                    <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 flex flex-col gap-3">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-400 font-semibold">アプリタイトル</label>
+                            <input type="text" id="app-title" value="My Web Tool" oninput="triggerPreviewUpdate()" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-400 font-semibold">テーマスタイル</label>
+                            <select id="app-theme" onchange="triggerPreviewUpdate()" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                                <option value="modern-dark" selected>モダン・ダーク (黒ベース)</option>
+                                <option value="modern-light">モダン・ライト (白ベース)</option>
+                                <option value="cyber">サイバーパンク (ネオン)</option>
+                                <option value="retro">レトロ紙調 (クラシック)</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-400 font-semibold">コンテナ最大幅</label>
+                            <select id="app-width" onchange="triggerPreviewUpdate()" class="bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500">
+                                <option value="max-w-md">コンパクト (448px)</option>
+                                <option value="max-w-xl" selected>標準 (576px)</option>
+                                <option value="max-w-4xl">ワイド (896px)</option>
+                                <option value="max-w-full">フル画面</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- 中央パネル: 各パーツ設計 & インタラクション設定 -->
+            <main class="w-[420px] bg-slate-950 border-r border-slate-800 flex flex-col overflow-y-auto shrink-0 p-4 gap-4">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                    <span>🛠️ パーツ設計 & インタラクション</span>
+                    <span class="text-[10px] text-indigo-400">リアルタイム同期</span>
+                </h2>
+                
+                <div class="flex flex-col gap-2.5" id="parts-structure-list">
+                    <!-- 動的にアコーディオンフォームが生成されます -->
+                </div>
+            </main>
+        </div>
+
+        <!-- ==================== 2. コードエディタ画面 ==================== -->
+        <div id="view-code" class="hidden flex-1 overflow-hidden flex">
+            <!-- 左半分：コード編集ペイン -->
+            <div class="flex-1 flex flex-col bg-slate-950 border-r border-slate-800">
+                <div class="bg-slate-900 px-4 py-2 border-b border-slate-800 flex justify-between items-center shrink-0">
+                    <span class="text-xs font-bold text-emerald-400"><i class="fa-solid fa-code-branch mr-1.5"></i>ソースコードエディタ (全HTML)</span>
+                    <div class="flex items-center gap-2">
+                        <button onclick="beautifyCode()" class="text-[10px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold px-2 py-1 rounded border border-slate-700">整形</button>
+                        <button onclick="applyCodeChanges()" class="text-[10px] bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-2.5 py-1 rounded shadow-md">プレビューに適用</button>
+                    </div>
+                </div>
+                <div class="flex-1 flex overflow-hidden p-2 bg-[#0d1117]">
+                    <div id="line-num-container" class="line-numbers pt-2 select-none">1</div>
+                    <textarea id="raw-html-editor" class="flex-1 code-textarea bg-transparent text-slate-100 p-2 overflow-auto font-mono" onscroll="syncEditorScroll()" oninput="updateLineNumbers()"></textarea>
+                </div>
+            </div>
+
+            <!-- 右半分：AIコードアシスタント -->
+            <div class="w-80 bg-slate-900 flex flex-col shrink-0 border-l border-slate-800">
+                <div class="p-4 border-b border-slate-800 bg-slate-950/40">
+                    <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i class="fa-solid fa-robot"></i> AIコードアシスタント
+                    </h3>
+                    <p class="text-[10px] text-slate-400 mt-1">現在のソースコードに対して、AIに機能追加やデザイン修正を直接指示できます。</p>
+                </div>
+                <div class="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] text-slate-400 font-bold">指示内容</label>
+                        <textarea id="ai-code-prompt" rows="6" class="bg-slate-950 border border-slate-800 rounded-lg p-2.5 text-xs text-slate-100 focus:outline-none focus:border-emerald-500 font-mono" placeholder="例: &#10;・全体をネオン調のサイバーパンク風にして&#10;・入力値が空の時はエラーが出るようにJSを修正して&#10;・背景を宇宙っぽいアニメーションにするCSSを追加して"></textarea>
+                    </div>
+                    <button onclick="runAICodeEdit()" id="btn-ai-code-edit" class="w-full bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold py-2 px-4 rounded-lg text-xs flex justify-center items-center gap-1.5 transition shadow-lg shadow-emerald-950/20">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> コードをAIで書き換え
+                    </button>
+                    <div id="ai-code-loader" class="hidden flex flex-col items-center justify-center py-6 gap-2">
+                        <div class="animate-spin rounded-full h-6 w-6 border-b-2 border-emerald-500"></div>
+                        <span class="text-[10px] text-emerald-400 animate-pulse">ソースコード生成中...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ==================== 3. AIコパイロット画面 ==================== -->
+        <div id="view-copilot" class="hidden flex-1 overflow-hidden p-6 bg-slate-950 flex flex-col gap-6">
+            <div class="max-w-3xl mx-auto w-full bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl flex flex-col gap-5">
+                <div class="flex items-center gap-3 border-b border-slate-800 pb-4">
+                    <div class="bg-gradient-to-tr from-violet-600 to-indigo-500 p-3 rounded-xl shadow-lg">
+                        <i class="fa-solid fa-wand-magic-sparkles text-2xl text-white"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-base font-bold text-white flex items-center gap-2">
+                            🤖 AI テキスト-to-アプリ・コパイロット
+                        </h2>
+                        <p class="text-xs text-slate-400">欲しいHTMLツールのアイデアを自由に書き込んでください。AIが完全に動作する構成を自動定義します。</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2">
+                    <label class="text-xs font-bold text-violet-400">アプリのアイデア・要件</label>
+                    <textarea id="ai-copilot-prompt" rows="6" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 font-mono focus:outline-none focus:border-violet-500 leading-relaxed" placeholder="例:&#10;「年齢から1日に必要な水分摂取量をシミュレーションする健康ツール。運動レベルを入力するスライダーと、お絵描きできる今日の体調サインボード、そしてGeminiに今日のおすすめ健康法を質問できるAI相談窓口も統合して。」"></textarea>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] text-slate-400 font-bold">推奨デザインカラー</label>
+                        <select id="ai-copilot-style" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-100">
+                            <option value="modern-dark">洗練されたダークネイビー</option>
+                            <option value="modern-light">爽やかでミニマルなホワイト</option>
+                            <option value="cyber">極秘サイバーハッカー調（グリーン・ネオン）</option>
+                            <option value="retro">温かみのあるヴィンテージ紙調</option>
+                        </select>
+                    </div>
+                    <div class="flex flex-col gap-1.5">
+                        <label class="text-[10px] text-slate-400 font-bold">Gemini 連携方式</label>
+                        <select id="ai-copilot-llm" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-slate-100">
+                            <option value="gemini-3.1">標準 (高速＆多機能)</option>
+                            <option value="gemini-3.1-grounding">Web検索グラウンディング機能付き</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button onclick="generateAppFromCopilot()" id="btn-copilot-run" class="w-full bg-gradient-to-r from-indigo-500 to-violet-600 hover:from-indigo-600 hover:to-violet-700 text-white font-bold py-3 px-6 rounded-xl text-xs flex justify-center items-center gap-2 shadow-lg shadow-violet-950/40 transition transform active:scale-[0.98]">
+                    <i class="fa-solid fa-play"></i> アプリ構成を自動構築する
+                </button>
+
+                <div id="copilot-loader" class="hidden flex flex-col items-center justify-center py-6 gap-3">
+                    <div class="relative w-12 h-12">
+                        <div class="absolute inset-0 rounded-full border-4 border-slate-800"></div>
+                        <div class="absolute inset-0 rounded-full border-4 border-indigo-500 border-t-transparent animate-spin"></div>
+                    </div>
+                    <div class="text-center">
+                        <span class="text-xs text-indigo-400 font-bold block animate-pulse">Gemini AI がアプリ設計を自動実行中...</span>
+                        <span class="text-[10px] text-slate-500 block mt-1">変数の整合性・計算ロジック・P2Pバインドを自動調整しています</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 右半分: ライブプレビュー画面（どのモードからでも常に確認可能） -->
+        <section class="flex-1 bg-slate-950 flex flex-col overflow-hidden relative border-l border-slate-800">
+            <div class="bg-slate-900 px-4 py-2.5 border-b border-slate-800 flex justify-between items-center shrink-0">
+                <span class="text-xs font-semibold text-slate-400 flex items-center gap-2">
+                    <span class="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                    リアルタイム・サンドボックスプレビュー (AI / WebRTC / DB)
+                </span>
+                <span class="text-[10px] text-slate-500 bg-slate-950 px-2.5 py-0.5 rounded border border-slate-800 font-mono">Secure Sandboxed View</span>
+            </div>
+            
+            <div class="flex-1 p-6 flex justify-center items-center overflow-auto bg-slate-950/60">
+                <div class="w-full h-full max-w-5xl rounded-2xl overflow-hidden shadow-2xl border border-slate-800 bg-slate-900 flex flex-col">
+                    <iframe id="preview-iframe" class="w-full h-full bg-transparent" sandbox="allow-scripts allow-modals allow-downloads"></iframe>
+                </div>
+            </div>
+        </section>
+    </div>
+
+    <script>
+        let parts = [];
+        let idCounter = 0;
+        let activePartId = null;
+        let currentTab = 'block'; // 'block' | 'code' | 'copilot'
+
+        // 初期テンプレート
+        const templates = {
+            ai_partner: [
+                { id: "h1", type: "heading", text: "🤖 Gemini AI 超知能アシスタント", size: "text-2xl", color: "text-indigo-400" },
+                { id: "t1", type: "text", text: "プロンプトを入力して、Gemini AIとリアルタイムで通信します。検索グラウンディングをONにすると最新のウェブ情報を引用できます。", size: "text-xs", color: "text-slate-400" },
+                { id: "ai_q", type: "input", label: "💬 質問を入力してください", variable: "prompt_input", value: "富士山の今日の天気は？" },
+                { id: "ai_model", type: "gemini_text", label: "🤖 AIの返答 (Google検索グラウンディング付き)", systemPrompt: "あなたは優秀な旅行ガイドです。", variable: "prompt_input", outputVariable: "ai_response", enableSearch: true },
+                { id: "ai_out", type: "text", text: "【AIの回答】：\n{ai_response}", size: "text-xs", color: "text-slate-300" }
+            ]
+        };
+
+        window.onload = function() {
+            loadTemplate('ai_partner');
+        };
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            // タブのハイライト状態更新
+            document.getElementById('tab-block').className = (tab === 'block') ? 'tab-active text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2' : 'text-slate-400 text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2';
+            document.getElementById('tab-code').className = (tab === 'code') ? 'tab-active text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2' : 'text-slate-400 text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2';
+            document.getElementById('tab-copilot').className = (tab === 'copilot') ? 'tab-active text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2' : 'text-slate-400 text-xs font-bold px-4 py-2 rounded-lg transition flex items-center gap-2';
+            
+            // 各コンテンツの表示・非表示
+            document.getElementById('view-block').style.display = (tab === 'block') ? 'flex' : 'none';
+            document.getElementById('view-code').style.display = (tab === 'code') ? 'flex' : 'none';
+            document.getElementById('view-copilot').style.display = (tab === 'copilot') ? 'flex' : 'none';
+            
+            if (tab === 'code') {
+                // コードエディタの内容を最新のパーツ構成から同期
+                const compiled = compileHTML();
+                document.getElementById('raw-html-editor').value = compiled;
+                updateLineNumbers();
+            } else if (tab === 'block') {
+                // コードエディタからの逆引き
+                tryReverseSync();
+            }
+        }
+
+        function loadTemplate(key) {
+            if (!templates[key]) return;
+            parts = JSON.parse(JSON.stringify(templates[key]));
+            let maxId = 0;
+            parts.forEach(p => {
+                let num = parseInt(p.id.replace(/\D/g, ''));
+                if (num > maxId) maxId = num;
+            });
+            idCounter = maxId + 1;
+            renderStructureList();
+            triggerPreviewUpdate();
+        }
+
+        function clearAll() {
+            parts = [];
+            renderStructureList();
+            triggerPreviewUpdate();
+            if (currentTab === 'code') {
+                document.getElementById('raw-html-editor').value = '';
+                updateLineNumbers();
+            }
+        }
+
+        function addPart(type) {
+            idCounter++;
+            let newId = type + "_" + idCounter;
+            let newPart = { id: newId, type: type };
+
+            if (type === 'gemini_text') {
+                newPart.label = "Gemini AI テキストアシスタント";
+                newPart.systemPrompt = "あなたは親切で優秀なAIアシスタントです。";
+                newPart.variable = "prompt_input";
+                newPart.outputVariable = "ai_response";
+                newPart.enableSearch = true;
+            } else if (type === 'imagen_art') {
+                newPart.label = "Imagen AI 画像ジェネレーター";
+                newPart.variable = "prompt_input";
+                newPart.outputVariable = "ai_image";
+            } else if (type === 'heading') {
+                newPart.text = "新しい大見出し";
+                newPart.size = "text-xl";
+                newPart.color = "text-slate-100";
+            } else if (type === 'text') {
+                newPart.text = "ここには説明文が入ります。{変数名} と記述することでリアルタイムに反映されます。";
+                newPart.size = "text-xs";
+                newPart.color = "text-slate-400";
+            } else if (type === 'input') {
+                newPart.label = "入力してください";
+                newPart.variable = "prompt_input";
+                newPart.value = "デフォルト値";
+            } else if (type === 'slider') {
+                newPart.label = "数値をスライド調整";
+                newPart.variable = "my_num";
+                newPart.min = "0";
+                newPart.max = "100";
+                newPart.value = "50";
+            } else if (type === 'calc') {
+                newPart.label = "リアルタイム計算結果";
+                newPart.formula = "[my_num] * 2.5";
+                newPart.unit = "ポイント";
+            } else if (type === 'button') {
+                newPart.text = "ボタンを押す";
+                newPart.actionType = "js";
+                newPart.customJS = "showCustomToast('ボタンがクリックされました！');";
+                newPart.targetList = "";
+                newPart.sourceInput = "";
+                newPart.color = "bg-indigo-600 hover:bg-indigo-700";
+            } else if (type === 'list') {
+                newPart.label = "リストアイテム一覧";
+                newPart.listVariable = "my_list";
+            } else if (type === 'canvas') {
+                newPart.label = "ホワイトボード・サイン";
+                newPart.color = "#8b5cf6";
+            } else if (type === 'p2p') {
+                newPart.label = "P2P合言葉チャットルーム";
+                newPart.defaultRoom = "secret-key-1234";
+            } else if (type === 'storage') {
+                newPart.label = "データベースビューア";
+                newPart.storeName = "local_db";
+            } else if (type === 'graph') {
+                newPart.label = "データの可視化折れ線グラフ";
+                newPart.graphTitle = "数値トレンド";
+                newPart.yAxisLabel = "スケール";
+                newPart.formulaVariables = "my_num, height";
+            } else if (type === 'crypto') {
+                newPart.label = "安全なAESテキスト暗号化";
+                newPart.placeholderText = "ここに暗号化したいメッセージを入力";
+            }
+
+            parts.push(newPart);
+            activePartId = newId;
+            renderStructureList();
+            triggerPreviewUpdate();
+
+            setTimeout(() => {
+                let el = document.getElementById('details-' + newId);
+                if (el) el.classList.remove('hidden');
+            }, 80);
+        }
+
+        function deletePart(id) {
+            parts = parts.filter(p => p.id !== id);
+            renderStructureList();
+            triggerPreviewUpdate();
+        }
+
+        function moveUp(index) {
+            if (index === 0) return;
+            let temp = parts[index];
+            parts[index] = parts[index - 1];
+            parts[index - 1] = temp;
+            renderStructureList();
+            triggerPreviewUpdate();
+        }
+
+        function moveDown(index) {
+            if (index === parts.length - 1) return;
+            let temp = parts[index];
+            parts[index] = parts[index + 1];
+            parts[index + 1] = temp;
+            renderStructureList();
+            triggerPreviewUpdate();
+        }
+
+        function updateProperty(partId, key, value) {
+            let part = parts.find(p => p.id === partId);
+            if (part) {
+                part[key] = value;
+                triggerPreviewUpdate();
+            }
+        }
+
+        function renderStructureList() {
+            const listEl = document.getElementById('parts-structure-list');
+            listEl.innerHTML = '';
+
+            if (parts.length === 0) {
+                listEl.innerHTML = `
+                    <div class="text-center py-12 border border-dashed border-slate-800 rounded-2xl bg-slate-900/10 text-slate-500">
+                        <i class="fa-solid fa-cubes text-4xl mb-3 block text-slate-700"></i>
+                        <span class="text-xs">左のライブラリから機能パーツを追加するか、<br>AIコパイロットからツールを作成させてください。</span>
+                    </div>
+                `;
+                return;
+            }
+
+            parts.forEach((part, index) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = "bg-slate-900 border border-slate-800/80 rounded-xl overflow-hidden property-panel shadow-md";
+                
+                let icon = "fa-cube";
+                let typeColor = "text-indigo-400";
+                
+                if (part.type === 'gemini_text') { icon = "fa-brain"; typeColor = "text-indigo-400"; }
+                else if (part.type === 'imagen_art') { icon = "fa-image"; typeColor = "text-violet-400"; }
+                else if (part.type === 'heading') { icon = "fa-heading"; typeColor = "text-slate-400"; }
+                else if (part.type === 'text') { icon = "fa-align-left"; typeColor = "text-slate-400"; }
+                else if (part.type === 'input') { icon = "fa-keyboard"; typeColor = "text-emerald-400"; }
+                else if (part.type === 'slider') { icon = "fa-sliders"; typeColor = "text-emerald-400"; }
+                else if (part.type === 'calc') { icon = "fa-square-root-variable"; typeColor = "text-amber-400"; }
+                else if (part.type === 'button') { icon = "fa-square-caret-right"; typeColor = "text-rose-400"; }
+                else if (part.type === 'list') { icon = "fa-list-ul"; typeColor = "text-cyan-400"; }
+                else if (part.type === 'canvas') { icon = "fa-palette"; typeColor = "text-purple-400"; }
+                else if (part.type === 'p2p') { icon = "fa-network-wired"; typeColor = "text-sky-400"; }
+                else if (part.type === 'storage') { icon = "fa-database"; typeColor = "text-amber-500"; }
+                else if (part.type === 'graph') { icon = "fa-chart-line"; typeColor = "text-lime-400"; }
+                else if (part.type === 'crypto') { icon = "fa-lock"; typeColor = "text-red-400"; }
+
+                let title = part.label || part.text || part.id;
+                if (title.length > 25) title = title.substring(0, 22) + "...";
+
+                wrapper.innerHTML = `
+                    <div class="px-4 py-3 bg-slate-900 hover:bg-slate-900/60 flex justify-between items-center cursor-pointer select-none" onclick="toggleAccordion('${part.id}')">
+                        <div class="flex items-center gap-2.5">
+                            <span class="text-[10px] text-slate-600 font-mono font-bold">${index + 1}</span>
+                            <i class="fa-solid ${icon} ${typeColor} text-xs"></i>
+                            <span class="text-xs font-semibold text-slate-200">${title}</span>
+                        </div>
+                        <div class="flex items-center gap-1" onclick="event.stopPropagation()">
+                            <button onclick="moveUp(${index})" class="p-1 text-slate-500 hover:text-white transition rounded hover:bg-slate-800" title="上へ"><i class="fa-solid fa-chevron-up text-[10px]"></i></button>
+                            <button onclick="moveDown(${index})" class="p-1 text-slate-500 hover:text-white transition rounded hover:bg-slate-800" title="下へ"><i class="fa-solid fa-chevron-down text-[10px]"></i></button>
+                            <button onclick="deletePart('${part.id}')" class="p-1 text-rose-500 hover:text-rose-400 transition rounded hover:bg-slate-800 ml-1" title="削除"><i class="fa-solid fa-trash text-[10px]"></i></button>
+                        </div>
+                    </div>
+                    
+                    <div id="details-${part.id}" class="hidden p-4 bg-slate-950 border-t border-slate-800/80 flex flex-col gap-3 text-xs text-slate-300">
+                        ${renderPropertyInputs(part)}
+                    </div>
+                `;
+                listEl.appendChild(wrapper);
+            });
+        }
+
+        function toggleAccordion(id) {
+            let el = document.getElementById('details-' + id);
+            if (el.classList.contains('hidden')) {
+                parts.forEach(p => {
+                    let d = document.getElementById('details-' + p.id);
+                    if (d) d.classList.add('hidden');
+                });
+                el.classList.remove('hidden');
+            } else {
+                el.classList.add('hidden');
+            }
+        }
+
+        function renderPropertyInputs(part) {
+            let html = '';
+
+            if (part.type === 'gemini_text') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-indigo-400 font-bold">モジュールタイトル</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500">システム設定 (AIのペルソナ指定)</label>
+                        <input type="text" value="${part.systemPrompt || ''}" oninput="updateProperty('${part.id}', 'systemPrompt', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200" placeholder="あなたはプロの通訳です。">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-indigo-400">入力となる変数名</label>
+                            <input type="text" value="${part.variable || ''}" oninput="updateProperty('${part.id}', 'variable', this.value)" class="bg-slate-900 border border-indigo-950 rounded px-2.5 py-1.5 text-indigo-200 font-mono">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-indigo-400">返答を格納する変数名</label>
+                            <input type="text" value="${part.outputVariable || ''}" oninput="updateProperty('${part.id}', 'outputVariable', this.value)" class="bg-slate-900 border border-indigo-950 rounded px-2.5 py-1.5 text-indigo-200 font-mono">
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="checkbox" id="chk_search_${part.id}" ${part.enableSearch ? 'checked' : ''} onchange="updateProperty('${part.id}', 'enableSearch', this.checked)" class="rounded border-slate-800 bg-slate-900">
+                        <label for="chk_search_${part.id}" class="text-[10px] text-indigo-300 font-bold">Google検索グラウンディングを有効にする</label>
+                    </div>
+                `;
+            }
+            else if (part.type === 'imagen_art') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-violet-400 font-bold">モジュールタイトル</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-violet-400">プロンプト変数名</label>
+                            <input type="text" value="${part.variable || ''}" oninput="updateProperty('${part.id}', 'variable', this.value)" class="bg-slate-900 border border-violet-950 rounded px-2.5 py-1.5 text-violet-200 font-mono">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-violet-400">生成された画像保存変数名</label>
+                            <input type="text" value="${part.outputVariable || ''}" oninput="updateProperty('${part.id}', 'outputVariable', this.value)" class="bg-slate-900 border border-violet-950 rounded px-2.5 py-1.5 text-violet-200 font-mono">
+                        </div>
+                    </div>
+                `;
+            }
+            else if (part.type === 'heading') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">見出しテキスト</label>
+                        <input type="text" value="${part.text || ''}" oninput="updateProperty('${part.id}', 'text', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none focus:border-indigo-500">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">文字サイズ</label>
+                            <select onchange="updateProperty('${part.id}', 'size', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+                                <option value="text-lg" ${part.size === 'text-lg' ? 'selected' : ''}>小</option>
+                                <option value="text-xl" ${part.size === 'text-xl' ? 'selected' : ''}>中 (中見出し)</option>
+                                <option value="text-2xl" ${part.size === 'text-2xl' ? 'selected' : ''}>大 (大見出し)</option>
+                                <option value="text-3xl" ${part.size === 'text-3xl' ? 'selected' : ''}>特大</option>
+                            </select>
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">文字カラー</label>
+                            <select onchange="updateProperty('${part.id}', 'color', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+                                <option value="text-slate-100" ${part.color === 'text-slate-100' ? 'selected' : ''}>標準ホワイト</option>
+                                <option value="text-indigo-400" ${part.color === 'text-indigo-400' ? 'selected' : ''}>インディゴ</option>
+                                <option value="text-emerald-400" ${part.color === 'text-emerald-400' ? 'selected' : ''}>エメラルド</option>
+                                <option value="text-rose-400" ${part.color === 'text-rose-400' ? 'selected' : ''}>ローズ</option>
+                            </select>
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (part.type === 'text') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">テキスト本文 (変数展開: {変数名})</label>
+                        <textarea oninput="updateProperty('${part.id}', 'text', this.value)" rows="3" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono text-[11px] focus:outline-none focus:border-indigo-500">${part.text || ''}</textarea>
+                    </div>
+                `;
+            } 
+            else if (part.type === 'input') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">ラベル名</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none" />
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-indigo-400 font-bold">紐づける変数名</label>
+                            <input type="text" value="${part.variable || ''}" oninput="updateProperty('${part.id}', 'variable', this.value)" class="bg-slate-900 border border-indigo-950 rounded px-2.5 py-1.5 text-indigo-200 font-mono font-bold focus:outline-none">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">初期入力値</label>
+                            <input type="text" value="${part.value || ''}" oninput="updateProperty('${part.id}', 'value', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 focus:outline-none">
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (part.type === 'slider') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">ラベル名</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-indigo-400 font-bold">紐づける変数名</label>
+                            <input type="text" value="${part.variable || ''}" oninput="updateProperty('${part.id}', 'variable', this.value)" class="bg-slate-900 border border-indigo-950 rounded px-2.5 py-1.5 text-indigo-200 font-mono">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">初期値</label>
+                            <input type="number" value="${part.value || ''}" oninput="updateProperty('${part.id}', 'value', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">最小値</label>
+                            <input type="number" value="${part.min || ''}" oninput="updateProperty('${part.id}', 'min', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+                        </div>
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">最大値</label>
+                            <input type="number" value="${part.max || ''}" oninput="updateProperty('${part.id}', 'max', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-slate-200">
+                        </div>
+                    </div>
+                `;
+            } 
+            else if (part.type === 'calc') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">ラベル名</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-amber-400 font-bold">🧮 計算・評価式 (変数は [変数名] に置き換えて展開されます)</label>
+                        <input type="text" value="${part.formula || ''}" oninput="updateProperty('${part.id}', 'formula', this.value)" class="bg-slate-900 border border-amber-950 rounded px-2.5 py-1.5 text-amber-200 font-mono text-[11px]" placeholder="[weight] / (([height]/100) * ([height]/100))">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">末尾の単位</label>
+                        <input type="text" value="${part.unit || ''}" oninput="updateProperty('${part.id}', 'unit', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200" placeholder="kg, 円, % など">
+                    </div>
+                `;
+            } 
+            else if (part.type === 'button') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">ボタン表示名</label>
+                        <input type="text" value="${part.text || ''}" oninput="updateProperty('${part.id}', 'text', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-rose-400 font-bold">⚡ アクションイベント</label>
+                        <select onchange="updateProperty('${part.id}', 'actionType', this.value); renderStructureList();" class="bg-slate-900 border border-rose-950 rounded px-2 py-1.5 text-rose-300 font-bold">
+                            <option value="js" ${part.actionType === 'js' ? 'selected' : ''}>📝 カスタムJavaScriptの実行</option>
+                            <option value="save_db" ${part.actionType === 'save_db' ? 'selected' : ''}>💾 データベース(LocalStorage)に保存する</option>
+                            <option value="add_to_list" ${part.actionType === 'add_to_list' ? 'selected' : ''}>➕ 入力値をリスト(TODO)に追加</option>
+                        </select>
+                    </div>
+                `;
+
+                if (part.actionType === 'js') {
+                    html += `
+                        <div class="flex flex-col gap-1">
+                            <label class="text-[10px] text-slate-500 font-semibold">JSコード (state.変数名 で取得可能)</label>
+                            <textarea oninput="updateProperty('${part.id}', 'customJS', this.value)" rows="3" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono text-[11px]">${part.customJS || ''}</textarea>
+                        </div>
+                    `;
+                } else if (part.actionType === 'save_db') {
+                    html += `
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-amber-400 font-semibold">対象DBストア名</label>
+                                <input type="text" value="${part.targetStore || ''}" oninput="updateProperty('${part.id}', 'targetStore', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2 py-1.5 text-slate-200 font-mono" placeholder="memos">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-amber-400 font-semibold">保存する変数名</label>
+                                <input type="text" value="${part.sourceInput || ''}" oninput="updateProperty('${part.id}', 'sourceInput', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono" placeholder="new_memo">
+                            </div>
+                        </div>
+                    `;
+                } else if (part.actionType === 'add_to_list') {
+                    html += `
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-cyan-400 font-semibold">対象リスト変数名</label>
+                                <input type="text" value="${part.targetList || ''}" oninput="updateProperty('${part.id}', 'targetList', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono" placeholder="todos">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-cyan-400 font-semibold">元の入力変数名</label>
+                                <input type="text" value="${part.sourceInput || ''}" oninput="updateProperty('${part.id}', 'sourceInput', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono" placeholder="newtask">
+                            </div>
+                        </div>
+                    `;
+                }
+            } 
+            else if (part.type === 'list') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">見出しラベル</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-indigo-400 font-bold">連動リストの配列変数名</label>
+                        <input type="text" value="${part.listVariable || ''}" oninput="updateProperty('${part.id}', 'listVariable', this.value)" class="bg-slate-900 border border-indigo-950 rounded px-2.5 py-1.5 text-indigo-200 font-mono font-bold" placeholder="todos">
+                    </div>
+                `;
+            } 
+            else if (part.type === 'p2p') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-sky-400 font-bold">P2Pチャット見出し</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-sky-400 font-bold">デフォルト合言葉 (Room ID)</label>
+                        <input type="text" value="${part.defaultRoom || ''}" oninput="updateProperty('${part.id}', 'defaultRoom', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono">
+                    </div>
+                `;
+            } 
+            else if (part.type === 'storage') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">データ表示ラベル</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-amber-500 font-bold">紐づけるDBストア名</label>
+                        <input type="text" value="${part.storeName || ''}" oninput="updateProperty('${part.id}', 'storeName', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200 font-mono">
+                    </div>
+                `;
+            } 
+            else if (part.type === 'graph') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-slate-500 font-semibold">グラフタイトル</label>
+                        <input type="text" value="${part.graphTitle || ''}" oninput="updateProperty('${part.id}', 'graphTitle', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-lime-400 font-bold">追跡・可視化する変数名 (カンマ区切り)</label>
+                        <input type="text" value="${part.formulaVariables || ''}" oninput="updateProperty('${part.id}', 'formulaVariables', this.value)" class="bg-slate-900 border border-lime-300 rounded px-2.5 py-1.5 text-lime-300 font-mono font-bold" placeholder="height, weight">
+                    </div>
+                `;
+            } 
+            else if (part.type === 'crypto') {
+                html += `
+                    <div class="flex flex-col gap-1">
+                        <label class="text-[10px] text-red-400 font-bold">モジュールタイトル</label>
+                        <input type="text" value="${part.label || ''}" oninput="updateProperty('${part.id}', 'label', this.value)" class="bg-slate-900 border border-slate-800 rounded px-2.5 py-1.5 text-slate-200">
+                    </div>
+                `;
+            }
+
+            return html;
+        }
+
+        function updateLineNumbers() {
+            const textarea = document.getElementById('raw-html-editor');
+            const numContainer = document.getElementById('line-num-container');
+            const lines = textarea.value.split('\n').length;
+            let nums = [];
+            for (let i = 1; i <= lines; i++) {
+                nums.push(i);
+            }
+            numContainer.innerHTML = nums.join('<br>');
+        }
+
+        function syncEditorScroll() {
+            const textarea = document.getElementById('raw-html-editor');
+            const numContainer = document.getElementById('line-num-container');
+            numContainer.scrollTop = textarea.scrollTop;
+        }
+
+        function beautifyCode() {
+            const textarea = document.getElementById('raw-html-editor');
+            let code = textarea.value;
+            // 簡易インデント整形
+            let formatted = '';
+            let pad = 0;
+            code.split('\n').forEach(line => {
+                line = line.trim();
+                let indent = 0;
+                if (line.match(/.+<\/\w[^>]*>$/)) {
+                    indent = 0;
+                } else if (line.match(/^<\/\w/)) {
+                    if (pad !== 0) pad -= 4;
+                } else if (line.match(/^<\w[^>]*[^\/]>$/)) {
+                    indent = 4;
+                }
+                formatted += ' '.repeat(pad) + line + '\n';
+                pad += indent;
+            });
+            textarea.value = formatted.trim();
+            updateLineNumbers();
+        }
+
+        function applyCodeChanges() {
+            const code = document.getElementById('raw-html-editor').value;
+            const iframe = document.getElementById('preview-iframe');
+            if (iframe) {
+                iframe.srcdoc = code;
+            }
+            showToast("💻 編集中のカスタムコードをプレビューに直接適用しました。");
+        }
+
+        function tryReverseSync() {
+            const code = document.getElementById('raw-html-editor').value;
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(code, 'text/html');
+                const configMeta = doc.getElementById('webcraft-pro-metadata');
+                if (configMeta) {
+                    const data = JSON.parse(decodeURIComponent(configMeta.textContent));
+                    parts = data.parts || [];
+                    document.getElementById('app-title').value = data.appTitle || "Imported App";
+                    document.getElementById('app-theme').value = data.appTheme || "modern-dark";
+                    document.getElementById('app-width').value = data.appWidth || "max-w-xl";
+                    
+                    let maxId = 0;
+                    parts.forEach(p => {
+                        let num = parseInt(p.id.replace(/\D/g, ''));
+                        if (num > maxId) maxId = num;
+                    });
+                    idCounter = maxId + 1;
+                    renderStructureList();
+                    showToast("🔄 コード内の設計構成(メタデータ)を抽出し、ブロック構成に同期しました！");
+                }
+            } catch (e) {
+                console.warn("Reverse metadata parse skipped:", e);
+            }
+        }
+
+        function handleFileImport(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const htmlText = e.target.result;
+                document.getElementById('raw-html-editor').value = htmlText;
+                try {
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    const configMeta = doc.getElementById('webcraft-pro-metadata');
+
+                    if (configMeta) {
+                        const data = JSON.parse(decodeURIComponent(configMeta.textContent));
+                        parts = data.parts || [];
+                        document.getElementById('app-title').value = data.appTitle || "Imported App";
+                        document.getElementById('app-theme').value = data.appTheme || "modern-dark";
+                        document.getElementById('app-width').value = data.appWidth || "max-w-xl";
+                        
+                        let maxId = 0;
+                        parts.forEach(p => {
+                            let num = parseInt(p.id.replace(/\D/g, ''));
+                            if (num > maxId) maxId = num;
+                        });
+                        idCounter = maxId + 1;
+
+                        renderStructureList();
+                        triggerPreviewUpdate();
+                        showToast("🎉 HTMLファイルから開発構成を完全に読み込んで復元しました！");
+                    } else {
+                        // フォールバックパース
+                        parseStandardHTML(doc);
+                    }
+                } catch (err) {
+                    showToast("ファイル解析中にエラーが発生しました: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function parseStandardHTML(doc) {
+            parts = [];
+            idCounter = 0;
+
+            doc.querySelectorAll('h1, h2, h3, h4').forEach(h => {
+                idCounter++;
+                parts.push({
+                    id: "heading_" + idCounter,
+                    type: "heading",
+                    text: h.textContent.trim(),
+                    size: "text-xl",
+                    color: "text-slate-100"
+                });
+            });
+
+            doc.querySelectorAll('p').forEach(p => {
+                idCounter++;
+                parts.push({
+                    id: "text_" + idCounter,
+                    type: "text",
+                    text: p.textContent.trim(),
+                    size: "text-xs",
+                    color: "text-slate-400"
+                });
+            });
+
+            doc.querySelectorAll('input, select').forEach(input => {
+                idCounter++;
+                let placeholder = input.getAttribute('placeholder') || "入力ボックス";
+                parts.push({
+                    id: "input_" + idCounter,
+                    type: "input",
+                    label: placeholder,
+                    variable: input.id || input.name || "var_" + idCounter,
+                    value: input.value || ""
+                });
+            });
+
+            renderStructureList();
+            triggerPreviewUpdate();
+            showToast("🪄 一般的なHTML構成を検知し、パーツとして自動変換しました！");
+        }
+
+        let previewDebounceTimer = null;
+        function triggerPreviewUpdate() {
+            clearTimeout(previewDebounceTimer);
+            previewDebounceTimer = setTimeout(buildPreview, 250);
+        }
+
+        function compileHTML() {
+            const title = document.getElementById('app-title').value || "My Web Tool";
+            const theme = document.getElementById('app-theme').value;
+            const widthClass = document.getElementById('app-width').value;
+            const globalApiKey = document.getElementById('global-api-key').value || "";
+
+            const closeScript = '<' + '/script>';
+
+            // テーマ定義
+            let bodyBg = "bg-slate-950 text-slate-100";
+            let containerBg = "bg-slate-900 border border-slate-800 shadow-2xl rounded-2xl";
+            let inputBg = "bg-slate-950 border-slate-800 text-slate-100 focus:border-indigo-500";
+            let labelColor = "text-slate-400";
+            let helperText = "text-slate-500";
+
+            if (theme === 'modern-light') {
+                bodyBg = "bg-slate-50 text-slate-800";
+                containerBg = "bg-white border border-slate-200 shadow-xl rounded-2xl";
+                inputBg = "bg-slate-50 border-slate-300 text-slate-900 focus:border-indigo-500 focus:bg-white";
+                labelColor = "text-slate-600";
+                helperText = "text-slate-400";
+            } else if (theme === 'cyber') {
+                bodyBg = "bg-black text-emerald-400 font-mono";
+                containerBg = "bg-zinc-950 border-2 border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.3)] rounded-none";
+                inputBg = "bg-zinc-900 border-emerald-700 text-emerald-300 focus:border-emerald-400";
+                labelColor = "text-emerald-400 font-bold";
+                helperText = "text-emerald-700";
+            } else if (theme === 'retro') {
+                bodyBg = "bg-[#f5ebd6] text-stone-900";
+                containerBg = "bg-[#faf4e8] border-4 border-stone-800 shadow-[6px_6px_0px_rgba(0,0,0,1)] rounded-none";
+                inputBg = "bg-stone-50 border-2 border-stone-800 text-stone-900 focus:bg-[#fffff8]";
+                labelColor = "text-stone-800 font-bold";
+                helperText = "text-stone-600";
+            }
+
+            // 初期ステートの設定
+            let initialStateObj = {};
+            parts.forEach(p => {
+                if (p.variable) {
+                    initialStateObj[p.variable] = p.value || "";
+                }
+                if (p.outputVariable) {
+                    initialStateObj[p.outputVariable] = "";
+                }
+                if (p.listVariable) {
+                    initialStateObj[p.listVariable] = [];
+                }
+            });
+
+            let elementsHTML = '';
+            let bindingScripts = '';
+            let globalIncludes = '';
+
+            // 必要な外部ライブラリ
+            let hasP2P = parts.some(p => p.type === 'p2p');
+            let hasCrypto = parts.some(p => p.type === 'crypto');
+            let hasGraph = parts.some(p => p.type === 'graph');
+
+            if (hasP2P) {
+                globalIncludes += '<script src="https://unpkg.com/peerjs@1.4.7/dist/peerjs.min.js">' + closeScript + '\n';
+            }
+            if (hasCrypto) {
+                globalIncludes += '<script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js">' + closeScript + '\n';
+            }
+            if (hasGraph) {
+                globalIncludes += '<script src="https://cdn.jsdelivr.net/npm/chart.js">' + closeScript + '\n';
+            }
+
+            parts.forEach(part => {
+                if (part.type === 'gemini_text') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-900/80 border border-indigo-950 rounded-xl mb-4 text-left flex flex-col gap-3 shadow-lg shadow-indigo-950/20">
+                            <span class="text-xs font-bold text-indigo-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-brain animate-pulse text-indigo-500"></i> ${part.label} (Gemini AI)
+                            </span>
+                            <div class="flex flex-col gap-1.5">
+                                <button onclick="runGemini_${part.id}()" id="btn_gemini_${part.id}" class="w-full bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold py-2 px-4 rounded-lg text-xs flex justify-center items-center gap-2 shadow-lg shadow-indigo-900/30 transition-all">
+                                    <i class="fa-solid fa-wand-magic-sparkles"></i> AIに質問・実行する
+                                </button>
+                                <div id="loader_gemini_${part.id}" class="hidden flex justify-center py-2">
+                                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-500"></div>
+                                </div>
+                            </div>
+                            <div class="text-[11px] text-slate-400 bg-slate-950/50 p-2.5 rounded-lg border border-slate-800 hidden font-mono" id="sources_${part.id}"></div>
+                        </div>
+                    `;
+                    bindingScripts += `
+                        window.runGemini_${part.id} = async function() {
+                            const loader = document.getElementById('loader_gemini_${part.id}');
+                            const btn = document.getElementById('btn_gemini_${part.id}');
+                            const sourceBox = document.getElementById('sources_${part.id}');
+                            
+                            loader.classList.remove('hidden');
+                            btn.setAttribute('disabled', 'true');
+                            sourceBox.classList.add('hidden');
+
+                            const promptInput = state['${part.variable}'] || '';
+                            const systemInstruction = "${part.systemPrompt || 'You are a helpful assistant.'}";
+                            const apiKey = "${globalApiKey}" || "";
+                            
+                            const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=" + apiKey;
+                            
+                            const payload = {
+                                contents: [{ parts: [{ text: promptInput }] }],
+                                systemInstruction: { parts: [{ text: systemInstruction }] }
+                            };
+                            
+                            if (${part.enableSearch}) {
+                                payload.tools = [{ "google_search": {} }];
+                            }
+
+                            try {
+                                const response = await fetchWithRetry(apiUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                const result = await response.json();
+                                const candidate = result.candidates?.[0];
+                                if (candidate && candidate.content?.parts?.[0]?.text) {
+                                    const reply = candidate.content.parts[0].text;
+                                    updateState('${part.outputVariable}', reply);
+                                    
+                                    // 検索出典の処理
+                                    if (candidate.groundingMetadata && candidate.groundingMetadata.groundingAttributions) {
+                                        const attributions = candidate.groundingMetadata.groundingAttributions
+                                            .map(attr => '<a href="' + attr.web?.uri + '" target="_blank" class="text-indigo-400 underline mr-2">' + attr.web?.title + '</a>')
+                                            .join(' | ');
+                                        if (attributions) {
+                                            sourceBox.innerHTML = '<b class="text-indigo-300">🌍 検索の参照元:</b><br>' + attributions;
+                                            sourceBox.classList.remove('hidden');
+                                        }
+                                    }
+                                } else {
+                                    updateState('${part.outputVariable}', 'AIからの返答が得られませんでした。');
+                                }
+                            } catch(e) {
+                                updateState('${part.outputVariable}', 'エラーが発生しました: ' + e.message);
+                            } finally {
+                                loader.classList.add('hidden');
+                                btn.removeAttribute('disabled');
+                            }
+                        };
+                    `;
+                }
+
+                else if (part.type === 'imagen_art') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-900/80 border border-violet-950 rounded-xl mb-4 text-left flex flex-col gap-3 shadow-lg shadow-violet-950/20">
+                            <span class="text-xs font-bold text-violet-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-image animate-pulse text-violet-500"></i> ${part.label} (Imagen)
+                            </span>
+                            <div class="flex flex-col gap-1.5">
+                                <button onclick="runImagen_${part.id}()" id="btn_imagen_${part.id}" class="w-full bg-gradient-to-r from-violet-600 to-fuchsia-600 hover:from-violet-500 hover:to-fuchsia-500 text-white font-bold py-2 px-4 rounded-lg text-xs flex justify-center items-center gap-2 shadow-lg shadow-violet-900/30 transition-all">
+                                    <i class="fa-solid fa-paintbrush"></i> AI画像を創り出す (Imagen 4.0)
+                                </button>
+                                <div id="loader_imagen_${part.id}" class="hidden flex justify-center py-2">
+                                    <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-violet-500"></div>
+                                </div>
+                            </div>
+                            <div id="container_imagen_${part.id}" class="hidden mt-2 rounded-lg overflow-hidden border border-slate-800 bg-slate-950 flex justify-center">
+                                <img id="img_output_${part.id}" src="" class="max-h-60 max-w-full object-contain">
+                            </div>
+                        </div>
+                    `;
+                    bindingScripts += `
+                        window.runImagen_${part.id} = async function() {
+                            const loader = document.getElementById('loader_imagen_${part.id}');
+                            const btn = document.getElementById('btn_imagen_${part.id}');
+                            const imgContainer = document.getElementById('container_imagen_${part.id}');
+                            const imgOut = document.getElementById('img_output_${part.id}');
+                            
+                            loader.classList.remove('hidden');
+                            btn.setAttribute('disabled', 'true');
+
+                            const promptInput = state['${part.variable}'] || '';
+                            const apiKey = "${globalApiKey}" || "";
+                            
+                            const apiUrl = "https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=" + apiKey;
+                            const payload = { instances: { prompt: promptInput }, parameters: { "sampleCount": 1 } };
+
+                            try {
+                                const response = await fetchWithRetry(apiUrl, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(payload)
+                                });
+                                const result = await response.json();
+                                const base64 = result.predictions?.[0]?.bytesBase64Encoded;
+                                if (base64) {
+                                    const imgUrl = 'data:image/png;base64,' + base64;
+                                    imgOut.src = imgUrl;
+                                    imgContainer.classList.remove('hidden');
+                                    updateState('${part.outputVariable}', imgUrl);
+                                } else {
+                                    showAppToast('画像生成に失敗しました。');
+                                }
+                            } catch(e) {
+                                showAppToast('エラー: ' + e.message);
+                            } finally {
+                                loader.classList.add('hidden');
+                                btn.removeAttribute('disabled');
+                            }
+                        };
+                    `;
+                }
+
+                else if (part.type === 'heading') {
+                    elementsHTML += `<h2 class="${part.size} font-black ${part.color} tracking-tight mb-4 text-center">${part.text}</h2>\n`;
+                } 
+                else if (part.type === 'text') {
+                    elementsHTML += `<p class="${part.size} ${part.color} leading-relaxed mb-4 text-center" data-template="${encodeURIComponent(part.text)}">${part.text}</p>\n`;
+                } 
+                else if (part.type === 'input') {
+                    elementsHTML += `
+                        <div class="flex flex-col gap-1.5 mb-4 text-left">
+                            <label class="text-xs font-semibold ${labelColor}">${part.label}</label>
+                            <input type="text" id="el_${part.id}" value="${part.value || ''}" oninput="updateState('${part.variable}', this.value)" class="w-full ${inputBg} border rounded-xl px-3.5 py-2.5 text-sm focus:outline-none transition">
+                        </div>
+                    `;
+                    bindingScripts += `document.getElementById('el_${part.id}').value = state['${part.variable}'];\n`;
+                } 
+                else if (part.type === 'slider') {
+                    elementsHTML += `
+                        <div class="flex flex-col gap-1.5 mb-4 text-left">
+                            <div class="flex justify-between items-center">
+                                <label class="text-xs font-semibold ${labelColor}">${part.label}</label>
+                                <span class="text-xs font-mono font-bold" id="val_${part.id}">-</span>
+                            </div>
+                            <input type="range" id="el_${part.id}" min="${part.min}" max="${part.max}" value="${part.value}" oninput="updateState('${part.variable}', this.value)" class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    `;
+                    bindingScripts += `
+                        document.getElementById('el_${part.id}').value = state['${part.variable}'];
+                        document.getElementById('val_${part.id}').innerText = state['${part.variable}'];
+                    `;
+                } 
+                else if (part.type === 'calc') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-800/20 border border-slate-800/60 rounded-xl mb-4 text-left flex justify-between items-center" id="container_${part.id}">
+                            <div>
+                                <h4 class="text-xs font-semibold ${helperText}">${part.label}</h4>
+                                <div class="text-xl font-black mt-1" id="el_${part.id}">-</div>
+                            </div>
+                            <span class="text-xs font-bold text-indigo-400">${part.unit}</span>
+                        </div>
+                    `;
+                    bindingScripts += `
+                        try {
+                            let res = (() => {
+                                ${Object.keys(initialStateObj).map(k => `let ${k} = state['${k}'];`).join('\n')}
+                                return ${part.formula.replaceAll('[', 'state[\'').replaceAll(']', '\']')};
+                            })();
+                            document.getElementById('el_${part.id}').innerText = (res !== undefined && res !== null) ? res : '-';
+                        } catch(e) {
+                            document.getElementById('el_${part.id}').innerText = '数式エラー';
+                        }
+                    `;
+                } 
+                else if (part.type === 'button') {
+                    let clickCode = '';
+                    if (part.actionType === 'js') {
+                        clickCode = part.customJS;
+                    } else if (part.actionType === 'save_db') {
+                        clickCode = `
+                            if(state['${part.sourceInput}']) {
+                                saveToLocalDB('${part.targetStore}', state['${part.sourceInput}']);
+                                state['${part.sourceInput}'] = '';
+                                updateState('${part.sourceInput}', '');
+                            }
+                        `;
+                    } else if (part.actionType === 'add_to_list') {
+                        clickCode = `
+                            if(state['${part.sourceInput}'] && state['${part.sourceInput}'].trim() !== '') {
+                                state['${part.targetList}'].push(state['${part.sourceInput}']);
+                                state['${part.sourceInput}'] = '';
+                                updateState('${part.sourceInput}', '');
+                            }
+                        `;
+                    }
+
+                    elementsHTML += `
+                        <button onclick="runAction_${part.id}()" class="w-full ${part.color} text-white font-bold py-2.5 px-4 rounded-xl shadow-md transition transform active:scale-95 mb-4 text-xs">${part.text}</button>
+                    `;
+                    bindingScripts += `
+                        window.runAction_${part.id} = function() {
+                            ${clickCode}
+                            renderAll();
+                        };
+                    `;
+                } 
+                else if (part.type === 'list') {
+                    elementsHTML += `
+                        <div class="mb-4 text-left">
+                            <label class="text-xs font-semibold ${labelColor} mb-2 block">${part.label}</label>
+                            <ul id="el_${part.id}" class="flex flex-col gap-1.5"></ul>
+                        </div>
+                    `;
+                    bindingScripts += `
+                        const listUl = document.getElementById('el_${part.id}');
+                        listUl.innerHTML = '';
+                        if(state['${part.listVariable}'] && state['${part.listVariable}'].length > 0) {
+                            state['${part.listVariable}'].forEach((item, idx) => {
+                                const li = document.createElement('li');
+                                li.className = 'flex justify-between items-center bg-slate-800/40 px-3.5 py-2.5 rounded-xl text-xs border border-slate-800 text-slate-300';
+                                li.innerHTML = '<span>' + item + '</span>' +
+                                               '<button onclick="removeItem_${part.id}(' + idx + ')" class="text-rose-400 hover:text-rose-300 transition p-1"><i class="fa-solid fa-trash-can text-[10px]"></i></button>';
+                                listUl.appendChild(li);
+                            });
+                        } else {
+                            listUl.innerHTML = '<li class="text-[10px] text-slate-500 italic py-2 text-center">リスト項目がありません</li>';
+                        }
+                    `;
+                    bindingScripts += `
+                        window.removeItem_${part.id} = function(idx) {
+                            state['${part.listVariable}'].splice(idx, 1);
+                            renderAll();
+                        };
+                    `;
+                } 
+                else if (part.type === 'canvas') {
+                    elementsHTML += `
+                        <div class="mb-4 text-left">
+                            <label class="text-xs font-semibold ${labelColor} mb-1.5 block">${part.label}</label>
+                            <canvas id="canvas_${part.id}" class="w-full h-32 bg-slate-950 border border-slate-800 rounded-xl" style="touch-action: none;"></canvas>
+                            <button onclick="clearCanvas_${part.id}()" class="text-[10px] text-slate-400 hover:text-white transition mt-1.5 flex items-center gap-1"><i class="fa-solid fa-eraser"></i> お絵描きをクリア</button>
+                        </div>
+                    `;
+                    bindingScripts += `initCanvas_${part.id}();\n`;
+                } 
+                else if (part.type === 'p2p') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-950/40 border border-slate-800 rounded-xl mb-4 text-left flex flex-col gap-3">
+                            <span class="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-network-wired animate-pulse"></i> ${part.label}
+                            </span>
+                            
+                            <div class="flex gap-2">
+                                <input type="text" id="p2p_room_${part.id}" value="${part.defaultRoom}" placeholder="秘密の合言葉" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-1.5 text-xs rounded-lg flex-1 font-mono">
+                                <button onclick="connectP2P_${part.id}()" id="p2p_btn_${part.id}" class="bg-sky-600 hover:bg-sky-700 text-white font-bold px-3 py-1.5 text-xs rounded-lg transition shrink-0">
+                                    合言葉で接続
+                                </button>
+                            </div>
+
+                            <div class="text-[10px] text-slate-500 font-mono flex justify-between" id="p2p_status_${part.id}">
+                                <span>ステータス: 未接続</span>
+                                <span>Peer ID: --</span>
+                            </div>
+
+                            <div id="p2p_chatbox_${part.id}" class="h-32 bg-slate-950 border border-slate-800 rounded-lg p-2 overflow-y-auto text-xs font-mono flex flex-col gap-1.5">
+                                <span class="text-slate-600 text-[10px]">[システム] 合言葉を入力して接続してください。</span>
+                            </div>
+
+                            <div class="flex gap-2">
+                                <input type="text" id="p2p_msg_${part.id}" placeholder="メッセージを入力..." class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-1.5 text-xs rounded-lg flex-1">
+                                <button onclick="sendP2PMsg_${part.id}()" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-4 py-1.5 text-xs rounded-lg">送信</button>
+                            </div>
+                        </div>
+                    `;
+                    bindingScripts += `
+                        window.connectP2P_${part.id} = function() {
+                            const room = document.getElementById('p2p_room_${part.id}').value;
+                            if(!room) return;
+                            initP2PConnection_${part.id}(room);
+                        };
+                        window.sendP2PMsg_${part.id} = function() {
+                            const msgInput = document.getElementById('p2p_msg_${part.id}');
+                            if(!msgInput.value) return;
+                            transmitP2PMsg_${part.id}(msgInput.value);
+                            msgInput.value = '';
+                        };
+                    `;
+                } 
+                else if (part.type === 'storage') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-950/40 border border-slate-800 rounded-xl mb-4 text-left">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-database"></i> ${part.label} (ストア: ${part.storeName})
+                                </span>
+                                <button onclick="clearLocalDB_${part.id}('${part.storeName}')" class="text-[10px] text-rose-400 hover:text-rose-300">
+                                    全て削除
+                                </button>
+                            </div>
+                            <div class="max-h-36 overflow-y-auto" id="db_table_container_${part.id}">
+                                <table class="w-full text-left text-[11px] font-mono">
+                                    <thead>
+                                        <tr class="border-b border-slate-800 text-slate-500">
+                                            <th class="py-1">時刻</th>
+                                            <th class="py-1">データ値</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="db_rows_${part.id}" class="text-slate-300"></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    `;
+                    bindingScripts += `loadDBToTable_${part.id}('${part.storeName}');\n`;
+                } 
+                else if (part.type === 'graph') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-950/40 border border-slate-800 rounded-xl mb-4 text-left">
+                            <span class="text-xs font-bold text-lime-400 flex items-center gap-1.5 mb-2">
+                                <i class="fa-solid fa-chart-line"></i> ${part.label}
+                            </span>
+                            <div class="h-44 w-full relative">
+                                <canvas id="chart_canvas_${part.id}"></canvas>
+                            </div>
+                        </div>
+                    `;
+                    bindingScripts += `renderTrendChart_${part.id}();\n`;
+                } 
+                else if (part.type === 'crypto') {
+                    elementsHTML += `
+                        <div class="p-4 bg-slate-950/40 border border-slate-800 rounded-xl mb-4 text-left flex flex-col gap-2.5">
+                            <span class="text-xs font-bold text-red-400 flex items-center gap-1.5">
+                                <i class="fa-solid fa-lock"></i> ${part.label}
+                            </span>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-slate-500">暗号化パスワード(秘密鍵)</label>
+                                <input type="password" id="crypto_key_${part.id}" value="my-key" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-1.5 text-xs rounded-lg">
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-slate-500">インプットデータ</label>
+                                <textarea id="crypto_input_${part.id}" rows="2" class="bg-slate-900 border border-slate-800 text-slate-200 px-3 py-1.5 text-xs rounded-lg font-mono">${part.placeholderText || ''}</textarea>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <button onclick="encryptAction_${part.id}()" class="bg-red-900/60 hover:bg-red-900 text-red-200 py-1.5 text-xs font-bold rounded-lg transition">AES暗号化</button>
+                                <button onclick="decryptAction_${part.id}()" class="bg-emerald-900/60 hover:bg-emerald-900 text-emerald-200 py-1.5 text-xs font-bold rounded-lg transition">AES復号化</button>
+                            </div>
+                            <div class="flex flex-col gap-1">
+                                <label class="text-[10px] text-slate-500">アウトプット(評価結果)</label>
+                                <textarea id="crypto_output_${part.id}" readonly rows="2" class="bg-slate-950 border border-slate-800 text-slate-400 px-3 py-1.5 text-[11px] rounded-lg font-mono focus:outline-none"></textarea>
+                            </div>
+                        </div>
+                    `;
+                    bindingScripts += `
+                        window.encryptAction_${part.id} = function() {
+                            const psw = document.getElementById('crypto_key_${part.id}').value;
+                            const src = document.getElementById('crypto_input_${part.id}').value;
+                            if(!psw || !src) return;
+                            try {
+                                const enc = CryptoJS.AES.encrypt(src, psw).toString();
+                                document.getElementById('crypto_output_${part.id}').value = enc;
+                            } catch(e) {
+                                document.getElementById('crypto_output_${part.id}').value = '暗号化エラー';
+                            }
+                        };
+                        window.decryptAction_${part.id} = function() {
+                            const psw = document.getElementById('crypto_key_${part.id}').value;
+                            const src = document.getElementById('crypto_input_${part.id}').value;
+                            if(!psw || !src) return;
+                            try {
+                                const bytes = CryptoJS.AES.decrypt(src, psw);
+                                const dec = bytes.toString(CryptoJS.enc.Utf8);
+                                document.getElementById('crypto_output_${part.id}').value = dec || "キー不一致または破損データ";
+                            } catch(e) {
+                                document.getElementById('crypto_output_${part.id}').value = '復号化エラー';
+                            }
+                        };
+                    `;
+                }
+            });
+
+            let canvasInitCode = '';
+            parts.forEach(part => {
+                if (part.type === 'canvas') {
+                    canvasInitCode += `
+                        window.initCanvas_${part.id} = function() {
+                            const canvas = document.getElementById('canvas_${part.id}');
+                            if (!canvas) return;
+                            const ctx = canvas.getContext('2d');
+                            let drawing = false;
+
+                            canvas.width = canvas.offsetWidth;
+                            canvas.height = canvas.offsetHeight;
+
+                            ctx.strokeStyle = '${part.color || "#4a90e2"}';
+                            ctx.lineWidth = 3;
+                            ctx.lineCap = 'round';
+
+                            function draw(e) {
+                                if (!drawing) return;
+                                const rect = canvas.getBoundingClientRect();
+                                const x = (e.clientX || e.touches[0].clientX) - rect.left;
+                                const y = (e.clientY || e.touches[0].clientY) - rect.top;
+                                ctx.lineTo(x, y);
+                                ctx.stroke();
+                            }
+
+                            canvas.addEventListener('mousedown', (e) => { drawing = true; ctx.beginPath(); draw(e); });
+                            canvas.addEventListener('mousemove', draw);
+                            canvas.addEventListener('mouseup', () => drawing = false);
+                            canvas.addEventListener('mouseleave', () => drawing = false);
+
+                            canvas.addEventListener('touchstart', (e) => { drawing = true; ctx.beginPath(); draw(e); });
+                            canvas.addEventListener('touchmove', draw);
+                            canvas.addEventListener('touchend', () => drawing = false);
+
+                            window.clearCanvas_${part.id} = function() {
+                                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                            };
+                        };
+                    `;
+                }
+            });
+
+            let p2pInitCode = '';
+            parts.forEach(part => {
+                if (part.type === 'p2p') {
+                    p2pInitCode += `
+                        let peer_${part.id} = null;
+                        let conn_${part.id} = null;
+
+                        window.initP2PConnection_${part.id} = function(roomName) {
+                            const statusEl = document.getElementById('p2p_status_${part.id}');
+                            const chatbox = document.getElementById('p2p_chatbox_${part.id}');
+                            const connectBtn = document.getElementById('p2p_btn_${part.id}');
+                            
+                            statusEl.innerHTML = '<span>ステータス: 接続確立中...</span>';
+                            
+                            const peerId = 'webcraft-' + roomName + '-' + Math.floor(Math.random() * 1000);
+                            peer_${part.id} = new Peer(peerId);
+
+                            peer_${part.id}.on('open', (id) => {
+                                statusEl.innerHTML = '<span>ステータス: シグナリング成功</span><span>ID: ' + id + '</span>';
+                                connectBtn.innerText = '接続完了';
+                                connectBtn.className = 'bg-emerald-600 text-white font-bold px-3 py-1.5 text-xs rounded-lg';
+                                
+                                chatbox.innerHTML += '<span class="text-emerald-400">[シグナル] あなたの通信ID: ' + id + ' として合言葉「' + roomName + '」にエントリーしました。</span>';
+                            });
+
+                            peer_${part.id}.on('connection', (c) => {
+                                conn_${part.id} = c;
+                                setupConnectionEvents_${part.id}();
+                            });
+
+                            peer_${part.id}.on('error', (err) => {
+                                chatbox.innerHTML += '<span class="text-rose-400">[エラー] ' + err.type + ': ' + err.message + '</span>';
+                                statusEl.innerHTML = '<span>ステータス: 接続エラー</span>';
+                            });
+
+                            const targetId = prompt("接続先の相手のPeer IDを入力してください（空白のままキャンセルすると待受モードになります）:");
+                            if(targetId) {
+                                conn_${part.id} = peer_${part.id}.connect(targetId);
+                                setupConnectionEvents_${part.id}();
+                            }
+                        };
+
+                        function setupConnectionEvents_${part.id}() {
+                            const chatbox = document.getElementById('p2p_chatbox_${part.id}');
+                            const statusEl = document.getElementById('p2p_status_${part.id}');
+
+                            conn_${part.id}.on('open', () => {
+                                statusEl.innerHTML = '<span>ステータス: P2P直接接続成功！</span>';
+                                chatbox.innerHTML += '<span class="text-emerald-300">[P2P] リモート端末とのセキュアなダイレクトチャットが確立されました。</span>';
+                            });
+
+                            conn_${part.id}.on('data', (data) => {
+                                chatbox.innerHTML += '<div class="text-sky-300"><b>受信:</b> ' + data + '</div>';
+                                chatbox.scrollTop = chatbox.scrollHeight;
+                            });
+                        }
+
+                        window.transmitP2PMsg_${part.id} = function(message) {
+                            const chatbox = document.getElementById('p2p_chatbox_${part.id}');
+                            if(conn_${part.id} && conn_${part.id}.open) {
+                                conn_${part.id}.send(message);
+                                chatbox.innerHTML += '<div class="text-indigo-300"><b>送信:</b> ' + message + '</div>';
+                                chatbox.scrollTop = chatbox.scrollHeight;
+                            } else {
+                                chatbox.innerHTML += '<span class="text-rose-400">[警告] まだ相手に直接接続していません。待受中、またはダイレクト接続を確立してください。</span>';
+                            }
+                        };
+                    `;
+                }
+            });
+
+            let localDBCode = '';
+            parts.forEach(part => {
+                if (part.type === 'storage') {
+                    localDBCode += `
+                        window.loadDBToTable_${part.id} = function(store) {
+                            const tbody = document.getElementById('db_rows_${part.id}');
+                            if(!tbody) return;
+                            tbody.innerHTML = '';
+                            const dbData = JSON.parse(localStorage.getItem('webcraft_store_' + store) || '[]');
+                            if(dbData.length > 0) {
+                                dbData.reverse().forEach(item => {
+                                    const tr = document.createElement('tr');
+                                    tr.className = 'border-b border-slate-800/50 hover:bg-slate-800/20';
+                                    tr.innerHTML = '<td class="py-1.5 text-slate-500 text-[10px]">' + item.time + '</td>' +
+                                                   '<td class="py-1.5 font-bold">' + item.value + '</td>';
+                                    tbody.appendChild(tr);
+                                });
+                            } else {
+                                tbody.innerHTML = '<tr><td colspan="2" class="text-center py-4 text-slate-600 text-[10px] italic">データがありません</td></tr>';
+                            }
+                        };
+
+                        window.clearLocalDB_${part.id} = function(store) {
+                            if(confirm("このストア（" + store + "）のデータを全消去しますか？")) {
+                                localStorage.removeItem('webcraft_store_' + store);
+                                loadDBToTable_${part.id}(store);
+                            }
+                        };
+                    `;
+                }
+            });
+
+            let chartCode = '';
+            parts.forEach(part => {
+                if (part.type === 'graph') {
+                    chartCode += `
+                        let chartInstance_${part.id} = null;
+                        const graphVars_${part.id} = "${part.formulaVariables}".split(',').map(v => v.trim());
+
+                        window.renderTrendChart_${part.id} = function() {
+                            const ctx = document.getElementById('chart_canvas_${part.id}');
+                            if(!ctx) return;
+                            
+                            const labelColors = {
+                                dark: '#f8fafc',
+                                light: '#1e293b'
+                            };
+                            const isDark = ${theme !== 'modern-light'};
+                            const activeColor = isDark ? labelColors.dark : labelColors.light;
+
+                            const datasetData = graphVars_${part.id}.map(v => parseFloat(state[v]) || 0);
+
+                            if(chartInstance_${part.id}) {
+                                chartInstance_${part.id}.data.datasets[0].data = datasetData;
+                                chartInstance_${part.id}.update();
+                                return;
+                            }
+
+                            chartInstance_${part.id} = new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: graphVars_${part.id},
+                                    datasets: [{
+                                        label: '${part.graphTitle}',
+                                        data: datasetData,
+                                        backgroundColor: [
+                                            'rgba(139, 92, 246, 0.6)',
+                                            'rgba(16, 185, 129, 0.6)',
+                                            'rgba(245, 158, 11, 0.6)',
+                                            'rgba(239, 68, 68, 0.6)'
+                                        ],
+                                        borderColor: isDark ? '#fff' : '#000',
+                                        borderWidth: 1
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    maintainAspectRatio: false,
+                                    plugins: {
+                                        legend: { labels: { color: activeColor, font: { size: 10 } } }
+                                    },
+                                    scales: {
+                                        y: {
+                                            grid: { color: isDark ? '#1e293b' : '#e2e8f0' },
+                                            ticks: { color: activeColor, font: { size: 9 } }
+                                        },
+                                        x: {
+                                            grid: { display: false },
+                                            ticks: { color: activeColor, font: { size: 9 } }
+                                        }
+                                    }
+                                }
+                            });
+                        };
+                    `;
+                }
+            });
+
+            const metadataPayload = encodeURIComponent(JSON.stringify({
+                parts: parts,
+                appTitle: title,
+                appTheme: theme,
+                appWidth: widthClass
+            }));
+
+            const finalCode = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <script src="https://cdn.tailwindcss.com">${closeScript}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    ${globalIncludes}
+    <style>
+        body { transition: background 0.2s; }
+    </style>
+</head>
+<body class="${bodyBg} flex flex-col justify-center items-center min-h-screen p-4 sm:p-8">
+
+    <!-- トーストシステム通知UI -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <div class="w-full ${widthClass} ${containerBg} p-6 sm:p-8 transition duration-200">
+        ${elementsHTML}
+    </div>
+
+    <script id="webcraft-pro-metadata" type="application/json">${metadataPayload}${closeScript}
+
+    <script>
+        const state = ${JSON.stringify(initialStateObj)};
+
+        function updateState(key, val) {
+            state[key] = val;
+            renderAll();
+        }
+
+        function renderTextTemplates() {
+            document.querySelectorAll('[data-template]').forEach(el => {
+                let template = decodeURIComponent(el.getAttribute('data-template'));
+                let rendered = template;
+                Object.keys(state).forEach(k => {
+                    rendered = rendered.replaceAll('{' + k + '}', state[k]);
+                });
+                el.innerText = rendered;
+            });
+        }
+
+        // 指数バックオフ付きフェッチユーティリティ
+        async function fetchWithRetry(url, options, retries = 3, delay = 1000) {
+            try {
+                const res = await fetch(url, options);
+                if (!res.ok && retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 2);
+                }
+                return res;
+            } catch (e) {
+                if (retries > 0) {
+                    await new Promise(resolve => setTimeout(resolve, delay));
+                    return fetchWithRetry(url, options, retries - 1, delay * 2);
+                }
+                throw e;
+            }
+        }
+
+        // アプリケーション内カスタムトースト通知
+        window.showAppToast = function(msg) {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            toast.className = 'bg-slate-900 border border-slate-800 text-slate-100 text-xs px-4 py-3 rounded-xl shadow-2xl pointer-events-auto flex items-center gap-2 transition-all duration-300 transform translate-x-20 opacity-0';
+            toast.innerHTML = '<i class="fa-solid fa-circle-info text-indigo-400"></i><span>' + msg + '</span>';
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-x-20', 'opacity-0');
+            }, 50);
+            setTimeout(() => {
+                toast.classList.add('translate-x-20', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        };
+
+        window.saveToLocalDB = function(store, value) {
+            const currentData = JSON.parse(localStorage.getItem('webcraft_store_' + store) || '[]');
+            const dateStr = new Date().toLocaleTimeString();
+            currentData.push({ time: dateStr, value: value });
+            localStorage.setItem('webcraft_store_' + store, JSON.stringify(currentData));
+            document.dispatchEvent(new CustomEvent('webcraft-db-updated', { detail: { store: store } }));
+            showAppToast('データを ' + store + ' ストアに保存しました！');
+        };
+
+        function renderAll() {
+            renderTextTemplates();
+            ${bindingScripts}
+        }
+
+        ${canvasInitCode}
+        ${p2pInitCode}
+        ${localDBCode}
+        ${chartCode}
+
+        window.onload = function() {
+            document.addEventListener('webcraft-db-updated', (e) => {
+                ${parts.filter(p => p.type === 'storage').map(p => `
+                    if(e.detail.store === '${p.storeName}') {
+                        loadDBToTable_${p.id}('${p.storeName}');
+                    }
+                `).join('\n')}
+            });
+
+            renderAll();
+        };
+    ${closeScript}
+</body>
+</html>`;
+
+            return finalCode;
+        }
+
+        function buildPreview() {
+            const compiled = compileHTML();
+            const iframe = document.getElementById('preview-iframe');
+            if (iframe) {
+                iframe.srcdoc = compiled;
+            }
+        }
+
+        function exportHTML() {
+            // エクスポート直前に最新を同期
+            if (currentTab === 'code') {
+                applyCodeChanges();
+            }
+            const compiled = compileHTML();
+            const title = document.getElementById('app-title').value || "MyWebTool";
+            const filename = title.toLowerCase().replace(/[^a-z0-9]/g, '_') + '.html';
+
+            const blob = new Blob([compiled], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showToast("🚀 アプリを保存しました！そのままスマートフォン等でもオフライン稼働します。");
+        }
+
+        async function generateAppFromCopilot() {
+            const prompt = document.getElementById('ai-copilot-prompt').value;
+            if (!prompt.trim()) {
+                showToast("⚠️ アイデア内容を書き込んでください。");
+                return;
+            }
+
+            const loader = document.getElementById('copilot-loader');
+            const runBtn = document.getElementById('btn-copilot-run');
+            loader.classList.remove('hidden');
+            runBtn.setAttribute('disabled', 'true');
+
+            // 自動バインディングが機能するように設計したシステムプロンプト
+            const systemPrompt = `You are WebCraft Studio AI Co-pilot. Your job is to generate a list of block configurations based on the user's idea.
+Make sure variables match across blocks so inputs, calculations, and lists are linked together properly.
+Output ONLY a JSON array of blocks.
+
+Supported block types and properties:
+- { "id": "heading_X", "type": "heading", "text": "...", "size": "text-lg|text-xl|text-2xl|text-3xl", "color": "text-slate-100|text-indigo-400|text-emerald-400" }
+- { "id": "text_X", "type": "text", "text": "...", "size": "text-xs", "color": "text-slate-400" }
+- { "id": "input_X", "type": "input", "label": "...", "variable": "unique_var_name", "value": "default_value" }
+- { "id": "slider_X", "type": "slider", "label": "...", "variable": "unique_var_name", "min": "0", "max": "100", "value": "50" }
+- { "id": "calc_X", "type": "calc", "label": "...", "formula": "[unique_var_name] * 2", "unit": "..." }
+- { "id": "button_X", "type": "button", "text": "...", "actionType": "js|save_db|add_to_list", "customJS": "...", "targetStore": "...", "sourceInput": "..." }
+- { "id": "list_X", "type": "list", "label": "...", "listVariable": "..." }
+- { "id": "p2p_X", "type": "p2p", "label": "...", "defaultRoom": "..." }
+- { "id": "storage_X", "type": "storage", "label": "...", "storeName": "..." }
+- { "id": "graph_X", "type": "graph", "graphTitle": "...", "formulaVariables": "var1, var2" }
+- { "id": "crypto_X", "type": "crypto", "label": "..." }
+- { "id": "gemini_text_X", "type": "gemini_text", "label": "...", "systemPrompt": "...", "variable": "var_for_prompt", "outputVariable": "var_for_response", "enableSearch": true }
+- { "id": "imagen_art_X", "type": "imagen_art", "label": "...", "variable": "prompt_var", "outputVariable": "image_var" }`;
+
+            const apiKey = ""; // Canvas runtime parses this automatically
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: `User Idea: ${prompt}` }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "id": { "type": "STRING" },
+                                "type": { "type": "STRING" },
+                                "label": { "type": "STRING" },
+                                "text": { "type": "STRING" },
+                                "size": { "type": "STRING" },
+                                "color": { "type": "STRING" },
+                                "variable": { "type": "STRING" },
+                                "outputVariable": { "type": "STRING" },
+                                "value": { "type": "STRING" },
+                                "min": { "type": "STRING" },
+                                "max": { "type": "STRING" },
+                                "formula": { "type": "STRING" },
+                                "unit": { "type": "STRING" },
+                                "actionType": { "type": "STRING" },
+                                "customJS": { "type": "STRING" },
+                                "targetStore": { "type": "STRING" },
+                                "sourceInput": { "type": "STRING" },
+                                "listVariable": { "type": "STRING" },
+                                "defaultRoom": { "type": "STRING" },
+                                "storeName": { "type": "STRING" },
+                                "graphTitle": { "type": "STRING" },
+                                "formulaVariables": { "type": "STRING" },
+                                "enableSearch": { "type": "BOOLEAN" },
+                                "systemPrompt": { "type": "STRING" }
+                            },
+                            "required": ["id", "type"]
+                        }
+                    }
+                }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const jsonText = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (jsonText) {
+                    const parsedParts = JSON.parse(jsonText);
+                    if (Array.isArray(parsedParts) && parsedParts.length > 0) {
+                        parts = parsedParts;
+                        
+                        // IDの最大値追跡
+                        let maxId = 0;
+                        parts.forEach(p => {
+                            let num = parseInt(p.id.replace(/\D/g, ''));
+                            if (num > maxId) maxId = num;
+                        });
+                        idCounter = maxId + 1;
+
+                        // UIおよびプレビューを反映
+                        const styleTheme = document.getElementById('ai-copilot-style').value;
+                        document.getElementById('app-theme').value = styleTheme;
+
+                        renderStructureList();
+                        triggerPreviewUpdate();
+                        switchTab('block');
+                        showToast("🎉 AIコパイロットがアプリ設計・各変数の自動同期に成功しました！");
+                    } else {
+                        showToast("⚠️ AIが設計したパーツリストが空でした。再度指示してみてください。");
+                    }
+                } else {
+                    showToast("⚠️ Gemini APIから有効な応答が得られませんでした。");
+                }
+            } catch (err) {
+                showToast("エラーが発生しました: " + err.message);
+            } finally {
+                loader.classList.add('hidden');
+                runBtn.removeAttribute('disabled');
+            }
+        }
+
+        async function runAICodeEdit() {
+            const currentCode = document.getElementById('raw-html-editor').value;
+            const prompt = document.getElementById('ai-code-prompt').value;
+
+            if (!prompt.trim()) {
+                showToast("⚠️ どのようにコードを書き換えたいか、指示を入力してください。");
+                return;
+            }
+
+            const loader = document.getElementById('ai-code-loader');
+            const runBtn = document.getElementById('btn-ai-code-edit');
+            loader.classList.remove('hidden');
+            runBtn.setAttribute('disabled', 'true');
+
+            const systemPrompt = "You are a world-class senior web developer. Modify the user's HTML code based on their requests. Return ONLY the valid complete HTML code. Do NOT wrap your output in markdown code blocks like ```html. Output raw HTML directly.";
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${apiKey}`;
+
+            const payload = {
+                contents: [{
+                    parts: [
+                        { text: `Current HTML Code:\n${currentCode}` },
+                        { text: `User request:\n${prompt}` }
+                    ]
+                }],
+                systemInstruction: { parts: [{ text: systemPrompt }] }
+            };
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                let newCode = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                if (newCode) {
+                    // もしマークダウンコードフェンスで囲まれている場合は剥ぎ取る
+                    newCode = newCode.replace(/^```html\s*/i, '').replace(/```\s*$/, '').trim();
+                    
+                    document.getElementById('raw-html-editor').value = newCode;
+                    updateLineNumbers();
+                    applyCodeChanges();
+                    showToast("🤖 AIアシスタントが直接コードの最適化・追加に成功しました！");
+                    
+                    // ブロック構成への同期も試みる
+                    tryReverseSync();
+                } else {
+                    showToast("⚠️ AIからの返答コードが空でした。");
+                }
+            } catch (err) {
+                showToast("エラーが発生しました: " + err.message);
+            } finally {
+                loader.classList.add('hidden');
+                runBtn.removeAttribute('disabled');
+            }
+        }
+
+        function showToast(msg) {
+            const container = document.body;
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-5 right-5 z-50 bg-indigo-950 border border-indigo-500/30 text-indigo-100 text-xs px-5 py-3.5 rounded-xl shadow-2xl flex items-center gap-2.5 transition-all duration-300 transform translate-y-10 opacity-0';
+            toast.innerHTML = '<i class="fa-solid fa-circle-check text-indigo-400 text-base"></i><span>' + msg + '</span>';
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('translate-y-10', 'opacity-0');
+            }, 50);
+            setTimeout(() => {
+                toast.classList.add('translate-y-10', 'opacity-0');
+                setTimeout(() => toast.remove(), 300);
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
