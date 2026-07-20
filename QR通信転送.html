@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>完全双方向 QR転送システム</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body class="bg-slate-950 text-white min-h-screen p-2">
+
+    <div class="max-w-md mx-auto bg-slate-900 rounded-3xl shadow-2xl p-4 space-y-4">
+        <h1 class="text-lg font-bold text-center border-b border-slate-700 pb-2">双方向同期転送</h1>
+
+        <!-- モード切替 -->
+        <div class="flex bg-slate-800 rounded-full p-1">
+            <button id="tabSender" class="flex-1 py-2 rounded-full bg-indigo-600">送信機</button>
+            <button id="tabReceiver" class="flex-1 py-2 rounded-full">受信機</button>
+        </div>
+
+        <!-- 送信者パネル -->
+        <div id="senderPanel" class="space-y-3">
+            <input type="file" id="fileInput" class="hidden">
+            <label for="fileInput" class="block py-3 bg-slate-800 border border-slate-600 text-center rounded-xl cursor-pointer">ファイル選択</label>
+            
+            <div class="flex justify-center bg-white p-2 rounded-xl">
+                <div id="qrcode"></div>
+            </div>
+            
+            <!-- 送信側の監視カメラ -->
+            <div id="senderReader" class="w-full h-32 rounded-xl overflow-hidden bg-black"></div>
+            <div id="sendInfo" class="text-xs text-slate-400 text-center">受信側のステータスを待機中...</div>
+        </div>
+
+        <!-- 受信者パネル -->
+        <div id="receiverPanel" class="hidden space-y-3">
+            <div id="reader" class="w-full h-64 rounded-xl overflow-hidden bg-black"></div>
+            <div id="statusGrid" class="grid grid-cols-8 gap-1 p-2 bg-slate-800 rounded-lg text-[8px] h-20 overflow-y-auto"></div>
+            
+            <div id="resultArea" class="hidden p-3 bg-indigo-900 rounded-xl">
+                <p id="fileName" class="text-sm font-bold truncate mb-2"></p>
+                <button id="downloadBtn" class="w-full py-2 bg-indigo-500 rounded-lg text-sm font-bold">ファイルを保存</button>
+            </div>
+            
+            <div class="flex justify-center bg-white p-2 rounded-xl">
+                <div id="ackQr"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chunks = [], received = [], fileMeta = {name: '', type: ''};
+        const CHUNK_SIZE = 600;
+        const qrcode = new QRCode(document.getElementById('qrcode'), { width: 200, height: 200 });
+        const ackQrcode = new QRCode(document.getElementById('ackQr'), { width: 120, height: 120 });
+        
+        let senderCamera = new Html5Qrcode("senderReader");
+        let receiverCamera = new Html5Qrcode("reader");
+
+        // ファイル処理
+        document.getElementById('fileInput').onchange = (e) => {
+            const file = e.target.files[0];
+            fileMeta = { name: file.name, type: file.type };
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const raw = e.target.result;
+                chunks = [];
+                const total = Math.ceil(raw.length / CHUNK_SIZE);
+                for (let i = 0; i < raw.length; i += CHUNK_SIZE) {
+                    chunks.push(`${Math.floor(i/CHUNK_SIZE)}|${total}|${fileMeta.name}|${fileMeta.type}|${raw.substring(i, i + CHUNK_SIZE)}`);
+                }
+                updateSender();
+                startSenderMonitor();
+            };
+            reader.readAsDataURL(file);
+        };
+
+        function updateSender(forceIndex) {
+            const missing = received.map((v, i) => v ? null : i).filter(v => v !== null);
+            const idx = forceIndex !== undefined ? forceIndex : (missing.length > 0 ? missing[0] : 0);
+            if (chunks[idx]) qrcode.makeCode(chunks[idx]);
+        }
+
+        function startSenderMonitor() {
+            senderCamera.start({ facingMode: "environment" }, { fps: 2, qrbox: 100 }, (data) => {
+                try {
+                    const status = JSON.parse(data);
+                    received = status.received;
+                    document.getElementById('sendInfo').innerText = `受信状況: ${received.filter(x=>x).length}/${chunks.length}`;
+                    updateSender();
+                } catch(e) {}
+            });
+        }
+
+        document.getElementById('tabReceiver').onclick = () => {
+            document.getElementById('senderPanel').classList.add('hidden');
+            document.getElementById('receiverPanel').classList.remove('hidden');
+            receiverCamera.start({ facingMode: "environment" }, { fps: 5, qrbox: 200 }, (data) => {
+                const parts = data.split('|');
+                const idx = parseInt(parts[0]);
+                if(!received[idx]) {
+                    received[idx] = parts[4];
+                    fileMeta.name = parts[2];
+                    fileMeta.type = parts[3];
+                    updateGrid();
+                    ackQrcode.makeCode(JSON.stringify({received: received.map((v,i)=>!!v)}));
+                }
+            });
+        };
+
+        function updateGrid() {
+            const grid = document.getElementById('statusGrid');
+            grid.innerHTML = '';
+            chunks.forEach((_, i) => {
+                const div = document.createElement('div');
+                div.className = `p-1 rounded ${received[i] ? 'bg-green-500' : 'bg-red-500'}`;
+                grid.appendChild(div);
+            });
+            if(received.length === chunks.length && !received.includes(undefined)) {
+                document.getElementById('resultArea').classList.remove('hidden');
+            }
+        }
+
+        document.getElementById('downloadBtn').onclick = () => {
+            const link = document.createElement('a');
+            link.href = received.join('');
+            link.download = fileMeta.name;
+            link.click();
+        };
+
+        document.getElementById('tabSender').onclick = () => {
+            document.getElementById('senderPanel').classList.remove('hidden');
+            document.getElementById('receiverPanel').classList.add('hidden');
+        };
+    </script>
+</body>
+</html>
