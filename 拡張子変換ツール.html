@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Universal Local Media Converter</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- JSZip for batch downloading -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- FFmpeg.wasm for Video & Audio transcoding -->
+  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.11.0/dist/ffmpeg.min.js"></script>
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+    .drop-active {
+      border-color: #38bdf8 !important;
+      background-color: rgba(56, 189, 248, 0.1) !important;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased selection:bg-sky-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white shadow-lg shadow-sky-500/20">
+          <i class="fa-solid font-bold fa-right-left text-lg"></i>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent">
+            Media Converter Studio
+          </h1>
+          <p class="text-xs text-slate-400">完全ローカル動作・マルチメディア拡張子変換ツール</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-4">
+        <!-- Status Badge -->
+        <div id="engineStatus" class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 mr-2 animate-pulse"></span>
+          ローカル処理モード稼働中
+        </div>
+        <button id="toggleLogsBtn" class="text-xs text-slate-400 hover:text-white transition px-2 py-1 rounded border border-slate-800 hover:border-slate-700">
+          <i class="fa-solid fa-terminal mr-1"></i> ログ
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Area -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col gap-6">
+
+    <!-- Hero / Dropzone -->
+    <section>
+      <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-sky-500/80 bg-slate-800/30 hover:bg-slate-800/50 rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer group shadow-inner">
+        <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*">
+        <div class="max-w-md mx-auto space-y-4 pointer-events-none">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800 group-hover:bg-sky-500/20 text-slate-400 group-hover:text-sky-400 flex items-center justify-center transition-all shadow-md">
+            <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+          </div>
+          <div>
+            <p class="text-base font-semibold text-slate-200">
+              ファイルをドラッグ＆ドロップ、または <span class="text-sky-400 underline decoration-sky-400/30 underline-offset-4">参照</span>
+            </p>
+            <p class="text-xs text-slate-400 mt-1">画像 (PNG, JPG, WebP...) / 音声 (MP3, WAV, AAC...) / 動画 (MP4, WebM...)</p>
+          </div>
+          <div class="flex justify-center gap-2 pt-2">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+              <i class="fa-regular fa-image mr-1 text-sky-400"></i> 画像
+            </span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+              <i class="fa-solid fa-music mr-1 text-emerald-400"></i> 音声
+            </span>
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
+              <i class="fa-solid fa-film mr-1 text-purple-400"></i> 動画
+            </span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Global Controls & Batch Actions -->
+    <section id="batchControls" class="hidden bg-slate-800/60 rounded-xl p-4 border border-slate-700/80 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">一括変換設定:</span>
+        <select id="batchFormatSelect" class="bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sm font-medium text-slate-200 focus:outline-none focus:border-sky-500">
+          <!-- Dynamic options filled via JS -->
+        </select>
+        <button id="applyBatchFormatBtn" class="px-3 py-1.5 text-xs bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-200 transition">
+          全体に適用
+        </button>
+      </div>
+
+      <div class="flex items-center gap-3 w-full sm:w-auto justify-end">
+        <button id="clearAllBtn" class="px-3 py-1.5 text-xs text-rose-400 hover:bg-rose-500/10 border border-rose-500/20 rounded-lg transition">
+          <i class="fa-solid fa-trash-can mr-1"></i> クリア
+        </button>
+        <button id="convertAllBtn" class="px-5 py-2 text-sm font-semibold bg-gradient-to-r from-sky-500 to-indigo-600 hover:from-sky-400 hover:to-indigo-500 text-white rounded-lg shadow-lg shadow-sky-500/25 transition flex items-center">
+          <i class="fa-solid fa-bolt mr-2"></i> すべて変換を開始
+        </button>
+        <button id="downloadZipBtn" class="hidden px-4 py-2 text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow-lg shadow-emerald-600/20 transition flex items-center">
+          <i class="fa-solid fa-file-zipper mr-2"></i> ZIP一括保存
+        </button>
+      </div>
+    </section>
+
+    <!-- Queue File List -->
+    <section id="fileListContainer" class="space-y-3">
+      <!-- File items will be inserted here dynamically -->
+    </section>
+
+    <!-- Log Drawer / Modal -->
+    <div id="logSection" class="hidden bg-slate-950 border border-slate-800 rounded-xl p-4 font-mono text-xs text-slate-300">
+      <div class="flex justify-between items-center pb-2 mb-2 border-b border-slate-800">
+        <span class="text-slate-400 font-sans text-xs font-semibold"><i class="fa-solid fa-terminal mr-2"></i>処理ログ</span>
+        <button id="clearLogsBtn" class="text-slate-500 hover:text-slate-300 text-xs">ログ消去</button>
+      </div>
+      <div id="logOutput" class="h-32 overflow-y-auto space-y-1 text-slate-400">
+        <div>[System] 初期化完了。ファイルを待機中...</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-4 mt-auto">
+    <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+      Universal Local Media Converter &copy; 2026 - HTML5 / WebAssembly 動作 (サーバー不要)
+    </div>
+  </footer>
+
+  <script>
+    // Global State
+    let queue = []; // Array of file items
+    let ffmpeg = null;
+    let ffmpegLoaded = false;
+    let isProcessing = false;
+
+    // Supported Formats
+    const FORMAT_MAP = {
+      image: [
+        { ext: 'png', label: 'PNG (無歪み/透過)' },
+        { ext: 'jpeg', label: 'JPEG (高圧縮)' },
+        { ext: 'webp', label: 'WebP (次世代画像)' },
+        { ext: 'bmp', label: 'BMP (ビットマップ)' },
+        { ext: 'ico', label: 'ICO (アイコンファイル)' },
+        { ext: 'gif', label: 'GIF (静止画GIF)' }
+      ],
+      audio: [
+        { ext: 'mp3', label: 'MP3 (標準オーディオ)' },
+        { ext: 'wav', label: 'WAV (非圧縮高音質)' },
+        { ext: 'ogg', label: 'OGG Vorbis' },
+        { ext: 'aac', label: 'AAC オーディオ' },
+        { ext: 'm4a', label: 'M4A オーディオ' },
+        { ext: 'flac', label: 'FLAC (可逆圧縮)' }
+      ],
+      video: [
+        { ext: 'mp4', label: 'MP4 (H.264 / 標準動画)' },
+        { ext: 'webm', label: 'WebM (Web動画)' },
+        { ext: 'gif', label: 'GIF アニメーション' },
+        { ext: 'mp3', label: 'MP3 (音声抽出)' },
+        { ext: 'wav', label: 'WAV (音声抽出)' }
+      ]
+    };
+
+    // DOM Elements
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const batchControls = document.getElementById('batchControls');
+    const batchFormatSelect = document.getElementById('batchFormatSelect');
+    const applyBatchFormatBtn = document.getElementById('applyBatchFormatBtn');
+    const convertAllBtn = document.getElementById('convertAllBtn');
+    const downloadZipBtn = document.getElementById('downloadZipBtn');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const logSection = document.getElementById('logSection');
+    const logOutput = document.getElementById('logOutput');
+    const toggleLogsBtn = document.getElementById('toggleLogsBtn');
+    const clearLogsBtn = document.getElementById('clearLogsBtn');
+
+    // Log Utility
+    function log(msg, type = 'info') {
+      const time = new Date().toLocaleTimeString();
+      const div = document.createElement('div');
+      let colorClass = 'text-slate-400';
+      if (type === 'error') colorClass = 'text-rose-400';
+      if (type === 'success') colorClass = 'text-emerald-400';
+      if (type === 'warn') colorClass = 'text-amber-400';
+
+      div.className = `${colorClass} leading-relaxed`;
+      div.innerText = `[${time}] ${msg}`;
+      logOutput.appendChild(div);
+      logOutput.scrollTop = logOutput.scrollHeight;
+    }
+
+    // Initialize FFmpeg WASM asynchronously
+    async function initFFmpeg() {
+      if (ffmpegLoaded) return true;
+      try {
+        log('FFmpeg WASMの初期化を開始します...');
+        const { createFFmpeg } = FFmpeg;
+        ffmpeg = createFFmpeg({
+          log: false,
+          corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
+        });
+        
+        ffmpeg.setProgress(({ ratio }) => {
+          if (ratio >= 0 && ratio <= 1) {
+            const currentItem = queue.find(item => item.status === 'processing');
+            if (currentItem) {
+              updateItemProgress(currentItem.id, Math.round(ratio * 100));
+            }
+          }
+        });
+
+        await ffmpeg.load();
+        ffmpegLoaded = true;
+        log('FFmpeg WASM のロードが完了しました。', 'success');
+        return true;
+      } catch (err) {
+        log(`FFmpegの初期化に失敗しました: ${err.message}`, 'error');
+        log('※動画・複雑な音声変換にはFFmpegが必要です。画像と基本WAV機能はCanvas/WebAudioで動作します。', 'warn');
+        return false;
+      }
+    }
+
+    // Helpers
+    function getMediaType(file) {
+      if (file.type.startsWith('image/')) return 'image';
+      if (file.type.startsWith('audio/')) return 'audio';
+      if (file.type.startsWith('video/')) return 'video';
+      
+      // Fallback by extension
+      const ext = file.name.split('.').pop().toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'ico', 'gif'].includes(ext)) return 'image';
+      if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'].includes(ext)) return 'audio';
+      if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
+      return 'image';
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function getFileExtension(filename) {
+      return filename.split('.').pop().toLowerCase();
+    }
+
+    // Image Conversion using Canvas API
+    async function convertImage(file, targetFormat, quality = 0.92) {
+      return new Promise((resolve, reject) => {
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+
+          // Handle JPEG/BMP white background (prevent black transparency)
+          if (['jpeg', 'jpg', 'bmp'].includes(targetFormat.toLowerCase())) {
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+          }
+
+          ctx.drawImage(img, 0, 0);
+
+          let mimeType = `image/${targetFormat}`;
+          if (targetFormat === 'jpg') mimeType = 'image/jpeg';
+          if (targetFormat === 'ico') mimeType = 'image/x-icon';
+
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error('Canvas toBlob 処理に失敗しました。'));
+            }
+          }, mimeType, quality);
+        };
+
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error('画像の読み込みに失敗しました。'));
+        };
+
+        img.src = url;
+      });
+    }
+
+    // Convert Audio to WAV using Web Audio API (Native Fallback)
+    async function convertAudioToWavNative(file) {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+
+      // Encode AudioBuffer to WAV format
+      const numOfChan = audioBuffer.numberOfChannels;
+      const length = audioBuffer.length * numOfChan * 2 + 44;
+      const buffer = new ArrayBuffer(length);
+      const view = new DataView(buffer);
+      const channels = [];
+      let sampleRate = audioBuffer.sampleRate;
+      let offset = 0;
+      let pos = 0;
+
+      function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+      function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+
+      // WAV Header
+      setUint32(0x46464952); // "RIFF"
+      setUint32(length - 8); // file length - 8
+      setUint32(0x45564157); // "WAVE"
+      setUint32(0x20746d66); // "fmt " chunk
+      setUint32(16);         // length = 16
+      setUint16(1);          // PCM (uncompressed)
+      setUint16(numOfChan);
+      setUint32(sampleRate);
+      setUint32(sampleRate * 2 * numOfChan); // avg. bytes/sec
+      setUint16(numOfChan * 2); // block-align
+      setUint16(16);         // 16-bit
+      setUint32(0x61746164); // "data" chunk
+      setUint32(length - pos - 4);
+
+      for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
+        channels.push(audioBuffer.getChannelData(i));
+      }
+
+      while (offset < audioBuffer.length) {
+        for (let i = 0; i < numOfChan; i++) {
+          let sample = Math.max(-1, Math.min(1, channels[i][offset]));
+          sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767) | 0;
+          view.setInt16(pos, sample, true);
+          pos += 2;
+        }
+        offset++;
+      }
+
+      return new Blob([buffer], { type: 'audio/wav' });
+    }
+
+    // FFmpeg Processing for Video and Advanced Audio
+    async function convertWithFFmpeg(file, targetExt) {
+      if (!ffmpegLoaded) {
+        const loaded = await initFFmpeg();
+        if (!loaded) throw new Error('FFmpegのロードに失敗したため、この拡張子変換は実行できません。');
+      }
+
+      const inputName = `input_${Date.now()}.${getFileExtension(file.name)}`;
+      const outputName = `output_${Date.now()}.${targetExt}`;
+
+      // Write file to FFmpeg Virtual FS
+      const fileData = new Uint8Array(await file.arrayBuffer());
+      ffmpeg.FS('writeFile', inputName, fileData);
+
+      // FFmpeg arguments
+      let args = ['-i', inputName];
+
+      if (targetExt === 'gif') {
+        // GIF optimization filter
+        args.push('-vf', 'fps=10,scale=480:-1:flags=lanczos');
+      } else if (targetExt === 'mp3') {
+        args.push('-vn', '-acodec', 'libmp3lame', '-q:a', '2');
+      } else if (targetExt === 'wav') {
+        args.push('-vn', '-acodec', 'pcm_s16le');
+      } else if (targetExt === 'mp4') {
+        args.push('-c:v', 'libx264', '-preset', 'fast', '-c:a', 'aac');
+      }
+
+      args.push(outputName);
+
+      log(`FFmpeg 実行コマンド: ffmpeg ${args.join(' ')}`);
+      await ffmpeg.run(...args);
+
+      // Read output
+      const data = ffmpeg.FS('readFile', outputName);
+
+      // Clean up FS
+      try {
+        ffmpeg.FS('unlink', inputName);
+        ffmpeg.FS('unlink', outputName);
+      } catch (e) { /* ignore */ }
+
+      let mimeType = 'application/octet-stream';
+      if (targetExt === 'mp4') mimeType = 'video/mp4';
+      if (targetExt === 'webm') mimeType = 'video/webm';
+      if (targetExt === 'gif') mimeType = 'image/gif';
+      if (targetExt === 'mp3') mimeType = 'audio/mp3';
+      if (targetExt === 'wav') mimeType = 'audio/wav';
+
+      return new Blob([data.buffer], { type: mimeType });
+    }
+
+    // Add Files to Queue
+    function addFiles(files) {
+      Array.from(files).forEach(file => {
+        const type = getMediaType(file);
+        const defaultTarget = FORMAT_MAP[type][0].ext;
+
+        const item = {
+          id: 'file_' + Math.random().toString(36).substr(2, 9),
+          file: file,
+          type: type,
+          targetFormat: defaultTarget,
+          status: 'idle', // idle, processing, done, error
+          progress: 0,
+          convertedBlob: null,
+          errorMsg: ''
+        };
+
+        queue.push(item);
+      });
+
+      updateUI();
+      log(`${files.length} 件のファイルを追加しました。`);
+    }
+
+    // Update Overall UI
+    function updateUI() {
+      if (queue.length === 0) {
+        batchControls.classList.add('hidden');
+        fileListContainer.innerHTML = '';
+        return;
+      }
+
+      batchControls.classList.remove('hidden');
+      updateBatchDropdownOptions();
+      renderFileList();
+      checkCompletedState();
+    }
+
+    function updateBatchDropdownOptions() {
+      // Collect types in queue
+      const types = new Set(queue.map(i => i.type));
+      batchFormatSelect.innerHTML = '';
+
+      if (types.has('image')) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = '画像フォーマット';
+        FORMAT_MAP.image.forEach(f => {
+          optgroup.innerHTML += `<option value="${f.ext}">画像 -> ${f.ext.toUpperCase()}</option>`;
+        });
+        batchFormatSelect.appendChild(optgroup);
+      }
+      if (types.has('audio')) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = '音声フォーマット';
+        FORMAT_MAP.audio.forEach(f => {
+          optgroup.innerHTML += `<option value="${f.ext}">音声 -> ${f.ext.toUpperCase()}</option>`;
+        });
+        batchFormatSelect.appendChild(optgroup);
+      }
+      if (types.has('video')) {
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = '動画フォーマット';
+        FORMAT_MAP.video.forEach(f => {
+          optgroup.innerHTML += `<option value="${f.ext}">動画 -> ${f.ext.toUpperCase()}</option>`;
+        });
+        batchFormatSelect.appendChild(optgroup);
+      }
+    }
+
+    // Render Items
+    function renderFileList() {
+      fileListContainer.innerHTML = '';
+
+      queue.forEach(item => {
+        const div = document.createElement('div');
+        div.className = 'bg-slate-800/80 border border-slate-700/70 rounded-xl p-4 transition shadow-sm hover:border-slate-600';
+        div.id = item.id;
+
+        const mediaIcon = item.type === 'image' 
+          ? '<i class="fa-regular fa-image text-sky-400"></i>'
+          : item.type === 'audio'
+          ? '<i class="fa-solid fa-music text-emerald-400"></i>'
+          : '<i class="fa-solid fa-film text-purple-400"></i>';
+
+        const formats = FORMAT_MAP[item.type];
+        const optionsHtml = formats.map(f => 
+          `<option value="${f.ext}" ${item.targetFormat === f.ext ? 'selected' : ''}>${f.label}</option>`
+        ).join('');
+
+        div.innerHTML = `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <!-- Left: Info -->
+            <div class="flex items-center space-x-3 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-lg flex-shrink-0">
+                ${mediaIcon}
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-semibold text-slate-200 truncate">${item.file.name}</p>
+                <p class="text-xs text-slate-400">${formatBytes(item.file.size)} &bull; <span class="uppercase">${getFileExtension(item.file.name)}</span></p>
+              </div>
+            </div>
+
+            <!-- Right: Controls -->
+            <div class="flex items-center gap-3 self-end sm:self-center">
+              <div class="flex items-center space-x-2">
+                <span class="text-xs text-slate-400 hidden sm:inline">変換先:</span>
+                <select onchange="updateItemTargetFormat('${item.id}', this.value)" ${item.status === 'processing' ? 'disabled' : ''} class="bg-slate-900 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+                  ${optionsHtml}
+                </select>
+              </div>
+
+              <!-- Item Actions -->
+              ${item.status === 'idle' ? `
+                <button onclick="convertSingle('${item.id}')" class="px-3 py-1.5 text-xs font-medium bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 rounded-lg transition">
+                  <i class="fa-solid fa-play mr-1"></i> 変換
+                </button>
+              ` : ''}
+
+              ${item.status === 'done' ? `
+                <button onclick="downloadSingle('${item.id}')" class="px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg shadow transition">
+                  <i class="fa-solid fa-download mr-1"></i> 保存
+                </button>
+              ` : ''}
+
+              ${item.status === 'error' ? `
+                <span class="text-xs text-rose-400 font-medium" title="${item.errorMsg}"><i class="fa-solid fa-triangle-exclamation mr-1"></i> エラー</span>
+              ` : ''}
+
+              <button onclick="removeItem('${item.id}')" class="text-slate-500 hover:text-rose-400 p-1.5 transition">
+                <i class="fa-solid fa-xmark text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          ${item.status === 'processing' ? `
+            <div class="mt-3 space-y-1">
+              <div class="flex justify-between text-xs text-slate-400">
+                <span>変換中...</span>
+                <span>${item.progress}%</span>
+              </div>
+              <div class="w-full bg-slate-900 rounded-full h-1.5 overflow-hidden">
+                <div class="bg-sky-500 h-1.5 rounded-full transition-all duration-300" style="width: ${item.progress}%"></div>
+              </div>
+            </div>
+          ` : ''}
+        `;
+
+        fileListContainer.appendChild(div);
+      });
+    }
+
+    // Queue Item Operations
+    window.updateItemTargetFormat = function(id, ext) {
+      const item = queue.find(i => i.id === id);
+      if (item) item.targetFormat = ext;
+    };
+
+    window.removeItem = function(id) {
+      queue = queue.filter(i => i.id !== id);
+      updateUI();
+    };
+
+    function updateItemProgress(id, progress) {
+      const item = queue.find(i => i.id === id);
+      if (item) {
+        item.progress = progress;
+        renderFileList();
+      }
+    }
+
+    // Conversion Process Execution
+    async function processItem(item) {
+      item.status = 'processing';
+      item.progress = 10;
+      renderFileList();
+      log(`[${item.file.name}] 変換開始 -> ${item.targetFormat.toUpperCase()}`);
+
+      try {
+        let blob = null;
+
+        if (item.type === 'image') {
+          item.progress = 50;
+          renderFileList();
+          blob = await convertImage(item.file, item.targetFormat);
+          item.progress = 100;
+        } else if (item.type === 'audio' && item.targetFormat === 'wav') {
+          item.progress = 40;
+          renderFileList();
+          // Try Native audio buffer decode first for fast execution
+          try {
+            blob = await convertAudioToWavNative(item.file);
+          } catch (e) {
+            blob = await convertWithFFmpeg(item.file, item.targetFormat);
+          }
+          item.progress = 100;
+        } else {
+          // Video or Complex Audio
+          blob = await convertWithFFmpeg(item.file, item.targetFormat);
+          item.progress = 100;
+        }
+
+        item.convertedBlob = blob;
+        item.status = 'done';
+        log(`[${item.file.name}] 変換成功 (${formatBytes(blob.size)})`, 'success');
+      } catch (err) {
+        item.status = 'error';
+        item.errorMsg = err.message;
+        log(`[${item.file.name}] 変換失敗: ${err.message}`, 'error');
+      }
+
+      renderFileList();
+      checkCompletedState();
+    }
+
+    window.convertSingle = function(id) {
+      const item = queue.find(i => i.id === id);
+      if (item) processItem(item);
+    };
+
+    window.downloadSingle = function(id) {
+      const item = queue.find(i => i.id === id);
+      if (item && item.convertedBlob) {
+        const url = URL.createObjectURL(item.convertedBlob);
+        const a = document.createElement('a');
+        const baseName = item.file.name.substring(0, item.file.name.lastIndexOf('.')) || item.file.name;
+        a.href = url;
+        a.download = `${baseName}.${item.targetFormat}`;
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+    };
+
+    function checkCompletedState() {
+      const hasDone = queue.some(i => i.status === 'done');
+      if (hasDone) {
+        downloadZipBtn.classList.remove('hidden');
+      } else {
+        downloadZipBtn.classList.add('hidden');
+      }
+    }
+
+    // Batch Actions
+    applyBatchFormatBtn.addEventListener('click', () => {
+      const target = batchFormatSelect.value;
+      queue.forEach(item => {
+        // Check if format is valid for item's media type
+        const validFormats = FORMAT_MAP[item.type].map(f => f.ext);
+        if (validFormats.includes(target)) {
+          item.targetFormat = target;
+        }
+      });
+      renderFileList();
+      log(`全ての該当ファイル変換先を [${target.toUpperCase()}] に統一しました。`);
+    });
+
+    convertAllBtn.addEventListener('click', async () => {
+      if (isProcessing) return;
+      isProcessing = true;
+      convertAllBtn.disabled = true;
+      convertAllBtn.classList.add('opacity-50');
+
+      const pending = queue.filter(i => i.status === 'idle' || i.status === 'error');
+      log(`一括変換を開始します (対象: ${pending.length} 件)...`);
+
+      for (const item of pending) {
+        await processItem(item);
+      }
+
+      isProcessing = false;
+      convertAllBtn.disabled = false;
+      convertAllBtn.classList.remove('opacity-50');
+      log('一括変換処理が完了しました。', 'success');
+    });
+
+    downloadZipBtn.addEventListener('click', async () => {
+      const completed = queue.filter(i => i.status === 'done' && i.convertedBlob);
+      if (completed.length === 0) return;
+
+      log('ZIPファイルの作成を開始します...');
+      const zip = new JSZip();
+
+      completed.forEach(item => {
+        const baseName = item.file.name.substring(0, item.file.name.lastIndexOf('.')) || item.file.name;
+        const fileName = `${baseName}.${item.targetFormat}`;
+        zip.file(fileName, item.convertedBlob);
+      });
+
+      const zipContent = await zip.generateAsync({ type: 'blob' });
+      const url = URL.createObjectURL(zipContent);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `converted_media_${Date.now()}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      log('ZIPファイルのダウンロードを開始しました。', 'success');
+    });
+
+    clearAllBtn.addEventListener('click', () => {
+      queue = [];
+      updateUI();
+      log('ファイルをすべてクリアしました。');
+    });
+
+    // Drag & Drop Listeners
+    dropzone.addEventListener('click', () => fileInput.click());
+
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        addFiles(e.target.files);
+        fileInput.value = ''; // Reset input
+      }
+    });
+
+    ['dragenter', 'dragover'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.add('drop-active');
+      }, false);
+    });
+
+    ['dragleave', 'drop'].forEach(eventName => {
+      dropzone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dropzone.classList.remove('drop-active');
+      }, false);
+    });
+
+    dropzone.addEventListener('drop', (e) => {
+      const dt = e.dataTransfer;
+      const files = dt.files;
+      if (files.length > 0) {
+        addFiles(files);
+      }
+    });
+
+    // UI Log Toggles
+    toggleLogsBtn.addEventListener('click', () => {
+      logSection.classList.toggle('hidden');
+    });
+
+    clearLogsBtn.addEventListener('click', () => {
+      logOutput.innerHTML = '';
+    });
+  </script>
+</body>
+</html>
