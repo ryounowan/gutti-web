@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Retro Glitch & Noise Video FX Studio - Pro Edition</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkbg: '#0a0a0f',
+                        panelbg: '#13131c',
+                        accent: '#00ffcc',
+                        accentpurple: '#9d00ff',
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Tone.js for BGM / Sound generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Inter:wght@400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .mono-font {
+            font-family: 'Share Tech Mono', monospace;
+        }
+        input[type=range] {
+            accent-color: #00ffcc;
+        }
+        /* Custom timeline scrubber styling */
+        input[type=range].timeline-scrubber {
+            accent-color: #00ffcc;
+            height: 6px;
+        }
+    </style>
+</head>
+<body class="bg-darkbg text-gray-100 min-h-screen flex flex-col antialiased selection:bg-accent selection:text-black">
+
+    <header class="border-b border-gray-800 bg-panelbg/80 backdrop-blur sticky top-0 z-50 px-6 py-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-accent to-accentpurple flex items-center justify-center text-black font-bold text-xl shadow-lg shadow-accent/20">
+                <i class="fa-solid fa-wand-magic-sparkles"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wide bg-gradient-to-r from-white via-gray-200 to-gray-400 bg-clip-text text-transparent">Glitch & Noise Video FX Studio Pro</h1>
+                <p class="text-xs text-gray-400">自動BGMマッチング、シークバー、動画冒頭・結末ノイズ簡単配置対応</p>
+            </div>
+        </div>
+        <div class="flex items-center gap-3">
+            <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"></span> 待機中
+            </span>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <!-- Left & Center: Video Preview & Timeline Controller (2 cols) -->
+        <div class="lg:col-span-2 flex flex-col gap-6">
+            
+            <!-- Video & Canvas Preview Container -->
+            <div class="bg-panelbg border border-gray-800 rounded-2xl p-4 shadow-xl flex flex-col gap-4 relative overflow-hidden">
+                <div class="flex items-center justify-between">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 text-gray-300">
+                        <i class="fa-solid fa-film text-accent"></i> リアルタイムプレビュー
+                    </h2>
+                    <div class="flex items-center gap-2 text-xs text-gray-400 mono-font" id="video-time-display">
+                        00:00 / 00:00
+                    </div>
+                </div>
+
+                <!-- Canvas & Video Viewport -->
+                <div class="relative w-full aspect-video bg-black rounded-xl overflow-hidden flex items-center justify-center border border-gray-800/80 shadow-inner">
+                    <video id="source-video" class="hidden" crossorigin="anonymous" playsinline></video>
+                    <canvas id="output-canvas" class="w-full h-full object-contain"></canvas>
+                    
+                    <!-- Upload Dropzone Overlay -->
+                    <div id="dropzone" class="absolute inset-0 bg-panelbg/90 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center cursor-pointer hover:bg-panelbg/95 transition border-2 border-dashed border-gray-700 hover:border-accent rounded-xl m-3">
+                        <div class="w-16 h-16 rounded-2xl bg-accent/10 border border-accent/30 flex items-center justify-center text-accent text-2xl mb-3 shadow-lg shadow-accent/10">
+                            <i class="fa-solid fa-cloud-arrow-up"></i>
+                        </div>
+                        <h3 class="font-semibold text-base mb-1">.mp4動画ファイルをドラッグ＆ドロップ</h3>
+                        <p class="text-xs text-gray-400 max-w-sm mb-4">または、下のボタンをクリックしてデバイスから動画を選択してください。</p>
+                        <label class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-accent to-emerald-400 text-black font-semibold text-xs shadow-lg hover:opacity-90 transition cursor-pointer flex items-center gap-2">
+                            <i class="fa-solid fa-folder-open"></i> 動画を選択 (.mp4)
+                            <input type="file" id="video-file-input" accept="video/mp4,video/*" class="hidden">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Video Scrubbing Timeline Bar (アンダーバー) -->
+                <div class="flex flex-col gap-1.5 px-1">
+                    <div class="flex items-center justify-between text-[11px] text-gray-400">
+                        <span>タイムライン再生位置</span>
+                        <span id="scrubber-current-time">0.0s</span>
+                    </div>
+                    <input type="range" id="video-scrubber" min="0" max="100" step="0.1" value="0" disabled class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer timeline-scrubber disabled:opacity-40 disabled:cursor-not-allowed">
+                </div>
+
+                <!-- Video Control Toolbar -->
+                <div class="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-gray-800/60">
+                    <div class="flex items-center gap-2">
+                        <button id="play-pause-btn" disabled class="w-10 h-10 rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-accent transition shadow">
+                            <i class="fa-solid fa-play" id="play-icon"></i>
+                        </button>
+                        <button id="stop-btn" disabled class="w-10 h-10 rounded-xl bg-gray-800 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center text-gray-300 transition shadow">
+                            <i class="fa-solid fa-stop"></i>
+                        </button>
+                        <div class="flex items-center gap-2 ml-2 bg-gray-900/80 px-3 py-1.5 rounded-xl border border-gray-800">
+                            <i class="fa-solid fa-volume-high text-xs text-gray-400"></i>
+                            <input type="range" id="video-volume" min="0" max="1" step="0.05" value="1" class="w-20 h-1 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-2">
+                        <button id="export-btn" disabled class="px-4 py-2.5 rounded-xl bg-gradient-to-r from-accentpurple to-purple-600 hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold text-xs transition flex items-center gap-2 shadow-lg shadow-purple-900/30">
+                            <i class="fa-solid fa-download"></i> 合成動画を書き出し (.webm)
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Noise Settings Panel -->
+            <div class="bg-panelbg border border-gray-800 rounded-2xl p-5 shadow-xl flex flex-col gap-5">
+                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 text-gray-300">
+                        <i class="fa-solid fa-sliders text-accent"></i> ノイズ効果 & タイミング設定
+                    </h2>
+                    <span class="text-xs text-gray-400">自動BGMマッチング対応</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Enable/Disable Noise Types -->
+                    <div class="flex flex-col gap-3 bg-gray-900/50 p-4 rounded-xl border border-gray-800/80">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">ノイズの種類</span>
+                        <div class="grid grid-cols-2 gap-2">
+                            <label class="flex items-center gap-2.5 text-xs cursor-pointer select-none">
+                                <input type="checkbox" id="noise-block" checked class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-accent focus:ring-accent">
+                                <span>ブロックノイズ</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 text-xs cursor-pointer select-none">
+                                <input type="checkbox" id="noise-tv" checked class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-accent focus:ring-accent">
+                                <span>走査線ノイズ</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 text-xs cursor-pointer select-none">
+                                <input type="checkbox" id="noise-vhs" checked class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-accent focus:ring-accent">
+                                <span>VHS色ズレ</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 text-xs cursor-pointer select-none">
+                                <input type="checkbox" id="noise-static" checked class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-accent focus:ring-accent">
+                                <span>砂嵐ノイズ</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Quick Checkboxes: Start / End & Timing -->
+                    <div class="flex flex-col gap-3 bg-gray-900/50 p-4 rounded-xl border border-gray-800/80">
+                        <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">位置クイック設定</span>
+                        <div class="flex flex-col gap-2 pt-1">
+                            <label class="flex items-center gap-2.5 text-xs cursor-pointer">
+                                <input type="checkbox" id="apply-start-noise" checked class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-accent focus:ring-accent">
+                                <span>動画の最初にノイズを入れる (Intro)</span>
+                            </label>
+                            <label class="flex items-center gap-2.5 text-xs cursor-pointer">
+                                <input type="checkbox" id="apply-end-noise" checked class="w-4 h-4 rounded bg-gray-800 border-gray-700 text-accent focus:ring-accent">
+                                <span>動画の最後にノイズを入れる (Outro)</span>
+                            </label>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 pt-1">
+                            <div>
+                                <label class="text-[10px] text-gray-400 block mb-0.5">開始秒数</label>
+                                <input type="number" id="noise-start-sec" value="0" min="0" step="0.1" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white">
+                            </div>
+                            <div>
+                                <label class="text-[10px] text-gray-400 block mb-0.5">継続秒数</label>
+                                <input type="number" id="noise-duration-sec" value="5" min="0.1" step="0.1" class="w-full bg-gray-800 border border-gray-700 rounded-lg px-2.5 py-1 text-xs text-white">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Noise Magnitude & Progressive Fade -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <!-- Noise Intensity Slider -->
+                    <div class="flex flex-col gap-2 bg-gray-900/50 p-4 rounded-xl border border-gray-800/80">
+                        <div class="flex justify-between items-center text-xs">
+                            <span class="font-semibold text-gray-400">ノイズの大きさ (Intensity)</span>
+                            <span id="noise-intensity-val" class="mono-font text-accent font-bold">60%</span>
+                        </div>
+                        <input type="range" id="noise-intensity" min="10" max="100" value="60" class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                    </div>
+
+                    <!-- Progressive Fade Option -->
+                    <div class="flex items-center justify-between bg-gray-900/50 p-4 rounded-xl border border-gray-800/80">
+                        <div class="flex flex-col gap-1">
+                            <span class="text-xs font-semibold text-gray-400">フェードイン・アウト演出</span>
+                            <span class="text-[10px] text-gray-500">ノイズの大きさを徐々に大きく・消去します</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="noise-progressive" checked class="sr-only peer">
+                            <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accent"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right Column: Auto-Matching BGM & 10 Presets (1 col) -->
+        <div class="flex flex-col gap-6">
+            
+            <!-- BGM & Sound Studio Panel -->
+            <div class="bg-panelbg border border-gray-800 rounded-2xl p-5 shadow-xl flex flex-col gap-4">
+                <div class="flex items-center justify-between border-b border-gray-800 pb-3">
+                    <h2 class="font-semibold text-sm flex items-center gap-2 text-gray-300">
+                        <i class="fa-solid fa-music text-accentpurple"></i> BGM & サウンドスタジオ (10種)
+                    </h2>
+                    <span id="active-preset-badge" class="text-[10px] bg-accentpurple/25 text-purple-300 px-2.5 py-0.5 rounded border border-accentpurple/40 font-medium">自動マッチング中</span>
+                </div>
+
+                <!-- Auto-Matching Toggle Banner -->
+                <div class="bg-accentpurple/10 border border-accentpurple/30 p-3 rounded-xl flex items-center justify-between">
+                    <div class="flex items-center gap-2.5 text-xs text-purple-200">
+                        <i class="fa-solid fa-wand-magic-sparkles text-accent"></i>
+                        <div>
+                            <div class="font-semibold">自動BGMマッチング有効</div>
+                            <div class="text-[10px] text-gray-400">ノイズ設定に合わせたBGMを自動選定します</div>
+                        </div>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="auto-match-bgm" checked class="sr-only peer">
+                        <div class="w-9 h-5 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-accentpurple"></div>
+                    </label>
+                </div>
+
+                <!-- Custom Audio Upload Section -->
+                <div class="bg-gray-900/60 border border-gray-800 p-3 rounded-xl flex flex-col gap-2">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-semibold text-gray-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-file-audio text-accent"></i> 自分のデバイスからBGM追加
+                        </span>
+                        <label class="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-xs font-medium text-accent border border-gray-700 cursor-pointer transition flex items-center gap-1.5">
+                            <i class="fa-solid fa-upload"></i> ファイル選択
+                            <input type="file" id="custom-audio-input" accept="audio/*" class="hidden">
+                        </label>
+                    </div>
+                    <div id="custom-audio-name" class="text-[11px] text-gray-400 truncate italic">未選択 (.mp3, .wav 等)</div>
+                </div>
+
+                <!-- 10 Noise/BGM Presets Grid -->
+                <div class="flex flex-col gap-2">
+                    <span class="text-xs font-semibold text-gray-400 uppercase tracking-wider">ノイズ対応BGMプリセット (10種類)</span>
+                    <div class="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-1" id="preset-list">
+                        <!-- Populated via JS -->
+                    </div>
+                </div>
+
+                <!-- BGM Volume & Control Toolbar -->
+                <div class="flex flex-col gap-3 pt-3 border-t border-gray-800 bg-gray-900/40 p-3 rounded-xl">
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-medium text-gray-300 flex items-center gap-1.5">
+                            <i class="fa-solid fa-sliders text-accentpurple"></i> BGM 音量
+                        </span>
+                        <span id="bgm-volume-val" class="mono-font text-xs text-accentpurple font-bold">70%</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <input type="range" id="bgm-volume" min="0" max="1" step="0.05" value="0.7" class="w-full h-1.5 bg-gray-700 rounded-lg appearance-none cursor-pointer">
+                        <button id="preview-bgm-btn" class="px-3 py-1.5 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-xs font-medium text-gray-200 transition flex items-center gap-1.5 shrink-0">
+                            <i class="fa-solid fa-play" id="bgm-preview-icon"></i> 試聴
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-panelbg border border-gray-800 rounded-2xl p-4 shadow-xl flex flex-col gap-2 text-xs text-gray-400">
+                <div class="font-semibold text-gray-300 flex items-center gap-2 mb-1">
+                    <i class="fa-solid fa-circle-info text-accent"></i> プロフェッショナルガイド
+                </div>
+                <p>• 下部のシークバーで動画の任意の場所を自由に確認できます。</p>
+                <p>• 冒頭・結末チェックを入れると、動画の最初や最後に自動でノイズ演出が追加されます。</p>
+                <p>• 自動BGMマッチングがオンのとき、ノイズの種類に最適なBGMが自動再生されます。</p>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 z-50 bg-panelbg border border-gray-700 shadow-2xl rounded-2xl px-4 py-3 flex items-center gap-3 transform translate-y-24 opacity-0 transition-all duration-300 pointer-events-none">
+        <div id="toast-icon" class="w-8 h-8 rounded-xl bg-accent/20 text-accent flex items-center justify-center text-sm font-bold">
+            <i class="fa-solid fa-check"></i>
+        </div>
+        <div>
+            <h4 id="toast-title" class="font-semibold text-xs text-white">通知タイトル</h4>
+            <p id="toast-desc" class="text-[11px] text-gray-400">通知メッセージ</p>
+        </div>
+    </div>
+
+    <script>
+        // --- State Variables ---
+        let videoFile = null;
+        let customAudioBuffer = null;
+        let isPlaying = false;
+        let animationFrameId = null;
+        let currentPresetIndex = 0; // Default preset
+        let toneSynth = null;
+        let toneLoop = null;
+        let isTonePlaying = false;
+        let isUserScrubbing = false;
+
+        // DOM Elements
+        const dropzone = document.getElementById('dropzone');
+        const videoFileInput = document.getElementById('video-file-input');
+        const sourceVideo = document.getElementById('source-video');
+        const outputCanvas = document.getElementById('output-canvas');
+        const ctx = outputCanvas.getContext('2d');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const playIcon = document.getElementById('play-icon');
+        const stopBtn = document.getElementById('stop-btn');
+        const exportBtn = document.getElementById('export-btn');
+        const videoVolume = document.getElementById('video-volume');
+        const videoTimeDisplay = document.getElementById('video-time-display');
+        const statusBadge = document.getElementById('status-badge');
+        
+        const videoScrubber = document.getElementById('video-scrubber');
+        const scrubberCurrentTime = document.getElementById('scrubber-current-time');
+
+        const noiseBlock = document.getElementById('noise-block');
+        const noiseTv = document.getElementById('noise-tv');
+        const noiseVhs = document.getElementById('noise-vhs');
+        const noiseStatic = document.getElementById('noise-static');
+        const noiseStartSec = document.getElementById('noise-start-sec');
+        const noiseDurationSec = document.getElementById('noise-duration-sec');
+        const applyStartNoise = document.getElementById('apply-start-noise');
+        const applyEndNoise = document.getElementById('apply-end-noise');
+        const noiseProgressive = document.getElementById('noise-progressive');
+        const noiseIntensity = document.getElementById('noise-intensity');
+        const noiseIntensityVal = document.getElementById('noise-intensity-val');
+
+        const autoMatchBgm = document.getElementById('auto-match-bgm');
+        const customAudioInput = document.getElementById('custom-audio-input');
+        const customAudioName = document.getElementById('custom-audio-name');
+        const presetListContainer = document.getElementById('preset-list');
+        const bgmVolume = document.getElementById('bgm-volume');
+        const bgmVolumeVal = document.getElementById('bgm-volume-val');
+        const previewBgmBtn = document.getElementById('preview-bgm-btn');
+        const bgmPreviewIcon = document.getElementById('bgm-preview-icon');
+        const activePresetBadge = document.getElementById('active-preset-badge');
+        
+        const toast = document.getElementById('toast');
+        const toastTitle = document.getElementById('toast-title');
+        const toastDesc = document.getElementById('toast-desc');
+
+        // --- 10 Noise-Matched BGM Presets ---
+        const presets = [
+            { id: 0, name: "サイバーパンク・グリッチ", desc: "歪んだベースとデジタルパルス", icon: "fa-bolt", type: "synth", match: ["block", "glitch"] },
+            { id: 1, name: "VHSレトロ・ホラー", desc: "アナログテレビのざらついたドローン", icon: "fa-tape", type: "drone", match: ["vhs", "tv"] },
+            { id: 2, name: "テレビジョン・スタティック", desc: "砂嵐とノイズバーストアンビエント", icon: "fa-tv", type: "static", match: ["static", "tv"] },
+            { id: 3, name: "ディストーション・インパルス", desc: "突発的なアタックと重低音", icon: "fa-triangle-exclamation", type: "industrial", match: ["block", "static"] },
+            { id: 4, name: "ローファイ・シネマティック", desc: "チルなビートとブラウンノイズ", icon: "fa-record-vinyl", type: "lofi", match: ["vhs"] },
+            { id: 5, name: "エイリアン・トランスミッション", desc: "宇宙からの電波信号風ピーガー音", icon: "fa-satellite-dish", type: "sci-fi", match: ["tv", "static"] },
+            { id: 6, name: "グリッチ・ハードコア", desc: "細切れの高速ビート", icon: "fa-microchip", type: "glitch", match: ["block", "vhs"] },
+            { id: 7, name: "オールド・ブラウン管ラジオ", desc: "チューニング中の歪んだ電波", icon: "fa-radio", type: "radio", match: ["tv"] },
+            { id: 8, name: "ダーク・サイバー空間", desc: "深いリバーブと機械的呼吸音", icon: "fa-ghost", type: "ambient", match: ["vhs", "block"] },
+            { id: 9, name: "ファンファーレ・エラー", desc: "システムエラー警告音風サウンド", icon: "fa-triangle-exclamation", type: "error", match: ["block", "static"] }
+        ];
+
+        // --- Toast Notification Helper ---
+        function showToast(title, desc, isError = false) {
+            toastTitle.textContent = title;
+            toastDesc.textContent = desc;
+            const iconEl = document.getElementById('toast-icon');
+            if(isError) {
+                iconEl.className = "w-8 h-8 rounded-xl bg-red-500/20 text-red-400 flex items-center justify-center text-sm font-bold";
+                iconEl.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i>';
+            } else {
+                iconEl.className = "w-8 h-8 rounded-xl bg-accent/20 text-accent flex items-center justify-center text-sm font-bold";
+                iconEl.innerHTML = '<i class="fa-solid fa-check"></i>';
+            }
+            toast.classList.remove('translate-y-24', 'opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                toast.classList.add('translate-y-24', 'opacity-0', 'pointer-events-none');
+            }, 3500);
+        }
+
+        // --- Render Presets UI ---
+        function renderPresets() {
+            presetListContainer.innerHTML = '';
+            presets.forEach(p => {
+                const item = document.createElement('div');
+                item.className = `flex items-center justify-between p-2.5 rounded-xl border transition cursor-pointer bg-gray-900/40 hover:bg-gray-800/80 border-gray-800 group ${currentPresetIndex === p.id ? 'border-accentpurple bg-accentpurple/15' : ''}`;
+                item.innerHTML = `
+                    <div class="flex items-center gap-2.5">
+                        <div class="w-7 h-7 rounded-lg bg-gray-800 group-hover:bg-accentpurple/20 flex items-center justify-center text-accentpurple text-xs">
+                            <i class="fa-solid ${p.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-semibold text-xs text-white">${p.name}</div>
+                            <div class="text-[10px] text-gray-400">${p.desc}</div>
+                        </div>
+                    </div>
+                    <span class="text-[10px] px-2 py-0.5 rounded bg-gray-800 text-gray-300 group-hover:bg-accentpurple group-hover:text-black font-medium transition">
+                        ${currentPresetIndex === p.id ? '選択中' : '選択'}
+                    </span>
+                `;
+                item.addEventListener('click', () => {
+                    autoMatchBgm.checked = false; // Disable auto match if user manually picks
+                    selectPreset(p.id);
+                });
+                presetListContainer.appendChild(item);
+            });
+        }
+
+        function selectPreset(id) {
+            currentPresetIndex = id;
+            customAudioBuffer = null;
+            customAudioName.textContent = "未選択";
+            const preset = presets.find(p => p.id === id);
+            activePresetBadge.textContent = preset.name;
+            activePresetBadge.className = "text-[10px] bg-accentpurple/25 text-purple-300 px-2.5 py-0.5 rounded border border-accentpurple/40 font-medium";
+            renderPresets();
+            showToast("BGM変更", `「${preset.name}」に切り替えました。`);
+            
+            if(isTonePlaying) {
+                stopTone();
+                startTone();
+            }
+        }
+
+        // --- Auto-Match BGM Logic ---
+        function updateAutoMatchingBgm() {
+            if (!autoMatchBgm.checked || customAudioBuffer) return;
+
+            // Determine active noise types
+            let activeTypes = [];
+            if(noiseBlock.checked) activeTypes.push("block");
+            if(noiseTv.checked) activeTypes.push("tv");
+            if(noiseVhs.checked) activeTypes.push("vhs");
+            if(noiseStatic.checked) activeTypes.push("static");
+
+            // Find matching preset
+            let matched = presets.find(p => p.match.some(m => activeTypes.includes(m)));
+            if (!matched) matched = presets[0];
+
+            if (currentPresetIndex !== matched.id) {
+                currentPresetIndex = matched.id;
+                activePresetBadge.textContent = `自動: ${matched.name}`;
+                activePresetBadge.className = "text-[10px] bg-accent/20 text-accent px-2.5 py-0.5 rounded border border-accent/30 font-medium";
+                renderPresets();
+                if (isTonePlaying) {
+                    stopTone();
+                    startTone();
+                }
+            }
+        }
+
+        // --- Tone.js Synthesizer Setup ---
+        function startTone() {
+            Tone.start();
+            if(toneSynth) toneSynth.dispose();
+            if(toneLoop) { toneLoop.dispose(); Tone.Transport.stop(); }
+
+            const vol = parseFloat(bgmVolume.value);
+            const masterGain = new Tone.Gain(vol).toDestination();
+
+            if (customAudioBuffer) {
+                toneSynth = new Tone.Player(customAudioBuffer).connect(masterGain);
+                toneSynth.loop = true;
+                toneSynth.autostart = true;
+                isTonePlaying = true;
+                bgmPreviewIcon.className = "fa-solid fa-pause";
+                return;
+            }
+
+            const type = presets[currentPresetIndex].type;
+            
+            if (type === 'synth') {
+                toneSynth = new Tone.Synth({
+                    oscillator: { type: "sawtooth" },
+                    envelope: { attack: 0.05, decay: 0.2, sustain: 0.4, release: 1 }
+                }).connect(masterGain);
+                const notes = ["C2", "G2", "D#2", "F2", "C3", "A#2"];
+                let step = 0;
+                toneLoop = new Tone.Loop(time => {
+                    toneSynth.triggerAttackRelease(notes[step % notes.length], "8n", time);
+                    step++;
+                }, "4n").start(0);
+                Tone.Transport.start();
+            } else if (type === 'drone') {
+                toneSynth = new Tone.FMSynth({
+                    harmonicity: 1.5,
+                    modulationIndex: 10,
+                    oscillator: { type: "sine" },
+                    envelope: { attack: 1, decay: 1, sustain: 1, release: 2 }
+                }).connect(masterGain);
+                toneSynth.triggerAttack("F1");
+            } else if (type === 'static' || type === 'radio') {
+                toneSynth = new Tone.NoiseSynth({
+                    noise: { type: type === 'static' ? "white" : "pink" },
+                    envelope: { attack: 0.1, decay: 0.3, sustain: 0.2, release: 0.5 }
+                }).connect(masterGain);
+                toneLoop = new Tone.Loop(time => {
+                    toneSynth.triggerAttackRelease("4n", time);
+                }, "2n").start(0);
+                Tone.Transport.start();
+            } else {
+                toneSynth = new Tone.MonoSynth({
+                    oscillator: { type: "square" },
+                    envelope: { attack: 0.01, decay: 0.2, sustain: 0.1, release: 0.2 }
+                }).connect(masterGain);
+                const notes = ["C1", "C1", "D#1", "G1", "F1", "C2"];
+                let step = 0;
+                toneLoop = new Tone.Loop(time => {
+                    toneSynth.triggerAttackRelease(notes[step % notes.length], "16n", time);
+                    step++;
+                }, "8n").start(0);
+                Tone.Transport.start();
+            }
+
+            isTonePlaying = true;
+            bgmPreviewIcon.className = "fa-solid fa-pause";
+        }
+
+        function stopTone() {
+            if(toneSynth) {
+                if(typeof toneSynth.stop === 'function') toneSynth.stop();
+                toneSynth.dispose();
+                toneSynth = null;
+            }
+            if(toneLoop) {
+                toneLoop.dispose();
+                toneLoop = null;
+                Tone.Transport.stop();
+            }
+            isTonePlaying = false;
+            bgmPreviewIcon.className = "fa-solid fa-play";
+        }
+
+        // --- Custom Audio Upload ---
+        customAudioInput.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+            customAudioName.textContent = file.name;
+            
+            const arrayBuffer = await file.arrayBuffer();
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            customAudioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+            
+            autoMatchBgm.checked = false;
+            activePresetBadge.textContent = "カスタム音声有効";
+            activePresetBadge.className = "text-[10px] bg-emerald-500/20 text-emerald-300 px-2.5 py-0.5 rounded border border-emerald-500/30 font-medium";
+            showToast("音声ファイル読み込み", `${file.name} を設定しました。`);
+        });
+
+        // --- Video Loading & Scrubber Handling ---
+        function loadVideoFile(file) {
+            if (!file.type.startsWith('video/')) {
+                showToast("エラー", "有効な動画ファイル(.mp4)を選択してください。", true);
+                return;
+            }
+            videoFile = file;
+            const videoUrl = URL.createObjectURL(file);
+            sourceVideo.src = videoUrl;
+            sourceVideo.load();
+            
+            sourceVideo.onloadedmetadata = () => {
+                outputCanvas.width = sourceVideo.videoWidth || 1280;
+                outputCanvas.height = sourceVideo.videoHeight || 720;
+                dropzone.classList.add('hidden');
+                playPauseBtn.disabled = false;
+                stopBtn.disabled = false;
+                exportBtn.disabled = false;
+                videoScrubber.disabled = false;
+                videoScrubber.max = sourceVideo.duration;
+
+                statusBadge.className = "px-3 py-1 rounded-full text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1.5";
+                statusBadge.innerHTML = '<span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span> 動画ロード完了';
+                
+                updateTimeDisplay();
+                drawVideoInitialFrame();
+                showToast("読み込み成功", `${file.name} の準備ができました。`);
+            };
+        }
+
+        dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('border-accent'); });
+        dropzone.addEventListener('dragleave', () => { dropzone.classList.remove('border-accent'); });
+        dropzone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropzone.classList.remove('border-accent');
+            if (e.dataTransfer.files.length > 0) loadVideoFile(e.dataTransfer.files[0]);
+        });
+        videoFileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) loadVideoFile(e.target.files[0]);
+        });
+
+        function drawVideoInitialFrame() {
+            ctx.drawImage(sourceVideo, 0, 0, outputCanvas.width, outputCanvas.height);
+        }
+
+        function updateTimeDisplay() {
+            const curr = sourceVideo.currentTime;
+            const dur = sourceVideo.duration || 0;
+            videoTimeDisplay.textContent = `${formatTime(curr)} / ${formatTime(dur)}`;
+            scrubberCurrentTime.textContent = `${curr.toFixed(1)}s`;
+            if (!isUserScrubbing) {
+                videoScrubber.value = curr;
+            }
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        // --- Scrubber Event Listeners ---
+        videoScrubber.addEventListener('mousedown', () => { isUserScrubbing = true; });
+        videoScrubber.addEventListener('touchstart', () => { isUserScrubbing = true; });
+        
+        videoScrubber.addEventListener('input', () => {
+            const time = parseFloat(videoScrubber.value);
+            sourceVideo.currentTime = time;
+            scrubberCurrentTime.textContent = `${time.toFixed(1)}s`;
+            // Draw frame on scrub
+            sourceVideo.onseeked = () => {
+                ctx.drawImage(sourceVideo, 0, 0, outputCanvas.width, outputCanvas.height);
+                checkAndRenderEffectsAtTime(time);
+            };
+        });
+
+        videoScrubber.addEventListener('mouseup', () => { isUserScrubbing = false; });
+        videoScrubber.addEventListener('touchend', () => { isUserScrubbing = false; });
+
+        // --- Playback Controls ---
+        playPauseBtn.addEventListener('click', () => {
+            if (!videoFile) return;
+            if (sourceVideo.paused) {
+                sourceVideo.play();
+                if (!isTonePlaying) startTone();
+                else Tone.Transport.start();
+                isPlaying = true;
+                playIcon.className = "fa-solid fa-pause";
+                requestAnimationFrame(processFrameLoop);
+            } else {
+                sourceVideo.pause();
+                if (isTonePlaying) Tone.Transport.pause();
+                isPlaying = false;
+                playIcon.className = "fa-solid fa-play";
+                cancelAnimationFrame(animationFrameId);
+            }
+        });
+
+        stopBtn.addEventListener('click', () => {
+            sourceVideo.pause();
+            sourceVideo.currentTime = 0;
+            if (isTonePlaying) stopTone();
+            isPlaying = false;
+            playIcon.className = "fa-solid fa-play";
+            cancelAnimationFrame(animationFrameId);
+            updateTimeDisplay();
+            drawVideoInitialFrame();
+        });
+
+        sourceVideo.addEventListener('ended', () => {
+            isPlaying = false;
+            playIcon.className = "fa-solid fa-play";
+            if (isTonePlaying) stopTone();
+            cancelAnimationFrame(animationFrameId);
+            updateTimeDisplay();
+        });
+
+        videoVolume.addEventListener('input', () => { sourceVideo.volume = parseFloat(videoVolume.value); });
+        bgmVolume.addEventListener('input', () => {
+            const val = parseFloat(bgmVolume.value);
+            bgmVolumeVal.textContent = `${Math.round(val * 100)}%`;
+            if (toneSynth && toneSynth.volume) toneSynth.volume.value = Tone.gainToDb(val);
+        });
+
+        previewBgmBtn.addEventListener('click', () => {
+            if (isTonePlaying) {
+                stopTone();
+                showToast("BGM停止", "サウンドを停止しました。");
+            } else {
+                startTone();
+                showToast("BGM試聴", "サウンド再生中...");
+            }
+        });
+
+        noiseIntensity.addEventListener('input', () => {
+            noiseIntensityVal.textContent = `${noiseIntensity.value}%`;
+            updateAutoMatchingBgm();
+        });
+
+        // --- Main Frame Loop & Noise Evaluation ---
+        function processFrameLoop() {
+            if (!isPlaying) return;
+
+            const currentTime = sourceVideo.currentTime;
+            ctx.drawImage(sourceVideo, 0, 0, outputCanvas.width, outputCanvas.height);
+            checkAndRenderEffectsAtTime(currentTime);
+
+            updateTimeDisplay();
+            animationFrameId = requestAnimationFrame(processFrameLoop);
+        }
+
+        function checkAndRenderEffectsAtTime(currentTime) {
+            const duration = sourceVideo.duration || 1;
+            let shouldNoise = false;
+            let factor = parseFloat(noiseIntensity.value) / 100;
+
+            const startSec = parseFloat(noiseStartSec.value) || 0;
+            const durationSec = parseFloat(noiseDurationSec.value) || 5;
+
+            // 1. Custom time window check
+            if (currentTime >= startSec && currentTime <= (startSec + durationSec)) {
+                shouldNoise = true;
+                if (noiseProgressive.checked) {
+                    const prog = (currentTime - startSec) / durationSec;
+                    factor *= Math.sin(prog * Math.PI);
+                }
+            }
+
+            // 2. Start (Intro) Noise check (first 3 seconds)
+            if (applyStartNoise.checked && currentTime <= 3.0) {
+                shouldNoise = true;
+                let introFactor = (1 - (currentTime / 3.0)) * factor;
+                factor = Math.max(factor, introFactor);
+            }
+
+            // 3. End (Outro) Noise check (last 3 seconds)
+            if (applyEndNoise.checked && currentTime >= (duration - 3.0)) {
+                shouldNoise = true;
+                let outroFactor = ((currentTime - (duration - 3.0)) / 3.0) * factor;
+                factor = Math.max(factor, outroFactor);
+            }
+
+            if (shouldNoise && factor > 0.05) {
+                applyNoiseEffects(factor);
+            }
+        }
+
+        // --- Advanced Noise Rendering ---
+        function applyNoiseEffects(factor) {
+            const w = outputCanvas.width;
+            const h = outputCanvas.height;
+
+            // Block Noise
+            if (noiseBlock.checked) {
+                const blocksCount = Math.floor(factor * 30);
+                ctx.fillStyle = "rgba(0, 255, 204, 0.18)";
+                for (let i = 0; i < blocksCount; i++) {
+                    const bx = Math.random() * w;
+                    const by = Math.random() * h;
+                    const bw = Math.random() * 180 * factor + 20;
+                    const bh = Math.random() * 45 * factor + 5;
+                    if (Math.random() > 0.5) {
+                        ctx.fillRect(bx, by, bw, bh);
+                    } else {
+                        try {
+                            const imgData = ctx.getImageData(bx, by, Math.min(bw, w - bx), Math.min(bh, h - by));
+                            ctx.putImageData(imgData, bx + (Math.random() * 24 - 12) * factor, by);
+                        } catch(e) {}
+                    }
+                }
+            }
+
+            // TV Scanlines
+            if (noiseTv.checked) {
+                ctx.fillStyle = "rgba(0, 0, 0, 0.35)";
+                const lineCount = Math.floor(h * 0.45 * factor);
+                for (let i = 0; i < lineCount; i++) {
+                    const y = Math.random() * h;
+                    ctx.fillRect(0, y, w, 2 * factor);
+                }
+            }
+
+            // VHS Color Jitter
+            if (noiseVhs.checked && Math.random() < 0.5 * factor) {
+                const trackY = Math.random() * h;
+                const trackHeight = Math.random() * 35 * factor;
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.25 * factor})`;
+                ctx.fillRect(0, trackY, w, trackHeight);
+            }
+
+            // Snow Static
+            if (noiseStatic.checked) {
+                const pixelCount = Math.floor(w * h * 0.06 * factor);
+                ctx.fillStyle = `rgba(255, 255, 255, ${0.45 * factor})`;
+                for (let i = 0; i < pixelCount; i++) {
+                    const px = Math.random() * w;
+                    const py = Math.random() * h;
+                    ctx.fillRect(px, py, 2, 2);
+                }
+            }
+        }
+
+        // --- Export (MediaRecorder) ---
+        exportBtn.addEventListener('click', async () => {
+            if (!videoFile) return;
+
+            showToast("書き出し準備中", "動画レンダリングと音声合成を開始します...");
+            exportBtn.disabled = true;
+            exportBtn.innerHTML = '<i class="fa-solid fa-spinner animate-spin"></i> 書き出し中...';
+
+            try {
+                sourceVideo.pause();
+                sourceVideo.currentTime = 0;
+                await new Promise(r => setTimeout(r, 200));
+
+                const canvasStream = outputCanvas.captureStream(30);
+                const audioCtx = new AudioContext();
+                const dest = audioCtx.createMediaStreamDestination();
+                
+                const videoSourceNode = audioCtx.createMediaElementSource(sourceVideo);
+                videoSourceNode.connect(dest);
+                videoSourceNode.connect(audioCtx.destination);
+
+                const combinedStream = new MediaStream([
+                    ...canvasStream.getVideoTracks(),
+                    ...dest.stream.getAudioTracks()
+                ]);
+
+                let mediaRecorder;
+                try {
+                    mediaRecorder = new MediaRecorder(combinedStream, { mimeType: 'video/webm;codecs=vp9,opus' });
+                } catch(err) {
+                    mediaRecorder = new MediaRecorder(combinedStream);
+                }
+
+                const chunks = [];
+                mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+                mediaRecorder.onstop = () => {
+                    const blob = new Blob(chunks, { type: 'video/webm' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `pro_noise_video_${Date.now()}.webm`;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+
+                    exportBtn.disabled = false;
+                    exportBtn.innerHTML = '<i class="fa-solid fa-download"></i> 合成動画を書き出し (.webm)';
+                    showToast("書き出し完了", "WebM動画のダウンロードが始まりました！");
+                };
+
+                mediaRecorder.start();
+                sourceVideo.play();
+                startTone();
+                isPlaying = true;
+                playIcon.className = "fa-solid fa-pause";
+
+                function recordFrameLoop() {
+                    if (!sourceVideo.ended && sourceVideo.currentTime < sourceVideo.duration && isPlaying) {
+                        const currentTime = sourceVideo.currentTime;
+                        ctx.drawImage(sourceVideo, 0, 0, outputCanvas.width, outputCanvas.height);
+                        checkAndRenderEffectsAtTime(currentTime);
+                        updateTimeDisplay();
+                        requestAnimationFrame(recordFrameLoop);
+                    } else {
+                        mediaRecorder.stop();
+                        sourceVideo.pause();
+                        stopTone();
+                        isPlaying = false;
+                        playIcon.className = "fa-solid fa-play";
+                    }
+                }
+                requestAnimationFrame(recordFrameLoop);
+
+            } catch (err) {
+                console.error(err);
+                showToast("エラー", "書き出し中に問題が発生しました。", true);
+                exportBtn.disabled = false;
+                exportBtn.innerHTML = '<i class="fa-solid fa-download"></i> 合成動画を書き出し (.webm)';
+            }
+        });
+
+        // Initialize
+        renderPresets();
+        updateAutoMatchingBgm();
+    </script>
+
+</body>
+</html>
