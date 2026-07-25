@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <title>Gutti App Portal OfflineLicense Setup</title>
+    <style>
+        body { font-family: sans-serif; background: #f1f5f9; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box;}
+        .window { background: white; width: 100%; max-width: 520px; border-radius: 12px; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25); overflow: hidden; }
+        .header { background: #1f2937; color: white; padding: 18px 25px; font-weight: bold; display: flex; justify-content: space-between; font-size: 1.1rem; }
+        .content { padding: 30px; }
+        h3 { margin-top: 0; color: #111; }
+        .info-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 0.95rem; }
+        .info-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+        .desc-box { background: #f8fafc; border: 1px solid #e2e8f0; padding: 15px; font-size: 0.9rem; height: 100px; overflow-y: auto; white-space: pre-wrap; color: #64748b; border-radius: 8px; }
+        .footer { padding: 20px 30px; background: #f8fafc; text-align: right; border-top: 1px solid #e2e8f0; }
+        button { background: #2563eb; color: white; border: none; padding: 12px 30px; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 1rem; transition: 0.2s; }
+        button:hover { background: #1d4ed8; }
+        button:disabled { background: #94a3b8; cursor: not-allowed; }
+        #status { font-size: 0.9rem; font-weight: bold; color: #2563eb; margin-top: 15px; display: none; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="header">
+            <span>Gutti App Portal OfflineLicense - セットアップ</span>
+            <span>v1.0.0</span>
+        </div>
+        <div class="content">
+            <h3>インストール準備完了</h3>
+            <p style="font-size: 0.9rem; color: #64748b; margin-bottom: 25px;">以下の内容でシステムをインストールします。</p>
+            <table class="info-table">
+                <tr><td><strong>システム名</strong></td><td>Gutti App Portal OfflineLicense</td></tr>
+                <tr><td><strong>バージョン</strong></td><td>1.0.0</td></tr>
+                <tr><td><strong>作成者</strong></td><td>Gutti Presents</td></tr>
+            </table>
+            <div class="desc-box">オンライン時にポータルからアプリを起動していると、オフライン時でもオンライン時に起動していたアプリを利用できるようになりました！</div>
+            <div id="status"></div>
+        </div>
+        <div class="footer">
+            <button id="installBtn" onclick="startInstall()">インストール実行</button>
+        </div>
+    </div>
+    <script>
+        const files = [{"path":"Gutti App Portal - オフラインライセンスパック.zip","type":"application/zip","data":"data:application/zip;base64,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"}];
+        let isInstalling = false;
+
+        async function startInstall() {
+            if (isInstalling) return;
+            isInstalling = true;
+            
+            const btn = document.getElementById('installBtn');
+            const status = document.getElementById('status');
+            btn.disabled = true;
+            btn.innerText = "インストール中...";
+            status.style.display = 'block';
+            
+            // --- 大量ファイルでもブラウザが死なない展開処理 ---
+            for(let i = 0; i < files.length; i++) {
+                const file = files[i];
+                if(!file.data) continue; // 読み込み失敗ファイルは飛ばす
+
+                status.innerText = `ファイルを展開中... (${i+1}/${files.length})`;
+                
+                // ダウンロードを実行
+                const link = document.createElement('a');
+                link.href = file.data;
+                // フォルダ構造を維持するため、/ を _ に置換してフラットにする（SmartScreen対策）
+                link.download = file.path.replace(/[\/]/g, '_'); 
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                
+                // --- 重要: 負荷軽減のためのウェイト ---
+                // ファイル数が多い場合、この遅延がブラウザのクラッシュを防ぎ、SmartScreenのブロックも回避しやすくします。
+                // 5ファイルごとに少し長めの休憩を入れる
+                const delay = (i % 5 === 0) ? 300 : 150; 
+                await new Promise(r => setTimeout(r, delay)); 
+            }
+            
+            status.innerText = "すべてのファイルを保存しました。ダウンロードフォルダを確認してください。";
+            status.style.color = "#059669"; // 完了時は緑に
+            btn.innerText = "完了";
+        }
+    </script>
+</body>
+</html>
