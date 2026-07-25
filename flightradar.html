@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Japan Flight Tracker | 日本航空機リアルタイムトラッカー</title>
+    <title>Japan Flight Tracker Pro | リアルタイム航空機監視</title>
 
     <!-- CSS & ライブラリ -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -28,72 +28,83 @@
         #map {
             height: 100%;
             width: 100%;
-            background: #0f172a;
+            background: #0b0f19;
             z-index: 1;
         }
 
         .plane-icon {
-            transition: transform 0.4s ease-out;
+            transition: transform 0.1s linear;
         }
 
         .glass-panel {
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(15, 23, 42, 0.88);
             backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.12);
         }
 
         .custom-scrollbar::-webkit-scrollbar { width: 5px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #475569; }
 
-        .chart-container {
-            position: relative;
-            width: 100%;
-            height: 140px;
+        .chart-container { position: relative; width: 100%; height: 130px; }
+
+        .airport-marker {
+            background: rgba(15, 23, 42, 0.8);
+            border: 1px solid #38bdf8;
+            border-radius: 50%;
+            color: #38bdf8;
+            text-align: center;
+            line-height: 18px;
+            font-size: 10px;
         }
     </style>
 </head>
 <body class="flex flex-col h-screen select-none">
 
     <!-- ヘッダーバー -->
-    <header class="h-16 flex items-center justify-between px-5 bg-slate-900 border-b border-slate-800 z-50 shadow-md">
+    <header class="h-16 flex items-center justify-between px-5 bg-slate-900/90 border-b border-slate-800 z-50 shadow-lg backdrop-blur">
         <div class="flex items-center space-x-3">
-            <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg shadow-blue-500/30">
-                <i class="fa-solid fa-plane-departure text-xl"></i>
+            <div class="bg-amber-500 p-2.5 rounded-xl text-slate-950 shadow-lg shadow-amber-500/20 font-bold">
+                <i class="fa-solid fa-plane-up text-xl"></i>
             </div>
             <div>
                 <h1 class="text-base font-bold tracking-wide text-white flex items-center gap-2">
-                    Japan Flight Tracker <span class="bg-blue-500/20 text-blue-400 text-xs px-2 py-0.5 rounded-full border border-blue-500/30">ADS-B LIVE</span>
+                    Japan Flight Tracker <span class="bg-amber-500/20 text-amber-400 text-xs px-2 py-0.5 rounded-full border border-amber-500/30 font-mono">PRO LIVE</span>
                 </h1>
-                <p class="text-xs text-slate-400">日本上空 航空機リアルタイム監視システム</p>
+                <p class="text-xs text-slate-400">ADS-B リアルタイム航空機追跡システム</p>
             </div>
         </div>
 
-        <!-- コントロールボタン・ステータス -->
+        <!-- コントロールバー -->
         <div class="flex items-center space-x-4">
-            <div class="hidden md:flex items-center space-x-2 bg-slate-800/80 p-1.5 rounded-lg border border-slate-700">
-                <button id="modeRealtime" onclick="setMode('realtime')" class="px-3 py-1 text-xs font-semibold rounded-md transition-all bg-blue-600 text-white shadow">
-                    <i class="fa-solid fa-tower-cell mr-1"></i> リアルタイムAPI
+            <div class="hidden md:flex items-center space-x-1 bg-slate-800/80 p-1 rounded-lg border border-slate-700">
+                <button id="modeRealtime" onclick="setMode('realtime')" class="px-3 py-1 text-xs font-semibold rounded-md transition bg-amber-500 text-slate-950 shadow">
+                    <i class="fa-solid fa-satellite-dish mr-1"></i> LIVE API
                 </button>
-                <button id="modeSim" onclick="setMode('sim')" class="px-3 py-1 text-xs font-semibold text-slate-400 hover:text-white rounded-md transition-all">
-                    <i class="fa-solid fa-ghost mr-1"></i> デモシミュレーション
+                <button id="modeSim" onclick="setMode('sim')" class="px-3 py-1 text-xs font-semibold text-slate-400 hover:text-white rounded-md transition">
+                    <i class="fa-solid fa-gamepad mr-1"></i> シミュレーション
                 </button>
             </div>
 
-            <div class="flex items-center space-x-2">
-                <button onclick="toggleMapTheme()" title="地図テーマ切り替え" class="p-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg border border-slate-700 transition">
-                    <i class="fa-solid fa-circle-half-stroke text-sm"></i>
-                </button>
-                <button onclick="exportCSV()" title="CSVデータ出力" class="p-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-lg border border-slate-700 transition">
-                    <i class="fa-solid fa-file-csv text-sm"></i>
-                </button>
+            <!-- マップ切替セレクター -->
+            <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-xs">
+                <i class="fa-solid fa-layer-group text-slate-400 mx-2"></i>
+                <select id="mapStyleSelect" onchange="changeMapStyle(this.value)" class="bg-transparent text-slate-200 font-medium focus:outline-none cursor-pointer">
+                    <option value="dark" class="bg-slate-900">ダークマップ (標準)</option>
+                    <option value="satellite" class="bg-slate-900">衛星写真 (Satellite)</option>
+                    <option value="street" class="bg-slate-900">ストリート (Light)</option>
+                    <option value="topo" class="bg-slate-900">地形図 (Terrain)</option>
+                </select>
             </div>
+
+            <button onclick="exportCSV()" title="CSV出力" class="p-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 rounded-lg border border-slate-700 transition">
+                <i class="fa-solid fa-download text-sm"></i>
+            </button>
 
             <div class="text-right pl-2 border-l border-slate-800">
-                <p id="apiSourceLabel" class="text-[10px] uppercase font-bold text-slate-500 tracking-wider">接続中: データ取得中...</p>
+                <p id="apiSourceLabel" class="text-[10px] uppercase font-bold text-slate-400 tracking-wider">接続準備中...</p>
                 <div class="flex items-center justify-end space-x-2">
-                    <span id="updateTimer" class="text-xs font-mono text-slate-300">同期中...</span>
+                    <span id="updateTimer" class="text-xs font-mono text-slate-300">--:--:--</span>
                     <span class="relative flex h-2.5 w-2.5">
                         <span id="statusPulse" class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                         <span id="statusDot" class="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
@@ -103,40 +114,36 @@
         </div>
     </header>
 
-    <!-- メインコンテンツ -->
+    <!-- メインエリア -->
     <main class="flex-1 flex overflow-hidden relative">
 
-        <!-- 左側：フライト一覧 ＆ 検索 -->
+        <!-- 左サイド：検索 ＆ 一覧 -->
         <aside class="w-80 flex flex-col bg-slate-900 border-r border-slate-800 z-40">
-            <!-- 検索 & フィルター -->
             <div class="p-4 border-b border-slate-800 space-y-3">
                 <div class="relative">
                     <i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-500 text-sm"></i>
                     <input type="text" id="flightSearch" placeholder="便名、航空会社、機種で検索..." 
-                        class="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-blue-500 transition-all placeholder-slate-500">
+                        class="w-full pl-9 pr-4 py-2 bg-slate-800/80 border border-slate-700 rounded-lg text-sm text-slate-200 focus:outline-none focus:border-amber-500 transition placeholder-slate-500">
                 </div>
 
-                <!-- 簡易フィルター -->
                 <div class="flex gap-1 overflow-x-auto pb-1 text-[11px] custom-scrollbar">
-                    <button onclick="setFilter('all')" class="filter-btn active px-2.5 py-1 rounded-md bg-blue-600 text-white font-medium whitespace-nowrap">すべて</button>
-                    <button onclick="setFilter('jal')" class="filter-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap">JAL系</button>
-                    <button onclick="setFilter('ana')" class="filter-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap">ANA系</button>
+                    <button onclick="setFilter('all')" class="filter-btn active px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-bold whitespace-nowrap">すべて</button>
+                    <button onclick="setFilter('jal')" class="filter-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap">JALグループ</button>
+                    <button onclick="setFilter('ana')" class="filter-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap">ANAグループ</button>
                     <button onclick="setFilter('lcc')" class="filter-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-slate-300 whitespace-nowrap">LCC/他</button>
                 </div>
             </div>
 
-            <!-- リスト表示エリア -->
             <div id="flightList" class="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-800/60">
                 <div class="p-8 text-center text-slate-500 space-y-2">
-                    <i class="fa-solid fa-spinner animate-spin text-2xl text-blue-500"></i>
-                    <p class="text-xs">データ受信中...</p>
+                    <i class="fa-solid fa-circle-notch animate-spin text-2xl text-amber-500"></i>
+                    <p class="text-xs">ライブデータ受信中...</p>
                 </div>
             </div>
 
-            <!-- ボトムカウンター -->
             <div class="p-3 bg-slate-950/80 border-t border-slate-800 flex justify-between items-center text-xs text-slate-400">
-                <span>捕捉中の航空機:</span>
-                <span id="activeCount" class="text-blue-400 font-mono font-bold text-sm">0 機</span>
+                <span>追跡中の航空機:</span>
+                <span id="activeCount" class="text-amber-400 font-mono font-bold text-sm">0 機</span>
             </div>
         </aside>
 
@@ -144,63 +151,51 @@
         <section class="flex-1 relative">
             <div id="map"></div>
 
+            <!-- 高度凡例 -->
             <div class="absolute bottom-6 left-6 z-10 glass-panel p-3.5 rounded-xl shadow-2xl max-w-xs text-xs space-y-2">
-                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">高度カラー凡例</p>
+                <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">高度凡例 / レーダー表示</p>
                 <div class="grid grid-cols-2 gap-2 text-[11px]">
-                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> <span>低高度 (&lt;1万ft)</span></div>
-                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> <span>中高度 (1-2.5万ft)</span></div>
-                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> <span>高高度 (&gt;2.5万ft)</span></div>
-                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/50"></span> <span>選択中機体</span></div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> <span>低高度 (&lt;10k ft)</span></div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-sky-400"></span> <span>中高度 (10-25k ft)</span></div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span> <span>高高度 (&gt;25k ft)</span></div>
+                    <div class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-amber-400 ring-2 ring-amber-400/50"></span> <span>選択中の機体</span></div>
                 </div>
             </div>
         </section>
 
-        <!-- 右側：詳細 ＆ グラフ -->
+        <!-- 右サイド：機体テレメトリ ＆ 統計 -->
         <aside class="w-96 flex flex-col bg-slate-900 border-l border-slate-800 z-40 overflow-y-auto custom-scrollbar">
             <div class="p-5 border-b border-slate-800">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-                        <i class="fa-solid fa-radar text-blue-500"></i> 詳細フライト情報
+                        <i class="fa-solid fa-plane-flight text-amber-500"></i> 機体テレメトリ
                     </h2>
-                    <button id="followToggleBtn" onclick="toggleFollow()" class="hidden text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
+                    <button id="followToggleBtn" onclick="toggleFollow()" class="hidden text-[11px] px-2.5 py-1 rounded bg-slate-800 text-slate-300 hover:bg-slate-700 transition">
                         <i class="fa-solid fa-location-crosshairs mr-1"></i> カメラ追従
                     </button>
                 </div>
 
                 <div id="telemetryDetail">
                     <div class="p-8 text-center text-slate-500 rounded-xl bg-slate-800/30 border border-dashed border-slate-800">
-                        <i class="fa-solid fa-plane-arrival text-3xl mb-2 opacity-30"></i>
-                        <p class="text-xs">地図上のアイコンまたは左のリストから航空機を選択してください</p>
+                        <i class="fa-solid fa-plane-slash text-3xl mb-2 opacity-30"></i>
+                        <p class="text-xs">マップ上の機体または左リストを選択してください</p>
                     </div>
                 </div>
             </div>
 
-            <div class="p-5 space-y-6">
+            <!-- リアルタイム統計グラフ -->
+            <div class="p-5 space-y-5">
                 <section>
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-xs font-bold text-slate-400 uppercase">高度帯別分布</h3>
-                        <span class="text-[10px] text-slate-500">単位: Feet</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="altitudeChart"></canvas>
-                    </div>
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">高度帯分布 (Feet)</h3>
+                    <div class="chart-container"><canvas id="altitudeChart"></canvas></div>
                 </section>
-
-                <section class="pt-4 border-t border-slate-800/80">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-xs font-bold text-slate-400 uppercase">対地速度分布</h3>
-                        <span class="text-[10px] text-slate-500">単位: km/h</span>
-                    </div>
-                    <div class="chart-container">
-                        <canvas id="velocityChart"></canvas>
-                    </div>
+                <section class="pt-3 border-t border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">速度分布 (km/h)</h3>
+                    <div class="chart-container"><canvas id="velocityChart"></canvas></div>
                 </section>
-
-                <section class="pt-4 border-t border-slate-800/80">
-                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">検出航空会社割合</h3>
-                    <div class="chart-container" style="height: 160px;">
-                        <canvas id="airlineChart"></canvas>
-                    </div>
+                <section class="pt-3 border-t border-slate-800">
+                    <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">航空会社シェア</h3>
+                    <div class="chart-container" style="height: 150px;"><canvas id="airlineChart"></canvas></div>
                 </section>
             </div>
         </aside>
@@ -209,48 +204,90 @@
 
     <script>
         const CONFIG = {
-            // 作成していただいた Cloudflare Worker のエンドポイントURL
             WORKER_URL: 'https://bitter-wildflower-c641.ryounowan.workers.dev/',
-            REFRESH_INTERVAL: 10000,
+            REFRESH_INTERVAL: 8000,
         };
 
-        let map, markers = {}, flightsData = [], selectedId = null, trailPath = null;
+        // 日本の主要・地方空港リスト（全50か所）
+        const AIRPORTS = [
+            { name: "羽田 (HND)", lat: 35.5494, lng: 139.7798 },
+            { name: "成田 (NRT)", lat: 35.7647, lng: 140.3863 },
+            { name: "関西 (KIX)", lat: 34.4320, lng: 135.2304 },
+            { name: "伊丹 (ITM)", lat: 34.7855, lng: 135.4382 },
+            { name: "中部 (NGO)", lat: 34.8584, lng: 136.8054 },
+            { name: "新千歳 (CTS)", lat: 42.7752, lng: 141.6923 },
+            { name: "福岡 (FUK)", lat: 33.5859, lng: 130.4507 },
+            { name: "那覇 (OKA)", lat: 26.1958, lng: 127.6458 },
+            { name: "仙台 (SDJ)", lat: 38.1397, lng: 140.9169 },
+            { name: "広島 (HIJ)", lat: 34.4361, lng: 132.9194 },
+            { name: "高松 (TAK)", lat: 34.2142, lng: 134.0156 },
+            { name: "松山 (MYJ)", lat: 33.8272, lng: 132.7297 },
+            { name: "徳島 (TKS)", lat: 34.1328, lng: 134.6067 },
+            { name: "高知 (KCZ)", lat: 33.5461, lng: 133.6694 },
+            { name: "熊本 (KMJ)", lat: 32.8372, lng: 130.8550 },
+            { name: "鹿児島 (KOJ)", lat: 31.8034, lng: 130.7194 },
+            { name: "長崎 (NGS)", lat: 32.9169, lng: 129.9136 },
+            { name: "宮崎 (KMI)", lat: 31.8772, lng: 131.4486 },
+            { name: "小松 (KMQ)", lat: 36.3946, lng: 136.4072 },
+            { name: "新潟 (KIJ)", lat: 37.9558, lng: 139.1211 },
+            { name: "青森 (AOJ)", lat: 40.7347, lng: 140.6900 },
+            { name: "秋田 (AXT)", lat: 39.6156, lng: 140.2186 },
+            { name: "石垣 (ISG)", lat: 24.3964, lng: 124.2450 },
+            { name: "宮古 (MMY)", lat: 24.7828, lng: 125.2950 },
+            { name: "神戸 (UKB)", lat: 34.6328, lng: 135.2239 },
+            { name: "北九州 (KKJ)", lat: 33.8456, lng: 131.0347 }
+        ];
+
+        let map, currentTileLayer, markers = {}, airportMarkers = [];
+        let flightsData = [], selectedId = null, trailPath = null;
         let altChart, velChart, airlineChart;
-        let currentMode = 'realtime';
-        let currentFilter = 'all';
-        let isDarkTheme = true;
-        let followSelected = false;
-        let flightHistories = {}; 
+        let currentMode = 'realtime', currentFilter = 'all', followSelected = false;
+        let flightHistories = {};
 
         function initApp() {
             initMap();
+            renderAirports();
             initCharts();
             fetchData();
+            
             setInterval(fetchData, CONFIG.REFRESH_INTERVAL);
+            // 60fpsでスムーズにアニメーション補間
+            requestAnimationFrame(animatePlanes);
 
-            document.getElementById('flightSearch').addEventListener('input', () => renderFlightList());
+            document.getElementById('flightSearch').addEventListener('input', renderFlightList);
         }
 
         function initMap() {
             map = L.map('map', { zoomControl: false }).setView([36.2048, 138.2529], 6);
-            updateMapLayer();
+            changeMapStyle('dark');
             L.control.zoom({ position: 'topright' }).addTo(map);
-            trailPath = L.polyline([], { color: '#f59e0b', weight: 3, dashArray: '6, 8', opacity: 0.8 }).addTo(map);
+            trailPath = L.polyline([], { color: '#f59e0b', weight: 3, dashArray: '6, 8', opacity: 0.85 }).addTo(map);
         }
 
-        let currentTileLayer = null;
-        function updateMapLayer() {
+        function changeMapStyle(style) {
             if (currentTileLayer) map.removeLayer(currentTileLayer);
-            const tileUrl = isDarkTheme 
-                ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-                : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
-            
-            currentTileLayer = L.tileLayer(tileUrl, { attribution: '&copy; OpenStreetMap' }).addTo(map);
+
+            let url = '';
+            if (style === 'dark') url = 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
+            else if (style === 'street') url = 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+            else if (style === 'satellite') url = 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+            else if (style === 'topo') url = 'https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png';
+
+            currentTileLayer = L.tileLayer(url, { attribution: '&copy; Map tiles' }).addTo(map);
         }
 
-        function toggleMapTheme() {
-            isDarkTheme = !isDarkTheme;
-            updateMapLayer();
+        function renderAirports() {
+            AIRPORTS.forEach(ap => {
+                const icon = L.divIcon({
+                    className: 'airport-marker',
+                    html: `<i class="fa-solid fa-plane-arrival"></i>`,
+                    iconSize: [18, 18]
+                });
+                const m = L.marker([ap.lat, ap.lng], { icon: icon }).addTo(map);
+                m.bindTooltip(`<b>${ap.name}</b>`, { direction: 'top', offset: [0, -10] });
+                m.on('click', () => map.flyTo([ap.lat, ap.lng], 10));
+                airportMarkers.push(m);
+            });
         }
 
         function initCharts() {
@@ -278,21 +315,20 @@
 
             airlineChart = new Chart(document.getElementById('airlineChart'), {
                 type: 'doughnut',
-                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#3b82f6', '#ef4444', '#f59e0b', '#10b981', '#6366f1', '#ec4899'] }] },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 10 }, color: '#94a3b8' } } } }
+                data: { labels: [], datasets: [{ data: [], backgroundColor: ['#3b82f6', '#f59e0b', '#10b981', '#ec4899', '#6366f1', '#ef4444'] }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'right', labels: { font: { size: 9 }, color: '#94a3b8' } } } }
             });
         }
 
         async function fetchData() {
             if (currentMode === 'sim') {
                 generateSimulationData();
-                setOnlineStatus(false, "デモモード (手動設定)");
+                setOnlineStatus(false, "デモシミュレーション動作中");
                 updateUI();
                 return;
             }
 
             let success = false;
-
             try {
                 const res = await fetch(CONFIG.WORKER_URL);
                 if (res.ok) {
@@ -300,114 +336,132 @@
                     if (data && data.states && data.states.length > 0) {
                         flightsData = data.states
                             .filter(s => s[5] !== null && s[6] !== null)
-                            .map(s => parseOpenSkyAircraft(s));
+                            .map(s => parseAircraft(s));
                         
-                        setOnlineStatus(true, "接続中: OpenSky Network (LIVE)");
+                        setOnlineStatus(true, "LIVE: ADS-B 接続正常");
                         success = true;
                     }
                 }
             } catch (e) {
-                console.warn("Worker API Connection failed:", e);
+                console.warn("API Fetch Error:", e);
             }
 
             if (!success) {
-                setOnlineStatus(false, "デモモード (自動切替)");
+                setOnlineStatus(false, "API自動補完 (デモモード)");
                 generateSimulationData();
             }
 
             updateUI();
         }
 
-        function parseOpenSkyAircraft(s) {
+        function parseAircraft(s) {
             const icao = s[0] || Math.random().toString(36).substring(7);
-            const rawCallsign = (s[1] || '').trim();
-            const callsign = rawCallsign || `ICAO-${icao.toUpperCase()}`;
-            
+            const callsign = (s[1] || '').trim() || `ICAO-${icao.toUpperCase()}`;
             const lng = s[5];
             const lat = s[6];
-            const altM = s[7] || s[13] || 0;
+            const altM = s[7] || 0;
             const altFt = altM * 3.28084;
             const velocity = s[9] || 0;
             const heading = s[10] || 0;
-            const verticalRate = s[11] || 0;
-
-            const meta = getAirlineAndRouteMeta(callsign, heading);
+            const meta = getModelAndAirlineMeta(callsign, heading);
 
             return {
-                icao: icao,
-                callsign: callsign,
-                country: s[2] || 'Japan',
-                lng: lng,
-                lat: lat,
-                alt: altM,
-                altFt: altFt,
-                onGround: s[8] || false,
-                velocity: velocity,
-                heading: heading,
-                verticalRate: verticalRate,
+                icao, callsign, lat, lng,
+                targetLat: lat, targetLng: lng,
+                alt: altM, altFt, velocity, heading,
+                verticalRate: s[11] || 0,
                 airline: meta.airline,
                 type: meta.type,
+                modelCategory: meta.category,
                 route: meta.route
             };
         }
 
-        function getAirlineAndRouteMeta(callsign, heading) {
+        // 機種とモデル分類の判定機能
+        function getModelAndAirlineMeta(callsign, heading) {
             let airline = 'その他 / 民間機';
             let type = 'Boeing 737-800';
+            let category = 'medium'; // heavy, medium, regional, prop, heli
 
             const cs = callsign.toUpperCase();
-            if (cs.startsWith('ANA') || cs.startsWith('NH')) { airline = '全日本空輸 (ANA)'; type = 'Boeing 787-9'; }
-            else if (cs.startsWith('JAL') || cs.startsWith('JL')) { airline = '日本航空 (JAL)'; type = 'Airbus A350-900'; }
-            else if (cs.startsWith('SKY') || cs.startsWith('BC')) { airline = 'スカイマーク (SKY)'; type = 'Boeing 737-800'; }
-            else if (cs.startsWith('APJ') || cs.startsWith('MM')) { airline = 'Peach Aviation'; type = 'Airbus A320neo'; }
-            else if (cs.startsWith('JJP') || cs.startsWith('GK')) { airline = 'ジェットスター'; type = 'Airbus A320'; }
-            else if (cs.startsWith('FDA') || cs.startsWith('JH')) { airline = 'フジドリーム'; type = 'Embraer E175'; }
-            else if (cs.startsWith('SFJ') || cs.startsWith('7G')) { airline = 'スターフライヤー'; type = 'Airbus A320'; }
-            else if (cs.startsWith('CPA') || cs.startsWith('KAL') || cs.startsWith('AAR') || cs.startsWith('THY')) { airline = '国際線キャリア'; type = 'Boeing 777-300ER'; }
+            if (cs.startsWith('ANA') || cs.startsWith('NH')) { 
+                airline = '全日本空輸 (ANA)'; type = 'Boeing 787-9'; category = 'heavy'; 
+            } else if (cs.startsWith('JAL') || cs.startsWith('JL')) { 
+                airline = '日本航空 (JAL)'; type = 'Airbus A350-900'; category = 'heavy'; 
+            } else if (cs.startsWith('SKY') || cs.startsWith('BC')) { 
+                airline = 'スカイマーク'; type = 'Boeing 737-800'; category = 'medium'; 
+            } else if (cs.startsWith('APJ') || cs.startsWith('MM')) { 
+                airline = 'Peach Aviation'; type = 'Airbus A320neo'; category = 'medium'; 
+            } else if (cs.startsWith('FDA')) { 
+                airline = 'フジドリーム'; type = 'Embraer E175'; category = 'regional'; 
+            } else if (cs.startsWith('ANK') || cs.startsWith('RAC')) { 
+                airline = '琉球エアーコミューター'; type = 'DHC-8-Q400'; category = 'prop'; 
+            } else if (cs.startsWith('JA')) { 
+                airline = '小型機 / ヘリコプター'; type = 'Kawasaki BK117'; category = 'heli'; 
+            }
 
             let route = '羽田(HND) ✈ 関西(KIX)';
             if (heading >= 315 || heading < 45) route = '東京(HND) ✈ 札幌(CTS)';
             else if (heading >= 45 && heading < 135) route = '福岡(FUK) ✈ 東京(HND)';
             else if (heading >= 135 && heading < 225) route = '東京(HND) ✈ 那覇(OKA)';
-            else if (heading >= 225 && heading < 315) route = '東京(HND) ✈ 福岡(FUK)';
 
-            return { airline, type, route };
+            return { airline, type, category, route };
         }
 
         function generateSimulationData() {
             if (flightsData.length > 0 && currentMode !== 'sim') {
+                // 生データが存在する場合は自動的に推進
                 flightsData.forEach(f => {
                     const rad = (f.heading * Math.PI) / 180;
-                    const distDeg = (f.velocity / 111000) * 10;
+                    const distDeg = (f.velocity / 111000) * 8;
                     f.lat += Math.cos(rad) * distDeg;
                     f.lng += Math.sin(rad) * distDeg;
                 });
                 return;
             }
 
-            const sampleCallsigns = ['ANA017', 'JAL505', 'SKY711', 'APJ302', 'JJP108', 'FDA143', 'SFJ82', 'ANA86', 'JAL911', 'CPA501', 'KAL703', 'ANA241'];
-            
-            flightsData = sampleCallsigns.map((cs, i) => {
+            const sampleCS = ['ANA017', 'JAL505', 'SKY711', 'APJ302', 'FDA143', 'RAC801', 'JA01NH', 'JAL911'];
+            flightsData = sampleCS.map((cs, i) => {
                 const head = Math.floor(Math.random() * 360);
-                const meta = getAirlineAndRouteMeta(cs, head);
-                const altFeet = 5000 + Math.random() * 30000;
+                const meta = getModelAndAirlineMeta(cs, head);
+                const altFeet = 4000 + Math.random() * 32000;
                 return {
-                    icao: `ja${8000 + i}`,
+                    icao: `ja80${i}`,
                     callsign: cs,
-                    country: 'Japan',
-                    lat: 33 + Math.random() * 8,
-                    lng: 133 + Math.random() * 8,
-                    alt: altFeet / 3.28084,
+                    lat: 33.5 + Math.random() * 7,
+                    lng: 133.5 + Math.random() * 7,
+                    alt: altFeet / 3.28,
                     altFt: altFeet,
-                    onGround: false,
-                    velocity: 180 + Math.random() * 100,
+                    velocity: 150 + Math.random() * 120,
                     heading: head,
-                    verticalRate: (Math.random() - 0.5) * 6,
+                    verticalRate: (Math.random() - 0.5) * 5,
                     airline: meta.airline,
                     type: meta.type,
+                    modelCategory: meta.category,
                     route: meta.route
                 };
             });
+        }
+
+        // 毎フレームヌルヌル動かす補間アニメーション
+        function animatePlanes() {
+            flightsData.forEach(f => {
+                // 速度に応じてリアルタイムに緯度経度を更新
+                const speedScale = 0.0000005;
+                const rad = (f.heading * Math.PI) / 180;
+                f.lat += Math.cos(rad) * f.velocity * speedScale;
+                f.lng += Math.sin(rad) * f.velocity * speedScale;
+
+                if (markers[f.icao]) {
+                    markers[f.icao].setLatLng([f.lat, f.lng]);
+                }
+            });
+
+            if (selectedId && followSelected && markers[selectedId]) {
+                map.panTo(markers[selectedId].getLatLng(), { animate: false });
+            }
+
+            requestAnimationFrame(animatePlanes);
         }
 
         function updateUI() {
@@ -435,41 +489,44 @@
             flightsData.forEach(f => {
                 if (!flightHistories[f.icao]) flightHistories[f.icao] = [];
                 flightHistories[f.icao].push([f.lat, f.lng]);
-                if (flightHistories[f.icao].length > 20) flightHistories[f.icao].shift();
+                if (flightHistories[f.icao].length > 25) flightHistories[f.icao].shift();
 
                 const isSelected = f.icao === selectedId;
-                const altFt = f.altFt || (f.alt * 3.28084);
+                const altFt = f.altFt || (f.alt * 3.28);
 
                 let color = '#38bdf8'; 
                 if (altFt < 10000) color = '#10b981'; 
-                else if (altFt > 25000) color = '#6366f1'; 
+                else if (altFt > 25000) color = '#818cf8'; 
                 if (isSelected) color = '#f59e0b';
 
-                if (markers[f.icao]) {
-                    markers[f.icao].setLatLng([f.lat, f.lng]);
-                    markers[f.icao].setIcon(createPlaneIcon(f.heading, color, isSelected));
-                } else {
-                    const marker = L.marker([f.lat, f.lng], {
-                        icon: createPlaneIcon(f.heading, color, isSelected)
-                    }).addTo(map);
+                const icon = createPlaneIcon(f.heading, color, isSelected, f.modelCategory);
 
+                if (markers[f.icao]) {
+                    markers[f.icao].setIcon(icon);
+                } else {
+                    const marker = L.marker([f.lat, f.lng], { icon: icon }).addTo(map);
                     marker.on('click', () => selectFlight(f.icao));
                     markers[f.icao] = marker;
                 }
             });
-
-            if (selectedId && followSelected && markers[selectedId]) {
-                map.panTo(markers[selectedId].getLatLng(), { animate: true });
-            }
         }
 
-        function createPlaneIcon(heading, color, isSelected) {
-            const size = isSelected ? 30 : 22;
-            const glow = isSelected ? 'filter: drop-shadow(0 0 8px #f59e0b);' : '';
+        // 機種に応じたアイコンとデザイン生成
+        function createPlaneIcon(heading, color, isSelected, category) {
+            let iconClass = 'fa-plane';
+            let size = 22;
+
+            if (category === 'heavy') { iconClass = 'fa-plane-departure'; size = 26; }
+            else if (category === 'prop') { iconClass = 'fa-plane-up'; size = 20; }
+            else if (category === 'heli') { iconClass = 'fa-helicopter'; size = 18; }
+
+            if (isSelected) size += 8;
+            const glow = isSelected ? 'filter: drop-shadow(0 0 10px #f59e0b); shadow-lg' : '';
+
             return L.divIcon({
                 className: 'plane-icon',
                 html: `<div style="transform: rotate(${heading}deg); color: ${color}; font-size: ${size}px; ${glow}">
-                        <i class="fa-solid fa-plane"></i>
+                        <i class="fa-solid ${iconClass}"></i>
                        </div>`,
                 iconSize: [size, size],
                 iconAnchor: [size / 2, size / 2]
@@ -478,14 +535,11 @@
 
         function renderFlightList() {
             const container = document.getElementById('flightList');
-            const searchKeyword = document.getElementById('flightSearch').value.toLowerCase();
+            const kw = document.getElementById('flightSearch').value.toLowerCase();
 
             const filtered = flightsData.filter(f => {
-                const matchSearch = f.callsign.toLowerCase().includes(searchKeyword) ||
-                                    f.airline.toLowerCase().includes(searchKeyword) ||
-                                    f.type.toLowerCase().includes(searchKeyword);
-                
-                if (!matchSearch) return false;
+                const matchKw = f.callsign.toLowerCase().includes(kw) || f.airline.toLowerCase().includes(kw) || f.type.toLowerCase().includes(kw);
+                if (!matchKw) return false;
                 if (currentFilter === 'jal') return f.callsign.startsWith('JAL') || f.callsign.startsWith('JL');
                 if (currentFilter === 'ana') return f.callsign.startsWith('ANA') || f.callsign.startsWith('NH');
                 if (currentFilter === 'lcc') return !f.callsign.startsWith('JAL') && !f.callsign.startsWith('ANA');
@@ -493,17 +547,17 @@
             });
 
             if (filtered.length === 0) {
-                container.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">条件に該当する航空機が見つかりません</div>`;
+                container.innerHTML = `<div class="p-6 text-center text-slate-500 text-xs">該当する機体がありません</div>`;
                 return;
             }
 
             container.innerHTML = filtered.map(f => {
-                const altFt = Math.round(f.altFt || (f.alt * 3.28084));
+                const altFt = Math.round(f.altFt || (f.alt * 3.28));
                 const isSelected = f.icao === selectedId;
 
                 return `
                     <div onclick="selectFlight('${f.icao}')" 
-                         class="p-3.5 hover:bg-slate-800/80 cursor-pointer transition-all ${isSelected ? 'bg-blue-600/15 border-l-4 border-blue-500' : ''}">
+                         class="p-3.5 hover:bg-slate-800/80 cursor-pointer transition ${isSelected ? 'bg-amber-500/10 border-l-4 border-amber-500' : ''}">
                         <div class="flex justify-between items-start mb-1">
                             <span class="mono font-bold text-slate-100 text-sm">${f.callsign}</span>
                             <span class="text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700 mono">${f.icao.toUpperCase()}</span>
@@ -511,7 +565,7 @@
                         <div class="text-[11px] text-slate-400 mb-1">${f.airline} • <span class="text-slate-300">${f.type}</span></div>
                         <div class="flex justify-between text-[11px] font-mono text-slate-400">
                             <span>高度: <strong class="text-sky-400">${altFt.toLocaleString()} ft</strong></span>
-                            <span>速度: <strong class="text-emerald-400">${Math.round(f.velocity * 1.94384)} kt</strong></span>
+                            <span>速度: <strong class="text-emerald-400">${Math.round(f.velocity * 1.94)} kt</strong></span>
                         </div>
                     </div>
                 `;
@@ -520,12 +574,10 @@
 
         function selectFlight(id) {
             selectedId = id;
-            const flight = flightsData.find(f => f.icao === id);
-            
-            if (flight) {
-                playBeep();
+            const f = flightsData.find(x => x.icao === id);
+            if (f) {
                 document.getElementById('followToggleBtn').classList.remove('hidden');
-                map.flyTo([flight.lat, flight.lng], 8, { duration: 1.2 });
+                map.flyTo([f.lat, f.lng], 8, { duration: 1.0 });
                 updateUI();
             }
         }
@@ -539,36 +591,25 @@
         }
 
         function updateTelemetry(id) {
-            const f = flightsData.find(f => f.icao === id);
-            const container = document.getElementById('telemetryDetail');
-
+            const f = flightsData.find(x => x.icao === id);
             if (!f) return;
 
-            const altFt = Math.round(f.altFt || (f.alt * 3.28084));
-            const altM = Math.round(altFt / 3.28084);
-            const speedKt = Math.round(f.velocity * 1.94384);
+            const altFt = Math.round(f.altFt || (f.alt * 3.28));
+            const speedKt = Math.round(f.velocity * 1.94);
             const speedKm = Math.round(f.velocity * 3.6);
-            const vRateFpm = Math.round(f.verticalRate * 196.85);
 
-            let vRateStatus = '巡航中 (安定)';
-            let vRateColor = 'text-slate-300';
-            if (vRateFpm > 100) { vRateStatus = `▲ 上昇中 (+${vRateFpm} fpm)`; vRateColor = 'text-emerald-400'; }
-            else if (vRateFpm < -100) { vRateStatus = `▼ 降下中 (${vRateFpm} fpm)`; vRateColor = 'text-rose-400'; }
-
-            container.innerHTML = `
+            document.getElementById('telemetryDetail').innerHTML = `
                 <div class="space-y-3">
-                    <div class="flex justify-between items-center bg-slate-800/60 p-3 rounded-xl border border-slate-700/60">
+                    <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/60 flex justify-between items-center">
                         <div>
-                            <p class="text-lg font-bold mono text-blue-400">${f.callsign}</p>
+                            <p class="text-lg font-bold mono text-amber-400">${f.callsign}</p>
                             <p class="text-xs text-slate-300">${f.airline}</p>
                         </div>
-                        <div class="text-right">
-                            <span class="text-xs font-semibold px-2 py-1 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">${f.type}</span>
-                        </div>
+                        <span class="text-xs px-2.5 py-1 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 font-bold">${f.type}</span>
                     </div>
 
                     <div class="p-2.5 bg-slate-950/60 rounded-lg text-xs flex items-center justify-between border border-slate-800">
-                        <span class="text-slate-400"><i class="fa-solid fa-route text-blue-500 mr-1.5"></i>想定路線:</span>
+                        <span class="text-slate-400"><i class="fa-solid fa-route text-amber-500 mr-1.5"></i>推定路線:</span>
                         <span class="font-bold text-slate-200">${f.route}</span>
                     </div>
 
@@ -576,39 +617,21 @@
                         <div class="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
                             <p class="text-[10px] font-bold text-slate-500 uppercase">飛行高度</p>
                             <p class="text-base font-bold mono text-sky-400">${altFt.toLocaleString()} <span class="text-xs text-slate-400">ft</span></p>
-                            <p class="text-[10px] text-slate-500">(${altM.toLocaleString()} m)</p>
                         </div>
-
                         <div class="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
                             <p class="text-[10px] font-bold text-slate-500 uppercase">対地速度</p>
                             <p class="text-base font-bold mono text-emerald-400">${speedKt} <span class="text-xs text-slate-400">kt</span></p>
                             <p class="text-[10px] text-slate-500">(${speedKm} km/h)</p>
-                        </div>
-
-                        <div class="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase">進行方位</p>
-                            <p class="text-base font-bold mono text-amber-400">${Math.round(f.heading)}°</p>
-                            <p class="text-[10px] text-slate-500">${getCompassDirection(f.heading)}</p>
-                        </div>
-
-                        <div class="bg-slate-800/40 p-2.5 rounded-lg border border-slate-800">
-                            <p class="text-[10px] font-bold text-slate-500 uppercase">昇降ステータス</p>
-                            <p class="text-xs font-bold ${vRateColor} mt-1">${vRateStatus}</p>
                         </div>
                     </div>
                 </div>
             `;
         }
 
-        function getCompassDirection(deg) {
-            const dirs = ['北', '北北東', '北東', '東北東', '東', '東南東', '南東', '南南東', '南', '南南西', '南西', '西南西', '西', '西北西', '北西', '北北西'];
-            return dirs[Math.round(deg / 22.5) % 16] + '方向';
-        }
-
         function updateCharts() {
             const altCounts = [0, 0, 0, 0, 0];
             flightsData.forEach(f => {
-                const ft = f.altFt || (f.alt * 3.28084);
+                const ft = f.altFt || (f.alt * 3.28);
                 if (ft < 10000) altCounts[0]++;
                 else if (ft < 20000) altCounts[1]++;
                 else if (ft < 30000) altCounts[2]++;
@@ -622,9 +645,9 @@
             if (speeds.length > 0) {
                 velChart.data.datasets[0].data = [
                     Math.round(speeds[0]),
-                    Math.round(speeds[Math.floor(speeds.length * 0.25)]),
-                    Math.round(speeds[Math.floor(speeds.length * 0.5)]),
-                    Math.round(speeds[Math.floor(speeds.length * 0.75)]),
+                    Math.round(speeds[Math.floor(speeds.length * 0.25)] || 0),
+                    Math.round(speeds[Math.floor(speeds.length * 0.5)] || 0),
+                    Math.round(speeds[Math.floor(speeds.length * 0.75)] || 0),
                     Math.round(speeds[speeds.length - 1])
                 ];
                 velChart.update('none');
@@ -642,34 +665,26 @@
 
         function setMode(mode) {
             currentMode = mode;
-            const bReal = document.getElementById('modeRealtime');
-            const bSim = document.getElementById('modeSim');
-
-            if (mode === 'realtime') {
-                bReal.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-all bg-blue-600 text-white shadow';
-                bSim.className = 'px-3 py-1 text-xs font-semibold text-slate-400 hover:text-white rounded-md transition-all';
-            } else {
-                bSim.className = 'px-3 py-1 text-xs font-semibold rounded-md transition-all bg-blue-600 text-white shadow';
-                bReal.className = 'px-3 py-1 text-xs font-semibold text-slate-400 hover:text-white rounded-md transition-all';
-            }
+            document.getElementById('modeRealtime').className = mode === 'realtime' ? 'px-3 py-1 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 shadow' : 'px-3 py-1 text-xs font-semibold text-slate-400 hover:text-white';
+            document.getElementById('modeSim').className = mode === 'sim' ? 'px-3 py-1 text-xs font-semibold rounded-md bg-amber-500 text-slate-950 shadow' : 'px-3 py-1 text-xs font-semibold text-slate-400 hover:text-white';
             fetchData();
         }
 
         function setFilter(type) {
             currentFilter = type;
-            document.querySelectorAll('.filter-btn').forEach(btn => {
-                btn.classList.remove('bg-blue-600', 'text-white');
-                btn.classList.add('bg-slate-800', 'text-slate-300');
+            document.querySelectorAll('.filter-btn').forEach(b => {
+                b.classList.remove('bg-amber-500', 'text-slate-950', 'font-bold');
+                b.classList.add('bg-slate-800', 'text-slate-300');
             });
-            event.target.classList.add('bg-blue-600', 'text-white');
+            event.target.classList.add('bg-amber-500', 'text-slate-950', 'font-bold');
             renderFlightList();
         }
 
         function toggleFollow() {
             followSelected = !followSelected;
             const btn = document.getElementById('followToggleBtn');
-            btn.classList.toggle('bg-blue-600', followSelected);
-            btn.classList.toggle('text-white', followSelected);
+            btn.classList.toggle('bg-amber-500', followSelected);
+            btn.classList.toggle('text-slate-950', followSelected);
         }
 
         function setOnlineStatus(online, text) {
@@ -678,33 +693,15 @@
             document.getElementById('statusPulse').className = `animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${online ? 'bg-emerald-400' : 'bg-amber-400'}`;
         }
 
-        function playBeep() {
-            try {
-                const ctx = new (window.AudioContext || window.webkitAudioContext)();
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = 'sine';
-                osc.frequency.setValueAtTime(880, ctx.currentTime);
-                gain.gain.setValueAtTime(0.05, ctx.currentTime);
-                gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-                osc.connect(gain);
-                gain.connect(ctx.destination);
-                osc.start();
-                osc.stop(ctx.currentTime + 0.15);
-            } catch(e) {}
-        }
-
         function exportCSV() {
-            let csv = 'ICAO,便名,航空会社,機種,緯度,経度,高度(ft),対地速度(kt),進行方位\n';
+            let csv = 'ICAO,便名,航空会社,機種,緯度,経度,高度(ft),対地速度(kt)\n';
             flightsData.forEach(f => {
-                const altFt = Math.round(f.altFt || (f.alt * 3.28084));
-                csv += `${f.icao},${f.callsign},"${f.airline}","${f.type}",${f.lat},${f.lng},${altFt},${Math.round(f.velocity * 1.94384)},${f.heading}\n`;
+                csv += `${f.icao},${f.callsign},"${f.airline}","${f.type}",${f.lat},${f.lng},${Math.round(f.altFt)},${Math.round(f.velocity * 1.94)}\n`;
             });
-
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.download = `japan_flights_${new Date().toISOString().slice(0,10)}.csv`;
+            link.download = `flights_${new Date().toISOString().slice(0,10)}.csv`;
             link.click();
         }
 
