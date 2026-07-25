@@ -140,11 +140,10 @@
             </div>
         </aside>
 
-        <!-- 中央：インタラクティブ地図 -->
+        <!-- 中央：地図 -->
         <section class="flex-1 relative">
             <div id="map"></div>
 
-            <!-- マップ上オーバレイ (凡例) -->
             <div class="absolute bottom-6 left-6 z-10 glass-panel p-3.5 rounded-xl shadow-2xl max-w-xs text-xs space-y-2">
                 <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">高度カラー凡例</p>
                 <div class="grid grid-cols-2 gap-2 text-[11px]">
@@ -156,9 +155,8 @@
             </div>
         </section>
 
-        <!-- 右側：詳細テレメトリ ＆ グラフ解析 -->
+        <!-- 右側：詳細 ＆ グラフ -->
         <aside class="w-96 flex flex-col bg-slate-900 border-l border-slate-800 z-40 overflow-y-auto custom-scrollbar">
-            <!-- 選択された航空機の詳細情報 -->
             <div class="p-5 border-b border-slate-800">
                 <div class="flex justify-between items-center mb-3">
                     <h2 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
@@ -177,9 +175,7 @@
                 </div>
             </div>
 
-            <!-- 分析グラフエリア -->
             <div class="p-5 space-y-6">
-                <!-- 高度帯分布 -->
                 <section>
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xs font-bold text-slate-400 uppercase">高度帯別分布</h3>
@@ -190,7 +186,6 @@
                     </div>
                 </section>
 
-                <!-- 速度分布 -->
                 <section class="pt-4 border-t border-slate-800/80">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="text-xs font-bold text-slate-400 uppercase">対地速度分布</h3>
@@ -201,7 +196,6 @@
                     </div>
                 </section>
 
-                <!-- 航空会社シェア -->
                 <section class="pt-4 border-t border-slate-800/80">
                     <h3 class="text-xs font-bold text-slate-400 uppercase mb-2">検出航空会社割合</h3>
                     <div class="chart-container" style="height: 160px;">
@@ -213,25 +207,16 @@
 
     </main>
 
-    <!-- JavaScript ロジック -->
     <script>
-        // 設定オブジェクト (CORSプロキシ経由で確実に取得)
         const CONFIG = {
-            TARGET_APIS: [
-                'https://api.adsb.lol/v2/lat/35.68/lon/139.76/500',
-                'https://api.airplanes.live/v2/point/35.68/139.76/500'
-            ],
-            PROXIES: [
-                url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-                url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
-            ],
-            REFRESH_INTERVAL: 8000,
+            // 日本領域 (Bounding Box: 南西 lat:24, lon:122 / 北東 lat:46, lon:146)
+            OPENSKY_URL: 'https://opensky-network.org/api/states/all?lamin=24.0&lomin=122.0&lamax=46.0&lomax=146.0',
+            REFRESH_INTERVAL: 10000,
         };
 
-        // アプリケーション状態変数
         let map, markers = {}, flightsData = [], selectedId = null, trailPath = null;
         let altChart, velChart, airlineChart;
-        let currentMode = 'realtime'; // 'realtime' or 'sim'
+        let currentMode = 'realtime';
         let currentFilter = 'all';
         let isDarkTheme = true;
         let followSelected = false;
@@ -298,7 +283,7 @@
             });
         }
 
-        // データ取得（CORSプロキシ経由 ＋ 複数フォールバック）
+        // OpenSky API経由で直接取得 (CORS制限がなくブラウザから叩ける公式API)
         async function fetchData() {
             if (currentMode === 'sim') {
                 generateSimulationData();
@@ -307,33 +292,27 @@
                 return;
             }
 
-            let rawData = null;
-            let successSource = "";
+            let success = false;
 
-            // Target API と Proxy の組み合わせを順番に試行
-            apiLoop: for (const targetUrl of CONFIG.TARGET_APIS) {
-                for (const makeProxyUrl of CONFIG.PROXIES) {
-                    try {
-                        const proxyUrl = makeProxyUrl(targetUrl);
-                        const res = await fetch(proxyUrl, { cache: 'no-cache' });
-                        if (res.ok) {
-                            rawData = await res.json();
-                            const name = targetUrl.includes('adsb.lol') ? 'ADS-B.lol' : 'Airplanes.live';
-                            successSource = `${name} (Proxy経由)`;
-                            break apiLoop;
-                        }
-                    } catch (e) {
-                        console.warn(`プロキシ通信試行失敗: ${targetUrl}`, e);
+            try {
+                const res = await fetch(CONFIG.OPENSKY_URL);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data && data.states && data.states.length > 0) {
+                        flightsData = data.states
+                            .filter(s => s[5] !== null && s[6] !== null) // 緯度経度が存在するデータ
+                            .map(s => parseOpenSkyAircraft(s));
+                        
+                        setOnlineStatus(true, "接続中: OpenSky Network (LIVE)");
+                        success = true;
                     }
                 }
+            } catch (e) {
+                console.warn("OpenSky API Connection failed:", e);
             }
 
-            if (rawData && rawData.ac && rawData.ac.length > 0) {
-                setOnlineStatus(true, `接続中: ${successSource}`);
-                flightsData = rawData.ac
-                    .filter(a => a.lat && a.lon && a.flight) // 座標と便名があるものを抽出
-                    .map(a => parseAdsbAircraft(a));
-            } else {
+            // 万が一OpenSkyが一時制限(429/503)等になった場合は自動デモシミュレーションに切り替え
+            if (!success) {
                 setOnlineStatus(false, "デモモード (自動切替)");
                 generateSimulationData();
             }
@@ -341,42 +320,53 @@
             updateUI();
         }
 
-        // ADS-B フォーマット変換
-        function parseAdsbAircraft(a) {
-            const callsign = a.flight?.trim() || 'N/A';
-            const meta = getAirlineAndRouteMeta(callsign, a.track || 0, a.t || '');
-            const altFeet = typeof a.alt_baro === 'number' ? a.alt_baro : (a.alt_geom || 0);
+        // OpenSky データのパース関数
+        function parseOpenSkyAircraft(s) {
+            const icao = s[0] || Math.random().toString(36).substring(7);
+            const rawCallsign = (s[1] || '').trim();
+            const callsign = rawCallsign || `ICAO-${icao.toUpperCase()}`;
+            
+            const lng = s[5];
+            const lat = s[6];
+            const altM = s[7] || s[13] || 0; // meters
+            const altFt = altM * 3.28084;
+            const velocity = s[9] || 0; // m/s
+            const heading = s[10] || 0; // degrees
+            const verticalRate = s[11] || 0; // m/s
+
+            const meta = getAirlineAndRouteMeta(callsign, heading);
 
             return {
-                icao: a.hex || Math.random().toString(36).substring(7),
+                icao: icao,
                 callsign: callsign,
-                country: 'Japan / Intl',
-                lng: a.lon,
-                lat: a.lat,
-                alt: altFeet / 3.28084, // feet to meters
-                altFt: altFeet,
-                onGround: a.alt_baro === 'ground',
-                velocity: (a.gs || 0) * 0.514444, // knots to m/s
-                heading: a.track || a.r_dir || 0,
-                verticalRate: (a.baro_rate || 0) / 196.85, // fpm to m/s
+                country: s[2] || 'Japan',
+                lng: lng,
+                lat: lat,
+                alt: altM,
+                altFt: altFt,
+                onGround: s[8] || false,
+                velocity: velocity,
+                heading: heading,
+                verticalRate: verticalRate,
                 airline: meta.airline,
                 type: meta.type,
                 route: meta.route
             };
         }
 
-        function getAirlineAndRouteMeta(callsign, heading, aircraftType) {
+        function getAirlineAndRouteMeta(callsign, heading) {
             let airline = 'その他 / 民間機';
-            let type = aircraftType || 'Boeing 737-800';
+            let type = 'Boeing 737-800';
 
-            if (callsign.startsWith('ANA') || callsign.startsWith('NH')) { airline = '全日本空輸 (ANA)'; if(!aircraftType) type = 'Boeing 787-9'; }
-            else if (callsign.startsWith('JAL') || callsign.startsWith('JL')) { airline = '日本航空 (JAL)'; if(!aircraftType) type = 'Airbus A350-900'; }
-            else if (callsign.startsWith('SKY') || callsign.startsWith('BC')) { airline = 'スカイマーク (SKY)'; if(!aircraftType) type = 'Boeing 737-800'; }
-            else if (callsign.startsWith('APJ') || callsign.startsWith('MM')) { airline = 'Peach Aviation'; if(!aircraftType) type = 'Airbus A320neo'; }
-            else if (callsign.startsWith('JJP') || callsign.startsWith('GK')) { airline = 'ジェットスター'; if(!aircraftType) type = 'Airbus A320'; }
-            else if (callsign.startsWith('FDA') || callsign.startsWith('JH')) { airline = 'フジドリーム'; if(!aircraftType) type = 'Embraer E175'; }
-            else if (callsign.startsWith('SFJ') || callsign.startsWith('7G')) { airline = 'スターフライヤー'; if(!aircraftType) type = 'Airbus A320'; }
-            else if (callsign.startsWith('CPA') || callsign.startsWith('KAL') || callsign.startsWith('AAR')) { airline = '国際線キャリア'; if(!aircraftType) type = 'Boeing 777-300ER'; }
+            const cs = callsign.toUpperCase();
+            if (cs.startsWith('ANA') || cs.startsWith('NH')) { airline = '全日本空輸 (ANA)'; type = 'Boeing 787-9'; }
+            else if (cs.startsWith('JAL') || cs.startsWith('JL')) { airline = '日本航空 (JAL)'; type = 'Airbus A350-900'; }
+            else if (cs.startsWith('SKY') || cs.startsWith('BC')) { airline = 'スカイマーク (SKY)'; type = 'Boeing 737-800'; }
+            else if (cs.startsWith('APJ') || cs.startsWith('MM')) { airline = 'Peach Aviation'; type = 'Airbus A320neo'; }
+            else if (cs.startsWith('JJP') || cs.startsWith('GK')) { airline = 'ジェットスター'; type = 'Airbus A320'; }
+            else if (cs.startsWith('FDA') || cs.startsWith('JH')) { airline = 'フジドリーム'; type = 'Embraer E175'; }
+            else if (cs.startsWith('SFJ') || cs.startsWith('7G')) { airline = 'スターフライヤー'; type = 'Airbus A320'; }
+            else if (cs.startsWith('CPA') || cs.startsWith('KAL') || cs.startsWith('AAR') || cs.startsWith('THY')) { airline = '国際線キャリア'; type = 'Boeing 777-300ER'; }
 
             let route = '羽田(HND) ✈ 関西(KIX)';
             if (heading >= 315 || heading < 45) route = '東京(HND) ✈ 札幌(CTS)';
@@ -388,10 +378,10 @@
         }
 
         function generateSimulationData() {
-            if (flightsData.length > 0 && currentMode !== 'sim_force') {
+            if (flightsData.length > 0 && currentMode !== 'sim') {
                 flightsData.forEach(f => {
                     const rad = (f.heading * Math.PI) / 180;
-                    const distDeg = (f.velocity / 111000) * 8;
+                    const distDeg = (f.velocity / 111000) * 10;
                     f.lat += Math.cos(rad) * distDeg;
                     f.lng += Math.sin(rad) * distDeg;
                 });
@@ -402,14 +392,14 @@
             
             flightsData = sampleCallsigns.map((cs, i) => {
                 const head = Math.floor(Math.random() * 360);
-                const meta = getAirlineAndRouteMeta(cs, head, '');
+                const meta = getAirlineAndRouteMeta(cs, head);
                 const altFeet = 5000 + Math.random() * 30000;
                 return {
                     icao: `ja${8000 + i}`,
                     callsign: cs,
                     country: 'Japan',
-                    lat: 32 + Math.random() * 10,
-                    lng: 132 + Math.random() * 10,
+                    lat: 33 + Math.random() * 8,
+                    lng: 133 + Math.random() * 8,
                     alt: altFeet / 3.28084,
                     altFt: altFeet,
                     onGround: false,
