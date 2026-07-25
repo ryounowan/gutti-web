@@ -209,8 +209,8 @@
 
     <script>
         const CONFIG = {
-            // 日本領域 (Bounding Box: 南西 lat:24, lon:122 / 北東 lat:46, lon:146)
-            OPENSKY_URL: 'https://opensky-network.org/api/states/all?lamin=24.0&lomin=122.0&lamax=46.0&lomax=146.0',
+            // 作成していただいた Cloudflare Worker のエンドポイントURL
+            WORKER_URL: 'https://bitter-wildflower-c641.ryounowan.workers.dev/',
             REFRESH_INTERVAL: 10000,
         };
 
@@ -283,7 +283,6 @@
             });
         }
 
-        // OpenSky API経由で直接取得 (CORS制限がなくブラウザから叩ける公式API)
         async function fetchData() {
             if (currentMode === 'sim') {
                 generateSimulationData();
@@ -295,12 +294,12 @@
             let success = false;
 
             try {
-                const res = await fetch(CONFIG.OPENSKY_URL);
+                const res = await fetch(CONFIG.WORKER_URL);
                 if (res.ok) {
                     const data = await res.json();
                     if (data && data.states && data.states.length > 0) {
                         flightsData = data.states
-                            .filter(s => s[5] !== null && s[6] !== null) // 緯度経度が存在するデータ
+                            .filter(s => s[5] !== null && s[6] !== null)
                             .map(s => parseOpenSkyAircraft(s));
                         
                         setOnlineStatus(true, "接続中: OpenSky Network (LIVE)");
@@ -308,10 +307,9 @@
                     }
                 }
             } catch (e) {
-                console.warn("OpenSky API Connection failed:", e);
+                console.warn("Worker API Connection failed:", e);
             }
 
-            // 万が一OpenSkyが一時制限(429/503)等になった場合は自動デモシミュレーションに切り替え
             if (!success) {
                 setOnlineStatus(false, "デモモード (自動切替)");
                 generateSimulationData();
@@ -320,7 +318,6 @@
             updateUI();
         }
 
-        // OpenSky データのパース関数
         function parseOpenSkyAircraft(s) {
             const icao = s[0] || Math.random().toString(36).substring(7);
             const rawCallsign = (s[1] || '').trim();
@@ -328,11 +325,11 @@
             
             const lng = s[5];
             const lat = s[6];
-            const altM = s[7] || s[13] || 0; // meters
+            const altM = s[7] || s[13] || 0;
             const altFt = altM * 3.28084;
-            const velocity = s[9] || 0; // m/s
-            const heading = s[10] || 0; // degrees
-            const verticalRate = s[11] || 0; // m/s
+            const velocity = s[9] || 0;
+            const heading = s[10] || 0;
+            const verticalRate = s[11] || 0;
 
             const meta = getAirlineAndRouteMeta(callsign, heading);
 
