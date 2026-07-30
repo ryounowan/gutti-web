@@ -260,12 +260,7 @@
     "color": "#ffffff"
   },
   "mode": "normal",
-  "requests": [
-    {
-      "user": "りょうの丸",
-      "timestamp": 1785426438216
-    }
-  ],
+  "requests": [],
   "tos": "このサービスは1週間の間自分のつぶやいた内容が保存されます 見られてマズイものは投稿しないでください",
   "maintenanceMode": false,
   "sha": "a356ac7f64855bdce210ddce56d2d81815a675b8",
