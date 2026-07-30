@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>カスタムサイトビューアー</title>
+    <style>
+        :root {
+            --bg-color: #f8f9fa;
+            --text-color: #212529;
+            --header-bg: #ffffff;
+            --border-color: #dee2e6;
+            --primary-color: #0d6efd;
+            --hover-color: #e9ecef;
+        }
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #121212;
+                --text-color: #f8f9fa;
+                --header-bg: #1e1e1e;
+                --border-color: #333333;
+                --primary-color: #0d6efd;
+                --hover-color: #2a2a2a;
+            }
+        }
+        * { box-sizing: border-box; }
+        body, html {
+            margin: 0; padding: 0; height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            font-family: sans-serif;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        header {
+            background-color: var(--header-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+        h1 { font-size: 1.1rem; margin: 0; }
+        select, button {
+            padding: 6px 12px;
+            background: var(--header-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover { background: var(--hover-color); }
+        .main-container {
+            flex: 1;
+            width: 100%;
+            height: calc(100% - 53px);
+        }
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #ffffff;
+        }
+        .welcome-screen {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            text-align: center;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>サイトビューアー</h1>
+        <div id="controls" style="display: flex; gap: 10px; align-items: center;"></div>
+    </header>
+    <div class="main-container" id="mainContainer">
+        <div class="welcome-screen">
+            <h2>サイトを選択してください</h2>
+            <p>上部のメニューから閲覧したいサイトを選んでください。</p>
+        </div>
+    </div>
+
+    <script>
+        const sites = [{"name":"browserstack","url":"https://app-live.browserstack.com/#os=android&os_version=12.0&device=Xiaomi+Redmi+Note+12+Pro&zoom_to_fit=true&full_screen=true&speed=1"},{"name":"appetize","url":"https://appetize.io/demo"}];
+        const openMode = "new-tab";
+        const controls = document.getElementById('controls');
+        const container = document.getElementById('mainContainer');
+
+        function init() {
+            if (openMode === 'new-tab') {
+                controls.innerHTML = '<span>リンクを新しいタブで開くモードです</span>';
+                let html = '<div class="welcome-screen"><h2>登録サイト一覧</h2><ul style="list-style: none; padding:0; display:flex; gap:15px; flex-direction:column;">';
+                sites.forEach(s => {
+                    html += `<li><a href="${s.url}" target="_blank" rel="noopener noreferrer" style="padding: 10px 20px; background: var(--primary-color); color: white; text-decoration: none; border-radius: 4px; display:inline-block;">${s.name} を開く</a></li>`;
+                });
+                html += '</ul></div>';
+                container.innerHTML = html;
+                return;
+            }
+
+            // ページ内で開くモード (iframe)
+            if (sites.length === 1) {
+                // 1つの場合は常時表示
+                controls.innerHTML = `<span>表示中: <strong>${sites[0].name}</strong></span><button onclick="reloadFrame()">再読み込み</button><a href="${sites[0].url}" target="_blank" rel="noopener noreferrer" style="font-size:0.9rem; color:inherit;">外部タブで開く</a>`;
+                container.innerHTML = `<iframe id="viewFrame" src="${sites[0].url}"></iframe>`;
+            } else {
+                // 複数の場合はセレクトボックスで切り替え
+                let selectHtml = '<select id="siteSelector" onchange="changeSite(this.value)"><option value="">-- サイトを選択 --</option>';
+                sites.forEach((s, index) => {
+                    selectHtml += `<option value="${index}">${s.name}</option>`;
+                });
+                selectHtml += '</select>';
+                selectHtml += '<button onclick="reloadFrame()">再読み込み</button>';
+                controls.innerHTML = selectHtml;
+            }
+        }
+
+        function changeSite(index) {
+            if (index === "") {
+                container.innerHTML = '<div class="welcome-screen"><h2>サイトを選択してください</h2></div>';
+                return;
+            }
+            const site = sites[index];
+            container.innerHTML = `<iframe id="viewFrame" src="${site.url}"></iframe>`;
+        }
+
+        function reloadFrame() {
+            const frame = document.getElementById('viewFrame');
+            if (frame) {
+                frame.src = frame.src;
+            }
+        }
+
+        window.onload = init;
+    </script>
+</body>
+</html>
