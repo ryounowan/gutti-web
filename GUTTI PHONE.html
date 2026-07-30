@@ -1,9 +1,17 @@
 <!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Gutti Phone</title>
+</head>
+<body>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Gutti Phone v17 - Complete</title>
+    <title>Gutti Phone</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --blue: #007aff; --red: #ff3b30; --green: #34c759; --gray: #8e8e93; --light: #f2f2f7; --dark: #1c1c1e; }
@@ -223,7 +231,7 @@
     peer.on('connection', conn => {
         conn.on('data', d => { 
             if(d.type === 'missed') addHistoryEntry(d.from, 'p2p', '不在着信');
-            if(d.type === 'rejected') playGuidance("おかけになった電話は、現在呼び出しがつきません。またお時間を置いてお掛け直しください。");
+            if(d.type === 'rejected') playGuidance("おかけになった電話は、現在呼び出しがつきません。またお時間を置いてお掛け直しください。ご利用くださり誠にありがとうございます。");
         });
     });
 
@@ -350,5 +358,7 @@
     // 初期化
     updateDisplay();
 </script>
+</body>
+</html>
 </body>
 </html>
