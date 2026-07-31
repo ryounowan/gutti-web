@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>LocalTube - ローカル動画＆音楽プレーヤー</title>
+  
+  <!-- Tailwind CSS & FontAwesome Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            yt: {
+              red: '#FF0000',
+              darkBg: '#0f0f0f',
+              cardBg: '#1f1f1f',
+              hoverBg: '#272727',
+              activeBg: '#3f3f3f',
+              border: '#383838',
+              textSec: '#aaaaaa'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Roboto', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: #0f0f0f;
+      color: #f1f1f1;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f0f0f;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #383838;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #555555;
+    }
+
+    .thumb-aspect {
+      aspect-ratio: 16 / 9;
+    }
+
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+
+    .mobile-tab-active {
+      color: #FF0000 !important;
+    }
+
+    /* Ripple animations for gesture controls */
+    @keyframes ripple-expand {
+      0% {
+        opacity: 0.8;
+        transform: scale(0.6);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(1.4);
+      }
+    }
+
+    .seek-ripple {
+      animation: ripple-expand 0.6s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+    }
+
+    /* Theater Mode Styles */
+    .theater-mode #mainContent {
+      flex-direction: column !important;
+    }
+    .theater-mode #playerSection {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+    .theater-mode #videoWrapper {
+      max-height: 75vh !important;
+    }
+    .theater-mode #sidebarSection {
+      width: 100% !important;
+      border-left: none !important;
+      border-top: 1px solid #383838 !important;
+      padding-left: 0 !important;
+      padding-top: 1rem !important;
+    }
+
+    /* Audio Disk Spin */
+    @keyframes spin-slow {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .animate-spin-slow {
+      animation: spin-slow 12s linear infinite;
+    }
+
+    video::-webkit-media-controls {
+      z-index: 20;
+    }
+  </style>
+</head>
+<body class="h-screen flex flex-col overflow-hidden select-none">
+
+  <header class="h-14 bg-yt-darkBg border-b border-yt-border px-3 sm:px-4 flex items-center justify-between z-30 shrink-0">
+    <!-- Logo -->
+    <div class="flex items-center gap-2 sm:gap-3 cursor-pointer" onclick="selectFolder('all')">
+      <div class="w-8 h-6 bg-yt-red rounded-lg flex items-center justify-center shadow-lg shadow-red-900/30">
+        <i class="fa-solid fa-play text-white text-xs"></i>
+      </div>
+      <span class="font-bold text-base sm:text-lg tracking-tight flex items-center gap-1">
+        Local<span class="text-yt-red">Tube</span>
+      </span>
+    </div>
+
+    <!-- Search Input -->
+    <div class="hidden sm:flex items-center w-1/3 max-w-xl relative">
+      <div class="relative w-full flex items-center">
+        <input 
+          type="text" 
+          id="searchInput" 
+          placeholder="タイトルやパスで検索..." 
+          oninput="handleSearch()"
+          class="w-full bg-[#121212] border border-yt-border rounded-full py-1.5 pl-4 pr-10 text-xs sm:text-sm text-white focus:outline-none focus:border-blue-500 transition-colors"
+        >
+        <button class="absolute right-3 text-yt-textSec hover:text-white">
+          <i class="fa-solid fa-magnifying-glass text-xs sm:text-sm"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Action Toolbar -->
+    <div class="flex items-center gap-1.5 sm:gap-2">
+      <!-- Batch Mode Toggle -->
+      <button id="batchModeBtn" onclick="toggleBatchMode()" class="px-2.5 py-1.5 rounded-full bg-yt-cardBg hover:bg-yt-hoverBg text-yt-textSec hover:text-white transition text-xs flex items-center gap-1 border border-yt-border">
+        <i class="fa-solid fa-list-check text-sky-400"></i>
+        <span class="hidden sm:inline" id="batchBtnText">選択・一括操作</span>
+      </button>
+
+      <!-- Import / Export -->
+      <button onclick="exportData()" class="p-2 rounded-full hover:bg-yt-hoverBg text-yt-textSec hover:text-white transition text-sm" title="データ保存 (JSON)">
+        <i class="fa-solid fa-file-export"></i>
+      </button>
+
+      <label class="p-2 rounded-full hover:bg-yt-hoverBg text-yt-textSec hover:text-white transition cursor-pointer text-sm" title="データ復元 (JSON)">
+        <i class="fa-solid fa-file-import"></i>
+        <input type="file" id="importJsonInput" accept=".json" onchange="importData(event)" class="hidden">
+      </label>
+
+      <!-- PC File Select -->
+      <label class="hidden sm:flex bg-yt-hoverBg hover:bg-yt-activeBg text-white px-3 py-1.5 rounded-full text-xs sm:text-sm font-medium cursor-pointer items-center gap-2 border border-yt-border transition active:scale-95 shadow">
+        <i class="fa-solid fa-folder-open text-amber-400"></i>
+        <span>フォルダ選択</span>
+        <input type="file" id="folderInput" webkitdirectory directory multiple accept="video/*,audio/*" class="hidden">
+      </label>
+
+      <!-- Mobile File Select -->
+      <label class="sm:hidden bg-yt-red text-white p-2 rounded-full font-medium cursor-pointer flex items-center justify-center transition active:scale-95 shadow">
+        <i class="fa-solid fa-plus text-xs"></i>
+        <input type="file" id="mobileFileInput" multiple accept="video/*,audio/*" class="hidden">
+      </label>
+    </div>
+  </header>
+
+  <main id="mainContent" class="flex-1 flex flex-col md:flex-row overflow-hidden p-2 sm:p-4 gap-2 sm:gap-4 relative">
+    
+    <!-- Drag & Drop Overlay -->
+    <div id="dropOverlay" class="hidden absolute inset-0 bg-black/80 z-50 backdrop-blur-sm border-2 border-dashed border-yt-red flex flex-col items-center justify-center text-white pointer-events-none">
+      <i class="fa-solid fa-file-video text-5xl text-yt-red mb-3 animate-bounce"></i>
+      <p class="text-base sm:text-xl font-bold">動画・音楽ファイルをドロップ</p>
+      <p class="text-xs text-yt-textSec mt-1">ブラウザに自動的に読み込まれます</p>
+    </div>
+
+    <!-- Left: Player Section -->
+    <section id="playerSection" class="flex-1 flex flex-col overflow-y-auto pr-0 md:pr-1">
+      
+      <!-- Video / Audio Player Container -->
+      <div id="videoWrapper" class="w-full bg-black rounded-lg sm:rounded-xl overflow-hidden shadow-2xl relative group thumb-aspect max-h-[45vh] sm:max-h-[55vh] md:max-h-[68vh] flex items-center justify-center select-none">
+        
+        <video 
+          id="mainPlayer" 
+          class="w-full h-full object-contain outline-none z-0"
+          controls
+          playsinline
+          crossorigin="anonymous"
+        ></video>
+
+        <!-- Audio Disc Visualization -->
+        <div id="audioVisualizer" class="hidden absolute inset-0 bg-gradient-to-br from-neutral-900 via-zinc-900 to-black flex flex-col items-center justify-center pointer-events-none z-10 pb-12">
+          <div class="relative w-32 h-32 sm:w-44 sm:h-44 rounded-full bg-zinc-800 border-4 border-zinc-700 shadow-2xl flex items-center justify-center overflow-hidden">
+            <div id="audioDisc" class="w-full h-full rounded-full border-8 border-dashed border-zinc-600/50 flex items-center justify-center animate-spin-slow">
+              <div class="w-10 h-10 rounded-full bg-yt-red flex items-center justify-center shadow-inner">
+                <i class="fa-solid fa-music text-white text-sm"></i>
+              </div>
+            </div>
+          </div>
+          <p id="audioTrackTitle" class="mt-4 text-sm sm:text-base font-bold text-white px-6 text-center truncate max-w-full"></p>
+          <p class="text-xs text-yt-textSec mt-1"><i class="fa-solid fa-headphones mr-1 text-sky-400"></i>音声トラック再生中</p>
+        </div>
+
+        <!-- Double Tap Seek Overlays (Top 80% area to prevent blocking lower controls) -->
+        <div id="tapOverlayLeft" class="absolute left-0 top-0 h-[80%] w-1/3 z-10 pointer-events-auto flex items-center justify-center cursor-pointer">
+          <div id="rippleLeft" class="hidden w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 flex flex-col items-center justify-center text-white pointer-events-none">
+            <i class="fa-solid fa-backward text-xl sm:text-2xl mb-1"></i>
+            <span class="text-[10px] sm:text-xs font-bold">10秒戻る</span>
+          </div>
+        </div>
+
+        <div id="tapOverlayRight" class="absolute right-0 top-0 h-[80%] w-1/3 z-10 pointer-events-auto flex items-center justify-center cursor-pointer">
+          <div id="rippleRight" class="hidden w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 flex flex-col items-center justify-center text-white pointer-events-none">
+            <i class="fa-solid fa-forward text-xl sm:text-2xl mb-1"></i>
+            <span class="text-[10px] sm:text-xs font-bold">10秒進む</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-2.5 flex flex-col gap-2 sm:gap-3">
+        <h1 id="videoTitle" class="text-sm sm:text-lg md:text-xl font-bold line-clamp-2 leading-snug px-1">
+          動画・音楽ファイルを選択してください
+        </h1>
+
+        <!-- File Origin Path -->
+        <div id="filePathInfo" class="text-[11px] text-yt-textSec px-1 flex items-center gap-1.5 truncate bg-yt-cardBg/50 py-1 px-2.5 rounded-lg border border-yt-border/50">
+          <i class="fa-regular fa-folder-open text-amber-400 shrink-0"></i>
+          <span class="truncate font-mono" id="originPathText">元パス: 未選択</span>
+        </div>
+
+        <!-- Utility Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-2 border-b border-yt-border pb-3 px-1">
+          <div class="flex items-center gap-2 sm:gap-3 text-[11px] sm:text-xs text-yt-textSec" id="videoMetaDetails">
+            <span id="metaType"><i class="fa-solid fa-film mr-1"></i>--</span>
+            <span>•</span>
+            <span id="metaResolution"><i class="fa-solid fa-tv mr-1"></i>--x--</span>
+            <span>•</span>
+            <span id="metaSize"><i class="fa-solid fa-hard-drive mr-1"></i>0 MB</span>
+            <span>•</span>
+            <span id="metaDuration"><i class="fa-regular fa-clock mr-1"></i>00:00</span>
+          </div>
+
+          <!-- Player Controls Row 1 -->
+          <div class="flex items-center flex-wrap gap-1.5 sm:gap-2 text-xs">
+            <!-- Prev / Next -->
+            <div class="flex items-center bg-yt-cardBg rounded-full border border-yt-border p-0.5">
+              <button onclick="playPrev()" class="hover:bg-yt-hoverBg text-white px-2.5 py-1 rounded-full transition active:scale-95 text-xs flex items-center gap-1" title="前へ">
+                <i class="fa-solid fa-backward-step text-sky-400"></i>
+                <span class="hidden sm:inline">前へ</span>
+              </button>
+              <div class="h-3 w-[1px] bg-yt-border"></div>
+              <button onclick="playNext()" class="hover:bg-yt-hoverBg text-white px-2.5 py-1 rounded-full transition active:scale-95 text-xs flex items-center gap-1" title="次へ">
+                <span class="hidden sm:inline">次へ</span>
+                <i class="fa-solid fa-forward-step text-sky-400"></i>
+              </button>
+            </div>
+
+            <!-- Picture in Picture (PiP) -->
+            <button onclick="togglePiP()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition active:scale-95 border border-yt-border text-white" title="小窓再生 (PiP)">
+              <i class="fa-solid fa-clone text-indigo-400"></i>
+              <span class="hidden sm:inline">PiP</span>
+            </button>
+
+            <!-- Theater Mode -->
+            <button id="theaterBtn" onclick="toggleTheaterMode()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition active:scale-95 border border-yt-border text-white" title="シアターモード">
+              <i class="fa-solid fa-expand" id="theaterIcon"></i>
+              <span class="hidden sm:inline" id="theaterText">シアター</span>
+            </button>
+
+            <!-- Fullscreen -->
+            <button onclick="toggleFullscreen()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition active:scale-95 border border-yt-border text-white" title="全画面表示">
+              <i class="fa-solid fa-maximize text-sky-400" id="fullscreenBtnIcon"></i>
+              <span class="hidden sm:inline" id="fullscreenBtnText">全画面</span>
+            </button>
+
+            <!-- Favorite -->
+            <button id="favBtn" onclick="toggleFavorite()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition active:scale-95 border border-yt-border">
+              <i class="fa-regular fa-heart text-yt-red" id="favIcon"></i>
+              <span id="favText" class="hidden sm:inline">お気に入り</span>
+            </button>
+
+            <!-- Screenshot Capture -->
+            <button onclick="takeScreenshot()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition active:scale-95 border border-yt-border" title="キャプチャ">
+              <i class="fa-solid fa-camera text-emerald-400"></i>
+              <span class="hidden sm:inline">キャプチャ</span>
+            </button>
+
+            <!-- Folder Assign -->
+            <button onclick="openMoveFolderModal()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1.5 transition active:scale-95 border border-yt-border" title="フォルダ整理">
+              <i class="fa-solid fa-folder-plus text-yellow-400"></i>
+              <span class="hidden sm:inline">整理</span>
+            </button>
+
+            <div class="h-4 w-[1px] bg-yt-border mx-0.5 hidden sm:block"></div>
+
+            <!-- Repeat Mode Button -->
+            <button id="repeatBtn" onclick="cycleRepeatMode()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 sm:px-3 py-1.5 rounded-full flex items-center gap-1 transition active:scale-95 border border-yt-border text-[11px] sm:text-xs">
+              <i class="fa-solid fa-repeat text-sky-400" id="repeatIcon"></i>
+              <span id="repeatText">リピート: OFF</span>
+            </button>
+
+            <!-- Playback Speed -->
+            <div class="relative">
+              <select id="speedSelect" onchange="changeSpeed(this.value)" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2 sm:px-3 py-1.5 rounded-full text-[11px] sm:text-xs border border-yt-border outline-none cursor-pointer appearance-none pr-6">
+                <option value="0.5">0.5x</option>
+                <option value="1" selected>1.0x</option>
+                <option value="1.25">1.25x</option>
+                <option value="1.5">1.5x</option>
+                <option value="2">2.0x</option>
+              </select>
+              <i class="fa-solid fa-chevron-down absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-yt-textSec pointer-events-none"></i>
+            </div>
+          </div>
+        </div>
+
+        <!-- Advanced Features Row (A-B Repeat, Volume Boost, Bookmarks) -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 bg-yt-cardBg/40 p-2.5 rounded-xl border border-yt-border/60 text-xs">
+          <!-- A-B Repeat Loop Controls -->
+          <div class="flex items-center gap-2 flex-wrap">
+            <span class="font-bold text-yt-textSec text-[11px] flex items-center gap-1">
+              <i class="fa-solid fa-rotate text-emerald-400"></i> A-B区間再生:
+            </span>
+            <button onclick="setABPoint('A')" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 py-1 rounded border border-yt-border text-amber-300 font-mono">
+              A点: <span id="pointAVal">未設定</span>
+            </button>
+            <button onclick="setABPoint('B')" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2.5 py-1 rounded border border-yt-border text-amber-300 font-mono">
+              B点: <span id="pointBVal">未設定</span>
+            </button>
+            <button onclick="clearABRepeat()" class="bg-yt-cardBg hover:bg-yt-hoverBg px-2 py-1 rounded border border-yt-border text-yt-textSec hover:text-white">
+              解除
+            </button>
+          </div>
+
+          <!-- Volume Boost Slider -->
+          <div class="flex items-center gap-2">
+            <span class="font-bold text-yt-textSec text-[11px] flex items-center gap-1 shrink-0">
+              <i class="fa-solid fa-volume-high text-sky-400"></i> 音量ブースト:
+            </span>
+            <input type="range" id="volumeBoostRange" min="100" max="200" value="100" oninput="updateVolumeBoost(this.value)" class="w-24 h-1.5 bg-yt-border rounded-lg appearance-none cursor-pointer accent-sky-400">
+            <span id="volumeBoostVal" class="font-mono text-sky-400 w-10">100%</span>
+          </div>
+
+          <!-- Timestamp Bookmark Memo -->
+          <div class="md:col-span-2 flex items-center gap-2 pt-1 border-t border-yt-border/40">
+            <input type="text" id="bookmarkInput" placeholder="現在時刻にメモ（タイムスタンプ）を追加..." class="flex-1 bg-black/40 border border-yt-border rounded-lg px-2.5 py-1 text-xs text-white focus:outline-none">
+            <button onclick="addBookmark()" class="bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 rounded-lg text-xs font-medium flex items-center gap-1 shrink-0">
+              <i class="fa-solid fa-bookmark"></i> メモ保存
+            </button>
+          </div>
+          
+          <!-- Bookmarks Tag Cloud -->
+          <div id="bookmarkContainer" class="md:col-span-2 flex flex-wrap gap-1.5 pt-1 empty:hidden">
+            <!-- JS dynamically inserts bookmarks here -->
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right Sidebar: Folder Selector & Playlist -->
+    <section id="sidebarSection" class="w-full md:w-[360px] lg:w-[400px] shrink-0 flex flex-col bg-yt-darkBg border-t md:border-t-0 md:border-l border-yt-border pt-2 md:pt-0 md:pl-4 overflow-hidden flex-1 md:flex-none">
+      
+      <!-- Folder Header -->
+      <div class="flex flex-col gap-2 pb-2 border-b border-yt-border">
+        <div class="flex items-center justify-between">
+          <span class="text-xs font-bold text-yt-textSec uppercase tracking-wider flex items-center gap-1.5">
+            <i class="fa-solid fa-folder text-amber-400"></i>
+            フォルダ選択
+          </span>
+          <div class="flex items-center gap-1.5">
+            <button onclick="createNewFolderPrompt()" class="text-xs bg-yt-cardBg hover:bg-yt-hoverBg border border-yt-border px-2.5 py-1 rounded-full text-white transition flex items-center gap-1">
+              <i class="fa-solid fa-plus text-emerald-400"></i>
+              新規作成
+            </button>
+            <button onclick="openManageFoldersModal()" class="text-xs bg-yt-cardBg hover:bg-yt-hoverBg border border-yt-border px-2.5 py-1 rounded-full text-yt-textSec hover:text-white transition" title="フォルダ削除・管理">
+              <i class="fa-solid fa-gear"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Folder Badges Horizontal Scroll -->
+        <div class="relative flex items-center group/badge my-1">
+          <button onclick="scrollFolderBadges(-150)" class="hidden sm:flex absolute -left-2 z-10 w-6 h-6 rounded-full bg-black/80 hover:bg-zinc-700 text-white items-center justify-center border border-yt-border text-xs shadow transition opacity-0 group-hover/badge:opacity-100" title="左へスクロール">
+            <i class="fa-solid fa-chevron-left text-[10px]"></i>
+          </button>
+
+          <div id="folderBadgeContainer" class="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-1 w-full max-w-full scroll-smooth cursor-grab select-none">
+            <!-- Dynamically Generated -->
+          </div>
+
+          <button onclick="scrollFolderBadges(150)" class="hidden sm:flex absolute -right-2 z-10 w-6 h-6 rounded-full bg-black/80 hover:bg-zinc-700 text-white items-center justify-center border border-yt-border text-xs shadow transition opacity-0 group-hover/badge:opacity-100" title="右へスクロール">
+            <i class="fa-solid fa-chevron-right text-[10px]"></i>
+          </button>
+        </div>
+
+        <!-- Batch Operations Toolbar -->
+        <div id="batchToolBar" class="hidden flex flex-col gap-1.5 bg-yt-hoverBg p-2 rounded-xl border border-yt-border">
+          <div class="flex items-center justify-between text-xs text-white font-medium">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this.checked)" class="w-4 h-4 accent-red-600">
+              <span>全選択 (<span id="selectedCount">0</span>)</span>
+            </label>
+            <button onclick="toggleBatchMode()" class="text-yt-textSec hover:text-white"><i class="fa-solid fa-xmark"></i> 解除</button>
+          </div>
+          <div class="flex items-center justify-between gap-1 text-[11px]">
+            <button onclick="batchMoveModal()" class="flex-1 bg-yt-cardBg hover:bg-yt-activeBg py-1 px-2 rounded border border-yt-border text-amber-300 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-folder-arrow-up"></i> フォルダ移動
+            </button>
+            <button onclick="batchDelete()" class="bg-red-900/60 hover:bg-red-800 text-red-200 py-1 px-2 rounded border border-red-700 flex items-center justify-center gap-1">
+              <i class="fa-solid fa-trash-can"></i> 一括削除
+            </button>
+          </div>
+        </div>
+
+        <!-- Playlist View Controls & Sorting -->
+        <div class="flex items-center justify-between text-xs text-yt-textSec mt-1">
+          <span id="videoCount">0 本のアイテム</span>
+
+          <div class="flex items-center gap-2">
+            <!-- Grid/List View Toggle -->
+            <button onclick="toggleViewMode()" class="hover:text-white p-1 rounded transition" title="表示モード切替">
+              <i class="fa-solid fa-table-cells" id="viewModeIcon"></i>
+            </button>
+
+            <button onclick="shuffleCurrentPlaylist()" class="hover:text-white p-1 rounded transition" title="シャッフル再生">
+              <i class="fa-solid fa-shuffle"></i>
+            </button>
+
+            <select id="sortSelect" onchange="handleSortChange(this.value)" class="bg-yt-cardBg text-white px-2 py-0.5 rounded border border-yt-border outline-none text-xs">
+              <option value="name">名前順</option>
+              <option value="size">サイズ順</option>
+              <option value="duration">時間順</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- Playlist Container -->
+      <div id="playlistContainer" class="flex-1 overflow-y-auto pt-2 space-y-2 pr-1 pb-12 md:pb-0">
+        <div class="h-full flex flex-col items-center justify-center text-center text-yt-textSec p-6">
+          <i class="fa-solid fa-folder-open text-4xl mb-2 text-yt-border"></i>
+          <p class="font-bold text-white text-sm mb-1">ファイルが見つかりません</p>
+          <p class="text-xs leading-relaxed">動画または音楽ファイルを追加してください</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Mobile Bottom Navigation -->
+  <nav class="md:hidden h-14 bg-yt-darkBg border-t border-yt-border flex items-center justify-around z-30 shrink-0 text-yt-textSec text-[10px]">
+    <button onclick="switchMobileTab('home')" id="mNavHome" class="flex flex-col items-center gap-0.5 py-1 px-3 mobile-tab-active">
+      <i class="fa-solid fa-house text-base"></i>
+      <span>ホーム</span>
+    </button>
+    <button onclick="switchMobileTab('folders')" id="mNavFolders" class="flex flex-col items-center gap-0.5 py-1 px-3">
+      <i class="fa-solid fa-folder-tree text-base"></i>
+      <span>フォルダ</span>
+    </button>
+    <button onclick="switchMobileTab('favs')" id="mNavFavs" class="flex flex-col items-center gap-0.5 py-1 px-3">
+      <i class="fa-solid fa-heart text-base"></i>
+      <span>お気に入り</span>
+    </button>
+    <button onclick="switchMobileTab('history')" id="mNavHistory" class="flex flex-col items-center gap-0.5 py-1 px-3">
+      <i class="fa-solid fa-clock-rotate-left text-base"></i>
+      <span>履歴</span>
+    </button>
+  </nav>
+
+  <!-- Folder Move Modal -->
+  <div id="folderModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-yt-cardBg border border-yt-border rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
+      <button onclick="toggleModal('folderModal')" class="absolute top-4 right-4 text-yt-textSec hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-folder-plus text-amber-400"></i>
+        フォルダに割り当て
+      </h2>
+
+      <p class="text-xs text-yt-textSec mb-4">選択したフォルダにファイルを追加します</p>
+
+      <div id="folderSelectList" class="space-y-2 max-h-48 overflow-y-auto mb-4 pr-1">
+        <!-- JS Generated Folder List -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Global Toast Notification -->
+  <div id="toast" class="fixed bottom-16 md:bottom-6 left-1/2 -translate-x-1/2 bg-yt-cardBg border border-yt-border text-white px-4 py-2.5 rounded-full text-xs sm:text-sm shadow-xl flex items-center gap-2 opacity-0 pointer-events-none transition-all duration-300 z-50 max-w-[90%] text-center">
+    <i class="fa-solid fa-circle-info text-sky-400 shrink-0" id="toastIcon"></i>
+    <span id="toastMessage" class="truncate">通知メッセージ</span>
+  </div>
+
+  <!-- Duplicate Action Modal -->
+  <div id="duplicateModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-yt-cardBg border border-yt-border rounded-2xl max-w-md w-full p-5 shadow-2xl relative">
+      <h2 class="text-base font-bold mb-2 flex items-center gap-2 text-amber-400">
+        <i class="fa-solid fa-copy"></i>
+        同名ファイルの処理選択
+      </h2>
+      <p class="text-xs text-yt-textSec mb-4">
+        追加しようとしているファイルと同じ名前のファイルが既に存在します。操作を選択してください。
+      </p>
+
+      <div id="duplicateListContainer" class="space-y-2 max-h-52 overflow-y-auto mb-4 pr-1 text-xs">
+        <!-- Dynamically generated duplicate file options -->
+      </div>
+
+      <div class="flex flex-wrap gap-2 justify-end border-t border-yt-border pt-3">
+        <button onclick="applyAllDuplicateAction('skip')" class="px-3 py-1.5 rounded-lg text-xs bg-zinc-800 hover:bg-zinc-700 text-yt-textSec hover:text-white transition">
+          すべてスキップ
+        </button>
+        <button onclick="applyAllDuplicateAction('keep')" class="px-3 py-1.5 rounded-lg text-xs bg-sky-900/60 hover:bg-sky-800 text-sky-200 border border-sky-700 transition">
+          すべて両方保持
+        </button>
+        <button onclick="applyAllDuplicateAction('overwrite')" class="px-3 py-1.5 rounded-lg text-xs bg-red-900/60 hover:bg-red-800 text-red-200 border border-red-700 transition">
+          すべて上書き
+        </button>
+        <button onclick="confirmDuplicateChoices()" class="px-4 py-1.5 rounded-lg text-xs bg-yt-red font-bold text-white shadow hover:opacity-90 transition ml-auto">
+          決定して進む
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Manage Folders Modal -->
+  <div id="manageFoldersModal" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+    <div class="bg-yt-cardBg border border-yt-border rounded-2xl max-w-sm w-full p-5 shadow-2xl relative">
+      <button onclick="toggleModal('manageFoldersModal')" class="absolute top-4 right-4 text-yt-textSec hover:text-white">
+        <i class="fa-solid fa-xmark text-lg"></i>
+      </button>
+
+      <h2 class="text-base font-bold mb-3 flex items-center gap-2">
+        <i class="fa-solid fa-folder-gear text-amber-400"></i>
+        フォルダ管理
+      </h2>
+
+      <div id="manageFolderList" class="space-y-2 max-h-60 overflow-y-auto mb-4 pr-1">
+        <!-- JS Generated Folder List -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Application State Variables */
+    let masterVideoList = [];    
+    let currentFolderId = 'all';  
+    let virtualFolders = [
+      { id: 'all', name: 'すべてのメディア', isSystem: true },
+      { id: 'favorites', name: 'お気に入り', isSystem: true },
+      { id: 'history', name: '履歴', isSystem: true }
+    ];
+
+    let currentPlayingIndex = -1;
+    let repeatMode = 'OFF'; // 'OFF', 'ONE', 'ALL'
+    let isTheaterMode = false;
+    let viewMode = 'list'; // 'list' or 'grid'
+    let searchKeyword = '';
+    let currentSort = 'name';
+
+    /* Batch Selection State */
+    let isBatchMode = false;
+    let selectedVideoIds = new Set();
+
+    /* A-B Repeat Loop State */
+    let pointA = null;
+    let pointB = null;
+
+    /* Bookmarks Map: videoId -> Array of { time, memo } */
+    let bookmarksMap = new Map();
+
+    /* Web Audio API Volume Booster State */
+    let audioCtx = null;
+    let gainNode = null;
+    let mediaSourceNode = null;
+
+    /* Duplicate Modal Resolve Handler */
+    let pendingDuplicateResolve = null;
+
+    /* IndexedDB Database Setup */
+    const DB_NAME = 'LocalTubeDB_v6';
+    const DB_VERSION = 1;
+    const STORE_VIDEOS = 'videos';
+    let db = null;
+
+    const videoExtensions = ['.mp4', '.webm', '.mkv', '.mov', '.avi', '.m4v', '.ogv'];
+    const audioExtensions = ['.mp3', '.wav', '.m4a', '.aac', '.flac', '.ogg'];
+
+    const STORAGE_FOLDERS = 'localtube_vfolders_v6';
+    const STORAGE_PROGRESS = 'localtube_progress_v6';
+    const STORAGE_BOOKMARKS = 'localtube_bookmarks_v6';
+    let watchProgressMap = new Map(JSON.parse(localStorage.getItem(STORAGE_PROGRESS) || '[]'));
+
+    function initDB() {
+      return new Promise((resolve, reject) => {
+        const request = indexedDB.open(DB_NAME, DB_VERSION);
+        request.onupgradeneeded = (e) => {
+          const database = e.target.result;
+          if (!database.objectStoreNames.contains(STORE_VIDEOS)) {
+            database.createObjectStore(STORE_VIDEOS, { keyPath: 'id' });
+          }
+        };
+        request.onsuccess = (e) => {
+          db = e.target.result;
+          resolve(db);
+        };
+        request.onerror = (e) => reject(e);
+      });
+    }
+
+    async function saveVideoToDB(videoItem) {
+      if (!db || !videoItem.file) return;
+      return new Promise((resolve, reject) => {
+        const transaction = db.transaction([STORE_VIDEOS], 'readwrite');
+        const store = transaction.objectStore(STORE_VIDEOS);
+        const record = {
+          id: videoItem.id,
+          name: videoItem.name,
+          relativePath: videoItem.relativePath || videoItem.name,
+          size: videoItem.size,
+          isAudio: videoItem.isAudio || false,
+          folderIds: Array.from(videoItem.folderIds || []),
+          thumbnail: videoItem.thumbnail || null,
+          duration: videoItem.duration || 0,
+          formattedDuration: videoItem.formattedDuration || '--:--',
+          blob: videoItem.file
+        };
+        const req = store.put(record);
+        req.onsuccess = () => resolve(true);
+        req.onerror = () => reject(false);
+      });
+    }
+
+    async function removeVideoFromDB(id) {
+      if (!db) return;
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORE_VIDEOS], 'readwrite');
+        const store = transaction.objectStore(STORE_VIDEOS);
+        store.delete(id);
+        transaction.oncomplete = () => resolve(true);
+      });
+    }
+
+    async function loadStoredVideosFromDB() {
+      if (!db) return;
+      return new Promise((resolve) => {
+        const transaction = db.transaction([STORE_VIDEOS], 'readonly');
+        const store = transaction.objectStore(STORE_VIDEOS);
+        const req = store.getAll();
+        req.onsuccess = () => {
+          const records = req.result || [];
+          records.forEach(rec => {
+            const url = URL.createObjectURL(rec.blob);
+            masterVideoList.push({
+              id: rec.id,
+              file: rec.blob,
+              name: rec.name,
+              relativePath: rec.relativePath || rec.name,
+              size: rec.size,
+              isAudio: rec.isAudio || false,
+              url: url,
+              thumbnail: rec.thumbnail || null,
+              duration: rec.duration || 0,
+              formattedDuration: rec.formattedDuration || '--:--',
+              folderIds: new Set(rec.folderIds || ['all']),
+              isPersisted: true
+            });
+          });
+          resolve(records.length);
+        };
+      });
+    }
+
+    window.onload = async () => {
+      const savedFolders = localStorage.getItem(STORAGE_FOLDERS);
+      if (savedFolders) {
+        try { virtualFolders = JSON.parse(savedFolders); } catch (e) {}
+      }
+
+      const savedBookmarks = localStorage.getItem(STORAGE_BOOKMARKS);
+      if (savedBookmarks) {
+        try { bookmarksMap = new Map(JSON.parse(savedBookmarks)); } catch (e) {}
+      }
+
+      try {
+        await initDB();
+        const count = await loadStoredVideosFromDB();
+        if (count > 0) {
+          showToast(`${count} 件のメディアを自動復元しました`, 'fa-solid fa-hard-drive text-emerald-400');
+          // サムネイル・時間が未設定のファイルがあればバックグラウンド生成
+          const pendingItems = masterVideoList.filter(v => (!v.thumbnail && !v.isAudio) || v.duration === 0);
+          if (pendingItems.length > 0) {
+            processThumbnailQueue(pendingItems);
+          }
+        }
+      } catch (err) {
+        console.warn('IndexedDB error:', err);
+      }
+
+      renderFolderBadges();
+      renderPlaylist();
+      setupDoubleTapGestures();
+      setupMediaSession();
+      setupPlayerListeners();
+      setupFolderBadgeScroll();
+
+      if (masterVideoList.length > 0) {
+        playVideo(0);
+      }
+    };
+
+    function scrollFolderBadges(amount) {
+      const container = document.getElementById('folderBadgeContainer');
+      if (container) {
+        container.scrollBy({ left: amount, behavior: 'smooth' });
+      }
+    }
+
+    function setupFolderBadgeScroll() {
+      const container = document.getElementById('folderBadgeContainer');
+      if (!container) return;
+
+      // Mouse wheel horizontal scroll support
+      container.addEventListener('wheel', (e) => {
+        if (e.deltaY !== 0) {
+          e.preventDefault();
+          container.scrollLeft += e.deltaY;
+        }
+      }, { passive: false });
+
+      // Drag to scroll implementation
+      let isDown = false;
+      let startX;
+      let scrollLeft;
+
+      container.addEventListener('mousedown', (e) => {
+        isDown = true;
+        container.classList.add('cursor-grabbing');
+        container.classList.remove('cursor-grab');
+        startX = e.pageX - container.offsetLeft;
+        scrollLeft = container.scrollLeft;
+      });
+
+      container.addEventListener('mouseleave', () => {
+        isDown = false;
+        container.classList.remove('cursor-grabbing');
+        container.classList.add('cursor-grab');
+      });
+
+      container.addEventListener('mouseup', () => {
+        isDown = false;
+        container.classList.remove('cursor-grabbing');
+        container.classList.add('cursor-grab');
+      });
+
+      container.addEventListener('mousemove', (e) => {
+        if (!isDown) return;
+        e.preventDefault();
+        const x = e.pageX - container.offsetLeft;
+        const walk = (x - startX) * 1.8;
+        container.scrollLeft = scrollLeft - walk;
+      });
+    }
+
+    // Off-screen canvas thumbnail generator & metadata extractor
+    function generateThumbnailAndDuration(file, isAudio) {
+      return new Promise((resolve) => {
+        if (isAudio) {
+          const audio = document.createElement('audio');
+          audio.preload = 'metadata';
+          const objectUrl = URL.createObjectURL(file);
+          audio.src = objectUrl;
+
+          const cleanup = () => {
+            URL.revokeObjectURL(objectUrl);
+            audio.onloadedmetadata = null;
+            audio.onerror = null;
+          };
+
+          const timer = setTimeout(() => {
+            cleanup();
+            resolve({ thumbnail: null, duration: 0, formattedDuration: '--:--' });
+          }, 2500);
+
+          audio.onloadedmetadata = () => {
+            clearTimeout(timer);
+            const dur = audio.duration || 0;
+            cleanup();
+            resolve({ thumbnail: null, duration: dur, formattedDuration: formatTime(dur) });
+          };
+
+          audio.onerror = () => {
+            clearTimeout(timer);
+            cleanup();
+            resolve({ thumbnail: null, duration: 0, formattedDuration: '--:--' });
+          };
+          return;
+        }
+
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'metadata';
+        const objectUrl = URL.createObjectURL(file);
+        video.src = objectUrl;
+
+        let hasResolved = false;
+        const cleanup = () => {
+          if (hasResolved) return;
+          hasResolved = true;
+          URL.revokeObjectURL(objectUrl);
+          video.onloadedmetadata = null;
+          video.onseeked = null;
+          video.onerror = null;
+        };
+
+        // Fallback timer in case seek or metadata hangs
+        const timer = setTimeout(() => {
+          if (!hasResolved) {
+            const dur = video.duration || 0;
+            cleanup();
+            resolve({ thumbnail: null, duration: dur, formattedDuration: dur > 0 ? formatTime(dur) : '--:--' });
+          }
+        }, 2500);
+
+        video.onloadedmetadata = () => {
+          if (hasResolved) return;
+          const targetTime = Math.min(1.0, (video.duration || 2) / 2);
+          try {
+            video.currentTime = targetTime;
+          } catch (e) {
+            clearTimeout(timer);
+            const dur = video.duration || 0;
+            cleanup();
+            resolve({ thumbnail: null, duration: dur, formattedDuration: dur > 0 ? formatTime(dur) : '--:--' });
+          }
+        };
+
+        video.onseeked = () => {
+          if (hasResolved) return;
+          clearTimeout(timer);
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = 320;
+            canvas.height = 180;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+            const dur = video.duration || 0;
+            cleanup();
+            resolve({ thumbnail: dataUrl, duration: dur, formattedDuration: formatTime(dur) });
+          } catch (e) {
+            const dur = video.duration || 0;
+            cleanup();
+            resolve({ thumbnail: null, duration: dur, formattedDuration: dur > 0 ? formatTime(dur) : '--:--' });
+          }
+        };
+
+        video.onerror = () => {
+          if (hasResolved) return;
+          clearTimeout(timer);
+          cleanup();
+          resolve({ thumbnail: null, duration: 0, formattedDuration: '--:--' });
+        };
+      });
+    }
+
+    async function processThumbnailQueue(items) {
+      if (!items || items.length === 0) return;
+      for (const item of items) {
+        try {
+          const res = await generateThumbnailAndDuration(item.file, item.isAudio);
+          if (res) {
+            item.thumbnail = res.thumbnail;
+            item.duration = res.duration;
+            item.formattedDuration = res.formattedDuration;
+            await saveVideoToDB(item);
+            renderPlaylist();
+
+            // 現在再生中の動画のメタデータ表示もリアルタイム更新
+            const activeList = getFilteredAndSortedVideos();
+            if (currentPlayingIndex >= 0 && activeList[currentPlayingIndex] && activeList[currentPlayingIndex].id === item.id) {
+              const metaDur = document.getElementById('metaDuration');
+              if (metaDur) metaDur.innerHTML = `<i class="fa-regular fa-clock mr-1"></i>${item.formattedDuration}`;
+            }
+          }
+        } catch (err) {
+          console.warn('Thumbnail generation error:', err);
+        }
+      }
+    }
+
+    function setupPlayerListeners() {
+      const player = document.getElementById('mainPlayer');
+      if (!player) return;
+
+      // Repeat / AutoNext
+      player.onended = () => {
+        if (repeatMode === 'ONE') {
+          player.currentTime = 0;
+          player.play();
+        } else if (repeatMode === 'ALL' || isAutoplayActive()) {
+          playNext();
+        }
+      };
+
+      // Progress Tracking & A-B Repeat Loop Check
+      player.ontimeupdate = () => {
+        if (pointB !== null && player.currentTime >= pointB) {
+          player.currentTime = pointA !== null ? pointA : 0;
+        }
+
+        if (currentPlayingIndex >= 0 && masterVideoList[currentPlayingIndex]) {
+          const currentItem = masterVideoList[currentPlayingIndex];
+          if (player.duration > 0) {
+            const progressPercent = (player.currentTime / player.duration) * 100;
+            watchProgressMap.set(currentItem.id, progressPercent);
+            localStorage.setItem(STORAGE_PROGRESS, JSON.stringify(Array.from(watchProgressMap.entries())));
+          }
+        }
+      };
+
+      // Fullscreen State Listener
+      document.addEventListener('fullscreenchange', () => {
+        const isFS = !!document.fullscreenElement;
+        const fsBtnIcon = document.getElementById('fullscreenBtnIcon');
+        const fsBtnText = document.getElementById('fullscreenBtnText');
+        if (fsBtnIcon) fsBtnIcon.className = isFS ? 'fa-solid fa-compress text-amber-400' : 'fa-solid fa-maximize text-sky-400';
+        if (fsBtnText) fsBtnText.textContent = isFS ? '全画面解除' : '全画面';
+      });
+    }
+
+    function isAutoplayActive() {
+      return repeatMode !== 'OFF';
+    }
+
+    /* Fullscreen Toggle */
+    function toggleFullscreen() {
+      const player = document.getElementById('mainPlayer');
+      const videoWrapper = document.getElementById('videoWrapper');
+      
+      if (!document.fullscreenElement) {
+        if (player.requestFullscreen) {
+          player.requestFullscreen().catch(() => videoWrapper.requestFullscreen());
+        } else if (videoWrapper.requestFullscreen) {
+          videoWrapper.requestFullscreen();
+        }
+      } else {
+        if (document.exitFullscreen) {
+          document.exitFullscreen();
+        }
+      }
+    }
+
+    /* Picture-in-Picture Toggle */
+    async function togglePiP() {
+      const player = document.getElementById('mainPlayer');
+      if (!player) return;
+      try {
+        if (document.pictureInPictureElement) {
+          await document.exitPictureInPicture();
+        } else if (player.requestPictureInPicture) {
+          await player.requestPictureInPicture();
+        }
+      } catch (err) {
+        showToast('PiP再生に対応していません', 'fa-solid fa-triangle-exclamation text-amber-400');
+      }
+    }
+
+    /* Recursive Directory Traversal for Drag & Drop */
+    async function getAllFilesFromDataTransfer(dataTransfer) {
+      const files = [];
+      if (!dataTransfer) return files;
+
+      // Immediately snapshot file array synchronously before any async delay
+      const rawFiles = dataTransfer.files ? Array.from(dataTransfer.files) : [];
+      const items = dataTransfer.items ? Array.from(dataTransfer.items) : [];
+
+      const entries = [];
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].kind === 'file') {
+          const entry = items[i].webkitGetAsEntry ? items[i].webkitGetAsEntry() : null;
+          if (entry) entries.push(entry);
+        }
+      }
+
+      if (entries.length > 0) {
+        async function readEntry(entry, path = '') {
+          try {
+            if (entry.isFile) {
+              await new Promise((resolve) => {
+                entry.file((file) => {
+                  if (file) {
+                    files.push({
+                      file: file,
+                      relativePath: path ? `${path}/${file.name}` : file.name
+                    });
+                  }
+                  resolve();
+                }, () => resolve());
+              });
+            } else if (entry.isDirectory) {
+              const dirReader = entry.createReader();
+              const readAllEntries = async () => {
+                return new Promise((resolve) => {
+                  dirReader.readEntries(async (subEntries) => {
+                    if (!subEntries || subEntries.length === 0) {
+                      resolve();
+                    } else {
+                      for (const subEntry of subEntries) {
+                        await readEntry(subEntry, path ? `${path}/${entry.name}` : entry.name);
+                      }
+                      await readAllEntries();
+                      resolve();
+                    }
+                  }, () => resolve());
+                });
+              };
+              await readAllEntries();
+            }
+          } catch (err) {
+            console.warn('Entry parse error:', err);
+          }
+        }
+
+        for (const entry of entries) {
+          await readEntry(entry);
+        }
+      }
+
+      // Fallback if entry traversal didn't yield items
+      if (files.length === 0 && rawFiles.length > 0) {
+        rawFiles.forEach(file => {
+          files.push({
+            file: file,
+            relativePath: file.webkitRelativePath || file.name
+          });
+        });
+      }
+
+      return files;
+    }
+
+    async function handleFiles(rawItems) {
+      const mediaFiles = [];
+
+      rawItems.forEach(item => {
+        const file = item.file || item;
+        const relPath = item.relativePath || file.webkitRelativePath || file.name;
+        const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+        if (videoExtensions.includes(ext) || audioExtensions.includes(ext)) {
+          mediaFiles.push({
+            file: file,
+            isAudio: audioExtensions.includes(ext),
+            relativePath: relPath
+          });
+        }
+      });
+
+      if (mediaFiles.length === 0) {
+        showToast('対応する動画または音楽ファイルが見つかりません', 'fa-solid fa-triangle-exclamation text-amber-400');
+        return;
+      }
+
+      // Check Duplicates by File Name
+      const duplicates = [];
+      const nonDuplicates = [];
+
+      mediaFiles.forEach(item => {
+        const existing = masterVideoList.find(v => v.name === item.file.name);
+        if (existing) {
+          duplicates.push({ newItem: item, existingItem: existing, action: 'keep' });
+        } else {
+          nonDuplicates.push(item);
+        }
+      });
+
+      let itemsToAdd = [...nonDuplicates];
+
+      // Handle Duplicates via Modal if present
+      if (duplicates.length > 0) {
+        const resolvedDuplicates = await promptDuplicateAction(duplicates);
+        resolvedDuplicates.forEach(dup => {
+          if (dup.action === 'overwrite') {
+            const idx = masterVideoList.findIndex(v => v.id === dup.existingItem.id);
+            if (idx !== -1) {
+              removeVideoFromDB(dup.existingItem.id);
+              masterVideoList.splice(idx, 1);
+            }
+            itemsToAdd.push(dup.newItem);
+          } else if (dup.action === 'keep') {
+            const name = dup.newItem.file.name;
+            const lastDot = name.lastIndexOf('.');
+            const baseName = lastDot !== -1 ? name.substring(0, lastDot) : name;
+            const ext = lastDot !== -1 ? name.substring(lastDot) : '';
+            const newName = `${baseName} (コピー)${ext}`;
+            
+            dup.newItem.overrideName = newName;
+            itemsToAdd.push(dup.newItem);
+          }
+        });
+      }
+
+      if (itemsToAdd.length === 0) {
+        showToast('ファイルの追加が完了しました', 'fa-solid fa-info-circle text-sky-400');
+        return;
+      }
+
+      const targetFolder = (currentFolderId && !['all', 'favorites', 'history'].includes(currentFolderId)) ? currentFolderId : 'all';
+      const addedItems = [];
+
+      itemsToAdd.forEach(item => {
+        const file = item.file;
+        const displayName = item.overrideName || file.name;
+        const fileId = `${displayName}_${file.size}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+        const videoObj = {
+          id: fileId,
+          file: file,
+          name: displayName,
+          relativePath: item.relativePath || displayName,
+          size: file.size,
+          isAudio: item.isAudio,
+          url: URL.createObjectURL(file),
+          thumbnail: null,
+          duration: 0,
+          formattedDuration: '--:--',
+          folderIds: new Set(['all', targetFolder]),
+          isPersisted: true
+        };
+
+        masterVideoList.push(videoObj);
+        saveVideoToDB(videoObj);
+        addedItems.push(videoObj);
+      });
+
+      renderFolderBadges();
+      renderPlaylist();
+      showToast(`${addedItems.length} 件のファイルを読み込みました`, 'fa-solid fa-circle-check text-emerald-400');
+
+      if (currentPlayingIndex === -1 && masterVideoList.length > 0) {
+        playVideo(0);
+      }
+
+      processThumbnailQueue(addedItems);
+    }
+
+    let currentDuplicateItems = [];
+
+    function promptDuplicateAction(duplicates) {
+      return new Promise((resolve) => {
+        currentDuplicateItems = duplicates;
+        const modal = document.getElementById('duplicateModal');
+        const container = document.getElementById('duplicateListContainer');
+        if (!modal || !container) return resolve([]);
+
+        container.innerHTML = duplicates.map((dup, idx) => `
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between p-2 bg-yt-hoverBg rounded-lg border border-yt-border gap-2">
+            <span class="truncate font-medium text-white flex-1" title="${dup.newItem.file.name}">
+              <i class="fa-solid fa-file-video text-amber-400 mr-1.5"></i>${dup.newItem.file.name}
+            </span>
+            <div class="flex items-center gap-1 shrink-0 text-[11px]">
+              <label class="cursor-pointer bg-yt-cardBg px-2 py-1 rounded border border-yt-border flex items-center gap-1">
+                <input type="radio" name="dup_action_${idx}" value="overwrite" class="accent-red-500">
+                <span>上書き</span>
+              </label>
+              <label class="cursor-pointer bg-yt-cardBg px-2 py-1 rounded border border-yt-border flex items-center gap-1">
+                <input type="radio" name="dup_action_${idx}" value="keep" checked class="accent-sky-500">
+                <span>両方残す</span>
+              </label>
+              <label class="cursor-pointer bg-yt-cardBg px-2 py-1 rounded border border-yt-border flex items-center gap-1">
+                <input type="radio" name="dup_action_${idx}" value="skip" class="accent-gray-500">
+                <span>スキップ</span>
+              </label>
+            </div>
+          </div>
+        `).join('');
+
+        pendingDuplicateResolve = resolve;
+        modal.classList.remove('hidden');
+      });
+    }
+
+    function applyAllDuplicateAction(actionType) {
+      const container = document.getElementById('duplicateListContainer');
+      if (!container) return;
+
+      currentDuplicateItems.forEach((_, idx) => {
+        const radio = container.querySelector(`input[name="dup_action_${idx}"][value="${actionType}"]`);
+        if (radio) radio.checked = true;
+      });
+    }
+
+    function confirmDuplicateChoices() {
+      const modal = document.getElementById('duplicateModal');
+      const container = document.getElementById('duplicateListContainer');
+      if (!container) return;
+
+      currentDuplicateItems.forEach((dup, idx) => {
+        const selectedRadio = container.querySelector(`input[name="dup_action_${idx}"]:checked`);
+        if (selectedRadio) {
+          dup.action = selectedRadio.value;
+        }
+      });
+
+      if (modal) modal.classList.add('hidden');
+      if (pendingDuplicateResolve) {
+        const resolve = pendingDuplicateResolve;
+        pendingDuplicateResolve = null;
+        resolve(currentDuplicateItems);
+      }
+    }
+
+    function playPrev() {
+      const activeList = getFilteredAndSortedVideos();
+      if (activeList.length === 0) return;
+      let newIdx = currentPlayingIndex - 1;
+      if (newIdx < 0) newIdx = activeList.length - 1;
+      playVideo(newIdx);
+    }
+
+    function playNext() {
+      const activeList = getFilteredAndSortedVideos();
+      if (activeList.length === 0) return;
+      let newIdx = currentPlayingIndex + 1;
+      if (newIdx >= activeList.length) newIdx = 0;
+      playVideo(newIdx);
+    }
+
+    function playVideo(index) {
+      const activeList = getFilteredAndSortedVideos();
+      if (index < 0 || index >= activeList.length) return;
+
+      currentPlayingIndex = index;
+      const targetItem = activeList[index];
+
+      const player = document.getElementById('mainPlayer');
+      const audioVis = document.getElementById('audioVisualizer');
+      const originPathText = document.getElementById('originPathText');
+
+      player.src = targetItem.url;
+      document.getElementById('videoTitle').textContent = targetItem.name;
+      
+      if (originPathText) {
+        originPathText.textContent = `元パス: ${targetItem.relativePath || targetItem.name}`;
+      }
+
+      if (targetItem.isAudio) {
+        audioVis.classList.remove('hidden');
+        document.getElementById('audioTrackTitle').textContent = targetItem.name;
+        document.getElementById('metaType').innerHTML = `<i class="fa-solid fa-music mr-1 text-sky-400"></i>音楽`;
+        document.getElementById('metaResolution').innerHTML = `<i class="fa-solid fa-sliders mr-1"></i>音声`;
+      } else {
+        audioVis.classList.add('hidden');
+        document.getElementById('metaType').innerHTML = `<i class="fa-solid fa-film mr-1 text-red-500"></i>動画`;
+      }
+
+      document.getElementById('metaSize').innerHTML = `<i class="fa-solid fa-hard-drive mr-1"></i>${(targetItem.size / (1024 * 1024)).toFixed(1)} MB`;
+
+      player.onloadedmetadata = () => {
+        if (!targetItem.isAudio) {
+          document.getElementById('metaResolution').innerHTML = `<i class="fa-solid fa-tv mr-1"></i>${player.videoWidth}x${player.videoHeight}`;
+        }
+        document.getElementById('metaDuration').innerHTML = `<i class="fa-regular fa-clock mr-1"></i>${formatTime(player.duration)}`;
+        
+        if (!targetItem.duration || targetItem.duration === 0) {
+          targetItem.duration = player.duration;
+          targetItem.formattedDuration = formatTime(player.duration);
+          saveVideoToDB(targetItem);
+          renderPlaylist();
+        }
+
+        // Resume Playback
+        const savedProgressPercent = watchProgressMap.get(targetItem.id);
+        if (savedProgressPercent && savedProgressPercent < 95) {
+          const resumeTime = (savedProgressPercent / 100) * player.duration;
+          player.currentTime = resumeTime;
+        }
+      };
+
+      const speed = document.getElementById('speedSelect').value;
+      player.playbackRate = parseFloat(speed);
+
+      // Setup Volume Boost Audio Context
+      setupAudioBoostContext(player);
+
+      player.play().catch(() => {});
+
+      // Add to History Folder
+      targetItem.folderIds.add('history');
+
+      clearABRepeat();
+      renderBookmarksUI(targetItem.id);
+      updateFavoriteUI(targetItem);
+      updateMediaSessionMetadata(targetItem);
+      renderPlaylist();
+    }
+
+    function setupAudioBoostContext(videoEl) {
+      if (!audioCtx) {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        audioCtx = new AudioContext();
+        gainNode = audioCtx.createGain();
+        try {
+          mediaSourceNode = audioCtx.createMediaElementSource(videoEl);
+          mediaSourceNode.connect(gainNode);
+          gainNode.connect(audioCtx.destination);
+        } catch (e) {}
+      }
+      if (audioCtx && audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+    }
+
+    function updateVolumeBoost(val) {
+      const gainVal = parseFloat(val) / 100;
+      if (gainNode) {
+        gainNode.gain.value = gainVal;
+      }
+      document.getElementById('volumeBoostVal').textContent = `${val}%`;
+    }
+
+    function formatTime(seconds) {
+      if (!seconds || isNaN(seconds)) return '00:00';
+      const m = Math.floor(seconds / 60);
+      const s = Math.floor(seconds % 60);
+      return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    }
+
+    function setABPoint(type) {
+      const player = document.getElementById('mainPlayer');
+      if (!player) return;
+      if (type === 'A') {
+        pointA = player.currentTime;
+        document.getElementById('pointAVal').textContent = formatTime(pointA);
+        showToast(`A点を ${formatTime(pointA)} に設定`, 'fa-solid fa-flag text-amber-400');
+      } else {
+        pointB = player.currentTime;
+        document.getElementById('pointBVal').textContent = formatTime(pointB);
+        showToast(`B点を ${formatTime(pointB)} に設定 (ループ再生中)`, 'fa-solid fa-rotate text-emerald-400');
+      }
+    }
+
+    function clearABRepeat() {
+      pointA = null;
+      pointB = null;
+      document.getElementById('pointAVal').textContent = '未設定';
+      document.getElementById('pointBVal').textContent = '未設定';
+    }
+
+    function addBookmark() {
+      const player = document.getElementById('mainPlayer');
+      const input = document.getElementById('bookmarkInput');
+      if (!player || currentPlayingIndex < 0) return;
+
+      const activeList = getFilteredAndSortedVideos();
+      const currentItem = activeList[currentPlayingIndex];
+      if (!currentItem) return;
+
+      const memoText = input ? input.value.trim() : '';
+      const timeSec = player.currentTime;
+
+      if (!bookmarksMap.has(currentItem.id)) {
+        bookmarksMap.set(currentItem.id, []);
+      }
+
+      const list = bookmarksMap.get(currentItem.id);
+      list.push({ time: timeSec, memo: memoText || `タイムスタンプ (${formatTime(timeSec)})` });
+      localStorage.setItem(STORAGE_BOOKMARKS, JSON.stringify(Array.from(bookmarksMap.entries())));
+
+      if (input) input.value = '';
+      renderBookmarksUI(currentItem.id);
+      showToast('タイムスタンプメモを保存しました', 'fa-solid fa-bookmark text-sky-400');
+    }
+
+    function renderBookmarksUI(videoId) {
+      const container = document.getElementById('bookmarkContainer');
+      if (!container) return;
+
+      const list = bookmarksMap.get(videoId) || [];
+      if (list.length === 0) {
+        container.innerHTML = '';
+        return;
+      }
+
+      container.innerHTML = list.map((b, idx) => `
+        <button onclick="seekToBookmark(${b.time})" class="bg-yt-cardBg hover:bg-yt-hoverBg text-sky-300 border border-yt-border px-2 py-0.5 rounded text-[11px] flex items-center gap-1 transition">
+          <i class="fa-solid fa-location-dot text-amber-400"></i>
+          <span class="font-mono font-bold">${formatTime(b.time)}</span>
+          <span class="text-white truncate max-w-[120px]">${b.memo}</span>
+          <i class="fa-solid fa-xmark text-yt-textSec hover:text-red-400 ml-1" onclick="event.stopPropagation(); removeBookmark('${videoId}', ${idx})"></i>
+        </button>
+      `).join('');
+    }
+
+    function seekToBookmark(time) {
+      const player = document.getElementById('mainPlayer');
+      if (player) {
+        player.currentTime = time;
+        player.play();
+      }
+    }
+
+    function removeBookmark(videoId, idx) {
+      const list = bookmarksMap.get(videoId);
+      if (list) {
+        list.splice(idx, 1);
+        localStorage.setItem(STORAGE_BOOKMARKS, JSON.stringify(Array.from(bookmarksMap.entries())));
+        renderBookmarksUI(videoId);
+      }
+    }
+
+    function cycleRepeatMode() {
+      if (repeatMode === 'OFF') repeatMode = 'ONE';
+      else if (repeatMode === 'ONE') repeatMode = 'ALL';
+      else repeatMode = 'OFF';
+
+      const icon = document.getElementById('repeatIcon');
+      const txt = document.getElementById('repeatText');
+      if (repeatMode === 'OFF') {
+        if (icon) icon.className = 'fa-solid fa-repeat text-yt-textSec';
+        if (txt) txt.textContent = 'リピート: OFF';
+      } else if (repeatMode === 'ONE') {
+        if (icon) icon.className = 'fa-solid fa-repeat text-amber-400';
+        if (txt) txt.textContent = '1曲リピート';
+      } else {
+        if (icon) icon.className = 'fa-solid fa-repeat text-emerald-400';
+        if (txt) txt.textContent = '全曲リピート';
+      }
+    }
+
+    function updateFavoriteUI(item) {
+      const favIcon = document.getElementById('favIcon');
+      const isFav = item.folderIds.has('favorites');
+      if (favIcon) {
+        favIcon.className = isFav ? 'fa-solid fa-heart text-yt-red' : 'fa-regular fa-heart text-yt-red';
+      }
+    }
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) return;
+      
+      const player = document.getElementById('mainPlayer');
+      if (e.shiftKey && e.code === 'KeyN') {
+        e.preventDefault(); playNext();
+      } else if (e.shiftKey && e.code === 'KeyP') {
+        e.preventDefault(); playPrev();
+      } else if (e.code === 'KeyF') {
+        e.preventDefault(); toggleFullscreen();
+      } else if (e.code === 'KeyT') {
+        e.preventDefault(); toggleTheaterMode();
+      } else if (e.code === 'Space' || e.code === 'KeyK') {
+        e.preventDefault();
+        if (player.paused) player.play(); else player.pause();
+      } else if (e.code === 'ArrowLeft') {
+        e.preventDefault(); player.currentTime = Math.max(0, player.currentTime - 5);
+      } else if (e.code === 'ArrowRight') {
+        e.preventDefault(); player.currentTime = Math.min(player.duration || 0, player.currentTime + 5);
+      }
+    });
+
+    // Drag & Drop Setup
+    const folderInput = document.getElementById('folderInput');
+    const mobileFileInput = document.getElementById('mobileFileInput');
+    const dropOverlay = document.getElementById('dropOverlay');
+
+    if (folderInput) folderInput.addEventListener('change', (e) => handleFiles(Array.from(e.target.files)));
+    if (mobileFileInput) mobileFileInput.addEventListener('change', (e) => handleFiles(Array.from(e.target.files)));
+
+    let dragCounter = 0;
+
+    window.addEventListener('dragenter', (e) => {
+      e.preventDefault();
+      dragCounter++;
+      if (dropOverlay) dropOverlay.classList.remove('hidden');
+    });
+
+    window.addEventListener('dragover', (e) => {
+      e.preventDefault();
+    });
+
+    window.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      dragCounter--;
+      if (dragCounter <= 0 && dropOverlay) {
+        dragCounter = 0;
+        dropOverlay.classList.add('hidden');
+      }
+    });
+
+    window.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      dragCounter = 0;
+      if (dropOverlay) dropOverlay.classList.add('hidden');
+
+      if (e.dataTransfer) {
+        try {
+          const files = await getAllFilesFromDataTransfer(e.dataTransfer);
+          if (files.length > 0) {
+            await handleFiles(files);
+          } else {
+            showToast('ドロップされたファイルが取得できませんでした', 'fa-solid fa-triangle-exclamation text-amber-400');
+          }
+        } catch (err) {
+          console.error('Drop handling error:', err);
+          showToast('ファイルの読み込み中にエラーが発生しました', 'fa-solid fa-triangle-exclamation text-red-400');
+        }
+      }
+    });
+
+    function saveFoldersToStorage() {
+      localStorage.setItem(STORAGE_FOLDERS, JSON.stringify(virtualFolders));
+    }
+
+    function createNewFolderPrompt() {
+      const folderName = prompt('新規フォルダ名を入力してください:');
+      if (!folderName || !folderName.trim()) return;
+
+      const folderId = `folder_${Date.now()}`;
+      virtualFolders.push({
+        id: folderId,
+        name: folderName.trim(),
+        isSystem: false
+      });
+
+      saveFoldersToStorage();
+      renderFolderBadges();
+      selectFolder(folderId);
+      showToast(`フォルダ「${folderName}」を作成しました`, 'fa-solid fa-folder-plus text-amber-400');
+    }
+
+    function deleteFolder(folderId) {
+      const targetFolder = virtualFolders.find(f => f.id === folderId);
+      if (!targetFolder || targetFolder.isSystem) {
+        showToast('システムフォルダは削除できません', 'fa-solid fa-lock text-amber-400');
+        return;
+      }
+
+      if (!confirm(`フォルダ「${targetFolder.name}」を削除しますか？\n（フォルダ内の動画データ自体は削除されません）`)) {
+        return;
+      }
+
+      // Remove folder ID association from items
+      masterVideoList.forEach(v => {
+        if (v.folderIds) {
+          v.folderIds.delete(folderId);
+          saveVideoToDB(v);
+        }
+      });
+
+      // Remove from Virtual Folders array
+      virtualFolders = virtualFolders.filter(f => f.id !== folderId);
+      saveFoldersToStorage();
+
+      if (currentFolderId === folderId) {
+        currentFolderId = 'all';
+      }
+
+      renderFolderBadges();
+      renderPlaylist();
+      openManageFoldersModal(); // Refresh modal
+      showToast(`フォルダ「${targetFolder.name}」を削除しました`, 'fa-solid fa-trash-can text-red-400');
+    }
+
+    function renderFolderBadges() {
+      const container = document.getElementById('folderBadgeContainer');
+      if (!container) return;
+
+      container.innerHTML = virtualFolders.map(f => {
+        const isActive = f.id === currentFolderId;
+        const activeClass = isActive 
+          ? 'bg-white text-black font-bold' 
+          : 'bg-yt-cardBg hover:bg-yt-hoverBg text-yt-textSec hover:text-white border border-yt-border';
+        
+        let icon = 'fa-folder';
+        if (f.id === 'all') icon = 'fa-border-all';
+        if (f.id === 'favorites') icon = 'fa-heart text-yt-red';
+        if (f.id === 'history') icon = 'fa-clock-rotate-left';
+
+        return `
+          <div class="inline-flex items-center rounded-full ${activeClass} shrink-0 px-3 py-1 text-xs gap-1.5 transition group">
+            <button onclick="selectFolder('${f.id}')" class="flex items-center gap-1.5 outline-none">
+              <i class="fa-solid ${icon}"></i>
+              <span>${f.name}</span>
+            </button>
+            ${!f.isSystem ? `
+              <button onclick="event.stopPropagation(); deleteFolder('${f.id}')" class="ml-1 opacity-60 hover:opacity-100 hover:text-red-500 transition" title="フォルダ削除">
+                <i class="fa-solid fa-xmark text-[11px]"></i>
+              </button>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    function openManageFoldersModal() {
+      const modal = document.getElementById('manageFoldersModal');
+      const listContainer = document.getElementById('manageFolderList');
+      if (!modal || !listContainer) return;
+
+      const userFolders = virtualFolders.filter(f => !f.isSystem);
+      if (userFolders.length === 0) {
+        listContainer.innerHTML = `<p class="text-xs text-yt-textSec py-4 text-center">作成されたカスタムフォルダはありません</p>`;
+      } else {
+        listContainer.innerHTML = userFolders.map(f => `
+          <div class="flex items-center justify-between p-2.5 rounded-xl bg-yt-hoverBg border border-yt-border text-xs text-white">
+            <span class="flex items-center gap-2 font-medium">
+              <i class="fa-solid fa-folder text-amber-400"></i>
+              ${f.name}
+            </span>
+            <button onclick="deleteFolder('${f.id}')" class="text-red-400 hover:text-red-300 bg-red-950/40 hover:bg-red-900 px-2.5 py-1 rounded-lg border border-red-800 transition flex items-center gap-1">
+              <i class="fa-solid fa-trash-can"></i> 削除
+            </button>
+          </div>
+        `).join('');
+      }
+
+      modal.classList.remove('hidden');
+    }
+
+    function selectFolder(folderId) {
+      currentFolderId = folderId;
+      renderFolderBadges();
+      renderPlaylist();
+    }
+
+    function getFilteredAndSortedVideos() {
+      let list = masterVideoList.filter(item => {
+        if (currentFolderId === 'all') return true;
+        if (currentFolderId === 'favorites') return item.folderIds.has('favorites');
+        if (currentFolderId === 'history') return item.folderIds.has('history');
+        return item.folderIds && item.folderIds.has(currentFolderId);
+      });
+
+      if (searchKeyword.trim()) {
+        const kw = searchKeyword.toLowerCase();
+        list = list.filter(item => 
+          item.name.toLowerCase().includes(kw) || 
+          (item.relativePath && item.relativePath.toLowerCase().includes(kw))
+        );
+      }
+
+      list.sort((a, b) => {
+        if (currentSort === 'name') return a.name.localeCompare(b.name, undefined, { numeric: true });
+        if (currentSort === 'size') return b.size - a.size;
+        if (currentSort === 'duration') return (b.duration || 0) - (a.duration || 0);
+        return 0;
+      });
+
+      return list;
+    }
+
+    function toggleViewMode() {
+      viewMode = viewMode === 'list' ? 'grid' : 'list';
+      const icon = document.getElementById('viewModeIcon');
+      if (icon) icon.className = viewMode === 'grid' ? 'fa-solid fa-list' : 'fa-solid fa-table-cells';
+      renderPlaylist();
+    }
+
+    function renderPlaylist() {
+      const container = document.getElementById('playlistContainer');
+      const videoCountEl = document.getElementById('videoCount');
+      if (!container) return;
+
+      const activeList = getFilteredAndSortedVideos();
+      if (videoCountEl) videoCountEl.textContent = `${activeList.length} 本のアイテム`;
+
+      if (activeList.length === 0) {
+        const folderObj = virtualFolders.find(f => f.id === currentFolderId);
+        container.innerHTML = `
+          <div class="h-full flex flex-col items-center justify-center text-center text-yt-textSec p-6">
+            <i class="fa-solid fa-folder-open text-4xl mb-2 text-yt-border"></i>
+            <p class="font-bold text-white text-sm mb-1">${folderObj ? folderObj.name : 'フォルダ'} は空です</p>
+            <p class="text-xs leading-relaxed">「整理」ボタンからファイルを追加するか<br>「フォルダ選択」でメディアを選択してください</p>
+          </div>
+        `;
+        return;
+      }
+
+      if (viewMode === 'grid') {
+        container.className = 'flex-1 overflow-y-auto pt-2 grid grid-cols-2 gap-2 pr-1 pb-12 md:pb-0';
+      } else {
+        container.className = 'flex-1 overflow-y-auto pt-2 space-y-2 pr-1 pb-12 md:pb-0';
+      }
+
+      container.innerHTML = activeList.map((item, index) => {
+        const isPlaying = index === currentPlayingIndex;
+        const isSelected = selectedVideoIds.has(item.id);
+        const progress = watchProgressMap.get(item.id) || 0;
+
+        if (viewMode === 'grid') {
+          return `
+            <div onclick="playVideo(${index})" class="flex flex-col bg-yt-cardBg rounded-xl overflow-hidden hover:bg-yt-hoverBg transition cursor-pointer border border-yt-border relative group ${isPlaying ? 'ring-2 ring-yt-red' : ''}">
+              ${isBatchMode ? `
+                <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleVideoSelect('${item.id}')" class="absolute top-2 left-2 z-20 w-4 h-4 accent-red-600">
+              ` : ''}
+              <div class="w-full thumb-aspect bg-zinc-800 relative flex items-center justify-center overflow-hidden">
+                ${item.thumbnail ? `
+                  <img src="${item.thumbnail}" class="w-full h-full object-cover">
+                ` : `
+                  <i class="fa-solid ${item.isAudio ? 'fa-music text-sky-400' : 'fa-film text-yt-textSec'} text-2xl"></i>
+                `}
+                <span class="absolute bottom-1 right-1 bg-black/80 text-[9px] px-1 rounded font-mono text-white">${item.formattedDuration || '--:--'}</span>
+                ${progress > 0 ? `
+                  <div class="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                    <div class="h-full bg-yt-red" style="width: ${progress}%"></div>
+                  </div>` : ''
+                }
+              </div>
+              <div class="p-2 min-w-0">
+                <p class="text-xs font-medium text-white truncate ${isPlaying ? 'text-yt-red font-bold' : ''}">${item.name}</p>
+                <p class="text-[10px] text-yt-textSec truncate mt-0.5">${item.relativePath || item.name}</p>
+              </div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="flex items-center gap-2 p-2 rounded-xl hover:bg-yt-hoverBg transition cursor-pointer group ${isPlaying ? 'bg-yt-hoverBg border-l-4 border-yt-red' : ''}">
+            ${isBatchMode ? `
+              <input type="checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleVideoSelect('${item.id}')" class="w-4 h-4 accent-red-600 shrink-0">
+            ` : ''}
+
+            <div onclick="playVideo(${index})" class="flex-1 flex items-center gap-3 min-w-0">
+              <div class="w-20 sm:w-24 thumb-aspect rounded-lg bg-zinc-800 shrink-0 flex items-center justify-center overflow-hidden relative border border-yt-border">
+                ${item.thumbnail ? `
+                  <img src="${item.thumbnail}" class="w-full h-full object-cover">
+                ` : `
+                  <i class="fa-solid ${item.isAudio ? 'fa-music text-sky-400' : 'fa-film text-yt-textSec'} text-lg"></i>
+                `}
+                <span class="absolute bottom-1 right-1 bg-black/80 text-[9px] px-1 rounded font-mono text-white">${item.formattedDuration || '--:--'}</span>
+                ${progress > 0 ? `
+                  <div class="absolute bottom-0 left-0 right-0 h-1 bg-white/20">
+                    <div class="h-full bg-yt-red" style="width: ${progress}%"></div>
+                  </div>` : ''
+                }
+              </div>
+              <div class="min-w-0 flex-1">
+                <p class="text-xs font-medium text-white truncate ${isPlaying ? 'text-yt-red font-bold' : ''}">${item.name}</p>
+                <p class="text-[10px] text-yt-textSec truncate mt-0.5">${item.relativePath || item.name}</p>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function handleSearch() {
+      const input = document.getElementById('searchInput');
+      searchKeyword = input ? input.value : '';
+      renderPlaylist();
+    }
+
+    function handleSortChange(val) {
+      currentSort = val;
+      renderPlaylist();
+    }
+
+    function shuffleCurrentPlaylist() {
+      const activeList = getFilteredAndSortedVideos();
+      if (activeList.length === 0) return;
+      const randIdx = Math.floor(Math.random() * activeList.length);
+      playVideo(randIdx);
+    }
+
+    function toggleTheaterMode() {
+      isTheaterMode = !isTheaterMode;
+      document.body.classList.toggle('theater-mode', isTheaterMode);
+      const icon = document.getElementById('theaterIcon');
+      if (icon) icon.className = isTheaterMode ? 'fa-solid fa-compress' : 'fa-solid fa-expand';
+    }
+
+    function toggleFavorite() {
+      const activeList = getFilteredAndSortedVideos();
+      if (currentPlayingIndex < 0 || currentPlayingIndex >= activeList.length) return;
+      const current = activeList[currentPlayingIndex];
+      
+      if (current.folderIds.has('favorites')) {
+        current.folderIds.delete('favorites');
+        showToast('お気に入りを解除しました', 'fa-solid fa-heart text-yt-textSec');
+      } else {
+        current.folderIds.add('favorites');
+        showToast('お気に入りに追加しました', 'fa-solid fa-heart text-yt-red');
+      }
+      
+      saveVideoToDB(current);
+      updateFavoriteUI(current);
+      renderFolderBadges();
+      renderPlaylist();
+    }
+
+    function changeSpeed(val) {
+      const player = document.getElementById('mainPlayer');
+      if (player) player.playbackRate = parseFloat(val);
+    }
+
+    function takeScreenshot() {
+      const player = document.getElementById('mainPlayer');
+      if (!player || player.paused) {
+        showToast('動画再生中にキャプチャを実行してください', 'fa-solid fa-triangle-exclamation text-amber-400');
+        return;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = player.videoWidth || 1280;
+      canvas.height = player.videoHeight || 720;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(player, 0, 0, canvas.width, canvas.height);
+
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `LocalTube_Capture_${Date.now()}.png`;
+      a.click();
+      showToast('キャプチャ画像を保存しました', 'fa-solid fa-camera text-emerald-400');
+    }
+
+    function toggleBatchMode() {
+      isBatchMode = !isBatchMode;
+      selectedVideoIds.clear();
+      const toolbar = document.getElementById('batchToolBar');
+      if (toolbar) toolbar.classList.toggle('hidden', !isBatchMode);
+      renderPlaylist();
+    }
+
+    function toggleVideoSelect(id) {
+      if (selectedVideoIds.has(id)) {
+        selectedVideoIds.delete(id);
+      } else {
+        selectedVideoIds.add(id);
+      }
+      const cnt = document.getElementById('selectedCount');
+      if (cnt) cnt.textContent = selectedVideoIds.size;
+      renderPlaylist();
+    }
+
+    function toggleSelectAll(checked) {
+      const activeList = getFilteredAndSortedVideos();
+      selectedVideoIds.clear();
+      if (checked) {
+        activeList.forEach(v => selectedVideoIds.add(v.id));
+      }
+      const cnt = document.getElementById('selectedCount');
+      if (cnt) cnt.textContent = selectedVideoIds.size;
+      renderPlaylist();
+    }
+
+    function openMoveFolderModal() {
+      const modal = document.getElementById('folderModal');
+      const selectList = document.getElementById('folderSelectList');
+      if (!modal || !selectList) return;
+
+      const userFolders = virtualFolders.filter(f => !f.isSystem);
+      if (userFolders.length === 0) {
+        showToast('移動可能なフォルダがありません。「新規作成」を行ってください', 'fa-solid fa-circle-exclamation text-amber-400');
+        return;
+      }
+
+      selectList.innerHTML = userFolders.map(f => `
+        <button onclick="moveToFolder('${f.id}')" class="w-full text-left px-3 py-2 rounded-lg bg-yt-hoverBg hover:bg-yt-activeBg text-white text-xs flex items-center justify-between border border-yt-border">
+          <span class="flex items-center gap-2"><i class="fa-solid fa-folder text-amber-400"></i> ${f.name}</span>
+          <i class="fa-solid fa-chevron-right text-[10px] text-yt-textSec"></i>
+        </button>
+      `).join('');
+
+      modal.classList.remove('hidden');
+    }
+
+    function moveToFolder(targetFolderId) {
+      const activeList = getFilteredAndSortedVideos();
+      if (selectedVideoIds.size > 0) {
+        selectedVideoIds.forEach(id => {
+          const item = masterVideoList.find(v => v.id === id);
+          if (item) {
+            item.folderIds.add(targetFolderId);
+            saveVideoToDB(item);
+          }
+        });
+        showToast(`${selectedVideoIds.size} 件のファイルをフォルダへ移動しました`, 'fa-solid fa-folder-check text-emerald-400');
+        selectedVideoIds.clear();
+        toggleBatchMode();
+      } else if (currentPlayingIndex >= 0 && currentPlayingIndex < activeList.length) {
+        const item = activeList[currentPlayingIndex];
+        item.folderIds.add(targetFolderId);
+        saveVideoToDB(item);
+        showToast('フォルダへ追加しました', 'fa-solid fa-folder-check text-emerald-400');
+      }
+      toggleModal('folderModal');
+      renderPlaylist();
+    }
+
+    function batchMoveModal() {
+      if (selectedVideoIds.size === 0) {
+        showToast('対象アイテムを選択してください', 'fa-solid fa-circle-exclamation text-amber-400');
+        return;
+      }
+      openMoveFolderModal();
+    }
+
+    async function batchDelete() {
+      if (selectedVideoIds.size === 0) return;
+      if (!confirm(`選択した ${selectedVideoIds.size} 件のアイテムを削除しますか？`)) return;
+
+      for (let id of selectedVideoIds) {
+        await removeVideoFromDB(id);
+        masterVideoList = masterVideoList.filter(v => v.id !== id);
+      }
+
+      selectedVideoIds.clear();
+      toggleBatchMode();
+      renderPlaylist();
+      showToast('選択したアイテムを削除しました', 'fa-solid fa-trash-can text-red-400');
+    }
+
+    function toggleModal(modalId) {
+      const m = document.getElementById(modalId);
+      if (m) m.classList.toggle('hidden');
+    }
+
+    function switchMobileTab(tab) {
+      if (tab === 'home') selectFolder('all');
+      if (tab === 'folders') openMoveFolderModal();
+      if (tab === 'favs') selectFolder('favorites');
+      if (tab === 'history') selectFolder('history');
+
+      ['mNavHome', 'mNavFolders', 'mNavFavs', 'mNavHistory'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('mobile-tab-active');
+      });
+    }
+
+    /* Double Tap Gesture Overlay Setup */
+    function setupDoubleTapGestures() {
+      const player = document.getElementById('mainPlayer');
+      const leftOverlay = document.getElementById('tapOverlayLeft');
+      const rightOverlay = document.getElementById('tapOverlayRight');
+
+      if (!player || !leftOverlay || !rightOverlay) return;
+
+      leftOverlay.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        player.currentTime = Math.max(0, player.currentTime - 10);
+        showRipple('rippleLeft');
+      });
+
+      rightOverlay.addEventListener('dblclick', (e) => {
+        e.preventDefault();
+        player.currentTime = Math.min(player.duration || 0, player.currentTime + 10);
+        showRipple('rippleRight');
+      });
+    }
+
+    function showRipple(rippleId) {
+      const ripple = document.getElementById(rippleId);
+      if (!ripple) return;
+      ripple.classList.remove('hidden');
+      ripple.classList.add('seek-ripple');
+      setTimeout(() => {
+        ripple.classList.add('hidden');
+        ripple.classList.remove('seek-ripple');
+      }, 600);
+    }
+
+    function updateMediaSessionMetadata(item) {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: item.name,
+          artist: 'LocalTube',
+          album: item.relativePath || 'ローカル再生'
+        });
+      }
+    }
+
+    function setupMediaSession() {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.setActionHandler('previoustrack', () => playPrev());
+        navigator.mediaSession.setActionHandler('nexttrack', () => playNext());
+        navigator.mediaSession.setActionHandler('seekbackward', () => {
+          const p = document.getElementById('mainPlayer');
+          if (p) p.currentTime = Math.max(0, p.currentTime - 10);
+        });
+        navigator.mediaSession.setActionHandler('seekforward', () => {
+          const p = document.getElementById('mainPlayer');
+          if (p) p.currentTime = Math.min(p.duration || 0, p.currentTime + 10);
+        });
+      }
+    }
+
+    function showToast(message, iconClass = 'fa-solid fa-circle-info text-sky-400') {
+      const toast = document.getElementById('toast');
+      const toastMsg = document.getElementById('toastMessage');
+      const toastIcon = document.getElementById('toastIcon');
+
+      if (!toast || !toastMsg || !toastIcon) return;
+
+      toastMsg.textContent = message;
+      toastIcon.className = `${iconClass} shrink-0`;
+
+      toast.classList.remove('opacity-0', 'pointer-events-none');
+      toast.classList.add('opacity-100');
+
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0', 'pointer-events-none');
+      }, 3000);
+    }
+
+    function exportData() {
+      const exportObj = {
+        folders: virtualFolders,
+        bookmarks: Array.from(bookmarksMap.entries()),
+        videos: masterVideoList.map(v => ({
+          id: v.id,
+          name: v.name,
+          relativePath: v.relativePath,
+          size: v.size,
+          folderIds: Array.from(v.folderIds || [])
+        }))
+      };
+
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", `LocalTube_Backup_${Date.now()}.json`);
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+      showToast('設定データをエクスポートしました', 'fa-solid fa-file-export text-emerald-400');
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = JSON.parse(e.target.result);
+          if (data.folders) {
+            virtualFolders = data.folders;
+            saveFoldersToStorage();
+          }
+          if (data.bookmarks) {
+            bookmarksMap = new Map(data.bookmarks);
+            localStorage.setItem(STORAGE_BOOKMARKS, JSON.stringify(data.bookmarks));
+          }
+          renderFolderBadges();
+          renderPlaylist();
+          showToast('設定データを読み込みました', 'fa-solid fa-file-import text-emerald-400');
+        } catch (err) {
+          showToast('JSONファイルの形式が正しくありません', 'fa-solid fa-circle-exclamation text-red-400');
+        }
+      };
+      reader.readAsText(file);
+    }
+  </script>
+</body>
+</html>
