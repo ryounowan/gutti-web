@@ -15,26 +15,5 @@
     "likes": [],
     "replies": [],
     "reposts": []
-  },
-  {
-    "user": "Gutti Presents運営",
-    "userIcon": "https://ryounowan.github.io/gutti-web/1757222484126.jpg",
-    "text": "どっち派？",
-    "image": "",
-    "images": [],
-    "poll": {
-      "options": [
-        "猫",
-        "犬"
-      ],
-      "voted": {
-        "Gutti Presents運営": 0
-      }
-    },
-    "timestamp": 1785486702805,
-    "date": "2026/7/31 17:31:42",
-    "likes": [],
-    "reposts": [],
-    "replies": []
   }
 ]
