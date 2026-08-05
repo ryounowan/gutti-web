@@ -88,7 +88,7 @@
     <!-- Hero / Dropzone -->
     <section>
       <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-sky-500/80 bg-slate-800/30 hover:bg-slate-800/50 rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer group shadow-inner">
-        <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*">
+        <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*,.wmv,.avi,.mkv,.flv,.wma,.m4a,.flac,.opus,.heic,.avif">
         <div class="max-w-md mx-auto space-y-4 pointer-events-none">
           <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800 group-hover:bg-sky-500/20 text-slate-400 group-hover:text-sky-400 flex items-center justify-center transition-all shadow-md">
             <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
@@ -97,7 +97,7 @@
             <p class="text-base font-semibold text-slate-200">
               ファイルをドラッグ＆ドロップ、または <span class="text-sky-400 underline decoration-sky-400/30 underline-offset-4">参照</span>
             </p>
-            <p class="text-xs text-slate-400 mt-1">画像 (PNG, JPG, WebP...) / 音声 (MP3, WAV, AAC...) / 動画 (MP4, WebM...)</p>
+            <p class="text-xs text-slate-400 mt-1">画像 (PNG, JPG, WebP, AVIF...) / 音声 (MP3, WAV, AAC, WMA...) / 動画 (MP4, WMV, WebM, AVI...)</p>
           </div>
           <div class="flex justify-center gap-2 pt-2">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
@@ -171,7 +171,7 @@
     let ffmpegLoaded = false;
     let isProcessing = false;
 
-    // Supported Formats
+    // Supported Formats (拡張版)
     const FORMAT_MAP = {
       image: [
         { ext: 'png', label: 'PNG (無歪み/透過)' },
@@ -179,19 +179,26 @@
         { ext: 'webp', label: 'WebP (次世代画像)' },
         { ext: 'bmp', label: 'BMP (ビットマップ)' },
         { ext: 'ico', label: 'ICO (アイコンファイル)' },
-        { ext: 'gif', label: 'GIF (静止画GIF)' }
+        { ext: 'gif', label: 'GIF (静止画GIF)' },
+        { ext: 'tiff', label: 'TIFF (高品質画像)' }
       ],
       audio: [
         { ext: 'mp3', label: 'MP3 (標準オーディオ)' },
         { ext: 'wav', label: 'WAV (非圧縮高音質)' },
-        { ext: 'ogg', label: 'OGG Vorbis' },
+        { ext: 'm4a', label: 'M4A (AACオーディオ)' },
         { ext: 'aac', label: 'AAC オーディオ' },
-        { ext: 'm4a', label: 'M4A オーディオ' },
-        { ext: 'flac', label: 'FLAC (可逆圧縮)' }
+        { ext: 'wma', label: 'WMA (Windows Media)' },
+        { ext: 'ogg', label: 'OGG Vorbis' },
+        { ext: 'flac', label: 'FLAC (可逆圧縮)' },
+        { ext: 'opus', label: 'Opus (超低遅延/高音質)' }
       ],
       video: [
         { ext: 'mp4', label: 'MP4 (H.264 / 標準動画)' },
+        { ext: 'wmv', label: 'WMV (Windows Media Video)' },
         { ext: 'webm', label: 'WebM (Web動画)' },
+        { ext: 'avi', label: 'AVI (標準動画)' },
+        { ext: 'mkv', label: 'MKV (Matroska Video)' },
+        { ext: 'flv', label: 'FLV (Flash Video)' },
         { ext: 'gif', label: 'GIF アニメーション' },
         { ext: 'mp3', label: 'MP3 (音声抽出)' },
         { ext: 'wav', label: 'WAV (音声抽出)' }
@@ -267,9 +274,9 @@
       
       // Fallback by extension
       const ext = file.name.split('.').pop().toLowerCase();
-      if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'ico', 'gif'].includes(ext)) return 'image';
-      if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'].includes(ext)) return 'audio';
-      if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
+      if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'ico', 'gif', 'tiff', 'heic', 'avif', 'svg'].includes(ext)) return 'image';
+      if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac', 'wma', 'opus'].includes(ext)) return 'audio';
+      if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'm4v'].includes(ext)) return 'video';
       return 'image';
     }
 
@@ -405,6 +412,18 @@
         args.push('-vn', '-acodec', 'pcm_s16le');
       } else if (targetExt === 'mp4') {
         args.push('-c:v', 'libx264', '-preset', 'fast', '-c:a', 'aac');
+      } else if (targetExt === 'wmv') {
+        args.push('-c:v', 'wmv2', '-c:a', 'wmav2');
+      } else if (targetExt === 'avi') {
+        args.push('-c:v', 'mpeg4', '-c:a', 'mp3');
+      } else if (targetExt === 'wma') {
+        args.push('-vn', '-c:a', 'wmav2');
+      } else if (targetExt === 'm4a' || targetExt === 'aac') {
+        args.push('-vn', '-c:a', 'aac');
+      } else if (targetExt === 'flac') {
+        args.push('-vn', '-c:a', 'flac');
+      } else if (targetExt === 'ogg') {
+        args.push('-vn', '-c:a', 'libvorbis');
       }
 
       args.push(outputName);
@@ -423,10 +442,14 @@
 
       let mimeType = 'application/octet-stream';
       if (targetExt === 'mp4') mimeType = 'video/mp4';
+      if (targetExt === 'wmv') mimeType = 'video/x-ms-wmv';
       if (targetExt === 'webm') mimeType = 'video/webm';
+      if (targetExt === 'avi') mimeType = 'video/x-msvideo';
       if (targetExt === 'gif') mimeType = 'image/gif';
       if (targetExt === 'mp3') mimeType = 'audio/mp3';
       if (targetExt === 'wav') mimeType = 'audio/wav';
+      if (targetExt === 'wma') mimeType = 'audio/x-ms-wma';
+      if (targetExt === 'm4a') mimeType = 'audio/mp4';
 
       return new Blob([data.buffer], { type: mimeType });
     }
@@ -612,7 +635,7 @@
       try {
         let blob = null;
 
-        if (item.type === 'image') {
+        if (item.type === 'image' && ['png', 'jpeg', 'jpg', 'webp', 'bmp', 'ico'].includes(item.targetFormat)) {
           item.progress = 50;
           renderFileList();
           blob = await convertImage(item.file, item.targetFormat);
@@ -628,7 +651,7 @@
           }
           item.progress = 100;
         } else {
-          // Video or Complex Audio
+          // Video, WMV or Complex Audio/Image
           blob = await convertWithFFmpeg(item.file, item.targetFormat);
           item.progress = 100;
         }
