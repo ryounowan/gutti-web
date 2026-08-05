@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Universal Local Media Converter</title>
-
-  <!-- GitHub Pagesで SharedArrayBuffer を有効化する Service Worker -->
-  <script src="https://unpkg.com/coi-serviceworker/coi-serviceworker.js"></script>
-
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
@@ -92,7 +88,7 @@
     <!-- Hero / Dropzone -->
     <section>
       <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-sky-500/80 bg-slate-800/30 hover:bg-slate-800/50 rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer group shadow-inner">
-        <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*,.wmv,.avi,.mkv,.flv,.wma,.m4a,.flac,.opus,.heic,.avif">
+        <input type="file" id="fileInput" class="hidden" multiple accept="image/*,video/*,audio/*">
         <div class="max-w-md mx-auto space-y-4 pointer-events-none">
           <div class="w-16 h-16 mx-auto rounded-2xl bg-slate-800 group-hover:bg-sky-500/20 text-slate-400 group-hover:text-sky-400 flex items-center justify-center transition-all shadow-md">
             <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
@@ -101,7 +97,7 @@
             <p class="text-base font-semibold text-slate-200">
               ファイルをドラッグ＆ドロップ、または <span class="text-sky-400 underline decoration-sky-400/30 underline-offset-4">参照</span>
             </p>
-            <p class="text-xs text-slate-400 mt-1">画像 (PNG, JPG, WebP, AVIF...) / 音声 (MP3, WAV, AAC, WMA...) / 動画 (MP4, WMV, WebM, AVI...)</p>
+            <p class="text-xs text-slate-400 mt-1">画像 (PNG, JPG, WebP...) / 音声 (MP3, WAV, AAC...) / 動画 (MP4, WebM...)</p>
           </div>
           <div class="flex justify-center gap-2 pt-2">
             <span class="inline-flex items-center px-2.5 py-0.5 rounded-md text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
@@ -170,7 +166,7 @@
 
   <script>
     // Global State
-    let queue = [];
+    let queue = []; // Array of file items
     let ffmpeg = null;
     let ffmpegLoaded = false;
     let isProcessing = false;
@@ -183,26 +179,19 @@
         { ext: 'webp', label: 'WebP (次世代画像)' },
         { ext: 'bmp', label: 'BMP (ビットマップ)' },
         { ext: 'ico', label: 'ICO (アイコンファイル)' },
-        { ext: 'gif', label: 'GIF (静止画GIF)' },
-        { ext: 'tiff', label: 'TIFF (高品質画像)' }
+        { ext: 'gif', label: 'GIF (静止画GIF)' }
       ],
       audio: [
         { ext: 'mp3', label: 'MP3 (標準オーディオ)' },
         { ext: 'wav', label: 'WAV (非圧縮高音質)' },
-        { ext: 'm4a', label: 'M4A (AACオーディオ)' },
-        { ext: 'aac', label: 'AAC オーディオ' },
-        { ext: 'wma', label: 'WMA (Windows Media)' },
         { ext: 'ogg', label: 'OGG Vorbis' },
-        { ext: 'flac', label: 'FLAC (可逆圧縮)' },
-        { ext: 'opus', label: 'Opus (超低遅延/高音質)' }
+        { ext: 'aac', label: 'AAC オーディオ' },
+        { ext: 'm4a', label: 'M4A オーディオ' },
+        { ext: 'flac', label: 'FLAC (可逆圧縮)' }
       ],
       video: [
         { ext: 'mp4', label: 'MP4 (H.264 / 標準動画)' },
-        { ext: 'wmv', label: 'WMV (Windows Media Video)' },
         { ext: 'webm', label: 'WebM (Web動画)' },
-        { ext: 'avi', label: 'AVI (標準動画)' },
-        { ext: 'mkv', label: 'MKV (Matroska Video)' },
-        { ext: 'flv', label: 'FLV (Flash Video)' },
         { ext: 'gif', label: 'GIF アニメーション' },
         { ext: 'mp3', label: 'MP3 (音声抽出)' },
         { ext: 'wav', label: 'WAV (音声抽出)' }
@@ -239,24 +228,15 @@
       logOutput.scrollTop = logOutput.scrollHeight;
     }
 
-    // Initialize FFmpeg WASM (環境に応じて自動でシングル/マルチを切替)
+    // Initialize FFmpeg WASM asynchronously
     async function initFFmpeg() {
       if (ffmpegLoaded) return true;
       try {
         log('FFmpeg WASMの初期化を開始します...');
         const { createFFmpeg } = FFmpeg;
-
-        // SharedArrayBuffer が使えるかチェックして corePath を切り替え
-        const supportsSAB = typeof window.SharedArrayBuffer !== 'undefined';
-        const corePath = supportsSAB
-          ? 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
-          : 'https://unpkg.com/@ffmpeg/core-st@0.11.1/dist/ffmpeg-core.js';
-
-        log(supportsSAB ? 'マルチスレッドエンジンで起動します' : 'シングルスレッド互換モードで起動します', 'info');
-
         ffmpeg = createFFmpeg({
           log: false,
-          corePath: corePath
+          corePath: 'https://unpkg.com/@ffmpeg/core@0.11.0/dist/ffmpeg-core.js'
         });
         
         ffmpeg.setProgress(({ ratio }) => {
@@ -274,6 +254,7 @@
         return true;
       } catch (err) {
         log(`FFmpegの初期化に失敗しました: ${err.message}`, 'error');
+        log('※動画・複雑な音声変換にはFFmpegが必要です。画像と基本WAV機能はCanvas/WebAudioで動作します。', 'warn');
         return false;
       }
     }
@@ -284,10 +265,11 @@
       if (file.type.startsWith('audio/')) return 'audio';
       if (file.type.startsWith('video/')) return 'video';
       
+      // Fallback by extension
       const ext = file.name.split('.').pop().toLowerCase();
-      if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'ico', 'gif', 'tiff', 'heic', 'avif', 'svg'].includes(ext)) return 'image';
-      if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac', 'wma', 'opus'].includes(ext)) return 'audio';
-      if (['mp4', 'webm', 'mov', 'avi', 'mkv', 'wmv', 'flv', 'm4v'].includes(ext)) return 'video';
+      if (['jpg', 'jpeg', 'png', 'webp', 'bmp', 'ico', 'gif'].includes(ext)) return 'image';
+      if (['mp3', 'wav', 'ogg', 'aac', 'm4a', 'flac'].includes(ext)) return 'audio';
+      if (['mp4', 'webm', 'mov', 'avi', 'mkv'].includes(ext)) return 'video';
       return 'image';
     }
 
@@ -303,7 +285,7 @@
       return filename.split('.').pop().toLowerCase();
     }
 
-    // Image Conversion
+    // Image Conversion using Canvas API
     async function convertImage(file, targetFormat, quality = 0.92) {
       return new Promise((resolve, reject) => {
         const img = new Image();
@@ -316,6 +298,7 @@
           canvas.height = img.height;
           const ctx = canvas.getContext('2d');
 
+          // Handle JPEG/BMP white background (prevent black transparency)
           if (['jpeg', 'jpg', 'bmp'].includes(targetFormat.toLowerCase())) {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -345,12 +328,13 @@
       });
     }
 
-    // Audio Native Conversion
+    // Convert Audio to WAV using Web Audio API (Native Fallback)
     async function convertAudioToWavNative(file) {
       const arrayBuffer = await file.arrayBuffer();
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
 
+      // Encode AudioBuffer to WAV format
       const numOfChan = audioBuffer.numberOfChannels;
       const length = audioBuffer.length * numOfChan * 2 + 44;
       const buffer = new ArrayBuffer(length);
@@ -363,18 +347,19 @@
       function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
       function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
 
-      setUint32(0x46464952);
-      setUint32(length - 8); 
-      setUint32(0x45564157); 
-      setUint32(0x20746d66); 
-      setUint32(16);         
-      setUint16(1);          
+      // WAV Header
+      setUint32(0x46464952); // "RIFF"
+      setUint32(length - 8); // file length - 8
+      setUint32(0x45564157); // "WAVE"
+      setUint32(0x20746d66); // "fmt " chunk
+      setUint32(16);         // length = 16
+      setUint16(1);          // PCM (uncompressed)
       setUint16(numOfChan);
       setUint32(sampleRate);
-      setUint32(sampleRate * 2 * numOfChan);
-      setUint16(numOfChan * 2);
-      setUint16(16);         
-      setUint32(0x61746164); 
+      setUint32(sampleRate * 2 * numOfChan); // avg. bytes/sec
+      setUint16(numOfChan * 2); // block-align
+      setUint16(16);         // 16-bit
+      setUint32(0x61746164); // "data" chunk
       setUint32(length - pos - 4);
 
       for (let i = 0; i < audioBuffer.numberOfChannels; i++) {
@@ -394,22 +379,25 @@
       return new Blob([buffer], { type: 'audio/wav' });
     }
 
-    // FFmpeg Conversion
+    // FFmpeg Processing for Video and Advanced Audio
     async function convertWithFFmpeg(file, targetExt) {
       if (!ffmpegLoaded) {
         const loaded = await initFFmpeg();
-        if (!loaded) throw new Error('FFmpegの読み込みに失敗しました。');
+        if (!loaded) throw new Error('FFmpegのロードに失敗したため、この拡張子変換は実行できません。');
       }
 
       const inputName = `input_${Date.now()}.${getFileExtension(file.name)}`;
       const outputName = `output_${Date.now()}.${targetExt}`;
 
+      // Write file to FFmpeg Virtual FS
       const fileData = new Uint8Array(await file.arrayBuffer());
       ffmpeg.FS('writeFile', inputName, fileData);
 
+      // FFmpeg arguments
       let args = ['-i', inputName];
 
       if (targetExt === 'gif') {
+        // GIF optimization filter
         args.push('-vf', 'fps=10,scale=480:-1:flags=lanczos');
       } else if (targetExt === 'mp3') {
         args.push('-vn', '-acodec', 'libmp3lame', '-q:a', '2');
@@ -417,18 +405,6 @@
         args.push('-vn', '-acodec', 'pcm_s16le');
       } else if (targetExt === 'mp4') {
         args.push('-c:v', 'libx264', '-preset', 'fast', '-c:a', 'aac');
-      } else if (targetExt === 'wmv') {
-        args.push('-c:v', 'wmv2', '-c:a', 'wmav2');
-      } else if (targetExt === 'avi') {
-        args.push('-c:v', 'mpeg4', '-c:a', 'mp3');
-      } else if (targetExt === 'wma') {
-        args.push('-vn', '-c:a', 'wmav2');
-      } else if (targetExt === 'm4a' || targetExt === 'aac') {
-        args.push('-vn', '-c:a', 'aac');
-      } else if (targetExt === 'flac') {
-        args.push('-vn', '-c:a', 'flac');
-      } else if (targetExt === 'ogg') {
-        args.push('-vn', '-c:a', 'libvorbis');
       }
 
       args.push(outputName);
@@ -436,8 +412,10 @@
       log(`FFmpeg 実行コマンド: ffmpeg ${args.join(' ')}`);
       await ffmpeg.run(...args);
 
+      // Read output
       const data = ffmpeg.FS('readFile', outputName);
 
+      // Clean up FS
       try {
         ffmpeg.FS('unlink', inputName);
         ffmpeg.FS('unlink', outputName);
@@ -445,9 +423,7 @@
 
       let mimeType = 'application/octet-stream';
       if (targetExt === 'mp4') mimeType = 'video/mp4';
-      if (targetExt === 'wmv') mimeType = 'video/x-ms-wmv';
       if (targetExt === 'webm') mimeType = 'video/webm';
-      if (targetExt === 'avi') mimeType = 'video/x-msvideo';
       if (targetExt === 'gif') mimeType = 'image/gif';
       if (targetExt === 'mp3') mimeType = 'audio/mp3';
       if (targetExt === 'wav') mimeType = 'audio/wav';
@@ -455,7 +431,7 @@
       return new Blob([data.buffer], { type: mimeType });
     }
 
-    // Add Files
+    // Add Files to Queue
     function addFiles(files) {
       Array.from(files).forEach(file => {
         const type = getMediaType(file);
@@ -466,7 +442,7 @@
           file: file,
           type: type,
           targetFormat: defaultTarget,
-          status: 'idle',
+          status: 'idle', // idle, processing, done, error
           progress: 0,
           convertedBlob: null,
           errorMsg: ''
@@ -479,7 +455,7 @@
       log(`${files.length} 件のファイルを追加しました。`);
     }
 
-    // Update UI
+    // Update Overall UI
     function updateUI() {
       if (queue.length === 0) {
         batchControls.classList.add('hidden');
@@ -494,6 +470,7 @@
     }
 
     function updateBatchDropdownOptions() {
+      // Collect types in queue
       const types = new Set(queue.map(i => i.type));
       batchFormatSelect.innerHTML = '';
 
@@ -523,7 +500,7 @@
       }
     }
 
-    // Render File List
+    // Render Items
     function renderFileList() {
       fileListContainer.innerHTML = '';
 
@@ -545,6 +522,7 @@
 
         div.innerHTML = `
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <!-- Left: Info -->
             <div class="flex items-center space-x-3 min-w-0">
               <div class="w-10 h-10 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-lg flex-shrink-0">
                 ${mediaIcon}
@@ -555,6 +533,7 @@
               </div>
             </div>
 
+            <!-- Right: Controls -->
             <div class="flex items-center gap-3 self-end sm:self-center">
               <div class="flex items-center space-x-2">
                 <span class="text-xs text-slate-400 hidden sm:inline">変換先:</span>
@@ -563,6 +542,7 @@
                 </select>
               </div>
 
+              <!-- Item Actions -->
               ${item.status === 'idle' ? `
                 <button onclick="convertSingle('${item.id}')" class="px-3 py-1.5 text-xs font-medium bg-sky-600/20 hover:bg-sky-600/30 text-sky-400 border border-sky-500/30 rounded-lg transition">
                   <i class="fa-solid fa-play mr-1"></i> 変換
@@ -585,6 +565,7 @@
             </div>
           </div>
 
+          <!-- Progress Bar -->
           ${item.status === 'processing' ? `
             <div class="mt-3 space-y-1">
               <div class="flex justify-between text-xs text-slate-400">
@@ -602,7 +583,7 @@
       });
     }
 
-    // Queue Operations
+    // Queue Item Operations
     window.updateItemTargetFormat = function(id, ext) {
       const item = queue.find(i => i.id === id);
       if (item) item.targetFormat = ext;
@@ -621,7 +602,7 @@
       }
     }
 
-    // Process Single Item
+    // Conversion Process Execution
     async function processItem(item) {
       item.status = 'processing';
       item.progress = 10;
@@ -631,7 +612,7 @@
       try {
         let blob = null;
 
-        if (item.type === 'image' && ['png', 'jpeg', 'jpg', 'webp', 'bmp', 'ico'].includes(item.targetFormat)) {
+        if (item.type === 'image') {
           item.progress = 50;
           renderFileList();
           blob = await convertImage(item.file, item.targetFormat);
@@ -639,6 +620,7 @@
         } else if (item.type === 'audio' && item.targetFormat === 'wav') {
           item.progress = 40;
           renderFileList();
+          // Try Native audio buffer decode first for fast execution
           try {
             blob = await convertAudioToWavNative(item.file);
           } catch (e) {
@@ -646,6 +628,7 @@
           }
           item.progress = 100;
         } else {
+          // Video or Complex Audio
           blob = await convertWithFFmpeg(item.file, item.targetFormat);
           item.progress = 100;
         }
@@ -690,10 +673,11 @@
       }
     }
 
-    // Batch Action Listeners
+    // Batch Actions
     applyBatchFormatBtn.addEventListener('click', () => {
       const target = batchFormatSelect.value;
       queue.forEach(item => {
+        // Check if format is valid for item's media type
         const validFormats = FORMAT_MAP[item.type].map(f => f.ext);
         if (validFormats.includes(target)) {
           item.targetFormat = target;
@@ -751,13 +735,13 @@
       log('ファイルをすべてクリアしました。');
     });
 
-    // Drag & Drop
+    // Drag & Drop Listeners
     dropzone.addEventListener('click', () => fileInput.click());
 
     fileInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) {
         addFiles(e.target.files);
-        fileInput.value = '';
+        fileInput.value = ''; // Reset input
       }
     });
 
@@ -785,7 +769,7 @@
       }
     });
 
-    // Log Controls
+    // UI Log Toggles
     toggleLogsBtn.addEventListener('click', () => {
       logSection.classList.toggle('hidden');
     });
