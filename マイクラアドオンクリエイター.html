@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minecraft Bedrock Addon & UI Studio Pro</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- JSZip (パック圧縮・パッケージング用) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts Inter & Fira Code -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+  
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['Fira Code', 'monospace']
+          },
+          colors: {
+            mc: {
+              green: '#2e7d32',
+              lightgreen: '#4caf50',
+              dark: '#121212',
+              card: '#1e1e1e',
+              panel: '#282828',
+              accent: '#388e3c',
+              border: '#3d3d3d'
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #1a1a1a; }
+    ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #444; }
+    .tab-btn.active {
+      border-bottom: 3px solid #4caf50;
+      color: #4caf50;
+      background-color: rgba(76, 175, 80, 0.1);
+    }
+    @media (min-width: 768px) {
+      .tab-btn.active {
+        border-bottom: none;
+        border-left: 4px solid #4caf50;
+      }
+    }
+    .pixelated {
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+  </style>
+</head>
+<body class="bg-mc-dark text-gray-200 font-sans min-h-screen flex flex-col selection:bg-emerald-600 selection:text-white">
+
+  <!-- Navigation Header -->
+  <header class="bg-mc-card border-b border-mc-border px-6 py-3 flex flex-wrap justify-between items-center sticky top-0 z-40 shadow-lg">
+    <div class="flex items-center gap-3">
+      <div class="bg-mc-green text-white p-2.5 rounded-xl shadow-md border border-emerald-500/30">
+        <i class="fa-solid fa-cubes text-2xl"></i>
+      </div>
+      <div>
+        <h1 class="text-lg font-bold text-white tracking-wide flex items-center gap-2">
+          Minecraft Addon Studio
+        </h1>
+        <p class="text-xs text-gray-400">Items, Blocks, Mobs, Recipes, Script UI & Texture Generator</p>
+      </div>
+    </div>
+
+    <!-- Export & Project Save Actions -->
+    <div class="flex items-center gap-2 mt-2 sm:mt-0 flex-wrap">
+      <button onclick="saveProjectAddPack()" class="bg-purple-700 hover:bg-purple-600 text-white text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-2 shadow-md border border-purple-500/30 font-medium">
+        <i class="fa-solid fa-box text-purple-200"></i> .addpack 保存
+      </button>
+      <label class="bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs px-3.5 py-2 rounded-lg transition flex items-center gap-2 cursor-pointer border border-mc-border font-medium">
+        <i class="fa-solid fa-folder-open text-amber-400"></i> .addpack 読込
+        <input type="file" id="project-file-input" accept=".addpack,.json" class="hidden" onchange="loadProjectFile(event)">
+      </label>
+      <div class="h-5 w-px bg-mc-border mx-1 hidden sm:block"></div>
+      <button onclick="exportPack('mcpack')" class="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-3.5 py-2 rounded-lg text-xs transition flex items-center gap-1.5 shadow-md">
+        <i class="fa-solid fa-file-zipper"></i> .mcpack 出力
+      </button>
+      <button onclick="exportPack('mcaddon')" class="bg-blue-600 hover:bg-blue-500 text-white font-medium px-3.5 py-2 rounded-lg text-xs transition flex items-center gap-1.5 shadow-md">
+        <i class="fa-solid fa-cubes-stacked"></i> .mcaddon 出力 (完全版)
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Workspace Layout -->
+  <div class="flex-1 flex flex-col md:flex-row overflow-hidden">
+    <!-- Sidebar Navigation -->
+    <aside class="w-full md:w-64 bg-mc-card border-r border-mc-border flex flex-row md:flex-col shrink-0 z-10">
+      <nav class="flex md:flex-col w-full text-sm font-medium overflow-x-auto md:overflow-x-visible">
+        <button onclick="switchTab('settings')" id="tab-settings" class="tab-btn active text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-gear w-5 text-center text-emerald-400"></i> パック設定 & バージョン
+        </button>
+        <button onclick="switchTab('items')" id="tab-items" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-wand-magic-sparkles w-5 text-center text-amber-400"></i> カスタムアイテム
+        </button>
+        <button onclick="switchTab('blocks')" id="tab-blocks" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-cube w-5 text-center text-lime-400"></i> カスタムブロック
+        </button>
+        <button onclick="switchTab('mobs')" id="tab-mobs" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-dragon w-5 text-center text-rose-400"></i> カスタムモブ (エンティティ)
+        </button>
+        <button onclick="switchTab('recipes')" id="tab-recipes" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-table-cells w-5 text-center text-orange-400"></i> クラフトレシピ
+        </button>
+        <button onclick="switchTab('uibuilder')" id="tab-uibuilder" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-window-restore w-5 text-center text-sky-400"></i> UI ビルダー (Script UI)
+        </button>
+        <button onclick="switchTab('functions')" id="tab-functions" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-code w-5 text-center text-purple-400"></i> Function エディタ
+        </button>
+        <button onclick="switchTab('preview')" id="tab-preview" class="tab-btn text-left px-5 py-3 flex items-center gap-3 transition hover:bg-mc-panel text-gray-300">
+          <i class="fa-solid fa-eye w-5 text-center text-indigo-400"></i> 構造 & Script API プレビュー
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Content Panels -->
+    <main class="flex-1 bg-mc-dark p-6 overflow-y-auto max-h-[calc(100vh-65px)]">
+      
+      <!-- ================= TAB: Basic Settings ================= -->
+      <section id="panel-settings" class="tab-panel space-y-6">
+        <div class="border-b border-mc-border pb-3 flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-sliders text-emerald-400"></i> パック基本設定 & .addpack プロジェクト管理
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">アドオンのメタデータ、パックアイコン、マイクラバージョンを統合管理</p>
+          </div>
+          <button onclick="confirmResetWholeProject()" class="text-xs bg-red-900/40 hover:bg-red-800 text-red-300 border border-red-700/50 px-3 py-1.5 rounded transition">
+            <i class="fa-solid fa-rotate-left"></i> 初期状態に戻す
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-mc-card p-5 rounded-xl border border-mc-border space-y-4">
+            <h3 class="text-sm font-semibold text-gray-300 border-b border-mc-border pb-2 flex items-center gap-2">
+              <i class="fa-solid fa-id-card text-emerald-400"></i> アドオンメタデータ
+            </h3>
+            
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">パック名 (Pack Name)</label>
+              <input type="text" id="pack-name" value="Custom Magic Addon" onchange="appData.settings.name=this.value; autoSave();" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-sm">
+            </div>
+            
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">パック説明 (Description)</label>
+              <textarea id="pack-desc" rows="2" onchange="appData.settings.desc=this.value; autoSave();" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 text-sm">カスタムUI・モブ・ブロック・特殊アクションアイテムを追加するアドオンパック</textarea>
+            </div>
+            
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">ネームスペース (Namespace / Identifier)</label>
+              <input type="text" id="pack-namespace" value="custom" onchange="appData.settings.namespace=this.value; renderAllLists(); autoSave();" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono text-sm">
+              <p class="text-[11px] text-gray-400 mt-1">アイテムやブロックIDの接頭辞（例: <code>custom:magic_wand</code>）</p>
+            </div>
+
+            <!-- Pack Icon Config -->
+            <div class="border-t border-mc-border pt-3">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">パックアイコン (`pack_icon.png`)</label>
+              <div class="flex items-center gap-4">
+                <div class="w-20 h-20 bg-mc-panel border border-mc-border rounded-lg overflow-hidden flex items-center justify-center relative shrink-0">
+                  <img id="pack-icon-preview" class="w-full h-full object-cover hidden" alt="Pack Icon">
+                  <canvas id="default-icon-canvas" width="128" height="128" class="w-full h-full object-cover"></canvas>
+                </div>
+                <div class="space-y-2 flex-1">
+                  <label class="inline-block bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded cursor-pointer transition">
+                    <i class="fa-solid fa-image"></i> 画像を選択 (PNG/JPG)
+                    <input type="file" id="icon-file-input" accept="image/*" class="hidden" onchange="handleIconUpload(event)">
+                  </label>
+                  <button onclick="resetPackIcon()" class="block text-xs text-gray-400 hover:text-red-400 transition">
+                    <i class="fa-solid fa-arrow-rotate-left"></i> デフォルトアイコンに戻す
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-mc-card p-5 rounded-xl border border-mc-border space-y-4">
+            <h3 class="text-sm font-semibold text-gray-300 border-b border-mc-border pb-2 flex items-center gap-2">
+              <i class="fa-solid fa-arrows-rotate text-sky-400"></i> マイクラバージョン & モジュール設定
+            </h3>
+
+            <div class="bg-mc-panel p-3 rounded-lg border border-mc-border space-y-3">
+              <div class="flex justify-between items-center">
+                <label class="text-xs font-medium text-white">バージョン判定プリセット</label>
+                <select onchange="applyVersionPreset(this.value)" class="bg-mc-dark text-xs border border-mc-border text-emerald-400 rounded px-2.5 py-1">
+                  <option value="latest">★ 最新 (v1.21.0+ / Server v1.13.0)</option>
+                  <option value="v1.20.80">v1.20.80 (Server v1.11.0)</option>
+                </select>
+              </div>
+
+              <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div>
+                  <label class="block text-[11px] text-gray-400 mb-1">Min Engine</label>
+                  <input type="text" id="ver-min-engine" value="1.21.0" onchange="appData.settings.minEngineVersion=this.value; autoSave();" class="w-full bg-mc-dark border border-mc-border rounded px-2.5 py-1.5 text-xs text-white font-mono">
+                </div>
+                <div>
+                  <label class="block text-[11px] text-gray-400 mb-1">@minecraft/server</label>
+                  <input type="text" id="ver-mc-server" value="1.13.0" onchange="appData.settings.serverApiVersion=this.value; autoSave();" class="w-full bg-mc-dark border border-mc-border rounded px-2.5 py-1.5 text-xs text-white font-mono">
+                </div>
+                <div>
+                  <label class="block text-[11px] text-gray-400 mb-1">@minecraft/server-ui</label>
+                  <input type="text" id="ver-mc-ui" value="1.3.0" onchange="appData.settings.uiApiVersion=this.value; autoSave();" class="w-full bg-mc-dark border border-mc-border rounded px-2.5 py-1.5 text-xs text-white font-mono">
+                </div>
+              </div>
+            </div>
+
+            <!-- Preset Templates -->
+            <div class="border-t border-mc-border pt-3">
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">サンプルテンプレート読込</label>
+              <div class="flex gap-2">
+                <button onclick="confirmLoadTemplate('magic')" class="text-xs bg-mc-panel hover:bg-gray-700 text-amber-300 border border-mc-border px-3 py-2 rounded transition flex-1">
+                  <i class="fa-solid fa-wand-sparkles"></i> 魔法アドオン
+                </button>
+                <button onclick="confirmLoadTemplate('shop')" class="text-xs bg-mc-panel hover:bg-gray-700 text-sky-300 border border-mc-border px-3 py-2 rounded transition flex-1">
+                  <i class="fa-solid fa-store"></i> ショップUIアドオン
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Custom Items ================= -->
+      <section id="panel-items" class="tab-panel hidden space-y-6">
+        <div class="flex justify-between items-center border-b border-mc-border pb-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-wand-magic-sparkles text-amber-400"></i> カスタムアイテム定義 & テクスチャ
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">右クリック・使用制限・ブロック設置防止・UI呼び出し・テクスチャ設定</p>
+          </div>
+          <button onclick="addNewItem()" class="bg-amber-600 hover:bg-amber-500 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> アイテム追加
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-mc-card rounded-xl border border-mc-border p-4 h-[650px] flex flex-col">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">登録アイテム</h3>
+            <div id="items-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          </div>
+          <div class="lg:col-span-8 bg-mc-card rounded-xl border border-mc-border p-6 overflow-y-auto h-[650px]" id="item-editor-container">
+            <div class="text-center py-16 text-gray-500">アイテムを選択するか、「アイテム追加」を押してください。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Custom Blocks ================= -->
+      <section id="panel-blocks" class="tab-panel hidden space-y-6">
+        <div class="flex justify-between items-center border-b border-mc-border pb-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-cube text-lime-400"></i> カスタムブロック定義 & テクスチャ
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">硬度・爆発耐性・発光度・ドロップ・ブロックテクスチャ設定</p>
+          </div>
+          <button onclick="addNewBlock()" class="bg-lime-600 hover:bg-lime-500 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> ブロック追加
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-mc-card rounded-xl border border-mc-border p-4 h-[650px] flex flex-col">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">登録ブロック</h3>
+            <div id="blocks-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          </div>
+          <div class="lg:col-span-8 bg-mc-card rounded-xl border border-mc-border p-6 overflow-y-auto h-[650px]" id="block-editor-container">
+            <div class="text-center py-16 text-gray-500">ブロックを選択するか、「ブロック追加」を押してください。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Custom Mobs / Entities ================= -->
+      <section id="panel-mobs" class="tab-panel hidden space-y-6">
+        <div class="flex justify-between items-center border-b border-mc-border pb-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-dragon text-rose-400"></i> カスタムモブ (エンティティ) ビルダー
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">体力・攻撃力・移動速度・敵対性・テクスチャスキン設定</p>
+          </div>
+          <button onclick="addNewMob()" class="bg-rose-600 hover:bg-rose-500 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> モブ追加
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-mc-card rounded-xl border border-mc-border p-4 h-[650px] flex flex-col">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">登録モブ一覧</h3>
+            <div id="mobs-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          </div>
+          <div class="lg:col-span-8 bg-mc-card rounded-xl border border-mc-border p-6 overflow-y-auto h-[650px]" id="mob-editor-container">
+            <div class="text-center py-16 text-gray-500">モブを選択するか、「モブ追加」を押してください。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Crafting Recipes ================= -->
+      <section id="panel-recipes" class="tab-panel hidden space-y-6">
+        <div class="flex justify-between items-center border-b border-mc-border pb-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-table-cells text-orange-400"></i> クラフトレシピビルダー
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">作業台 3x3 のクラフト配置と完成アイテムの作成</p>
+          </div>
+          <button onclick="addNewRecipe()" class="bg-orange-600 hover:bg-orange-500 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> レシピ追加
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-mc-card rounded-xl border border-mc-border p-4 h-[650px] flex flex-col">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">登録レシピ</h3>
+            <div id="recipes-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          </div>
+          <div class="lg:col-span-8 bg-mc-card rounded-xl border border-mc-border p-6 overflow-y-auto h-[650px]" id="recipe-editor-container">
+            <div class="text-center py-16 text-gray-500">レシピを選択するか、「レシピ追加」を押してください。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Script UI Builder ================= -->
+      <section id="panel-uibuilder" class="tab-panel hidden space-y-6">
+        <div class="flex justify-between items-center border-b border-mc-border pb-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-window-restore text-sky-400"></i> Script UI ビルダー
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">ActionForm (ボタン選択), ModalForm (入力・スライダー), MessageForm (2択) 対応</p>
+          </div>
+          <button onclick="addNewUI()" class="bg-sky-600 hover:bg-sky-500 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> UI追加
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-mc-card rounded-xl border border-mc-border p-4 h-[650px] flex flex-col">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">登録UIフォーム</h3>
+            <div id="ui-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          </div>
+          <div class="lg:col-span-8 bg-mc-card rounded-xl border border-mc-border p-6 overflow-y-auto h-[650px]" id="ui-editor-container">
+            <div class="text-center py-16 text-gray-500">UIフォームを選択するか、「UI追加」を押してください。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Functions Manager ================= -->
+      <section id="panel-functions" class="tab-panel hidden space-y-6">
+        <div class="flex justify-between items-center border-b border-mc-border pb-3">
+          <div>
+            <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+              <i class="fa-solid fa-code text-purple-400"></i> Function (.mcfunction) マネージャー
+            </h2>
+            <p class="text-xs text-gray-400 mt-1">1行ごとのコマンド群を関数ファイル化</p>
+          </div>
+          <button onclick="addNewFunction()" class="bg-purple-600 hover:bg-purple-500 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center gap-2">
+            <i class="fa-solid fa-plus"></i> Function追加
+          </button>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div class="lg:col-span-4 bg-mc-card rounded-xl border border-mc-border p-4 h-[650px] flex flex-col">
+            <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Functionファイル</h3>
+            <div id="functions-list" class="flex-1 overflow-y-auto space-y-2 pr-1"></div>
+          </div>
+          <div class="lg:col-span-8 bg-mc-card rounded-xl border border-mc-border p-6 overflow-y-auto h-[650px]" id="function-editor-container">
+            <div class="text-center py-16 text-gray-500">Functionを選択してください。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TAB: Code & Structure Preview ================= -->
+      <section id="panel-preview" class="tab-panel hidden space-y-6">
+        <div class="border-b border-mc-border pb-3">
+          <h2 class="text-xl font-semibold text-white flex items-center gap-2">
+            <i class="fa-solid fa-eye text-indigo-400"></i> 生成コード & パック構造プレビュー
+          </h2>
+          <p class="text-xs text-gray-400 mt-1">自動作成された `scripts/main.js` やアドオン全体のツリー構造を確認</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div class="bg-mc-card rounded-xl border border-mc-border p-4 flex flex-col h-[600px]">
+            <h3 class="text-sm font-semibold text-gray-300 mb-2 flex justify-between items-center">
+              <span><i class="fa-brands fa-js text-yellow-400"></i> scripts/main.js (Script API Logic)</span>
+              <button onclick="copyToClipboard(document.getElementById('code-script-preview').innerText)" class="text-xs bg-mc-panel hover:bg-gray-700 px-2 py-1 rounded text-gray-300">
+                <i class="fa-solid fa-copy"></i> コピー
+              </button>
+            </h3>
+            <pre id="code-script-preview" class="flex-1 bg-mc-dark p-4 rounded-lg overflow-auto text-xs font-mono text-emerald-400 border border-mc-border"></pre>
+          </div>
+
+          <div class="bg-mc-card rounded-xl border border-mc-border p-4 flex flex-col h-[600px]">
+            <h3 class="text-sm font-semibold text-gray-300 mb-2">
+              <i class="fa-solid fa-folder-tree text-amber-400"></i> パックアーカイブ内部構造 (.mcpack / .mcaddon)
+            </h3>
+            <div id="tree-preview" class="flex-1 bg-mc-dark p-4 rounded-lg overflow-auto text-xs font-mono text-gray-300 border border-mc-border"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Custom Confirmation Dialog Modal -->
+  <div id="custom-confirm-modal" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 hidden p-4">
+    <div class="bg-mc-card border border-mc-border rounded-xl max-w-md w-full p-6 shadow-2xl space-y-4">
+      <h3 id="modal-title" class="text-lg font-bold text-white flex items-center gap-2">
+        <i class="fa-solid fa-circle-triangle-exclamation text-amber-400"></i> 確認
+      </h3>
+      <p id="modal-message" class="text-sm text-gray-300"></p>
+      <div class="flex justify-end gap-3 pt-2">
+        <button id="modal-cancel-btn" class="px-4 py-2 bg-gray-700 hover:bg-gray-600 text-gray-200 text-xs rounded-lg transition font-medium">キャンセル</button>
+        <button id="modal-confirm-btn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs rounded-lg transition font-medium">実行する</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Dynamic Installation & Usage Guide Modal -->
+  <div id="usage-guide-modal" class="fixed inset-0 bg-black/80 flex items-center justify-center z-50 hidden p-4 overflow-y-auto">
+    <div class="bg-mc-card border border-mc-border rounded-xl max-w-3xl w-full p-6 shadow-2xl space-y-5 my-8 max-h-[90vh] flex flex-col">
+      <div class="flex justify-between items-start border-b border-mc-border pb-3">
+        <div>
+          <span class="bg-emerald-900/80 text-emerald-300 text-xs px-2.5 py-1 rounded font-mono border border-emerald-500/30">書き出し成功</span>
+          <h3 class="text-xl font-bold text-white mt-1 flex items-center gap-2">
+            <i class="fa-solid fa-circle-check text-emerald-400"></i> アドオンパックの導入 & 使い方ガイド
+          </h3>
+        </div>
+        <button onclick="document.getElementById('usage-guide-modal').classList.add('hidden')" class="text-gray-400 hover:text-white p-1">
+          <i class="fa-solid fa-xmark text-xl"></i>
+        </button>
+      </div>
+
+      <div class="space-y-4 overflow-y-auto flex-1 pr-2 text-sm text-gray-300 leading-relaxed" id="usage-guide-content">
+        <!-- Content inserted dynamically -->
+      </div>
+
+      <div class="border-t border-mc-border pt-4 flex justify-between items-center">
+        <p class="text-xs text-gray-400">作成したファイルは標準のマイクラ導入形式に対応しています。</p>
+        <button onclick="document.getElementById('usage-guide-modal').classList.add('hidden')" class="px-5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg transition shadow-md">
+          理解しました (閉じる)
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Global Application Data Store
+    const appData = {
+      settings: {
+        name: "Custom Magic Addon",
+        desc: "カスタムUI・モブ・ブロック・特殊アクションアイテムを追加するアドオンパック",
+        namespace: "custom",
+        minEngineVersion: "1.21.0",
+        serverApiVersion: "1.13.0",
+        uiApiVersion: "1.3.0",
+        iconDataUrl: null
+      },
+      items: [
+        {
+          id: "magic_wand",
+          name: "魔法の杖",
+          iconColor: "#3b82f6",
+          texturePreset: "wand",
+          textureDataUrl: null,
+          rarity: "rare",
+          maxStackSize: 1,
+          glint: true,
+          canEat: false,
+          preventBlockPlace: true,
+          useCooldown: 1,
+          maxUses: 0,
+          actionType: "open_ui",
+          actionTarget: "wand_menu"
+        }
+      ],
+      blocks: [
+        {
+          id: "magic_ore",
+          name: "魔導鉱石",
+          color: "#9333ea",
+          texturePreset: "ore",
+          textureDataUrl: null,
+          destroyTime: 1.5,
+          explosionResistance: 6.0,
+          lightEmission: 8,
+          dropItem: "minecraft:diamond",
+          friction: 0.6
+        }
+      ],
+      mobs: [
+        {
+          id: "fire_elemental",
+          name: "ファイアエレメンタル",
+          color: "#f97316",
+          texturePreset: "elemental",
+          textureDataUrl: null,
+          health: 30,
+          speed: 0.3,
+          isHostile: true,
+          attackDamage: 5,
+          scale: 1.2
+        }
+      ],
+      recipes: [
+        {
+          id: "magic_wand_recipe",
+          resultItem: "custom:magic_wand",
+          resultCount: 1,
+          grid: [
+            "minecraft:diamond", "minecraft:blaze_rod", "minecraft:diamond",
+            "", "minecraft:stick", "",
+            "", "minecraft:stick", ""
+          ]
+        }
+      ],
+      uis: [
+        {
+          id: "wand_menu",
+          type: "action",
+          title: "★ 魔法の杖メニュー",
+          content: "実行したい魔法を選択してください:",
+          buttons: [
+            { text: "雷を落とす", action: "command", value: "execute at @s run summon lightning_bolt" },
+            { text: "移動速度アップ", action: "command", value: "effect @s speed 30 2" }
+          ]
+        }
+      ],
+      functions: [
+        {
+          id: "heal_effect",
+          commands: "effect @s regeneration 10 2\neffect @s instant_health 1 1\nsay 回復薬を使用しました！"
+        }
+      ]
+    };
+
+    let activeItemId = null;
+    let activeBlockId = null;
+    let activeMobId = null;
+    let activeRecipeId = null;
+    let activeUIId = null;
+    let activeFunctionId = null;
+
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    }
+
+    function sanitizeId(id) {
+      if (!id) return 'id_' + Date.now();
+      return id.replace(/[^a-zA-Z0-9_]/g, '_');
+    }
+
+    function showToast(message) {
+      let toast = document.getElementById('toast-notification');
+      if(!toast) {
+        toast = document.createElement('div');
+        toast.id = 'toast-notification';
+        toast.className = 'fixed bottom-5 right-5 bg-emerald-600 text-white px-4 py-2.5 rounded-lg shadow-xl z-50 font-medium text-sm transition-opacity duration-300 pointer-events-none opacity-0 flex items-center gap-2';
+        document.body.appendChild(toast);
+      }
+      toast.innerHTML = `<i class="fa-solid fa-circle-check"></i> ${message}`;
+      toast.classList.remove('opacity-0');
+      toast.classList.add('opacity-100');
+      setTimeout(() => {
+        toast.classList.remove('opacity-100');
+        toast.classList.add('opacity-0');
+      }, 3000);
+    }
+
+    function showCustomConfirm(title, message, onConfirm) {
+      const modal = document.getElementById('custom-confirm-modal');
+      const titleEl = document.getElementById('modal-title');
+      const msgEl = document.getElementById('modal-message');
+      const confirmBtn = document.getElementById('modal-confirm-btn');
+      const cancelBtn = document.getElementById('modal-cancel-btn');
+
+      titleEl.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-400"></i> ${title}`;
+      msgEl.textContent = message;
+
+      modal.classList.remove('hidden');
+
+      const cleanup = () => {
+        modal.classList.add('hidden');
+        confirmBtn.onclick = null;
+        cancelBtn.onclick = null;
+      };
+
+      confirmBtn.onclick = () => {
+        cleanup();
+        onConfirm();
+      };
+      cancelBtn.onclick = cleanup;
+    }
+
+    function copyToClipboard(text) {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      showToast("クリップボードにコピーしました");
+    }
+
+    function autoSave() {
+      try {
+        localStorage.setItem('mc_addon_studio_autosave', JSON.stringify(appData));
+      } catch(e) {}
+    }
+
+    function loadAutoSave() {
+      try {
+        const saved = localStorage.getItem('mc_addon_studio_autosave');
+        if(saved) {
+          const parsed = JSON.parse(saved);
+          Object.assign(appData, parsed);
+        }
+      } catch(e) {}
+    }
+
+    function switchTab(tabName) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-panel').forEach(panel => panel.classList.add('hidden'));
+
+      const targetTab = document.getElementById(`tab-${tabName}`);
+      const targetPanel = document.getElementById(`panel-${tabName}`);
+      
+      if (targetTab) targetTab.classList.add('active');
+      if (targetPanel) targetPanel.classList.remove('hidden');
+
+      if(tabName === 'preview') {
+        updateCodePreviews();
+      }
+    }
+
+    // Generating 16x16 Pixel Art Textures via Canvas
+    function createProceduralTexture(type, hexColor) {
+      const canvas = document.createElement('canvas');
+      canvas.width = 16;
+      canvas.height = 16;
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = false;
+
+      const baseColor = hexColor || '#3b82f6';
+
+      if (type === 'wand') {
+        // Wand / Sword Shape
+        ctx.fillStyle = '#8b5a2b';
+        for(let i=2; i<8; i++) ctx.fillRect(i, 15-i, 2, 2);
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(8, 6, 4, 4);
+        ctx.fillRect(10, 4, 4, 4);
+        ctx.fillRect(12, 2, 3, 3);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(11, 3, 2, 2);
+      } else if (type === 'gem') {
+        ctx.fillStyle = baseColor;
+        ctx.beginPath();
+        ctx.moveTo(8, 2); ctx.lineTo(14, 8); ctx.lineTo(8, 14); ctx.lineTo(2, 8);
+        ctx.fill();
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(7, 4, 3, 3);
+      } else if (type === 'ore') {
+        ctx.fillStyle = '#666666';
+        ctx.fillRect(0, 0, 16, 16);
+        ctx.fillStyle = '#444444';
+        ctx.fillRect(1, 3, 5, 4); ctx.fillRect(9, 10, 6, 4);
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(3, 4, 3, 3); ctx.fillRect(10, 2, 3, 3);
+        ctx.fillRect(6, 10, 4, 3); ctx.fillRect(11, 12, 2, 2);
+      } else if (type === 'elemental') {
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(3, 2, 10, 12);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(5, 5, 2, 2); ctx.fillRect(9, 5, 2, 2);
+        ctx.fillStyle = '#000000';
+        ctx.fillRect(6, 6, 1, 1); ctx.fillRect(10, 6, 1, 1);
+      } else {
+        // Generic Icon
+        ctx.fillStyle = baseColor;
+        ctx.fillRect(2, 2, 12, 12);
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(4, 4, 4, 4);
+      }
+      return canvas.toDataURL('image/png');
+    }
+
+    // Default Pack Icon Canvas
+    function drawDefaultPackIcon() {
+      const canvas = document.getElementById('default-icon-canvas');
+      if(!canvas) return;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#2e7d32';
+      ctx.fillRect(0, 0, 128, 128);
+      ctx.fillStyle = '#4caf50';
+      ctx.fillRect(16, 16, 96, 96);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 48px Inter, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('MC', 64, 76);
+    }
+
+    function updateIconPreview() {
+      const img = document.getElementById('pack-icon-preview');
+      const canvas = document.getElementById('default-icon-canvas');
+      if(appData.settings.iconDataUrl) {
+        img.src = appData.settings.iconDataUrl;
+        img.classList.remove('hidden');
+        canvas.classList.add('hidden');
+      } else {
+        img.classList.add('hidden');
+        canvas.classList.remove('hidden');
+        drawDefaultPackIcon();
+      }
+    }
+
+    function handleIconUpload(e) {
+      const file = e.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        appData.settings.iconDataUrl = evt.target.result;
+        updateIconPreview();
+        autoSave();
+        showToast("パックアイコンを更新しました");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function resetPackIcon() {
+      appData.settings.iconDataUrl = null;
+      updateIconPreview();
+      autoSave();
+      showToast("デフォルトアイコンに戻しました");
+    }
+
+    function applyVersionPreset(val) {
+      if(val === 'latest') {
+        document.getElementById('ver-min-engine').value = '1.21.0';
+        document.getElementById('ver-mc-server').value = '1.13.0';
+        document.getElementById('ver-mc-ui').value = '1.3.0';
+      } else if(val === 'v1.20.80') {
+        document.getElementById('ver-min-engine').value = '1.20.80';
+        document.getElementById('ver-mc-server').value = '1.11.0';
+        document.getElementById('ver-mc-ui').value = '1.2.0';
+      }
+      appData.settings.minEngineVersion = document.getElementById('ver-min-engine').value;
+      appData.settings.serverApiVersion = document.getElementById('ver-mc-server').value;
+      appData.settings.uiApiVersion = document.getElementById('ver-mc-ui').value;
+      autoSave();
+    }
+
+    function renderItemList() {
+      const listEl = document.getElementById('items-list');
+      if(!listEl) return;
+      const ns = appData.settings.namespace || 'custom';
+      listEl.innerHTML = appData.items.map(item => `
+        <div onclick="selectItem('${item.id}')" class="p-3 rounded-lg bg-mc-panel hover:bg-gray-700 cursor-pointer border ${activeItemId === item.id ? 'border-amber-500 bg-gray-700' : 'border-mc-border'} flex justify-between items-center transition">
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <div class="w-7 h-7 rounded bg-mc-dark p-0.5 border border-mc-border flex items-center justify-center shrink-0">
+              <img src="${item.textureDataUrl || createProceduralTexture(item.texturePreset, item.iconColor)}" class="w-full h-full object-contain pixelated" alt="icon">
+            </div>
+            <div class="truncate">
+              <div class="text-sm font-semibold text-white truncate">${item.name}</div>
+              <div class="text-[11px] font-mono text-gray-400 truncate">${ns}:${item.id}</div>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteItem('${item.id}')" class="text-xs text-gray-500 hover:text-red-400 p-1 shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addNewItem() {
+      const count = appData.items.length + 1;
+      const newId = `item_${Date.now().toString().slice(-4)}`;
+      appData.items.push({
+        id: newId,
+        name: `新規アイテム ${count}`,
+        iconColor: '#10b981',
+        texturePreset: 'gem',
+        textureDataUrl: null,
+        rarity: 'common',
+        maxStackSize: 64,
+        glint: false,
+        canEat: false,
+        preventBlockPlace: true,
+        useCooldown: 1,
+        maxUses: 0,
+        actionType: 'run_command',
+        actionTarget: 'say 新しいアイテムを使用しました！'
+      });
+      renderItemList();
+      selectItem(newId);
+      autoSave();
+      showToast('新規アイテムを追加しました');
+    }
+
+    function selectItem(id) {
+      activeItemId = id;
+      renderItemList();
+      const item = appData.items.find(i => i.id === id);
+      if(!item) return;
+
+      const previewSrc = item.textureDataUrl || createProceduralTexture(item.texturePreset, item.iconColor);
+
+      const container = document.getElementById('item-editor-container');
+      container.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex justify-between items-center border-b border-mc-border pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <img src="${previewSrc}" class="w-6 h-6 object-contain pixelated">
+              ${item.name} の設定
+            </h3>
+            <span class="font-mono text-xs text-amber-400">${appData.settings.namespace}:${item.id}</span>
+          </div>
+
+          <!-- Texture Upload & Generator Block -->
+          <div class="bg-mc-panel p-4 rounded-xl border border-mc-border space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400 flex items-center gap-2">
+              <i class="fa-solid fa-image"></i> アイテムテクスチャ設定
+            </h4>
+            <div class="flex items-center gap-4 flex-wrap">
+              <div class="w-16 h-16 bg-mc-dark border border-mc-border rounded-lg p-1 flex items-center justify-center shrink-0">
+                <img id="item-tex-preview" src="${previewSrc}" class="w-full h-full object-contain pixelated">
+              </div>
+              <div class="space-y-2 flex-1 min-w-[200px]">
+                <div class="flex gap-2">
+                  <label class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded cursor-pointer transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-upload"></i> テクスチャ画像を選択 (PNG)
+                    <input type="file" accept="image/png" class="hidden" onchange="handleTextureUpload('item', '${item.id}', event)">
+                  </label>
+                  ${item.textureDataUrl ? `<button onclick="clearCustomTexture('item', '${item.id}')" class="text-xs bg-red-900/40 hover:bg-red-800 text-red-300 px-2.5 py-1.5 rounded border border-red-700/50">削除</button>` : ''}
+                </div>
+                <div class="flex items-center gap-2">
+                  <span class="text-xs text-gray-400">または プリセットドット絵:</span>
+                  <select onchange="updateItem('${item.id}', 'texturePreset', this.value, true)" class="bg-mc-dark border border-mc-border text-xs rounded px-2 py-1 text-white">
+                    <option value="wand" ${item.texturePreset === 'wand' ? 'selected' : ''}>杖 (Wand)</option>
+                    <option value="gem" ${item.texturePreset === 'gem' ? 'selected' : ''}>宝石 (Gem)</option>
+                    <option value="generic" ${item.texturePreset === 'generic' ? 'selected' : ''}>汎用 (Generic)</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">アイテム名 (Display Name)</label>
+              <input type="text" value="${item.name}" oninput="updateItem('${item.id}', 'name', this.value, false)" onchange="updateItem('${item.id}', 'name', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">アイテムID (Identifier)</label>
+              <input type="text" value="${item.id}" onchange="updateItem('${item.id}', 'id', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-amber-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-mc-panel p-4 rounded-xl border border-mc-border">
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">レアリティ</label>
+              <select onchange="updateItem('${item.id}', 'rarity', this.value, true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+                <option value="common" ${item.rarity === 'common' ? 'selected' : ''}>Common (白)</option>
+                <option value="uncommon" ${item.rarity === 'uncommon' ? 'selected' : ''}>Uncommon (黄)</option>
+                <option value="rare" ${item.rarity === 'rare' ? 'selected' : ''}>Rare (水色)</option>
+                <option value="epic" ${item.rarity === 'epic' ? 'selected' : ''}>Epic (紫)</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">最大スタック数</label>
+              <input type="number" min="1" max="64" value="${item.maxStackSize || 1}" onchange="updateItem('${item.id}', 'maxStackSize', parseInt(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">テーマカラー</label>
+              <input type="color" value="${item.iconColor || '#3b82f6'}" onchange="updateItem('${item.id}', 'iconColor', this.value, true)" class="w-full bg-mc-dark border border-mc-border h-9 rounded-lg px-1 py-1 cursor-pointer">
+            </div>
+          </div>
+
+          <div class="bg-mc-panel p-4 rounded-xl border border-mc-border space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">アクション & トリガー</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">右クリック時のアクション</label>
+                <select onchange="updateItem('${item.id}', 'actionType', this.value, true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-sm">
+                  <option value="none" ${item.actionType === 'none' ? 'selected' : ''}>なし</option>
+                  <option value="open_ui" ${item.actionType === 'open_ui' ? 'selected' : ''}>UIダイアログを開く</option>
+                  <option value="run_command" ${item.actionType === 'run_command' ? 'selected' : ''}>コマンド実行</option>
+                  <option value="run_function" ${item.actionType === 'run_function' ? 'selected' : ''}>Function実行</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-xs font-medium text-gray-300 mb-1">実行対象 (UI ID / Command / Function名)</label>
+                <input type="text" value="${item.actionTarget || ''}" placeholder="UI ID または コマンド" onchange="updateItem('${item.id}', 'actionTarget', this.value, true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono">
+              </div>
+            </div>
+          </div>
+
+          <div class="bg-mc-panel p-4 rounded-xl border border-mc-border space-y-4">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-amber-400">フラグ & 制御</h4>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <label class="flex items-center gap-3 bg-mc-dark p-3 rounded-lg border border-mc-border cursor-pointer">
+                <input type="checkbox" ${item.glint ? 'checked' : ''} onchange="updateItem('${item.id}', 'glint', this.checked, true)" class="w-4 h-4 text-amber-500 rounded">
+                <span class="text-xs font-semibold text-white">光沢 (Glint)</span>
+              </label>
+
+              <label class="flex items-center gap-3 bg-mc-dark p-3 rounded-lg border border-mc-border cursor-pointer">
+                <input type="checkbox" ${item.canEat ? 'checked' : ''} onchange="updateItem('${item.id}', 'canEat', this.checked, true)" class="w-4 h-4 text-amber-500 rounded">
+                <span class="text-xs font-semibold text-white">食用化 (Food)</span>
+              </label>
+
+              <label class="flex items-center gap-3 bg-mc-dark p-3 rounded-lg border border-mc-border cursor-pointer">
+                <input type="checkbox" ${item.preventBlockPlace ? 'checked' : ''} onchange="updateItem('${item.id}', 'preventBlockPlace', this.checked, true)" class="w-4 h-4 text-amber-500 rounded">
+                <span class="text-xs font-semibold text-white">設置防止</span>
+              </label>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function updateItem(id, key, val, reRender) {
+      const item = appData.items.find(i => i.id === id);
+      if(!item) return;
+      if(key === 'id') {
+        const clean = sanitizeId(val);
+        if(clean !== id && appData.items.some(i => i.id === clean)) {
+          showToast("IDが重複しています");
+          return;
+        }
+        item.id = clean;
+        activeItemId = clean;
+      } else {
+        item[key] = val;
+      }
+      autoSave();
+      if(reRender) selectItem(activeItemId);
+    }
+
+    function deleteItem(id) {
+      showCustomConfirm("アイテム削除", `アイテム '${id}' を削除しますか？`, () => {
+        appData.items = appData.items.filter(i => i.id !== id);
+        if(activeItemId === id) activeItemId = null;
+        renderItemList();
+        document.getElementById('item-editor-container').innerHTML = '<div class="text-center py-16 text-gray-500">アイテムを選択してください。</div>';
+        autoSave();
+        showToast("アイテムを削除しました");
+      });
+    }
+
+    function renderBlockList() {
+      const listEl = document.getElementById('blocks-list');
+      if(!listEl) return;
+      const ns = appData.settings.namespace || 'custom';
+      listEl.innerHTML = appData.blocks.map(b => `
+        <div onclick="selectBlock('${b.id}')" class="p-3 rounded-lg bg-mc-panel hover:bg-gray-700 cursor-pointer border ${activeBlockId === b.id ? 'border-lime-500 bg-gray-700' : 'border-mc-border'} flex justify-between items-center transition">
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <div class="w-7 h-7 rounded bg-mc-dark p-0.5 border border-mc-border flex items-center justify-center shrink-0">
+              <img src="${b.textureDataUrl || createProceduralTexture(b.texturePreset || 'ore', b.color)}" class="w-full h-full object-contain pixelated" alt="icon">
+            </div>
+            <div class="truncate">
+              <div class="text-sm font-semibold text-white truncate">${b.name}</div>
+              <div class="text-[11px] font-mono text-gray-400 truncate">${ns}:${b.id}</div>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteBlock('${b.id}')" class="text-xs text-gray-500 hover:text-red-400 p-1 shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addNewBlock() {
+      const count = appData.blocks.length + 1;
+      const newId = `block_${Date.now().toString().slice(-4)}`;
+      appData.blocks.push({
+        id: newId,
+        name: `新規ブロック ${count}`,
+        color: '#84cc16',
+        texturePreset: 'ore',
+        textureDataUrl: null,
+        destroyTime: 1.0,
+        explosionResistance: 5.0,
+        lightEmission: 0,
+        dropItem: 'self',
+        friction: 0.6
+      });
+      renderBlockList();
+      selectBlock(newId);
+      autoSave();
+      showToast('新規ブロックを追加しました');
+    }
+
+    function selectBlock(id) {
+      activeBlockId = id;
+      renderBlockList();
+      const b = appData.blocks.find(x => x.id === id);
+      if(!b) return;
+
+      const previewSrc = b.textureDataUrl || createProceduralTexture(b.texturePreset || 'ore', b.color);
+
+      const container = document.getElementById('block-editor-container');
+      container.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex justify-between items-center border-b border-mc-border pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <img src="${previewSrc}" class="w-6 h-6 object-contain pixelated">
+              ${b.name} の設定
+            </h3>
+            <span class="font-mono text-xs text-lime-400">${appData.settings.namespace}:${b.id}</span>
+          </div>
+
+          <!-- Texture Upload & Generator Block -->
+          <div class="bg-mc-panel p-4 rounded-xl border border-mc-border space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-lime-400 flex items-center gap-2">
+              <i class="fa-solid fa-cube"></i> ブロックテクスチャ設定
+            </h4>
+            <div class="flex items-center gap-4 flex-wrap">
+              <div class="w-16 h-16 bg-mc-dark border border-mc-border rounded-lg p-1 flex items-center justify-center shrink-0">
+                <img id="block-tex-preview" src="${previewSrc}" class="w-full h-full object-contain pixelated">
+              </div>
+              <div class="space-y-2 flex-1 min-w-[200px]">
+                <div class="flex gap-2">
+                  <label class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded cursor-pointer transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-upload"></i> テクスチャ画像を選択 (PNG)
+                    <input type="file" accept="image/png" class="hidden" onchange="handleTextureUpload('block', '${b.id}', event)">
+                  </label>
+                  ${b.textureDataUrl ? `<button onclick="clearCustomTexture('block', '${b.id}')" class="text-xs bg-red-900/40 hover:bg-red-800 text-red-300 px-2.5 py-1.5 rounded border border-red-700/50">削除</button>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">ブロック名 (Display Name)</label>
+              <input type="text" value="${b.name}" oninput="updateBlock('${b.id}', 'name', this.value, false)" onchange="updateBlock('${b.id}', 'name', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-lime-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">ブロックID (Identifier)</label>
+              <input type="text" value="${b.id}" onchange="updateBlock('${b.id}', 'id', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-lime-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-mc-panel p-4 rounded-xl border border-mc-border">
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">破壊時間 (Hardness)</label>
+              <input type="number" step="0.1" value="${b.destroyTime || 1.0}" onchange="updateBlock('${b.id}', 'destroyTime', parseFloat(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">爆発耐性</label>
+              <input type="number" step="0.5" value="${b.explosionResistance || 5.0}" onchange="updateBlock('${b.id}', 'explosionResistance', parseFloat(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">発光度 (0-15)</label>
+              <input type="number" min="0" max="15" value="${b.lightEmission || 0}" onchange="updateBlock('${b.id}', 'lightEmission', parseInt(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function updateBlock(id, key, val, reRender) {
+      const b = appData.blocks.find(x => x.id === id);
+      if(!b) return;
+      if(key === 'id') {
+        const clean = sanitizeId(val);
+        if(clean !== id && appData.blocks.some(x => x.id === clean)) {
+          showToast("IDが重複しています");
+          return;
+        }
+        b.id = clean;
+        activeBlockId = clean;
+      } else {
+        b[key] = val;
+      }
+      autoSave();
+      if(reRender) selectBlock(activeBlockId);
+    }
+
+    function deleteBlock(id) {
+      showCustomConfirm("ブロック削除", `ブロック '${id}' を削除しますか？`, () => {
+        appData.blocks = appData.blocks.filter(x => x.id !== id);
+        if(activeBlockId === id) activeBlockId = null;
+        renderBlockList();
+        document.getElementById('block-editor-container').innerHTML = '<div class="text-center py-16 text-gray-500">ブロックを選択してください。</div>';
+        autoSave();
+        showToast("ブロックを削除しました");
+      });
+    }
+
+    function renderMobList() {
+      const listEl = document.getElementById('mobs-list');
+      if(!listEl) return;
+      const ns = appData.settings.namespace || 'custom';
+      listEl.innerHTML = appData.mobs.map(m => `
+        <div onclick="selectMob('${m.id}')" class="p-3 rounded-lg bg-mc-panel hover:bg-gray-700 cursor-pointer border ${activeMobId === m.id ? 'border-rose-500 bg-gray-700' : 'border-mc-border'} flex justify-between items-center transition">
+          <div class="flex items-center gap-2.5 overflow-hidden">
+            <div class="w-7 h-7 rounded bg-mc-dark p-0.5 border border-mc-border flex items-center justify-center shrink-0">
+              <img src="${m.textureDataUrl || createProceduralTexture('elemental', m.color)}" class="w-full h-full object-contain pixelated" alt="icon">
+            </div>
+            <div class="truncate">
+              <div class="text-sm font-semibold text-white truncate">${m.name}</div>
+              <div class="text-[11px] font-mono text-gray-400 truncate">${ns}:${m.id}</div>
+            </div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteMob('${m.id}')" class="text-xs text-gray-500 hover:text-red-400 p-1 shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addNewMob() {
+      const count = appData.mobs.length + 1;
+      const newId = `mob_${Date.now().toString().slice(-4)}`;
+      appData.mobs.push({
+        id: newId,
+        name: `新規モブ ${count}`,
+        color: '#f43f5e',
+        texturePreset: 'elemental',
+        textureDataUrl: null,
+        health: 20,
+        speed: 0.25,
+        isHostile: false,
+        attackDamage: 3,
+        scale: 1.0
+      });
+      renderMobList();
+      selectMob(newId);
+      autoSave();
+      showToast('新規モブを追加しました');
+    }
+
+    function selectMob(id) {
+      activeMobId = id;
+      renderMobList();
+      const m = appData.mobs.find(x => x.id === id);
+      if(!m) return;
+
+      const previewSrc = m.textureDataUrl || createProceduralTexture('elemental', m.color);
+
+      const container = document.getElementById('mob-editor-container');
+      container.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex justify-between items-center border-b border-mc-border pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <img src="${previewSrc}" class="w-6 h-6 object-contain pixelated">
+              ${m.name} の設定
+            </h3>
+            <span class="font-mono text-xs text-rose-400">${appData.settings.namespace}:${m.id}</span>
+          </div>
+
+          <!-- Mob Skin Upload Block -->
+          <div class="bg-mc-panel p-4 rounded-xl border border-mc-border space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-rose-400 flex items-center gap-2">
+              <i class="fa-solid fa-shirt"></i> モブスキン / テクスチャ設定
+            </h4>
+            <div class="flex items-center gap-4 flex-wrap">
+              <div class="w-16 h-16 bg-mc-dark border border-mc-border rounded-lg p-1 flex items-center justify-center shrink-0">
+                <img id="mob-tex-preview" src="${previewSrc}" class="w-full h-full object-contain pixelated">
+              </div>
+              <div class="space-y-2 flex-1 min-w-[200px]">
+                <div class="flex gap-2">
+                  <label class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs px-3 py-1.5 rounded cursor-pointer transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-upload"></i> スキン画像を選択 (PNG 64x64)
+                    <input type="file" accept="image/png" class="hidden" onchange="handleTextureUpload('mob', '${m.id}', event)">
+                  </label>
+                  ${m.textureDataUrl ? `<button onclick="clearCustomTexture('mob', '${m.id}')" class="text-xs bg-red-900/40 hover:bg-red-800 text-red-300 px-2.5 py-1.5 rounded border border-red-700/50">削除</button>` : ''}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">モブ名 (Display Name)</label>
+              <input type="text" value="${m.name}" oninput="updateMob('${m.id}', 'name', this.value, false)" onchange="updateMob('${m.id}', 'name', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-rose-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">モブID (Identifier)</label>
+              <input type="text" value="${m.id}" onchange="updateMob('${m.id}', 'id', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-rose-500">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-mc-panel p-4 rounded-xl border border-mc-border">
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">体力 (Health Points)</label>
+              <input type="number" min="1" value="${m.health || 20}" onchange="updateMob('${m.id}', 'health', parseInt(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">移動速度</label>
+              <input type="number" step="0.05" value="${m.speed || 0.25}" onchange="updateMob('${m.id}', 'speed', parseFloat(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-300 mb-1">攻撃力</label>
+              <input type="number" min="0" value="${m.attackDamage || 3}" onchange="updateMob('${m.id}', 'attackDamage', parseInt(this.value), true)" class="w-full bg-mc-dark border border-mc-border rounded-lg px-3 py-2 text-white text-xs">
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function updateMob(id, key, val, reRender) {
+      const m = appData.mobs.find(x => x.id === id);
+      if(!m) return;
+      if(key === 'id') {
+        const clean = sanitizeId(val);
+        if(clean !== id && appData.mobs.some(x => x.id === clean)) {
+          showToast("IDが重複しています");
+          return;
+        }
+        m.id = clean;
+        activeMobId = clean;
+      } else {
+        m[key] = val;
+      }
+      autoSave();
+      if(reRender) selectMob(activeMobId);
+    }
+
+    function deleteMob(id) {
+      showCustomConfirm("モブ削除", `モブ '${id}' を削除しますか？`, () => {
+        appData.mobs = appData.mobs.filter(x => x.id !== id);
+        if(activeMobId === id) activeMobId = null;
+        renderMobList();
+        document.getElementById('mob-editor-container').innerHTML = '<div class="text-center py-16 text-gray-500">モブを選択してください。</div>';
+        autoSave();
+        showToast("モブを削除しました");
+      });
+    }
+
+    // Generic Texture Handler for Items/Blocks/Mobs
+    function handleTextureUpload(category, id, event) {
+      const file = event.target.files[0];
+      if(!file) return;
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        if(category === 'item') {
+          const target = appData.items.find(x => x.id === id);
+          if(target) target.textureDataUrl = dataUrl;
+          selectItem(id);
+        } else if(category === 'block') {
+          const target = appData.blocks.find(x => x.id === id);
+          if(target) target.textureDataUrl = dataUrl;
+          selectBlock(id);
+        } else if(category === 'mob') {
+          const target = appData.mobs.find(x => x.id === id);
+          if(target) target.textureDataUrl = dataUrl;
+          selectMob(id);
+        }
+        autoSave();
+        showToast("テクスチャ画像を適用しました");
+      };
+      reader.readAsDataURL(file);
+    }
+
+    function clearCustomTexture(category, id) {
+      if(category === 'item') {
+        const target = appData.items.find(x => x.id === id);
+        if(target) target.textureDataUrl = null;
+        selectItem(id);
+      } else if(category === 'block') {
+        const target = appData.blocks.find(x => x.id === id);
+        if(target) target.textureDataUrl = null;
+        selectBlock(id);
+      } else if(category === 'mob') {
+        const target = appData.mobs.find(x => x.id === id);
+        if(target) target.textureDataUrl = null;
+        selectMob(id);
+      }
+      autoSave();
+      showToast("カスタムテクスチャをクリアしました");
+    }
+
+    function renderRecipeList() {
+      const listEl = document.getElementById('recipes-list');
+      if(!listEl) return;
+      listEl.innerHTML = appData.recipes.map(r => `
+        <div onclick="selectRecipe('${r.id}')" class="p-3 rounded-lg bg-mc-panel hover:bg-gray-700 cursor-pointer border ${activeRecipeId === r.id ? 'border-orange-500 bg-gray-700' : 'border-mc-border'} flex justify-between items-center transition">
+          <div class="truncate">
+            <div class="text-sm font-semibold text-white truncate">${r.id}</div>
+            <div class="text-[11px] font-mono text-amber-400 truncate">Result: ${r.resultItem} x${r.resultCount}</div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteRecipe('${r.id}')" class="text-xs text-gray-500 hover:text-red-400 p-1 shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addNewRecipe() {
+      const count = appData.recipes.length + 1;
+      const newId = `recipe_${Date.now().toString().slice(-4)}`;
+      const ns = appData.settings.namespace || 'custom';
+      const firstItem = appData.items[0] ? `${ns}:${appData.items[0].id}` : 'minecraft:diamond';
+
+      appData.recipes.push({
+        id: newId,
+        resultItem: firstItem,
+        resultCount: 1,
+        grid: ["", "minecraft:stick", "", "", "minecraft:stick", "", "", "", ""]
+      });
+      renderRecipeList();
+      selectRecipe(newId);
+      autoSave();
+      showToast('新規レシピを追加しました');
+    }
+
+    function selectRecipe(id) {
+      activeRecipeId = id;
+      renderRecipeList();
+      const r = appData.recipes.find(x => x.id === id);
+      if(!r) return;
+
+      const container = document.getElementById('recipe-editor-container');
+      container.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex justify-between items-center border-b border-mc-border pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-table-cells text-orange-400"></i> レシピ: ${r.id}
+            </h3>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">完成アイテム (Result Item ID)</label>
+              <input type="text" value="${r.resultItem}" onchange="updateRecipe('${r.id}', 'resultItem', this.value)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-orange-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">完成個数</label>
+              <input type="number" min="1" max="64" value="${r.resultCount || 1}" onchange="updateRecipe('${r.id}', 'resultCount', parseInt(this.value))" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-orange-500">
+            </div>
+          </div>
+
+          <!-- 3x3 Crafting Grid -->
+          <div class="bg-mc-panel p-5 rounded-xl border border-mc-border max-w-md mx-auto space-y-3">
+            <h4 class="text-xs font-bold uppercase tracking-wider text-gray-300 text-center">作業台 3x3 配置</h4>
+            <div class="grid grid-cols-3 gap-2.5">
+              ${r.grid.map((cellItem, idx) => `
+                <div class="space-y-1">
+                  <input type="text" value="${cellItem}" placeholder="空欄可" onchange="updateRecipeGrid('${r.id}', ${idx}, this.value)" class="w-full bg-mc-dark border border-mc-border rounded px-2 py-2 text-[11px] text-white font-mono text-center focus:border-orange-500 focus:outline-none">
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function updateRecipe(id, key, val) {
+      const r = appData.recipes.find(x => x.id === id);
+      if(!r) return;
+      r[key] = val;
+      autoSave();
+      renderRecipeList();
+    }
+
+    function updateRecipeGrid(id, idx, val) {
+      const r = appData.recipes.find(x => x.id === id);
+      if(!r) return;
+      r.grid[idx] = val.trim();
+      autoSave();
+    }
+
+    function deleteRecipe(id) {
+      showCustomConfirm("レシピ削除", `レシピ '${id}' を削除しますか？`, () => {
+        appData.recipes = appData.recipes.filter(x => x.id !== id);
+        if(activeRecipeId === id) activeRecipeId = null;
+        renderRecipeList();
+        document.getElementById('recipe-editor-container').innerHTML = '<div class="text-center py-16 text-gray-500">レシピを選択してください。</div>';
+        autoSave();
+        showToast("レシピを削除しました");
+      });
+    }
+
+    function renderUIList() {
+      const listEl = document.getElementById('ui-list');
+      if(!listEl) return;
+      listEl.innerHTML = appData.uis.map(u => `
+        <div onclick="selectUI('${u.id}')" class="p-3 rounded-lg bg-mc-panel hover:bg-gray-700 cursor-pointer border ${activeUIId === u.id ? 'border-sky-500 bg-gray-700' : 'border-mc-border'} flex justify-between items-center transition">
+          <div class="truncate">
+            <div class="text-sm font-semibold text-white truncate">${u.title}</div>
+            <div class="text-[11px] font-mono text-sky-400 truncate">ID: ${u.id} (${u.type})</div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteUI('${u.id}')" class="text-xs text-gray-500 hover:text-red-400 p-1 shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addNewUI() {
+      const count = appData.uis.length + 1;
+      const newId = `ui_${Date.now().toString().slice(-4)}`;
+      appData.uis.push({
+        id: newId,
+        type: 'action',
+        title: `★ カスタムメニュー ${count}`,
+        content: 'ボタンを押してアクションを選択してください:',
+        buttons: [
+          { text: 'サンプルコマンド実行', action: 'command', value: 'say Hello Minecraft!' }
+        ]
+      });
+      renderUIList();
+      selectUI(newId);
+      autoSave();
+      showToast('新規UIフォームを追加しました');
+    }
+
+    function selectUI(id) {
+      activeUIId = id;
+      renderUIList();
+      const u = appData.uis.find(x => x.id === id);
+      if(!u) return;
+
+      const container = document.getElementById('ui-editor-container');
+      container.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex justify-between items-center border-b border-mc-border pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-window-restore text-sky-400"></i> ${u.title}
+            </h3>
+            <span class="font-mono text-xs text-sky-400">ID: ${u.id}</span>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">フォームID</label>
+              <input type="text" value="${u.id}" onchange="updateUI('${u.id}', 'id', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-sky-500">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">フォームタイトル</label>
+              <input type="text" value="${u.title}" oninput="updateUI('${u.id}', 'title', this.value, false)" onchange="updateUI('${u.id}', 'title', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-sky-500">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">説明文 (Body Content)</label>
+            <textarea rows="2" onchange="updateUI('${u.id}', 'content', this.value, true)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-sky-500">${u.content || ''}</textarea>
+          </div>
+
+          <div class="bg-mc-panel p-4 rounded-xl border border-mc-border space-y-3">
+            <div class="flex justify-between items-center border-b border-mc-border pb-2">
+              <h4 class="text-xs font-bold uppercase tracking-wider text-sky-400">ボタン項目リスト</h4>
+              <button onclick="addUIButton('${u.id}')" class="text-xs bg-sky-700 hover:bg-sky-600 text-white px-2.5 py-1 rounded transition">
+                <i class="fa-solid fa-plus"></i> ボタン追加
+              </button>
+            </div>
+
+            <div class="space-y-2">
+              ${(u.buttons || []).map((b, idx) => `
+                <div class="bg-mc-dark p-3 rounded-lg border border-mc-border grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+                  <div class="md:col-span-4">
+                    <input type="text" value="${b.text}" placeholder="ボタン名" onchange="updateUIButton('${u.id}', ${idx}, 'text', this.value)" class="w-full bg-mc-panel border border-mc-border rounded px-2.5 py-1.5 text-xs text-white">
+                  </div>
+                  <div class="md:col-span-3">
+                    <select onchange="updateUIButton('${u.id}', ${idx}, 'action', this.value)" class="w-full bg-mc-panel border border-mc-border rounded px-2.5 py-1.5 text-xs text-white">
+                      <option value="command" ${b.action === 'command' ? 'selected' : ''}>Command実行</option>
+                      <option value="function" ${b.action === 'function' ? 'selected' : ''}>Function実行</option>
+                    </select>
+                  </div>
+                  <div class="md:col-span-4">
+                    <input type="text" value="${b.value}" placeholder="値 / コマンド" onchange="updateUIButton('${u.id}', ${idx}, 'value', this.value)" class="w-full bg-mc-panel border border-mc-border rounded px-2.5 py-1.5 text-xs text-white font-mono">
+                  </div>
+                  <div class="md:col-span-1 text-right">
+                    <button onclick="deleteUIButton('${u.id}', ${idx})" class="text-xs text-red-400 hover:text-red-300 p-1">
+                      <i class="fa-solid fa-trash"></i>
+                    </button>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    function updateUI(id, key, val, reRender) {
+      const u = appData.uis.find(x => x.id === id);
+      if(!u) return;
+      if(key === 'id') {
+        const clean = sanitizeId(val);
+        if(clean !== id && appData.uis.some(x => x.id === clean)) {
+          showToast("IDが重複しています");
+          return;
+        }
+        u.id = clean;
+        activeUIId = clean;
+      } else {
+        u[key] = val;
+      }
+      autoSave();
+      if(reRender) selectUI(activeUIId);
+    }
+
+    function addUIButton(id) {
+      const u = appData.uis.find(x => x.id === id);
+      if(!u) return;
+      if(!u.buttons) u.buttons = [];
+      u.buttons.push({ text: '新しいボタン', action: 'command', value: 'say Button Clicked!' });
+      autoSave();
+      selectUI(id);
+    }
+
+    function updateUIButton(id, idx, key, val) {
+      const u = appData.uis.find(x => x.id === id);
+      if(!u || !u.buttons[idx]) return;
+      u.buttons[idx][key] = val;
+      autoSave();
+    }
+
+    function deleteUIButton(id, idx) {
+      const u = appData.uis.find(x => x.id === id);
+      if(!u || !u.buttons[idx]) return;
+      u.buttons.splice(idx, 1);
+      autoSave();
+      selectUI(id);
+    }
+
+    function deleteUI(id) {
+      showCustomConfirm("UI削除", `UI '${id}' を削除しますか？`, () => {
+        appData.uis = appData.uis.filter(x => x.id !== id);
+        if(activeUIId === id) activeUIId = null;
+        renderUIList();
+        document.getElementById('ui-editor-container').innerHTML = '<div class="text-center py-16 text-gray-500">UIを選択してください。</div>';
+        autoSave();
+        showToast("UIを削除しました");
+      });
+    }
+
+    function renderFunctionList() {
+      const listEl = document.getElementById('functions-list');
+      if(!listEl) return;
+      listEl.innerHTML = appData.functions.map(f => `
+        <div onclick="selectFunction('${f.id}')" class="p-3 rounded-lg bg-mc-panel hover:bg-gray-700 cursor-pointer border ${activeFunctionId === f.id ? 'border-purple-500 bg-gray-700' : 'border-mc-border'} flex justify-between items-center transition">
+          <div class="truncate">
+            <div class="text-sm font-semibold text-white truncate">${f.id}.mcfunction</div>
+          </div>
+          <button onclick="event.stopPropagation(); deleteFunction('${f.id}')" class="text-xs text-gray-500 hover:text-red-400 p-1 shrink-0">
+            <i class="fa-solid fa-trash"></i>
+          </button>
+        </div>
+      `).join('');
+    }
+
+    function addNewFunction() {
+      const count = appData.functions.length + 1;
+      const newId = `func_${Date.now().toString().slice(-4)}`;
+      appData.functions.push({
+        id: newId,
+        commands: "say Function Executed!\neffect @s speed 10 1"
+      });
+      renderFunctionList();
+      selectFunction(newId);
+      autoSave();
+      showToast('新規Functionを追加しました');
+    }
+
+    function selectFunction(id) {
+      activeFunctionId = id;
+      renderFunctionList();
+      const f = appData.functions.find(x => x.id === id);
+      if(!f) return;
+
+      const container = document.getElementById('function-editor-container');
+      container.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex justify-between items-center border-b border-mc-border pb-3">
+            <h3 class="text-lg font-bold text-white flex items-center gap-2">
+              <i class="fa-solid fa-code text-purple-400"></i> ${f.id}.mcfunction
+            </h3>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">Function ID (ファイル名)</label>
+            <input type="text" value="${f.id}" onchange="updateFunction('${f.id}', 'id', this.value)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3 py-2 text-white text-sm font-mono focus:outline-none focus:border-purple-500">
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-1">実行コマンド群 (1行に1コマンドスラッシュ無し)</label>
+            <textarea rows="12" onchange="updateFunction('${f.id}', 'commands', this.value)" class="w-full bg-mc-panel border border-mc-border rounded-lg px-3.5 py-3 text-white text-xs font-mono leading-relaxed focus:outline-none focus:border-purple-500">${f.commands || ''}</textarea>
+          </div>
+        </div>
+      `;
+    }
+
+    function updateFunction(id, key, val) {
+      const f = appData.functions.find(x => x.id === id);
+      if(!f) return;
+      if(key === 'id') {
+        const clean = sanitizeId(val);
+        if(clean !== id && appData.functions.some(x => x.id === clean)) {
+          showToast("IDが重複しています");
+          return;
+        }
+        f.id = clean;
+        activeFunctionId = clean;
+      } else {
+        f[key] = val;
+      }
+      autoSave();
+      renderFunctionList();
+    }
+
+    function deleteFunction(id) {
+      showCustomConfirm("Function削除", `Function '${id}' を削除しますか？`, () => {
+        appData.functions = appData.functions.filter(x => x.id !== id);
+        if(activeFunctionId === id) activeFunctionId = null;
+        renderFunctionList();
+        document.getElementById('function-editor-container').innerHTML = '<div class="text-center py-16 text-gray-500">Functionを選択してください。</div>';
+        autoSave();
+        showToast("Functionを削除しました");
+      });
+    }
+
+    function renderAllLists() {
+      renderItemList();
+      renderBlockList();
+      renderMobList();
+      renderRecipeList();
+      renderUIList();
+      renderFunctionList();
+      updateIconPreview();
+    }
+
+    function generateMainScriptCode() {
+      const ns = appData.settings.namespace || 'custom';
+      let code = `import { world, system } from "@minecraft/server";\nimport { ActionFormData, ModalFormData, MessageFormData } from "@minecraft/server-ui";\n\n`;
+      code += `// Auto Generated Script API logic by Minecraft Addon Studio\n\n`;
+
+      code += `// Item Right Click Listener\nworld.beforeEvents.itemUse.subscribe((event) => {\n`;
+      code += `  const { itemStack, source } = event;\n`;
+      code += `  if (!itemStack || !source) return;\n\n`;
+
+      appData.items.forEach(item => {
+        if(item.actionType && item.actionType !== 'none') {
+          code += `  if (itemStack.typeId === "${ns}:${item.id}") {\n`;
+          if(item.actionType === 'open_ui') {
+            code += `    system.run(() => openUI_${sanitizeId(item.actionTarget)}(source));\n`;
+          } else if(item.actionType === 'run_command') {
+            code += `    system.run(() => source.runCommandAsync("${item.actionTarget}"));\n`;
+          } else if(item.actionType === 'run_function') {
+            code += `    system.run(() => source.runCommandAsync("function ${item.actionTarget}"));\n`;
+          }
+          code += `  }\n`;
+        }
+      });
+
+      code += `});\n\n`;
+
+      // UI Form Generator
+      appData.uis.forEach(u => {
+        const funcName = `openUI_${sanitizeId(u.id)}`;
+        code += `// UI Handler: ${u.title}\nfunction ${funcName}(player) {\n`;
+        code += `  const form = new ActionFormData();\n`;
+        code += `  form.title(${JSON.stringify(u.title)});\n`;
+        code += `  form.body(${JSON.stringify(u.content)});\n\n`;
+
+        (u.buttons || []).forEach(b => {
+          code += `  form.button(${JSON.stringify(b.text)});\n`;
+        });
+
+        code += `\n  form.show(player).then((response) => {\n`;
+        code += `    if (response.canceled) return;\n`;
+        code += `    const sel = response.selection;\n`;
+
+        (u.buttons || []).forEach((b, idx) => {
+          code += `    if (sel === ${idx}) {\n`;
+          if(b.action === 'command') {
+            code += `      player.runCommandAsync(${JSON.stringify(b.value)});\n`;
+          } else if(b.action === 'function') {
+            code += `      player.runCommandAsync("function " + ${JSON.stringify(b.value)});\n`;
+          }
+          code += `    }\n`;
+        });
+
+        code += `  });\n}\n\n`;
+      });
+
+      return code;
+    }
+
+    function updateCodePreviews() {
+      const scriptCode = generateMainScriptCode();
+      document.getElementById('code-script-preview').textContent = scriptCode;
+
+      // Tree View
+      const ns = appData.settings.namespace || 'custom';
+      let tree = `📦 ${appData.settings.name || 'Addon'}.mcaddon\n`;
+      tree += ` ├── 📁 Behavior_Pack/\n`;
+      tree += ` │    ├── manifest.json\n`;
+      tree += ` │    ├── pack_icon.png\n`;
+      tree += ` │    ├── 📁 scripts/\n`;
+      tree += ` │    │    └── main.js\n`;
+      tree += ` │    ├── 📁 items/\n`;
+      appData.items.forEach(i => tree += ` │    │    └── ${i.id}.json\n`);
+      tree += ` │    ├── 📁 blocks/\n`;
+      appData.blocks.forEach(b => tree += ` │    │    └── ${b.id}.json\n`);
+      tree += ` │    ├── 📁 entities/\n`;
+      appData.mobs.forEach(m => tree += ` │    │    └── ${m.id}.json\n`);
+      tree += ` │    ├── 📁 functions/\n`;
+      appData.functions.forEach(f => tree += ` │    │    └── ${f.id}.mcfunction\n`);
+      tree += ` │    └── 📁 recipes/\n`;
+      appData.recipes.forEach(r => tree += ` │    │    └── ${r.id}.json\n`);
+      tree += ` └── 📁 Resource_Pack/\n`;
+      tree += `      ├── manifest.json\n`;
+      tree += `      ├── pack_icon.png\n`;
+      tree += `      ├── item_texture.json\n`;
+      tree += `      ├── terrain_texture.json\n`;
+      tree += `      └── 📁 textures/\n`;
+      tree += `           ├── 📁 items/\n`;
+      tree += `           ├── 📁 blocks/\n`;
+      tree += `           └── 📁 entity/\n`;
+
+      document.getElementById('tree-preview').textContent = tree;
+    }
+
+    function base64ToUint8Array(base64) {
+      const raw = window.atob(base64.split(',')[1]);
+      const array = new Uint8Array(raw.length);
+      for (let i = 0; i < raw.length; i++) {
+        array[i] = raw.charCodeAt(i);
+      }
+      return array;
+    }
+
+    async function exportPack(format) {
+      if(typeof JSZip === 'undefined') {
+        showToast("Zipライブラリの読み込み中です...");
+        return;
+      }
+
+      showToast("アドオンアーカイブを構築中...");
+
+      const zip = new JSZip();
+      const ns = appData.settings.namespace || 'custom';
+      const bpUuid1 = generateUUID();
+      const bpUuid2 = generateUUID();
+      const rpUuid1 = generateUUID();
+      const rpUuid2 = generateUUID();
+
+      const bpFolder = format === 'mcaddon' ? zip.folder("Behavior_Pack") : zip;
+      const rpFolder = format === 'mcaddon' ? zip.folder("Resource_Pack") : zip.folder("Resource_Pack");
+
+      // 1. Behavior Pack Manifest
+      const bpManifest = {
+        format_version: 2,
+        header: {
+          name: `${appData.settings.name || 'Addon'} (BP)`,
+          description: appData.settings.desc || '',
+          uuid: bpUuid1,
+          version: [1, 0, 0],
+          min_engine_version: (appData.settings.minEngineVersion || '1.21.0').split('.').map(Number)
+        },
+        modules: [
+          { type: "data", uuid: bpUuid2, version: [1, 0, 0] },
+          { type: "script", language: "javascript", uuid: generateUUID(), entry: "scripts/main.js", version: [1, 0, 0] }
+        ],
+        dependencies: [
+          { module_name: "@minecraft/server", version: appData.settings.serverApiVersion || "1.13.0" },
+          { module_name: "@minecraft/server-ui", version: appData.settings.uiApiVersion || "1.3.0" },
+          { uuid: rpUuid1, version: [1, 0, 0] }
+        ]
+      };
+      bpFolder.file("manifest.json", JSON.stringify(bpManifest, null, 2));
+      bpFolder.file("scripts/main.js", generateMainScriptCode());
+
+      // 2. Resource Pack Manifest
+      const rpManifest = {
+        format_version: 2,
+        header: {
+          name: `${appData.settings.name || 'Addon'} (RP)`,
+          description: appData.settings.desc || '',
+          uuid: rpUuid1,
+          version: [1, 0, 0],
+          min_engine_version: (appData.settings.minEngineVersion || '1.21.0').split('.').map(Number)
+        },
+        modules: [
+          { type: "resources", uuid: rpUuid2, version: [1, 0, 0] }
+        ]
+      };
+      rpFolder.file("manifest.json", JSON.stringify(rpManifest, null, 2));
+
+      // Pack Icon
+      let iconBytes;
+      if(appData.settings.iconDataUrl) {
+        iconBytes = base64ToUint8Array(appData.settings.iconDataUrl);
+      } else {
+        const c = document.getElementById('default-icon-canvas');
+        iconBytes = base64ToUint8Array(c.toDataURL('image/png'));
+      }
+      bpFolder.file("pack_icon.png", iconBytes);
+      rpFolder.file("pack_icon.png", iconBytes);
+
+      // Textures mappings
+      const itemTextureData = { resource_pack_name: ns, texture_name: "atlas.items", texture_data: {} };
+      const terrainTextureData = { resource_pack_name: ns, texture_name: "atlas.terrain", padding: 8, num_mip_levels: 4, texture_data: {} };
+
+      // Add Custom Items JSONs & Textures
+      appData.items.forEach(item => {
+        const itemJson = {
+          format_version: "1.20.80",
+          "minecraft:item": {
+            description: { identifier: `${ns}:${item.id}`, menu_category: { category: "items" } },
+            components: {
+              "minecraft:display_name": { value: item.name },
+              "minecraft:max_stack_size": item.maxStackSize || 64,
+              "minecraft:glint": !!item.glint,
+              "minecraft:icon": { texture: item.id }
+            }
+          }
+        };
+        bpFolder.file(`items/${item.id}.json`, JSON.stringify(itemJson, null, 2));
+
+        const texDataUrl = item.textureDataUrl || createProceduralTexture(item.texturePreset, item.iconColor);
+        rpFolder.file(`textures/items/${item.id}.png`, base64ToUint8Array(texDataUrl));
+        itemTextureData.texture_data[item.id] = { textures: `textures/items/${item.id}` };
+      });
+
+      // Add Custom Blocks JSONs & Textures
+      appData.blocks.forEach(b => {
+        const blockJson = {
+          format_version: "1.20.80",
+          "minecraft:block": {
+            description: { identifier: `${ns}:${b.id}` },
+            components: {
+              "minecraft:display_name": b.name,
+              "minecraft:destructible_by_mining": { seconds_to_destroy: b.destroyTime || 1.0 },
+              "minecraft:explosion_resistance": b.explosionResistance || 5.0,
+              "minecraft:light_emission": b.lightEmission || 0,
+              "minecraft:material_instances": { "*": { texture: b.id, render_method: "opaque" } }
+            }
+          }
+        };
+        bpFolder.file(`blocks/${b.id}.json`, JSON.stringify(blockJson, null, 2));
+
+        const texDataUrl = b.textureDataUrl || createProceduralTexture(b.texturePreset || 'ore', b.color);
+        rpFolder.file(`textures/blocks/${b.id}.png`, base64ToUint8Array(texDataUrl));
+        terrainTextureData.texture_data[b.id] = { textures: `textures/blocks/${b.id}` };
+      });
+
+      // Add Custom Mobs JSONs & Textures
+      appData.mobs.forEach(m => {
+        const mobJson = {
+          format_version: "1.20.80",
+          "minecraft:entity": {
+            description: { identifier: `${ns}:${m.id}`, is_spawnable: true, is_summonable: true },
+            components: {
+              "minecraft:health": { value: m.health || 20, max: m.health || 20 },
+              "minecraft:movement": { value: m.speed || 0.25 },
+              "minecraft:attack": { damage: m.attackDamage || 3 }
+            }
+          }
+        };
+        bpFolder.file(`entities/${m.id}.json`, JSON.stringify(mobJson, null, 2));
+
+        const texDataUrl = m.textureDataUrl || createProceduralTexture('elemental', m.color);
+        rpFolder.file(`textures/entity/${m.id}.png`, base64ToUint8Array(texDataUrl));
+      });
+
+      // Add Functions
+      appData.functions.forEach(f => {
+        bpFolder.file(`functions/${f.id}.mcfunction`, f.commands || '');
+      });
+
+      // Add Recipes
+      appData.recipes.forEach(r => {
+        const recipeJson = {
+          format_version: "1.20.80",
+          "minecraft:recipe_shaped": {
+            description: { identifier: `${ns}:${r.id}` },
+            tags: ["crafting_table"],
+            pattern: ["ABC", "DEF", "GHI"],
+            key: {
+              "A": r.grid[0] ? { item: r.grid[0] } : undefined,
+              "B": r.grid[1] ? { item: r.grid[1] } : undefined,
+              "C": r.grid[2] ? { item: r.grid[2] } : undefined,
+              "D": r.grid[3] ? { item: r.grid[3] } : undefined,
+              "E": r.grid[4] ? { item: r.grid[4] } : undefined,
+              "F": r.grid[5] ? { item: r.grid[5] } : undefined,
+              "G": r.grid[6] ? { item: r.grid[6] } : undefined,
+              "H": r.grid[7] ? { item: r.grid[7] } : undefined,
+              "I": r.grid[8] ? { item: r.grid[8] } : undefined
+            },
+            result: { item: r.resultItem, count: r.resultCount || 1 }
+          }
+        };
+        bpFolder.file(`recipes/${r.id}.json`, JSON.stringify(recipeJson, null, 2));
+      });
+
+      rpFolder.file("item_texture.json", JSON.stringify(itemTextureData, null, 2));
+      rpFolder.file("terrain_texture.json", JSON.stringify(terrainTextureData, null, 2));
+
+      // Generate & Download Zip
+      const content = await zip.generateAsync({ type: "blob" });
+      const packName = (appData.settings.name || "Custom_Addon").replace(/\s+/g, '_');
+      const filename = `${packName}.${format}`;
+
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(content);
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+
+      showToast(`${filename} のダウンロードを完了しました！`);
+
+      // Show Custom Dynamic Installation Guide Modal
+      displayDynamicUsageGuide(format, filename);
+    }
+
+    // Displays the tailored usage guide modal after exporting
+    function displayDynamicUsageGuide(format, filename) {
+      const modal = document.getElementById('usage-guide-modal');
+      const container = document.getElementById('usage-guide-content');
+      const ns = appData.settings.namespace || 'custom';
+
+      let guideHtml = `
+        <div class="bg-mc-panel p-4 rounded-lg border border-mc-border space-y-2">
+          <h4 class="font-bold text-emerald-400 text-sm flex items-center gap-2">
+            <i class="fa-solid fa-download"></i> 出力ファイル: <span class="font-mono text-white">${filename}</span>
+          </h4>
+          <p class="text-xs text-gray-300">本アドオンには <strong>Script API (@minecraft/server)</strong> が組み込まれています。</p>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="font-bold text-amber-400 text-base border-b border-mc-border pb-1">
+            <i class="fa-solid fa-1"></i> 1. マインクラフトへの取り込み方法
+          </h4>
+          <ul class="list-disc list-inside text-xs space-y-1 text-gray-300">
+            <li><strong>Windows PC:</strong> ダウンロードした <code class="text-emerald-300 font-mono">${filename}</code> をダブルクリックすると、自動的にマインクラフトが起動してインポートされます。</li>
+            <li><strong>iOS / Android:</strong> ファイルをタップし、「マインクラフトで開く」を選択してください。</li>
+          </ul>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="font-bold text-amber-400 text-base border-b border-mc-border pb-1">
+            <i class="fa-solid fa-2"></i> 2. ワールド設定（重要：実験的機能の有効化）
+          </h4>
+          <p class="text-xs text-amber-200 bg-amber-900/30 p-2.5 rounded border border-amber-700/50">
+            ⚠ Script API を動作させるため、ワールド作成時または編集画面の<strong>「実験（Experiments）」</strong>項目で以下を必ず<strong>ON</strong>にしてください。
+          </p>
+          <ul class="list-disc list-inside text-xs space-y-1 font-medium text-emerald-300">
+            <li>ベータ API (Beta APIs)</li>
+            <li>ホリデー クリエイター機能 (Holiday Creator Features)</li>
+          </ul>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="font-bold text-amber-400 text-base border-b border-mc-border pb-1">
+            <i class="fa-solid fa-3"></i> 3. パックの適用
+          </h4>
+          <p class="text-xs">ワールド設定画面の「ビヘイビア パック」および「リソース パック」から、<strong>「${appData.settings.name || 'Addon'}」</strong>を有効化してください。</p>
+        </div>
+
+        <div class="space-y-3">
+          <h4 class="font-bold text-sky-400 text-base border-b border-mc-border pb-1">
+            <i class="fa-solid fa-gamepad"></i> 4. ゲーム内での使い方 & コマンド一覧
+          </h4>
+
+          ${appData.items.length > 0 ? `
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-amber-300">【追加されたカスタムアイテム】</span>
+              <div class="bg-mc-dark p-2.5 rounded border border-mc-border space-y-1 font-mono text-xs">
+                ${appData.items.map(i => `
+                  <div class="flex justify-between items-center">
+                    <span class="text-white">${i.name}</span>
+                    <code class="text-emerald-400">/give @s ${ns}:${i.id}</code>
+                  </div>
+                  ${i.actionType === 'open_ui' ? `<p class="text-[11px] text-gray-400 font-sans">→ 手に持って右クリックすると UI『${i.actionTarget}』が開きます。</p>` : ''}
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${appData.mobs.length > 0 ? `
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-rose-300">【追加されたカスタムモブ】</span>
+              <div class="bg-mc-dark p-2.5 rounded border border-mc-border space-y-1 font-mono text-xs">
+                ${appData.mobs.map(m => `
+                  <div class="flex justify-between items-center">
+                    <span class="text-white">${m.name}</span>
+                    <code class="text-rose-400">/summon ${ns}:${m.id}</code>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          ${appData.blocks.length > 0 ? `
+            <div class="space-y-1">
+              <span class="text-xs font-bold text-lime-300">【追加されたカスタムブロック】</span>
+              <div class="bg-mc-dark p-2.5 rounded border border-mc-border space-y-1 font-mono text-xs">
+                ${appData.blocks.map(b => `
+                  <div class="flex justify-between items-center">
+                    <span class="text-white">${b.name}</span>
+                    <code class="text-lime-400">/setblock ~ ~ ~ ${ns}:${b.id}</code>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+
+      container.innerHTML = guideHtml;
+      modal.classList.remove('hidden');
+    }
+
+    // Helper functions for Preset loading
+    function confirmLoadTemplate(type) {
+      showCustomConfirm("テンプレート読込", `現在の編集内容を上書きして${type === 'magic' ? '魔法アドオン' : 'ショップUI'}テンプレートを読み込みますか？`, () => {
+        if(type === 'magic') {
+          appData.settings.name = "Magic Wand Addon";
+          appData.items = [
+            { id: "fire_staff", name: "火炎の杖", iconColor: "#f97316", texturePreset: "wand", textureDataUrl: null, rarity: "rare", maxStackSize: 1, glint: true, actionType: "run_command", actionTarget: "execute at @s run summon fireball ^ ^1 ^3" },
+            { id: "thunder_wand", name: "雷鳴の杖", iconColor: "#eab308", texturePreset: "wand", textureDataUrl: null, rarity: "epic", maxStackSize: 1, glint: true, actionType: "open_ui", actionTarget: "magic_menu" }
+          ];
+          appData.uis = [
+            { id: "magic_menu", type: "action", title: "★ 魔法選択メニュー", content: "使用する魔法を選択してください:", buttons: [{ text: "召喚: 雷撃", action: "command", value: "execute at @s run summon lightning_bolt" }] }
+          ];
+        } else if(type === 'shop') {
+          appData.settings.name = "Server Shop Addon";
+          appData.items = [
+            { id: "shop_teller", name: "ショップ端末", iconColor: "#10b981", texturePreset: "gem", textureDataUrl: null, rarity: "rare", maxStackSize: 1, glint: true, actionType: "open_ui", actionTarget: "main_shop" }
+          ];
+          appData.uis = [
+            { id: "main_shop", type: "action", title: "アイテムショップ", content: "購入したいアイテムを選択してください:", buttons: [{ text: "ダイヤモンド購入", action: "command", value: "give @s diamond 1" }] }
+          ];
+        }
+        renderAllLists();
+        autoSave();
+        showToast("テンプレートを読み込みました");
+      });
+    }
+
+    // Initialize application on load
+    window.addEventListener('DOMContentLoaded', () => {
+      loadAutoSave();
+      renderAllLists();
+      drawDefaultPackIcon();
+    });
+  </script>
+</body>
+</html>
