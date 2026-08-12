@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureFile - ブラウザ完結型ファイル暗号化ツール</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Font Awesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Google Fonts: Inter & Noto Sans JP -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f9ff',
+              500: '#06b6d4',
+              600: '#0891b2',
+              700: '#0e7490',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans JP', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    .drop-zone--over {
+      border-color: #06b6d4 !important;
+      background-color: rgba(6, 182, 212, 0.08) !important;
+      transform: scale(1.01);
+    }
+    .glass-card {
+      background: rgba(30, 41, 59, 0.7);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    /* Custom scrollbar */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0f172a;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #475569;
+    }
+  </style>
+</head>
+
+<body class="min-h-full font-sans flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+
+  <!-- Header -->
+  <header class="border-b border-slate-800 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center shadow-lg shadow-cyan-500/20">
+          <i class="fa-solid font-bold fa-shield-halved text-xl text-white"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            SecureFile
+            <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">AES-256</span>
+          </h1>
+          <p class="text-xs text-slate-400">ブラウザ完結・オフライン対応のファイル暗号化ツール</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 text-xs font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-full">
+        <i class="fa-solid fa-lock text-sm"></i>
+        <span>完全クライアントサイド処理 (サーバー送信なし)</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8">
+    
+    <!-- Mode Switcher Tabs -->
+    <div class="flex p-1 bg-slate-800/80 rounded-xl border border-slate-700/50 mb-8 max-w-md mx-auto">
+      <button id="tab-encrypt" onclick="switchMode('encrypt')" class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md">
+        <i class="fa-solid fa-file-shield"></i>
+        暗号化 (パスワード設定)
+      </button>
+      <button id="tab-decrypt" onclick="switchMode('decrypt')" class="flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white">
+        <i class="fa-solid fa-key"></i>
+        復号化 (解除)
+      </button>
+    </div>
+
+    <div class="glass-card rounded-2xl p-6 sm:p-8 shadow-2xl">
+      
+      <!-- Drag & Drop Zone -->
+      <div id="drop-zone" class="border-2 border-dashed border-slate-700 hover:border-slate-500 rounded-xl p-8 text-center cursor-pointer transition-all duration-200 bg-slate-800/30 group">
+        <input type="file" id="file-input" class="hidden">
+        <div id="drop-zone-empty" class="space-y-4">
+          <div class="w-16 h-16 rounded-full bg-slate-800 group-hover:bg-slate-700/80 flex items-center justify-center mx-auto transition-colors text-cyan-400">
+            <i id="upload-icon" class="fa-solid fa-cloud-arrow-up text-2xl"></i>
+          </div>
+          <div>
+            <p class="text-base font-medium text-slate-200">
+              ここにファイルをドラッグ＆ドロップ
+            </p>
+            <p class="text-xs text-slate-400 mt-1">またはクリックしてファイルを選択</p>
+          </div>
+          <div id="mode-hint" class="inline-block text-xs bg-slate-800 border border-slate-700 rounded-md px-3 py-1 text-slate-400">
+            あらゆる形式のファイルに対応（動画、画像、PDF、ZIP、Office文書等）
+          </div>
+        </div>
+
+        <!-- Selected File Info Display -->
+        <div id="drop-zone-file" class="hidden flex items-center justify-between bg-slate-800/90 p-4 rounded-lg border border-slate-700">
+          <div class="flex items-center gap-4 min-w-0">
+            <div id="file-type-icon" class="w-12 h-12 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center text-xl shrink-0">
+              <i class="fa-solid fa-file"></i>
+            </div>
+            <div class="text-left min-w-0">
+              <p id="file-name" class="font-medium text-slate-100 truncate text-sm sm:text-base">filename.ext</p>
+              <p id="file-size" class="text-xs text-slate-400">0 KB</p>
+            </div>
+          </div>
+          <button type="button" id="remove-file-btn" onclick="clearFile(event)" class="p-2 text-slate-400 hover:text-red-400 hover:bg-slate-700/50 rounded-lg transition-colors" title="ファイルを取り消す">
+            <i class="fa-solid fa-xmark text-lg"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- Options & Password Section -->
+      <div class="mt-8 space-y-6">
+        
+        <!-- Password Input -->
+        <div class="space-y-2">
+          <label for="password" class="block text-sm font-medium text-slate-300 flex justify-between items-center">
+            <span>パスワード <span class="text-rose-400">*</span></span>
+            <button type="button" id="generate-pw-btn" onclick="generateRandomPassword()" class="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 transition-colors">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              強力なパスワード生成
+            </button>
+          </label>
+          <div class="relative">
+            <input type="password" id="password" autocomplete="off" placeholder="パスワードを入力してください" 
+                   class="w-full bg-slate-900/90 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 text-sm outline-none transition-all pr-12">
+            <button type="button" onclick="togglePasswordVisibility('password', 'pw-toggle-icon')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1.5 transition-colors">
+              <i id="pw-toggle-icon" class="fa-solid fa-eye text-sm"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Encrypt-only Password Confirmation & Strength -->
+        <div id="encrypt-extra-fields" class="space-y-4">
+          <div class="space-y-2">
+            <label for="password-confirm" class="block text-sm font-medium text-slate-300">
+              パスワード（確認） <span class="text-rose-400">*</span>
+            </label>
+            <div class="relative">
+              <input type="password" id="password-confirm" autocomplete="off" placeholder="もう一度パスワードを入力してください" 
+                     class="w-full bg-slate-900/90 border border-slate-700 focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 text-sm outline-none transition-all pr-12">
+              <button type="button" onclick="togglePasswordVisibility('password-confirm', 'pw-confirm-toggle-icon')" class="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-200 p-1.5 transition-colors">
+                <i id="pw-confirm-toggle-icon" class="fa-solid fa-eye text-sm"></i>
+              </button>
+            </div>
+          </div>
+
+          <!-- Password Strength Meter -->
+          <div class="space-y-1.5">
+            <div class="flex justify-between items-center text-xs text-slate-400">
+              <span>パスワード強度: <span id="strength-label" class="font-semibold text-slate-400">未入力</span></span>
+            </div>
+            <div class="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex gap-1">
+              <div id="strength-bar-1" class="h-full w-1/4 bg-slate-700 transition-all duration-300"></div>
+              <div id="strength-bar-2" class="h-full w-1/4 bg-slate-700 transition-all duration-300"></div>
+              <div id="strength-bar-3" class="h-full w-1/4 bg-slate-700 transition-all duration-300"></div>
+              <div id="strength-bar-4" class="h-full w-1/4 bg-slate-700 transition-all duration-300"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Progress Bar (Hidden by default) -->
+        <div id="progress-container" class="hidden space-y-2 pt-2">
+          <div class="flex justify-between text-xs text-slate-400">
+            <span id="progress-status-text">処理中...</span>
+            <span id="progress-percentage">0%</span>
+          </div>
+          <div class="w-full bg-slate-800 rounded-full h-2 overflow-hidden">
+            <div id="progress-bar" class="bg-gradient-to-r from-cyan-500 to-blue-500 h-full w-0 transition-all duration-150"></div>
+          </div>
+        </div>
+
+        <!-- Action Button -->
+        <button id="action-btn" onclick="handleProcess()" disabled
+                class="w-full py-3.5 px-6 rounded-xl font-semibold text-sm text-white bg-slate-800 cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2 shadow-lg">
+          <i class="fa-solid fa-lock"></i>
+          <span id="action-btn-text">暗号化を開始</span>
+        </button>
+
+      </div>
+
+    </div>
+
+    <!-- How it works & FAQ -->
+    <section class="mt-12 grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div class="glass-card p-5 rounded-xl border border-slate-800 space-y-2">
+        <div class="w-9 h-9 rounded-lg bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold text-base">
+          <i class="fa-solid fa-user-shield"></i>
+        </div>
+        <h3 class="font-semibold text-slate-200 text-sm">プライバシー完全保護</h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Web Crypto APIを利用し、お使いの端末（ブラウザ）内で直接処理します。ファイルやパスワードが外部サーバーへ送信されることはありません。
+        </p>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-slate-800 space-y-2">
+        <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold text-base">
+          <i class="fa-solid fa-key"></i>
+        </div>
+        <h3 class="font-semibold text-slate-200 text-sm">強力な暗号化アルゴリズム</h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          軍事レベル規格の AES-256-GCM と、PBKDF2（10万回ストレッチング）による鍵導出を採用し、パスワードの解析攻撃を防御します。
+        </p>
+      </div>
+
+      <div class="glass-card p-5 rounded-xl border border-slate-800 space-y-2">
+        <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold text-base">
+          <i class="fa-solid fa-file-zipper"></i>
+        </div>
+        <h3 class="font-semibold text-slate-200 text-sm">元の名前と種類を保持</h3>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          暗号化時にファイル名やタイプ情報も安全に包含されます。復号化時は正しいパスワードを入れるだけで元通りの状態でダウンロードできます。
+        </p>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Toast Notification System -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-3 max-w-sm w-full pointer-events-none px-4 sm:px-0"></div>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+    <div class="max-w-4xl mx-auto px-4">
+      <p>SecureFile &copy; Client-side File Protection Utility. All processing happens in your browser.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Global State
+    let currentMode = 'encrypt'; // 'encrypt' or 'decrypt'
+    let selectedFile = null;
+
+    // Cryptographic Constants
+    const MAGIC_HEADER = "SECFILE_V1"; // Identifier for encrypted payload
+    const PBKDF2_ITERATIONS = 100000;
+    const SALT_BYTE_LEN = 16;
+    const IV_BYTE_LEN = 12;
+
+    // DOM Elements
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const dropZoneEmpty = document.getElementById('drop-zone-empty');
+    const dropZoneFile = document.getElementById('drop-zone-file');
+    const fileNameEl = document.getElementById('file-name');
+    const fileSizeEl = document.getElementById('file-size');
+    const fileTypeIcon = document.getElementById('file-type-icon');
+    
+    const passwordInput = document.getElementById('password');
+    const passwordConfirmInput = document.getElementById('password-confirm');
+    const encryptExtraFields = document.getElementById('encrypt-extra-fields');
+    const generatePwBtn = document.getElementById('generate-pw-btn');
+    const actionBtn = document.getElementById('action-btn');
+    const actionBtnText = document.getElementById('action-btn-text');
+
+    const progressContainer = document.getElementById('progress-container');
+    const progressBar = document.getElementById('progress-bar');
+    const progressStatusText = document.getElementById('progress-status-text');
+    const progressPercentage = document.getElementById('progress-percentage');
+
+    // Initialize Event Listeners
+    window.addEventListener('DOMContentLoaded', () => {
+      // File Input change
+      fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+          handleFileSelect(e.target.files[0]);
+        }
+      });
+
+      // Drag and Drop
+      dropZone.addEventListener('click', (e) => {
+        if (e.target.closest('#remove-file-btn')) return;
+        fileInput.click();
+      });
+
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('drop-zone--over');
+        }, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('drop-zone--over');
+        }, false);
+      });
+
+      dropZone.addEventListener('drop', (e) => {
+        const dt = e.dataTransfer;
+        if (dt.files && dt.files.length > 0) {
+          handleFileSelect(dt.files[0]);
+        }
+      });
+
+      // Password input listeners for strength check & validation
+      passwordInput.addEventListener('input', validateForm);
+      passwordConfirmInput.addEventListener('input', validateForm);
+    });
+
+    // Mode Switcher
+    function switchMode(mode) {
+      currentMode = mode;
+      const tabEncrypt = document.getElementById('tab-encrypt');
+      const tabDecrypt = document.getElementById('tab-decrypt');
+      const uploadIcon = document.getElementById('upload-icon');
+      const modeHint = document.getElementById('mode-hint');
+
+      if (mode === 'encrypt') {
+        tabEncrypt.className = "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md";
+        tabDecrypt.className = "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white";
+        
+        encryptExtraFields.classList.remove('hidden');
+        generatePwBtn.classList.remove('hidden');
+        actionBtnText.textContent = "ファイルを暗号化して保存";
+        uploadIcon.className = "fa-solid fa-cloud-arrow-up text-2xl";
+        modeHint.textContent = "暗号化したいファイルを選択してください";
+      } else {
+        tabDecrypt.className = "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-500 to-blue-600 text-white shadow-md";
+        tabEncrypt.className = "flex-1 py-2.5 px-4 rounded-lg text-sm font-medium transition-all duration-200 flex items-center justify-center gap-2 text-slate-400 hover:text-white";
+        
+        encryptExtraFields.classList.add('hidden');
+        generatePwBtn.classList.add('hidden');
+        actionBtnText.textContent = "ファイルを復号化して保存";
+        uploadIcon.className = "fa-solid fa-key text-2xl";
+        modeHint.textContent = "暗号化ファイル (.enc) を選択してください";
+      }
+
+      validateForm();
+    }
+
+    // Handle File Selection UI
+    function handleFileSelect(file) {
+      selectedFile = file;
+      fileNameEl.textContent = file.name;
+      fileSizeEl.textContent = formatBytes(file.size);
+
+      // Icon determination
+      fileTypeIcon.innerHTML = getFileIconHTML(file.name, file.type);
+
+      dropZoneEmpty.classList.add('hidden');
+      dropZoneFile.classList.remove('hidden');
+
+      // Auto-detect mode if file extension is .enc
+      if (file.name.endsWith('.enc') && currentMode !== 'decrypt') {
+        switchMode('decrypt');
+        showToast('情報', '暗号化ファイルが検出されたため復号モードに切り替えました。', 'info');
+      }
+
+      validateForm();
+    }
+
+    function clearFile(event) {
+      if (event) event.stopPropagation();
+      selectedFile = null;
+      fileInput.value = '';
+      dropZoneEmpty.classList.remove('hidden');
+      dropZoneFile.classList.add('hidden');
+      validateForm();
+    }
+
+    function togglePasswordVisibility(inputId, iconId) {
+      const input = document.getElementById(inputId);
+      const icon = document.getElementById(iconId);
+      if (input.type === 'password') {
+        input.type = 'text';
+        icon.className = 'fa-solid fa-eye-slash text-sm';
+      } else {
+        input.type = 'password';
+        icon.className = 'fa-solid fa-eye text-sm';
+      }
+    }
+
+    // Password Strength Meter Calculation
+    function checkPasswordStrength(password) {
+      let score = 0;
+      if (!password) return score;
+
+      if (password.length >= 8) score++;
+      if (password.length >= 12) score++;
+      if (/[A-Z]/.test(password) && /[a-z]/.test(password)) score++;
+      if (/[0-9]/.test(password) && /[^A-Za-z0-9]/.test(password)) score++;
+
+      return score; // 0 to 4
+    }
+
+    function updateStrengthMeter(password) {
+      const score = checkPasswordStrength(password);
+      const label = document.getElementById('strength-label');
+      
+      const bars = [
+        document.getElementById('strength-bar-1'),
+        document.getElementById('strength-bar-2'),
+        document.getElementById('strength-bar-3'),
+        document.getElementById('strength-bar-4')
+      ];
+
+      // Reset bars
+      bars.forEach(bar => bar.className = 'h-full w-1/4 bg-slate-700 transition-all duration-300');
+
+      if (!password) {
+        label.textContent = '未入力';
+        label.className = 'font-semibold text-slate-400';
+        return;
+      }
+
+      const colors = ['bg-rose-500', 'bg-orange-500', 'bg-yellow-500', 'bg-emerald-500'];
+      const labels = ['非常に弱い', '弱い', '普通', '強力'];
+      const textColors = ['text-rose-400', 'text-orange-400', 'text-yellow-400', 'text-emerald-400'];
+
+      const activeIndex = Math.max(0, Math.min(score - 1, 3));
+
+      for (let i = 0; i <= activeIndex; i++) {
+        bars[i].className = `h-full w-1/4 ${colors[activeIndex]} transition-all duration-300`;
+      }
+
+      label.textContent = labels[activeIndex];
+      label.className = `font-semibold ${textColors[activeIndex]}`;
+    }
+
+    function generateRandomPassword() {
+      const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:,.<>?";
+      const array = new Uint32Array(16);
+      window.crypto.getRandomValues(array);
+      let pw = "";
+      for (let i = 0; i < array.length; i++) {
+        pw += chars[array[i] % chars.length];
+      }
+      
+      passwordInput.value = pw;
+      passwordConfirmInput.value = pw;
+      
+      // Make visible briefly so user can see/copy
+      passwordInput.type = 'text';
+      document.getElementById('pw-toggle-icon').className = 'fa-solid fa-eye-slash text-sm';
+      
+      validateForm();
+      showToast('成功', '強力なランダムパスワードを生成しました', 'success');
+    }
+
+    function validateForm() {
+      const pw = passwordInput.value;
+      const pwConfirm = passwordConfirmInput.value;
+
+      if (currentMode === 'encrypt') {
+        updateStrengthMeter(pw);
+      }
+
+      let isValid = true;
+
+      if (!selectedFile) isValid = false;
+      if (!pw) isValid = false;
+
+      if (currentMode === 'encrypt') {
+        if (!pwConfirm || pw !== pwConfirm) {
+          isValid = false;
+        }
+      }
+
+      if (isValid) {
+        actionBtn.disabled = false;
+        actionBtn.className = "w-full py-3.5 px-6 rounded-xl font-semibold text-sm text-white bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 cursor-pointer shadow-lg shadow-cyan-500/20 active:scale-[0.99] transition-all duration-200 flex items-center justify-center gap-2";
+      } else {
+        actionBtn.disabled = true;
+        actionBtn.className = "w-full py-3.5 px-6 rounded-xl font-semibold text-sm text-slate-400 bg-slate-800/80 cursor-not-allowed border border-slate-700/50 transition-all duration-200 flex items-center justify-center gap-2";
+      }
+    }
+
+    // Cryptographic Helpers
+    async function deriveKey(password, salt, usage) {
+      const enc = new TextEncoder();
+      const passwordKey = await window.crypto.subtle.importKey(
+        'raw',
+        enc.encode(password),
+        'PBKDF2',
+        false,
+        ['deriveKey']
+      );
+
+      return await window.crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: salt,
+          iterations: PBKDF2_ITERATIONS,
+          hash: 'SHA-256'
+        },
+        passwordKey,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        [usage]
+      );
+    }
+
+    async function handleProcess() {
+      if (!selectedFile || !passwordInput.value) return;
+
+      const password = passwordInput.value;
+      
+      // UI State Updates
+      actionBtn.disabled = true;
+      progressContainer.classList.remove('hidden');
+      updateProgress(10, "準備中...");
+
+      try {
+        if (currentMode === 'encrypt') {
+          await encryptFile(selectedFile, password);
+        } else {
+          await decryptFile(selectedFile, password);
+        }
+      } catch (error) {
+        console.error(error);
+        showToast('エラー', error.message || '処理中にエラーが発生しました', 'error');
+      } finally {
+        actionBtn.disabled = false;
+        setTimeout(() => {
+          progressContainer.classList.add('hidden');
+          updateProgress(0, "");
+        }, 1500);
+      }
+    }
+
+    // File Encryption Function
+    async function encryptFile(file, password) {
+      updateProgress(20, "ファイルを読み込み中...");
+      const fileBuffer = await file.arrayBuffer();
+
+      updateProgress(40, "暗号化キーを生成中...");
+      const salt = window.crypto.getRandomValues(new Uint8Array(SALT_BYTE_LEN));
+      const iv = window.crypto.getRandomValues(new Uint8Array(IV_BYTE_LEN));
+
+      const key = await deriveKey(password, salt, 'encrypt');
+
+      // Prepare Metadata JSON
+      const metadata = JSON.stringify({
+        name: file.name,
+        type: file.type || 'application/octet-stream',
+        size: file.size
+      });
+      const enc = new TextEncoder();
+      const metadataBytes = enc.encode(metadata);
+      const metadataLength = metadataBytes.byteLength;
+
+      // Combine Metadata Length (4 bytes) + Metadata Bytes + Original File Content
+      // Payload structure before encryption: [MetaLength (Uint32)][MetaBytes][FileContent]
+      const payloadBuffer = new Uint8Array(4 + metadataLength + fileBuffer.byteLength);
+      const view = new DataView(payloadBuffer.buffer);
+      view.setUint32(0, metadataLength, false); // Big endian
+      payloadBuffer.set(metadataBytes, 4);
+      payloadBuffer.set(new Uint8Array(fileBuffer), 4 + metadataLength);
+
+      updateProgress(65, "データを暗号化中 (AES-256-GCM)...");
+      const encryptedCipher = await window.crypto.subtle.encrypt(
+        { name: 'AES-GCM', iv: iv },
+        key,
+        payloadBuffer
+      );
+
+      updateProgress(85, "出力ファイルをパック中...");
+      // Package Final File:
+      // [Magic Header (10 bytes: "SECFILE_V1")][Salt (16 bytes)][IV (12 bytes)][Encrypted Ciphertext]
+      const headerBytes = enc.encode(MAGIC_HEADER);
+      const finalBlobBuffer = new Uint8Array(headerBytes.byteLength + salt.byteLength + iv.byteLength + encryptedCipher.byteLength);
+      
+      let offset = 0;
+      finalBlobBuffer.set(headerBytes, offset); offset += headerBytes.byteLength;
+      finalBlobBuffer.set(salt, offset); offset += salt.byteLength;
+      finalBlobBuffer.set(iv, offset); offset += iv.byteLength;
+      finalBlobBuffer.set(new Uint8Array(encryptedCipher), offset);
+
+      updateProgress(100, "完了!");
+
+      const blob = new Blob([finalBlobBuffer], { type: 'application/octet-stream' });
+      downloadBlob(blob, `${file.name}.enc`);
+
+      showToast('暗号化成功', 'ファイルを暗号化して保存しました。', 'success');
+    }
+
+    // File Decryption Function
+    async function decryptFile(file, password) {
+      updateProgress(20, "暗号化ファイルを検証中...");
+      const fileBuffer = await file.arrayBuffer();
+      const dataView = new DataView(fileBuffer);
+      const enc = new TextEncoder();
+      const dec = new TextDecoder();
+
+      const headerBytes = enc.encode(MAGIC_HEADER);
+      const headerLen = headerBytes.byteLength;
+
+      if (fileBuffer.byteLength < headerLen + SALT_BYTE_LEN + IV_BYTE_LEN) {
+        throw new Error("ファイル形式が正しくないか、データが破損しています。");
+      }
+
+      // Check Header
+      const fileHeader = dec.decode(new Uint8Array(fileBuffer, 0, headerLen));
+      if (fileHeader !== MAGIC_HEADER) {
+        throw new Error("対応していない暗号化ファイル形式です。");
+      }
+
+      let offset = headerLen;
+      const salt = new Uint8Array(fileBuffer, offset, SALT_BYTE_LEN); offset += SALT_BYTE_LEN;
+      const iv = new Uint8Array(fileBuffer, offset, IV_BYTE_LEN); offset += IV_BYTE_LEN;
+      const ciphertext = new Uint8Array(fileBuffer, offset);
+
+      updateProgress(40, "鍵を復元中...");
+      const key = await deriveKey(password, salt, 'decrypt');
+
+      updateProgress(70, "データを復号化中...");
+      let decryptedPayload;
+      try {
+        decryptedPayload = await window.crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: iv },
+          key,
+          ciphertext
+        );
+      } catch (err) {
+        throw new Error("パスワードが正しくないか、ファイルが変更されています。");
+      }
+
+      updateProgress(90, "元ファイル情報を抽出中...");
+      // Unpack Payload: [MetaLength (Uint32)][MetaBytes][FileContent]
+      const payloadView = new DataView(decryptedPayload);
+      const metadataLength = payloadView.getUint32(0, false);
+
+      const metadataBytes = new Uint8Array(decryptedPayload, 4, metadataLength);
+      const metadataStr = dec.decode(metadataBytes);
+      const metadata = JSON.parse(metadataStr);
+
+      const originalFileContent = decryptedPayload.slice(4 + metadataLength);
+
+      updateProgress(100, "復号完了!");
+
+      const blob = new Blob([originalFileContent], { type: metadata.type || 'application/octet-stream' });
+      downloadBlob(blob, metadata.name || 'decrypted_file');
+
+      showToast('復号成功', 'ファイルのロック解除に成功しました。', 'success');
+    }
+
+    function updateProgress(percent, statusText) {
+      progressBar.style.width = `${percent}%`;
+      progressPercentage.textContent = `${percent}%`;
+      if (statusText) progressStatusText.textContent = statusText;
+    }
+
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function formatBytes(bytes, decimals = 2) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const dm = decimals < 0 ? 0 : decimals;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
+
+    function getFileIconHTML(filename, mimeType) {
+      const ext = filename.split('.').pop().toLowerCase();
+      if (['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext)) {
+        return '<i class="fa-solid fa-file-image text-emerald-400"></i>';
+      } else if (['mp4', 'webm', 'mov', 'avi'].includes(ext)) {
+        return '<i class="fa-solid fa-file-video text-purple-400"></i>';
+      } else if (['mp3', 'wav', 'ogg'].includes(ext)) {
+        return '<i class="fa-solid fa-file-audio text-pink-400"></i>';
+      } else if (['pdf'].includes(ext)) {
+        return '<i class="fa-solid fa-file-pdf text-rose-400"></i>';
+      } else if (['zip', '7z', 'tar', 'gz', 'enc'].includes(ext)) {
+        return '<i class="fa-solid fa-file-zipper text-amber-400"></i>';
+      } else if (['txt', 'md', 'js', 'html', 'css', 'json', 'py', 'cpp'].includes(ext)) {
+        return '<i class="fa-solid fa-file-code text-cyan-400"></i>';
+      }
+      return '<i class="fa-solid fa-file text-slate-400"></i>';
+    }
+
+    // Toast Notification Handler
+    function showToast(title, message, type = 'info') {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      
+      const icons = {
+        success: '<i class="fa-solid fa-circle-check text-emerald-400 text-lg"></i>',
+        error: '<i class="fa-solid fa-circle-xmark text-rose-400 text-lg"></i>',
+        info: '<i class="fa-solid fa-circle-info text-cyan-400 text-lg"></i>'
+      };
+
+      const borderColors = {
+        success: 'border-emerald-500/30',
+        error: 'border-rose-500/30',
+        info: 'border-cyan-500/30'
+      };
+
+      toast.className = `pointer-events-auto flex items-start gap-3 bg-slate-800/95 border ${borderColors[type]} p-4 rounded-xl shadow-2xl backdrop-blur-md transform transition-all duration-300 translate-y-2 opacity-0`;
+      
+      toast.innerHTML = `
+        <div class="shrink-0 mt-0.5">${icons[type]}</div>
+        <div class="flex-1 min-w-0">
+          <p class="text-xs font-bold text-slate-200">${title}</p>
+          <p class="text-xs text-slate-400 mt-0.5 leading-relaxed">${message}</p>
+        </div>
+        <button onclick="this.parentElement.remove()" class="text-slate-500 hover:text-slate-300 p-1">
+          <i class="fa-solid fa-xmark text-xs"></i>
+        </button>
+      `;
+
+      container.appendChild(toast);
+
+      // Trigger animation
+      setTimeout(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      }, 10);
+
+      // Auto dismiss
+      setTimeout(() => {
+        toast.classList.add('opacity-0', 'translate-y-2');
+        setTimeout(() => toast.remove(), 300);
+      }, 4000);
+    }
+  </script>
+</body>
+</html>
