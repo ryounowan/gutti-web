@@ -1,106 +1,1603 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="h-full">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>マルチタイムツール Pro</title>
+    <title>アルティメット 3D/2D マルチ機能クロック & 全世界時計</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;700&family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=VT323&family=Press+Start+2P&family=Comfortaa:wght@700&family=Cinzel:wght@700&family=Monoton&family=Noto+Sans+JP:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            500: '#06b6d4',
+                            600: '#0891b2',
+                            900: '#0e7490',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 10px; background: #eef2f3; display: flex; flex-direction: column; align-items: center; }
-        nav { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 100%; max-width: 500px; margin-bottom: 20px; }
-        nav button { padding: 15px; border: none; background: #fff; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        nav button.active { background: #2c3e50; color: white; }
-        .tab-content { display: none; width: 100%; max-width: 500px; background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); box-sizing: border-box; }
-        .tab-content.active { display: block; }
-        .display { font-size: 2.5rem; margin: 20px 0; font-family: monospace; text-align: center; }
-        .lap-item { padding: 8px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
-        #alarm-modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: #c0392b; color: white; flex-direction: column; align-items: center; justify-content: center; z-index: 9999; }
+        /* デジタル時計用フォントファミリ定義 */
+        .font-orbitron { font-family: 'Orbitron', sans-serif; }
+        .font-sharetech { font-family: 'Share Tech Mono', monospace; }
+        .font-vt323 { font-family: 'VT323', monospace; }
+        .font-pressstart { font-family: 'Press Start 2P', cursive; }
+        .font-chakra { font-family: 'Chakra Petch', sans-serif; }
+        .font-comfortaa { font-family: 'Comfortaa', cursive; }
+        .font-cinzel { font-family: 'Cinzel', serif; }
+        .font-monoton { font-family: 'Monoton', cursive; }
+        
+        /* ネオンエフェクト */
+        .glow-cyan { text-shadow: 0 0 10px #06b6d4, 0 0 20px #06b6d4, 0 0 40px #0891b2; }
+        .glow-red { text-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444, 0 0 40px #dc2626; }
+        .glow-green { text-shadow: 0 0 10px #22c55e, 0 0 20px #22c55e, 0 0 40px #16a34a; }
+        .glow-gold { text-shadow: 0 0 10px #eab308, 0 0 20px #eab308; }
+
+        /* スクロールバーのカスタマイズ */
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: rgba(0, 0, 0, 0.2); }
+        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+
+        /* ガラスモフィズム */
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body>
+<body class="bg-slate-950 text-slate-100 min-h-full flex flex-col font-sans antialiased select-none overflow-x-hidden">
 
-    <nav>
-        <button onclick="show('stopwatch')" id="btn-stopwatch" class="active">ストップウォッチ</button>
-        <button onclick="show('timer')" id="btn-timer">タイマー</button>
-        <button onclick="show('alarm')" id="btn-alarm">アラーム</button>
-        <button onclick="show('worldclock')" id="btn-worldclock">世界時計</button>
+    <!-- Top Navigation Header -->
+    <header class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/30">
+                    <i class="fa-solid font-bold fa-clock text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold bg-gradient-to-r from-cyan-400 to-blue-400 bg-clip-text text-transparent">World Clock Studio</h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">JAL & ラッコツールズ対応 全世界時計 & タイムゾーン Studio</p>
+                </div>
+            </div>
+
+            <!-- Global Actions & Settings -->
+            <div class="flex items-center space-x-2 sm:space-x-4">
+                <button id="wakeLockBtn" onclick="toggleWakeLock()" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs flex items-center gap-2 border border-slate-700 transition" title="スリープ防止（画面常時点灯）">
+                    <i id="wakeLockIcon" class="fa-solid fa-bolt text-slate-500"></i>
+                    <span id="wakeLockText" class="hidden md:inline">スリープ防止: OFF</span>
+                </button>
+                <button onclick="toggleFullscreen()" class="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm border border-slate-700 transition" title="全画面表示">
+                    <i class="fa-solid fa-expand"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Navigation Tabs -->
+    <nav class="bg-slate-900 border-b border-slate-800 overflow-x-auto no-scrollbar">
+        <div class="max-w-7xl mx-auto px-4 flex space-x-1 sm:space-x-2 py-2 text-xs sm:text-sm font-medium">
+            <button onclick="switchTab('clock')" id="tab-clock" class="nav-tab px-3 py-2 rounded-lg text-cyan-400 bg-slate-800/80 border border-cyan-500/30 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-clock"></i> メイン時計
+            </button>
+            <button onclick="switchTab('world')" id="tab-world" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-globe"></i> 世界時計 (全都市)
+            </button>
+            <button onclick="switchTab('alarm')" id="tab-alarm" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-bell"></i> アラーム
+            </button>
+            <button onclick="switchTab('stopwatch')" id="tab-stopwatch" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-stopwatch"></i> ストップウォッチ
+            </button>
+            <button onclick="switchTab('timer')" id="tab-timer" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-hourglass-half"></i> タイマー
+            </button>
+            <button onclick="switchTab('pomodoro')" id="tab-pomodoro" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-brain"></i> ポモドーロ
+            </button>
+            <button onclick="switchTab('chime')" id="tab-chime" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-volume-high"></i> 時報＆音声
+            </button>
+            <button onclick="switchTab('metronome')" id="tab-metronome" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-drum"></i> メトロノーム
+            </button>
+            <button onclick="switchTab('event')" id="tab-event" class="nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap">
+                <i class="fa-solid fa-calendar-day"></i> カウントダウン
+            </button>
+        </div>
     </nav>
 
-    <div id="stopwatch" class="tab-content active">
-        <div id="sw-display" class="display">00:00.00</div>
-        <div style="text-align: center;">
-            <button onclick="startSW()">開始</button><button onclick="stopSW()">停止</button>
-            <button onclick="resetSW()">リセット</button><button onclick="lapSW()">ラップ</button>
-        </div>
-        <div id="lap-list" style="margin-top:20px; height: 150px; overflow-y: auto;"></div>
-    </div>
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 flex flex-col justify-between">
+        
+        <!-- SECTION 1: MAIN CLOCK -->
+        <section id="sec-clock" class="tab-content flex flex-col items-center justify-center space-y-6 my-auto">
+            
+            <!-- Clock Type Selector Bar -->
+            <div class="flex flex-wrap items-center justify-center gap-3 bg-slate-900/90 p-2 rounded-2xl border border-slate-800">
+                <div class="inline-flex rounded-xl bg-slate-950 p-1">
+                    <button id="btnDisplayAnalog" onclick="setDisplayType('analog')" class="px-4 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 text-white shadow">アナログ (30種)</button>
+                    <button id="btnDisplayDigital" onclick="setDisplayType('digital')" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">デジタル (30種)</button>
+                    <button id="btnDisplayBoth" onclick="setDisplayType('both')" class="px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white">両方表示</button>
+                </div>
 
-    <div id="timer" class="tab-content">
-        <input type="number" id="timer-input" placeholder="秒数(秒)" style="width:100%; padding:10px;">
-        <button onclick="startTimer()" style="width:100%; margin-top:10px;">タイマー開始</button>
-        <div id="timer-display" class="display">00:00</div>
-    </div>
+                <!-- Theme Preset Dropdowns -->
+                <div id="analogSelectWrapper" class="flex items-center gap-2">
+                    <label class="text-xs text-slate-400"><i class="fa-solid fa-compass"></i> アナログ:</label>
+                    <select id="analogStyleSelect" onchange="changeAnalogStyle(this.value)" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-cyan-300 focus:outline-none focus:border-cyan-500">
+                    </select>
+                </div>
 
-    <div id="alarm" class="tab-content">
-        <input type="time" id="alarm-time" style="width:100%; padding:10px;">
-        <button onclick="setAlarm()" style="width:100%; margin-top:10px;">セット</button>
-        <p id="alarm-status">未設定</p>
-    </div>
+                <div id="digitalSelectWrapper" class="flex items-center gap-2">
+                    <label class="text-xs text-slate-400"><i class="fa-solid fa-font"></i> デジタル:</label>
+                    <select id="digitalStyleSelect" onchange="changeDigitalStyle(this.value)" class="bg-slate-800 border border-slate-700 text-xs rounded-lg px-2.5 py-1.5 text-cyan-300 focus:outline-none focus:border-cyan-500">
+                    </select>
+                </div>
+            </div>
 
-    <div id="worldclock" class="tab-content">
-        <div id="wc-list"></div>
-    </div>
+            <!-- Clock Display Canvas/Container -->
+            <div class="w-full flex flex-col lg:flex-row items-center justify-center gap-8 py-6">
+                <!-- Analog Clock Viewport -->
+                <div id="analogClockContainer" class="relative flex items-center justify-center">
+                    <canvas id="analogCanvas" width="320" height="320" class="drop-shadow-2xl"></canvas>
+                </div>
 
-    <div id="alarm-modal">
-        <h1 style="font-size: 3rem;">⏰ 時間です！</h1>
-        <button onclick="snoozeAlarm()" style="font-size:1.5rem; padding:20px 40px; margin:10px;">スヌーズ (5分)</button>
-        <button onclick="stopAlarm()" style="font-size:1.5rem; padding:20px 40px; margin:10px;">停止</button>
-    </div>
+                <!-- Digital Clock Viewport -->
+                <div id="digitalClockContainer" class="flex flex-col items-center justify-center text-center p-6 rounded-3xl glass-panel min-w-[300px] sm:min-w-[420px]">
+                    <div id="digitalDate" class="text-sm sm:text-base text-slate-400 font-medium tracking-wider mb-2">----年--月--日(--)</div>
+                    <div id="digitalTime" class="text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight text-cyan-400 my-2 font-orbitron transition-all">
+                        00:00:00
+                    </div>
+                    <div id="digitalTimezone" class="text-xs text-slate-500 font-mono mt-1">📍 現在地 (Local Position Time)</div>
+                </div>
+            </div>
+
+            <!-- Quick Info Ribbon -->
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 w-full max-w-3xl">
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 text-center">
+                    <span class="text-xs text-slate-500 block">通算日数</span>
+                    <span id="dayOfYear" class="text-sm font-bold text-slate-200">Day --</span>
+                </div>
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 text-center">
+                    <span class="text-xs text-slate-500 block">第何週目</span>
+                    <span id="weekOfYear" class="text-sm font-bold text-slate-200">Week --</span>
+                </div>
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 text-center">
+                    <span class="text-xs text-slate-500 block">月齢 (およそ)</span>
+                    <span id="moonPhase" class="text-sm font-bold text-slate-200">--</span>
+                </div>
+                <div class="bg-slate-900/60 border border-slate-800/80 rounded-xl p-3 text-center">
+                    <span class="text-xs text-slate-500 block">音声読み上げ</span>
+                    <button onclick="speakCurrentTime()" class="text-xs font-semibold text-cyan-400 hover:underline mt-0.5"><i class="fa-solid fa-volume-high"></i> 時刻を聴く</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: WORLD CLOCK -->
+        <section id="sec-world" class="tab-content hidden space-y-6">
+            <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 border-b border-slate-800 pb-4">
+                <div>
+                    <h2 class="text-xl font-bold text-slate-100 flex items-center gap-2">
+                        <i class="fa-solid fa-globe text-cyan-400"></i> 世界時計 & タイムゾーン (全世界対応)
+                    </h2>
+                    <p class="text-xs text-slate-400 mt-0.5">JAL世界時計 & ラッコツールズのすべての都市を網羅（ローカルストレージ自動保存対応）</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+                    <div class="relative flex-1 sm:w-64">
+                        <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-500 text-xs"></i>
+                        <input type="text" id="worldSearchInput" oninput="onWorldSearchChange()" placeholder="都市名・国名で検索..." class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg pl-8 pr-3 py-2 w-full focus:outline-none focus:border-cyan-500">
+                    </div>
+                    
+                    <button onclick="resetWorldCitiesToDefault()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-semibold border border-slate-700 transition" title="初期表示（全都市データ）に復元">
+                        <i class="fa-solid fa-rotate-left mr-1"></i> 全都市復元
+                    </button>
+
+                    <button onclick="toggleWorldViewMode()" id="viewModeBtn" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 rounded-lg text-xs font-semibold border border-slate-700 transition">
+                        <i class="fa-solid fa-table-cells mr-1"></i> カード表示
+                    </button>
+                </div>
+            </div>
+
+            <!-- Region Category Filter Tabs -->
+            <div class="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 text-xs">
+                <button onclick="filterWorldRegion('ALL')" id="region-ALL" class="region-tab px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-semibold whitespace-nowrap">すべて (全都市)</button>
+                <button onclick="filterWorldRegion('現在地')" id="region-現在地" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">📍 現在位置</button>
+                <button onclick="filterWorldRegion('アジア')" id="region-アジア" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">🌏 アジア</button>
+                <button onclick="filterWorldRegion('オセアニア')" id="region-オセアニア" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">🦘 オセアニア・太平洋</button>
+                <button onclick="filterWorldRegion('ヨーロッパ')" id="region-ヨーロッパ" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">🏰 ヨーロッパ</button>
+                <button onclick="filterWorldRegion('北米')" id="region-北米" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">🗽 北米</button>
+                <button onclick="filterWorldRegion('中南米')" id="region-中南米" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">💃 中南米</button>
+                <button onclick="filterWorldRegion('中東')" id="region-中東" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">🕌 中東</button>
+                <button onclick="filterWorldRegion('アフリカ')" id="region-アフリカ" class="region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap">🦁 アフリカ</button>
+            </div>
+
+            <!-- Current Location Banner Card -->
+            <div id="localClockBanner" class="bg-gradient-to-r from-cyan-900/60 to-blue-900/60 border border-cyan-500/40 p-4 rounded-2xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-xl font-bold">
+                        📍
+                    </div>
+                    <div>
+                        <div class="text-xs text-cyan-300 font-bold uppercase tracking-wider">現在位置 (Current Device Location)</div>
+                        <div id="localCityNameDisplay" class="text-base font-bold text-white">Detecting Time Zone...</div>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div id="localTimeDisplay" class="text-3xl font-bold font-orbitron text-cyan-300">00:00:00</div>
+                    <div id="localDateDisplay" class="text-xs text-cyan-200/70 font-mono">----/--/--</div>
+                </div>
+            </div>
+
+            <!-- World Cities Grid Container -->
+            <div id="worldCitiesContainer">
+                <div id="worldCitiesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+                    <!-- JSで都市カードを動的描画 -->
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: ALARM -->
+        <section id="sec-alarm" class="tab-content hidden space-y-6 max-w-3xl mx-auto w-full">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-bell text-amber-400 mr-2"></i>アラーム設定</h2>
+                <p class="text-xs text-slate-400 mt-1">※スリープ中の動作確保のため、上部の「スリープ防止」を有効にしておくことを推奨します。</p>
+            </div>
+
+            <!-- Add Alarm Form -->
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex flex-wrap items-center gap-4">
+                <input type="time" id="alarmTimeInput" value="07:00" class="bg-slate-800 border border-slate-700 text-lg text-cyan-300 rounded-xl px-3 py-2 focus:outline-none">
+                <input type="text" id="alarmLabelInput" placeholder="アラームのラベル (例: 朝の起床)" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-xl px-3 py-2.5 flex-1 min-w-[180px] focus:outline-none">
+                <button onclick="addAlarm()" class="px-5 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-orange-500/20">
+                    <i class="fa-solid fa-plus mr-1"></i> アラーム追加
+                </button>
+            </div>
+
+            <div id="alarmList" class="space-y-3">
+                <!-- JSで動的出力 -->
+            </div>
+        </section>
+
+        <!-- SECTION 4: STOPWATCH -->
+        <section id="sec-stopwatch" class="tab-content hidden space-y-6 max-w-2xl mx-auto w-full text-center">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-stopwatch text-emerald-400 mr-2"></i>高精度ストップウォッチ</h2>
+            </div>
+
+            <div class="p-8 rounded-3xl glass-panel border border-slate-800">
+                <div id="swDisplay" class="text-5xl sm:text-7xl font-bold font-sharetech text-emerald-400 tracking-wider">
+                    00:00:00.<span class="text-3xl sm:text-5xl">00</span>
+                </div>
+            </div>
+
+            <div class="flex items-center justify-center gap-4">
+                <button id="swStartBtn" onclick="toggleStopwatch()" class="w-28 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/30">
+                    <i class="fa-solid fa-play mr-1"></i> スタート
+                </button>
+                <button id="swLapBtn" onclick="recordSwLap()" disabled class="w-28 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-300 rounded-xl font-bold text-sm border border-slate-700">
+                    <i class="fa-solid fa-flag mr-1"></i> ラップ
+                </button>
+                <button onclick="resetStopwatch()" class="w-28 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm border border-slate-700">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> リセット
+                </button>
+            </div>
+
+            <div class="max-h-60 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-900/50">
+                <table class="w-full text-xs text-left text-slate-300">
+                    <thead class="bg-slate-800/80 sticky top-0 text-slate-400 uppercase">
+                        <tr>
+                            <th class="px-4 py-2">ラップ #</th>
+                            <th class="px-4 py-2">ラップタイム</th>
+                            <th class="px-4 py-2">通算時間</th>
+                        </tr>
+                    </thead>
+                    <tbody id="swLapTableBody">
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- SECTION 5: TIMER -->
+        <section id="sec-timer" class="tab-content hidden space-y-6 max-w-2xl mx-auto w-full text-center">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-hourglass-half text-blue-400 mr-2"></i>カウントダウンタイマー</h2>
+            </div>
+
+            <div class="flex flex-wrap items-center justify-center gap-2">
+                <button onclick="setTimerPreset(1)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg border border-slate-700">1分</button>
+                <button onclick="setTimerPreset(3)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg border border-slate-700">3分 (カップ麺)</button>
+                <button onclick="setTimerPreset(5)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg border border-slate-700">5分</button>
+                <button onclick="setTimerPreset(10)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg border border-slate-700">10分</button>
+                <button onclick="setTimerPreset(15)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg border border-slate-700">15分</button>
+                <button onclick="setTimerPreset(30)" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-xs rounded-lg border border-slate-700">30分</button>
+            </div>
+
+            <div id="timerInputGroup" class="flex items-center justify-center gap-2 text-2xl font-bold font-mono">
+                <input type="number" id="timerMin" min="0" max="999" value="05" class="w-20 p-3 bg-slate-800 text-center text-cyan-400 rounded-xl border border-slate-700 focus:outline-none">
+                <span>:</span>
+                <input type="number" id="timerSec" min="0" max="59" value="00" class="w-20 p-3 bg-slate-800 text-center text-cyan-400 rounded-xl border border-slate-700 focus:outline-none">
+            </div>
+
+            <div id="timerDisplayContainer" class="hidden p-8 rounded-3xl glass-panel border border-slate-800">
+                <div id="timerDisplay" class="text-6xl sm:text-8xl font-bold font-orbitron text-cyan-400">05:00</div>
+            </div>
+
+            <div class="flex items-center justify-center gap-4">
+                <button id="tmStartBtn" onclick="toggleTimer()" class="w-32 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-cyan-600/30">
+                    <i class="fa-solid fa-play mr-1"></i> スタート
+                </button>
+                <button onclick="resetTimer()" class="w-32 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm border border-slate-700">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> リセット
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION 6: POMODORO -->
+        <section id="sec-pomodoro" class="tab-content hidden space-y-6 max-w-xl mx-auto w-full text-center">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-brain text-rose-400 mr-2"></i>ポモドーロ・テクニック</h2>
+                <p class="text-xs text-slate-400 mt-1">25分の集中ワーク + 5分のリフレッシュ休憩</p>
+            </div>
+
+            <div class="p-8 rounded-3xl glass-panel border border-slate-800 flex flex-col items-center">
+                <span id="pomoStatus" class="px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4">集中タイム (Focus)</span>
+                <div id="pomoDisplay" class="text-6xl sm:text-7xl font-bold font-orbitron text-rose-400 my-2">25:00</div>
+                <p class="text-xs text-slate-400 mt-2">完了セッション数: <span id="pomoCount" class="font-bold text-slate-200">0</span></p>
+            </div>
+
+            <div class="flex items-center justify-center gap-4">
+                <button id="pomoStartBtn" onclick="togglePomodoro()" class="w-32 py-3 bg-rose-600 hover:bg-rose-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-rose-600/30">
+                    <i class="fa-solid fa-play mr-1"></i> 開始
+                </button>
+                <button onclick="resetPomodoro()" class="w-32 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-bold text-sm border border-slate-700">
+                    <i class="fa-solid fa-rotate-left mr-1"></i> リセット
+                </button>
+            </div>
+        </section>
+
+        <!-- SECTION 7: HOURLY CHIME & TTS -->
+        <section id="sec-chime" class="tab-content hidden space-y-6 max-w-2xl mx-auto w-full">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-volume-high text-indigo-400 mr-2"></i>時報・音声読み上げ設定</h2>
+                <p class="text-xs text-slate-400 mt-1">毎時0分のお知らせ通知と音声機能</p>
+            </div>
+
+            <div class="bg-slate-900/80 p-6 rounded-2xl border border-slate-800 space-y-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-slate-200">毎時0分 時報チャイム</h3>
+                        <p class="text-xs text-slate-400">1時間ごとに爽やかな音でお知らせします</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="chimeToggle" onchange="toggleHourlyChime(this.checked)" class="sr-only peer">
+                        <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+                    </label>
+                </div>
+
+                <hr class="border-slate-800">
+
+                <div>
+                    <h3 class="text-sm font-bold text-slate-200 mb-2">音声合成 (TTS) テスト</h3>
+                    <div class="flex items-center gap-3">
+                        <button onclick="speakCurrentTime()" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-semibold flex items-center gap-2">
+                            <i class="fa-solid fa-bullhorn"></i> 現在時刻を音声読み上げ
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 8: METRONOME -->
+        <section id="sec-metronome" class="tab-content hidden space-y-6 max-w-xl mx-auto w-full text-center">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-drum text-purple-400 mr-2"></i>メトロノーム</h2>
+                <p class="text-xs text-slate-400 mt-1">テンポキープや楽器練習用の正確なビート音</p>
+            </div>
+
+            <div class="p-8 rounded-3xl glass-panel border border-slate-800 flex flex-col items-center">
+                <div id="metroBpmDisplay" class="text-6xl font-bold font-orbitron text-purple-400">120 <span class="text-lg font-sans text-slate-400">BPM</span></div>
+                
+                <input type="range" id="metroBpmSlider" min="40" max="240" value="120" oninput="updateBpm(this.value)" class="w-full max-w-md mt-6 accent-purple-500 cursor-pointer">
+                
+                <div class="flex items-center gap-4 mt-6">
+                    <button onclick="adjustBpm(-5)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">-5</button>
+                    <button onclick="adjustBpm(-1)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">-1</button>
+                    <button onclick="adjustBpm(1)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">+1</button>
+                    <button onclick="adjustBpm(5)" class="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-xs rounded border border-slate-700">+5</button>
+                </div>
+            </div>
+
+            <button id="metroStartBtn" onclick="toggleMetronome()" class="w-36 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-purple-600/30">
+                <i class="fa-solid fa-play mr-1"></i> スタート
+            </button>
+        </section>
+
+        <!-- SECTION 9: EVENT COUNTDOWN -->
+        <section id="sec-event" class="tab-content hidden space-y-6 max-w-2xl mx-auto w-full">
+            <div class="border-b border-slate-800 pb-4">
+                <h2 class="text-xl font-bold text-slate-100"><i class="fa-solid fa-calendar-day text-teal-400 mr-2"></i>記念日・イベントカウントダウン</h2>
+            </div>
+
+            <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 space-y-3">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input type="text" id="eventNameInput" placeholder="イベント名 (例: 10周年記念日, 試験)" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-xl px-3 py-2.5 focus:outline-none">
+                    <input type="datetime-local" id="eventDateInput" class="bg-slate-800 border border-slate-700 text-xs text-cyan-300 rounded-xl px-3 py-2.5 focus:outline-none">
+                </div>
+                <button onclick="addEventCountdown()" class="w-full py-2.5 bg-teal-600 hover:bg-teal-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-teal-600/20">
+                    <i class="fa-solid fa-plus mr-1"></i> カウントダウンを登録
+                </button>
+            </div>
+
+            <div id="eventList" class="space-y-3">
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 border-t border-slate-800 py-4 text-center text-xs text-slate-500">
+        World Clock Studio &copy; 全世界100+都市対応 & LocalStorage AutoSave Engine
+    </footer>
 
     <script>
-        function show(id) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
-            document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            document.getElementById('btn-' + id).classList.add('active');
-        }
+        /* ==========================================================================
+           1. JAL & RAKKO TOOLS COMPREHENSIVE WORLD CITIES DATASET (100+ CITIES)
+           ========================================================================== */
+        const DEFAULT_WORLD_CITIES = [
+            // UTC & LOCAL
+            { id: "utc", name: "UTC (協定世界時)", country: "国際標準", tz: "UTC", flag: "🌐", region: "ALL" },
+            
+            // アジア
+            { id: "tokyo", name: "東京", country: "日本", tz: "Asia/Tokyo", flag: "🇯🇵", region: "アジア" },
+            { id: "seoul", name: "ソウル", country: "韓国", tz: "Asia/Seoul", flag: "🇰🇷", region: "アジア" },
+            { id: "beijing", name: "北京", country: "中国", tz: "Asia/Shanghai", flag: "🇨🇳", region: "アジア" },
+            { id: "shanghai", name: "上海", country: "中国", tz: "Asia/Shanghai", flag: "🇨🇳", region: "アジア" },
+            { id: "hongkong", name: "香港", country: "中国", tz: "Asia/Hong_Kong", flag: "🇭🇰", region: "アジア" },
+            { id: "taipei", name: "台北", country: "台湾", tz: "Asia/Taipei", flag: "🇹🇼", region: "アジア" },
+            { id: "manila", name: "マニラ", country: "フィリピン", tz: "Asia/Manila", flag: "🇵🇭", region: "アジア" },
+            { id: "bangkok", name: "バンコク", country: "タイ", tz: "Asia/Bangkok", flag: "🇹🇭", region: "アジア" },
+            { id: "hanoi", name: "ハノイ", country: "ベトナム", tz: "Asia/Bangkok", flag: "🇻🇳", region: "アジア" },
+            { id: "hochiminh", name: "ホーチミン", country: "ベトナム", tz: "Asia/Ho_Chi_Minh", flag: "🇻🇳", region: "アジア" },
+            { id: "singapore", name: "シンガポール", country: "シンガポール", tz: "Asia/Singapore", flag: "🇸🇬", region: "アジア" },
+            { id: "kualalumpur", name: "クアラルンプール", country: "マレーシア", tz: "Asia/Kuala_Lumpur", flag: "🇲🇾", region: "アジア" },
+            { id: "jakarta", name: "ジャカルタ", country: "インドネシア", tz: "Asia/Jakarta", flag: "🇮🇩", region: "アジア" },
+            { id: "bali", name: "バリ (デンパサール)", country: "インドネシア", tz: "Asia/Makassar", flag: "🇮🇩", region: "アジア" },
+            { id: "delhi", name: "デリー / ニューデリー", country: "インド", tz: "Asia/Kolkata", flag: "🇮🇳", region: "アジア" },
+            { id: "mumbai", name: "ムンバイ", country: "インド", tz: "Asia/Kolkata", flag: "🇮🇳", region: "アジア" },
+            { id: "colombo", name: "コロンボ", country: "スリランカ", tz: "Asia/Colombo", flag: "🇱🇰", region: "アジア" },
+            { id: "dhaka", name: "ダッカ", country: "バングラデシュ", tz: "Asia/Dhaka", flag: "🇧🇩", region: "アジア" },
+            { id: "yangon", name: "ヤンゴン", country: "ミャンマー", tz: "Asia/Yangon", flag: "🇲🇲", region: "アジア" },
+            { id: "kathmandu", name: "カトマンズ", country: "ネパール", tz: "Asia/Kathmandu", flag: "🇳🇵", region: "アジア" },
+            { id: "islamabad", name: "イスラマバード", country: "パキスタン", tz: "Asia/Karachi", flag: "🇵🇰", region: "アジア" },
+            { id: "ulanbator", name: "ウランバートル", country: "モンゴル", tz: "Asia/Ulaanbaatar", flag: "🇲🇳", region: "アジア" },
+            { id: "tashkent", name: "タシュケント", country: "ウズベキスタン", tz: "Asia/Tashkent", flag: "🇺🇿", region: "アジア" },
+            { id: "astana", name: "アスタナ", country: "カザフスタン", tz: "Asia/Almaty", flag: "🇰🇿", region: "アジア" },
 
-        // ストップウォッチ
-        let swTime = 0, swInt, lapCount = 0;
-        function startSW() { if(!swInt) { let s = Date.now() - swTime; swInt = setInterval(() => { swTime = Date.now() - s; document.getElementById('sw-display').innerText = (swTime/1000).toFixed(2); }, 10); } }
-        function stopSW() { clearInterval(swInt); swInt = null; }
-        function resetSW() { stopSW(); swTime = 0; lapCount = 0; document.getElementById('sw-display').innerText = "00:00.00"; document.getElementById('lap-list').innerHTML = ""; }
-        function lapSW() { lapCount++; document.getElementById('lap-list').innerHTML += `<div class="lap-item"><span>No.${lapCount}</span><span>${document.getElementById('sw-display').innerText}</span></div>`; }
+            // オセアニア・太平洋
+            { id: "sydney", name: "シドニー", country: "オーストラリア", tz: "Australia/Sydney", flag: "🇦🇺", region: "オセアニア" },
+            { id: "melbourne", name: "メルボルン", country: "オーストラリア", tz: "Australia/Melbourne", flag: "🇦🇺", region: "オセアニア" },
+            { id: "brisbane", name: "ブリスベン", country: "オーストラリア", tz: "Australia/Brisbane", flag: "🇦🇺", region: "オセアニア" },
+            { id: "perth", name: "パース", country: "オーストラリア", tz: "Australia/Perth", flag: "🇦🇺", region: "オセアニア" },
+            { id: "adelaide", name: "アデレード", country: "オーストラリア", tz: "Australia/Adelaide", flag: "🇦🇺", region: "オセアニア" },
+            { id: "auckland", name: "オークランド", country: "ニュージーランド", tz: "Pacific/Auckland", flag: "🇳🇿", region: "オセアニア" },
+            { id: "wellington", name: "ウェリントン", country: "ニュージーランド", tz: "Pacific/Auckland", flag: "🇳🇿", region: "オセアニア" },
+            { id: "nadi", name: "ナンディ", country: "フィジー", tz: "Pacific/Fiji", flag: "🇫🇯", region: "オセアニア" },
+            { id: "guam", name: "グアム", country: "米国領", tz: "Pacific/Guam", flag: "🇬🇺", region: "オセアニア" },
+            { id: "honolulu", name: "ホノルル (ハワイ)", country: "米国", tz: "Pacific/Honolulu", flag: "🇺🇸", region: "オセアニア" },
+            { id: "portmoresby", name: "ポートモレスビー", country: "パプアニューギニア", tz: "Pacific/Port_Moresby", flag: "🇵🇬", region: "オセアニア" },
+            { id: "tahiti", name: "パペーテ (タヒチ)", country: "仏領ポリネシア", tz: "Pacific/Tahiti", flag: "🇵🇫", region: "オセアニア" },
 
-        // タイマー
-        let tInt;
-        function startTimer() {
-            let rem = parseInt(document.getElementById('timer-input').value);
-            tInt = setInterval(() => {
-                rem--;
-                document.getElementById('timer-display').innerText = Math.floor(rem/60) + ":" + (rem%60).toString().padStart(2,'0');
-                if(rem <= 0) { clearInterval(tInt); document.getElementById('alarm-modal').style.display = 'flex'; }
-            }, 1000);
-        }
+            // ヨーロッパ
+            { id: "london", name: "ロンドン", country: "イギリス", tz: "Europe/London", flag: "🇬🇧", region: "ヨーロッパ" },
+            { id: "paris", name: "パリ", country: "フランス", tz: "Europe/Paris", flag: "🇫🇷", region: "ヨーロッパ" },
+            { id: "berlin", name: "ベルリン", country: "ドイツ", tz: "Europe/Berlin", flag: "🇩🇪", region: "ヨーロッパ" },
+            { id: "frankfurt", name: "フランクフルト", country: "ドイツ", tz: "Europe/Berlin", flag: "🇩🇪", region: "ヨーロッパ" },
+            { id: "rome", name: "ローマ", country: "イタリア", tz: "Europe/Rome", flag: "🇮🇹", region: "ヨーロッパ" },
+            { id: "madrid", name: "マドリード", country: "スペイン", tz: "Europe/Madrid", flag: "🇪🇸", region: "ヨーロッパ" },
+            { id: "amsterdam", name: "アムステルダム", country: "オランダ", tz: "Europe/Amsterdam", flag: "🇳🇱", region: "ヨーロッパ" },
+            { id: "brussels", name: "ブリュッセル", country: "ベルギー", tz: "Europe/Brussels", flag: "🇧🇪", region: "ヨーロッパ" },
+            { id: "vienna", name: "ウィーン", country: "オーストリア", tz: "Europe/Vienna", flag: "🇦🇹", region: "ヨーロッパ" },
+            { id: "zurich", name: "チューリッヒ", country: "スイス", tz: "Europe/Zurich", flag: "🇨🇭", region: "ヨーロッパ" },
+            { id: "geneva", name: "ジュネーブ", country: "スイス", tz: "Europe/Zurich", flag: "🇨🇭", region: "ヨーロッパ" },
+            { id: "stockholm", name: "ストックホルム", country: "スウェーデン", tz: "Europe/Stockholm", flag: "🇸🇪", region: "ヨーロッパ" },
+            { id: "oslo", name: "オスロ", country: "ノルウェー", tz: "Europe/Oslo", flag: "🇳🇴", region: "ヨーロッパ" },
+            { id: "copenhagen", name: "コペンハーゲン", country: "デンマーク", tz: "Europe/Copenhagen", flag: "🇩🇰", region: "ヨーロッパ" },
+            { id: "helsinki", name: "ヘルシンキ", country: "フィンランド", tz: "Europe/Helsinki", flag: "🇫🇮", region: "ヨーロッパ" },
+            { id: "moscow", name: "モスクワ", country: "ロシア", tz: "Europe/Moscow", flag: "🇷🇺", region: "ヨーロッパ" },
+            { id: "athens", name: "アテネ", country: "ギリシャ", tz: "Europe/Athens", flag: "🇬🇷", region: "ヨーロッパ" },
+            { id: "istanbul", name: "イスタンブール", country: "トルコ", tz: "Europe/Istanbul", flag: "🇹🇷", region: "ヨーロッパ" },
+            { id: "warsaw", name: "ワルシャワ", country: "ポーランド", tz: "Europe/Warsaw", flag: "🇵🇱", region: "ヨーロッパ" },
+            { id: "prague", name: "プラハ", country: "チェコ", tz: "Europe/Prague", flag: "🇨🇿", region: "ヨーロッパ" },
+            { id: "budapest", name: "ブダペスト", country: "ハンガリー", tz: "Europe/Budapest", flag: "🇭🇺", region: "ヨーロッパ" },
+            { id: "dublin", name: "ダブリン", country: "アイルランド", tz: "Europe/Dublin", flag: "🇮🇪", region: "ヨーロッパ" },
+            { id: "lisbon", name: "リスボン", country: "ポルトガル", tz: "Europe/Lisbon", flag: "🇵🇹", region: "ヨーロッパ" },
+            { id: "kyiv", name: "キーウ (キエフ)", country: "ウクライナ", tz: "Europe/Kyiv", flag: "🇺🇦", region: "ヨーロッパ" },
 
-        // アラーム
-        let alarmTime = null;
-        function setAlarm() { alarmTime = document.getElementById('alarm-time').value; document.getElementById('alarm-status').innerText = "セット完了: " + alarmTime; }
-        setInterval(() => {
-            const now = new Date().toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'});
-            if(now === alarmTime && alarmTime !== null) { document.getElementById('alarm-modal').style.display = 'flex'; alarmTime = null; }
-        }, 1000);
-        function stopAlarm() { document.getElementById('alarm-modal').style.display = 'none'; }
-        function snoozeAlarm() { stopAlarm(); let d = new Date(); d.setMinutes(d.getMinutes() + 5); alarmTime = d.toLocaleTimeString('ja-JP', {hour:'2-digit', minute:'2-digit'}); alert("5分後に再通知します"); }
+            // 北米
+            { id: "newyork", name: "ニューヨーク", country: "米国", tz: "America/New_York", flag: "🇺🇸", region: "北米" },
+            { id: "washington", name: "ワシントン D.C.", country: "米国", tz: "America/New_York", flag: "🇺🇸", region: "北米" },
+            { id: "boston", name: "ボストン", country: "米国", tz: "America/New_York", flag: "🇺🇸", region: "北米" },
+            { id: "chicago", name: "シカゴ", country: "米国", tz: "America/Chicago", flag: "🇺🇸", region: "北米" },
+            { id: "detroit", name: "デトロイト", country: "米国", tz: "America/Detroit", flag: "🇺🇸", region: "北米" },
+            { id: "atlanta", name: "アトランタ", country: "米国", tz: "America/New_York", flag: "🇺🇸", region: "北米" },
+            { id: "miami", name: "マイアミ", country: "米国", tz: "America/New_York", flag: "🇺🇸", region: "北米" },
+            { id: "houston", name: "ヒューストン", country: "米国", tz: "America/Chicago", flag: "🇺🇸", region: "北米" },
+            { id: "dallas", name: "ダラス", country: "米国", tz: "America/Chicago", flag: "🇺🇸", region: "北米" },
+            { id: "lasvegas", name: "ラスベガス", country: "米国", tz: "America/Los_Angeles", flag: "🇺🇸", region: "北米" },
+            { id: "losangeles", name: "ロサンゼルス", country: "米国", tz: "America/Los_Angeles", flag: "🇺🇸", region: "北米" },
+            { id: "sanfrancisco", name: "サンフランシスコ", country: "米国", tz: "America/Los_Angeles", flag: "🇺🇸", region: "北米" },
+            { id: "seattle", name: "シアトル", country: "米国", tz: "America/Los_Angeles", flag: "🇺🇸", region: "北米" },
+            { id: "anchorage", name: "アンカレッジ", country: "米国 (アラスカ)", tz: "America/Anchorage", flag: "🇺🇸", region: "北米" },
+            { id: "vancouver", name: "バンクーバー", country: "カナダ", tz: "America/Vancouver", flag: "🇨🇦", region: "北米" },
+            { id: "toronto", name: "トロント", country: "カナダ", tz: "America/Toronto", flag: "🇨🇦", region: "北米" },
+            { id: "montreal", name: "モントリオール", country: "カナダ", tz: "America/Toronto", flag: "🇨🇦", region: "北米" },
+            { id: "mexicocity", name: "メキシコシティ", country: "メキシコ", tz: "America/Mexico_City", flag: "🇲🇽", region: "北米" },
 
-        // 世界時計
-        const zones = [
-            {n:'日本 (東京)', t:'Asia/Tokyo'}, {n:'北京', t:'Asia/Shanghai'}, {n:'ドバイ', t:'Asia/Dubai'},
-            {n:'ロンドン', t:'Europe/London'}, {n:'パリ', t:'Europe/Paris'}, {n:'ニューヨーク', t:'America/New_York'},
-            {n:'ロサンゼルス', t:'America/Los_Angeles'}, {n:'シドニー', t:'Australia/Sydney'}
+            // 中南米
+            { id: "saopaulo", name: "サンパウロ", country: "ブラジル", tz: "America/Sao_Paulo", flag: "🇧🇷", region: "中南米" },
+            { id: "riodejaneiro", name: "リオデジャネイロ", country: "ブラジル", tz: "America/Sao_Paulo", flag: "🇧🇷", region: "中南米" },
+            { id: "buenosaires", name: "ブエノスアイレス", country: "アルゼンチン", tz: "America/Argentina/Buenos_Aires", flag: "🇦🇷", region: "中南米" },
+            { id: "santiago", name: "サンティアゴ", country: "チリ", tz: "America/Santiago", flag: "🇨🇱", region: "中南米" },
+            { id: "lima", name: "リマ", country: "ペルー", tz: "America/Lima", flag: "🇵🇪", region: "中南米" },
+            { id: "bogota", name: "ボゴタ", country: "コロンビア", tz: "America/Bogota", flag: "🇨🇴", region: "中南米" },
+            { id: "caracas", name: "カラカス", country: "ベネズエラ", tz: "America/Caracas", flag: "🇻🇪", region: "中南米" },
+            { id: "panamacity", name: "パナマシティ", country: "パナマ", tz: "America/Panama", flag: "🇵🇦", region: "中南米" },
+            { id: "habana", name: "ハバナ", country: "キューバ", tz: "America/Havana", flag: "🇨🇺", region: "中南米" },
+
+            // 中東
+            { id: "dubai", name: "ドバイ", country: "UAE", tz: "Asia/Dubai", flag: "🇦🇪", region: "中東" },
+            { id: "abudhabi", name: "アブダビ", country: "UAE", tz: "Asia/Dubai", flag: "🇦🇪", region: "中東" },
+            { id: "riyadh", name: "リヤド", country: "サウジアラビア", tz: "Asia/Riyadh", flag: "🇸🇦", region: "中東" },
+            { id: "doha", name: "ドーハ", country: "カタール", tz: "Asia/Qatar", flag: "🇶🇦", region: "中東" },
+            { id: "kuwait", name: "クウェート", country: "クウェート", tz: "Asia/Kuwait", flag: "🇰🇼", region: "中東" },
+            { id: "muscat", name: "マスカット", country: "オマーン", tz: "Asia/Muscat", flag: "🇴🇲", region: "中東" },
+            { id: "tehran", name: "テヘラン", country: "イラン", tz: "Asia/Tehran", flag: "🇮🇷", region: "中東" },
+            { id: "baghdad", name: "バグダッド", country: "イラク", tz: "Asia/Baghdad", flag: "🇮🇶", region: "中東" },
+            { id: "jerusalem", name: "エルサレム", country: "イスラエル", tz: "Asia/Jerusalem", flag: "🇮🇱", region: "中東" },
+            { id: "ankara", name: "アンカラ", country: "トルコ", tz: "Europe/Istanbul", flag: "🇹🇷", region: "中東" },
+
+            // アフリカ
+            { id: "cairo", name: "カイロ", country: "エジプト", tz: "Africa/Cairo", flag: "🇪🇬", region: "アフリカ" },
+            { id: "johannesburg", name: "ヨハネスブルグ", country: "南アフリカ", tz: "Africa/Johannesburg", flag: "🇿🇦", region: "アフリカ" },
+            { id: "capetown", name: "ケープタウン", country: "南アフリカ", tz: "Africa/Johannesburg", flag: "🇿🇦", region: "アフリカ" },
+            { id: "nairobi", name: "ナイロビ", country: "ケニア", tz: "Africa/Nairobi", flag: "🇰🇪", region: "アフリカ" },
+            { id: "casablanca", name: "カサブランカ", country: "モロッコ", tz: "Africa/Casablanca", flag: "🇲🇦", region: "アフリカ" },
+            { id: "lagos", name: "ラゴス", country: "ナイジェリア", tz: "Africa/Lagos", flag: "🇳🇬", region: "アフリカ" },
+            { id: "addisababa", name: "アディスアベバ", country: "エチオピア", tz: "Africa/Addis_Ababa", flag: "🇪🇹", region: "アフリカ" }
         ];
-        setInterval(() => {
-            document.getElementById('wc-list').innerHTML = zones.map(z => `<p style="margin:5px 0; border-bottom:1px solid #eee;"><b>${z.n}</b>: ${new Date().toLocaleTimeString('ja-JP', {timeZone: z.t})}</p>`).join('');
-        }, 1000);
+
+        /* ==========================================================================
+           2. GLOBAL CONFIG & STATE MANAGEMENT WITH LOCALSTORAGE PERSISTENCE
+           ========================================================================== */
+        let activeTab = 'clock';
+        let displayType = 'both';
+        let currentAnalogStyle = 0;
+        let currentDigitalStyle = 0;
+        let wakeLock = null;
+        let audioCtx = null;
+
+        // World Clock States
+        let worldCities = [];
+        let activeRegionFilter = 'ALL';
+        let searchQuery = '';
+        let isTableViewMode = false;
+
+        // LOCALSTORAGE KEYS
+        const STORAGE_KEY_WORLD_CITIES = "wcs_world_cities_v2";
+        const STORAGE_KEY_SETTINGS = "wcs_settings_v2";
+        const STORAGE_KEY_ALARMS = "wcs_alarms_v2";
+        const STORAGE_KEY_EVENTS = "wcs_events_v2";
+
+        function loadSavedState() {
+            // Load Cities
+            const savedCities = localStorage.getItem(STORAGE_KEY_WORLD_CITIES);
+            if (savedCities) {
+                try {
+                    worldCities = JSON.parse(savedCities);
+                } catch(e) {
+                    worldCities = [...DEFAULT_WORLD_CITIES];
+                }
+            } else {
+                worldCities = [...DEFAULT_WORLD_CITIES];
+            }
+
+            // Load Settings
+            const savedSettings = localStorage.getItem(STORAGE_KEY_SETTINGS);
+            if (savedSettings) {
+                try {
+                    const st = JSON.parse(savedSettings);
+                    currentAnalogStyle = st.analogStyle || 0;
+                    currentDigitalStyle = st.digitalStyle || 0;
+                    displayType = st.displayType || 'both';
+                } catch(e) {}
+            }
+
+            // Load Alarms
+            const savedAlarms = localStorage.getItem(STORAGE_KEY_ALARMS);
+            if (savedAlarms) {
+                try { alarms = JSON.parse(savedAlarms); } catch(e) {}
+            }
+
+            // Load Events
+            const savedEvents = localStorage.getItem(STORAGE_KEY_EVENTS);
+            if (savedEvents) {
+                try { eventList = JSON.parse(savedEvents); } catch(e) {}
+            }
+        }
+
+        function saveState() {
+            localStorage.setItem(STORAGE_KEY_WORLD_CITIES, JSON.stringify(worldCities));
+            localStorage.setItem(STORAGE_KEY_SETTINGS, JSON.stringify({
+                analogStyle: currentAnalogStyle,
+                digitalStyle: currentDigitalStyle,
+                displayType: displayType
+            }));
+            localStorage.setItem(STORAGE_KEY_ALARMS, JSON.stringify(alarms));
+            localStorage.setItem(STORAGE_KEY_EVENTS, JSON.stringify(eventList));
+        }
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            return audioCtx;
+        }
+
+        /* ==========================================================================
+           3. 30 ANALOG & 30 DIGITAL STYLES DEFINITIONS
+           ========================================================================== */
+        const ANALOG_STYLES = [
+            { id: 0, name: "1. クラシックダーク", bg: "#0f172a", dial: "#1e293b", handH: "#38bdf8", handM: "#38bdf8", handS: "#ef4444", ticks: "#64748b" },
+            { id: 1, name: "2. ミニマルホワイト", bg: "#f8fafc", dial: "#ffffff", handH: "#0f172a", handM: "#0f172a", handS: "#06b6d4", ticks: "#94a3b8" },
+            { id: 2, name: "3. ネオンサイバー", bg: "#09090b", dial: "#18181b", handH: "#22d3ee", handM: "#22d3ee", handS: "#f43f5e", ticks: "#06b6d4" },
+            { id: 3, name: "4. ローマ数字エレガント", bg: "#1c1917", dial: "#292524", handH: "#eab308", handM: "#eab308", handS: "#f97316", ticks: "#ca8a04", numerals: "roman" },
+            { id: 4, name: "5. ミリタリー24H", bg: "#14532d", dial: "#166534", handH: "#facc15", handM: "#facc15", handS: "#ef4444", ticks: "#86efac" },
+            { id: 5, name: "6. ラグジュアリーゴールド", bg: "#18181b", dial: "#27272a", handH: "#fbbf24", handM: "#fbbf24", handS: "#d97706", ticks: "#f59e0b" },
+            { id: 6, name: "7. ダイバーズスポーツ", bg: "#0c4a6e", dial: "#075985", handH: "#ffffff", handM: "#ffffff", handS: "#f97316", ticks: "#38bdf8" },
+            { id: 7, name: "8. 北欧ナチュラル", bg: "#2e1065", dial: "#3b0764", handH: "#f472b6", handM: "#f472b6", handS: "#c084fc", ticks: "#e879f9" },
+            { id: 8, name: "9. スイス鉄道風", bg: "#ffffff", dial: "#f1f5f9", handH: "#000000", handM: "#000000", handS: "#dc2626", ticks: "#000000" },
+            { id: 9, name: "10. バウハウスデザイン", bg: "#f8fafc", dial: "#e2e8f0", handH: "#2563eb", handM: "#dc2626", handS: "#eab308", ticks: "#334155" },
+            { id: 10, name: "11. レトロフューチャー", bg: "#2a1205", dial: "#431407", handH: "#fdba74", handM: "#fdba74", handS: "#ea580c", ticks: "#f97316" },
+            { id: 11, name: "12. 星空アストロノミー", bg: "#030712", dial: "#0b0f19", handH: "#a855f7", handM: "#c084fc", handS: "#e879f9", ticks: "#6366f1" },
+            { id: 12, name: "13. 和風(漢字数字)", bg: "#18181b", dial: "#27272a", handH: "#ef4444", handM: "#ffffff", handS: "#eab308", ticks: "#a1a1aa", numerals: "kanji" },
+            { id: 13, name: "14. モノクロハイコントラスト", bg: "#000000", dial: "#000000", handH: "#ffffff", handM: "#ffffff", handS: "#ffffff", ticks: "#ffffff" },
+            { id: 14, name: "15. サンセットオレンジ", bg: "#451a03", dial: "#78350f", handH: "#fde047", handM: "#fde047", handS: "#f97316", ticks: "#fbbf24" },
+            { id: 15, name: "16. エメラルドマリン", bg: "#064e3b", dial: "#065f46", handH: "#6ee7b7", handM: "#6ee7b7", handS: "#34d399", ticks: "#10b981" },
+            { id: 16, name: "17. ディープパープル", bg: "#3b0764", dial: "#581c87", handH: "#e9d5ff", handM: "#e9d5ff", handS: "#f43f5e", ticks: "#c084fc" },
+            { id: 17, name: "18. アールデコ", bg: "#172554", dial: "#1e3a8a", handH: "#fef08a", handM: "#fef08a", handS: "#38bdf8", ticks: "#eab308" },
+            { id: 18, name: "19. ミニマルグレー", bg: "#334155", dial: "#475569", handH: "#f8fafc", handM: "#f8fafc", handS: "#cbd5e1", ticks: "#94a3b8" },
+            { id: 19, name: "20. ローズゴールド", bg: "#2d1217", dial: "#4c1d24", handH: "#fecdd3", handM: "#fecdd3", handS: "#fb7185", ticks: "#f43f5e" },
+            { id: 20, name: "21. パイロットクロノ", bg: "#0f172a", dial: "#1e293b", handH: "#facc15", handM: "#ffffff", handS: "#ef4444", ticks: "#f8fafc" },
+            { id: 21, name: "22. サイバーパンクグリーン", bg: "#022c22", dial: "#064e3b", handH: "#4ade80", handM: "#4ade80", handS: "#a7f3d0", ticks: "#22c55e" },
+            { id: 22, name: "23. ドットマトリクス風", bg: "#18181b", dial: "#27272a", handH: "#38bdf8", handM: "#38bdf8", handS: "#f43f5e", ticks: "#52525b" },
+            { id: 23, name: "24. オーシャンブルー", bg: "#1e3a8a", dial: "#1d4ed8", handH: "#93c5fd", handM: "#93c5fd", handS: "#60a5fa", ticks: "#bfdbfe" },
+            { id: 24, name: "25. マリンスカイ", bg: "#0f766e", dial: "#115e59", handH: "#99f6e4", handM: "#99f6e4", handS: "#2dd4bf", ticks: "#5eead4" },
+            { id: 25, name: "26. クリムゾンレッド", bg: "#450a0a", dial: "#7f1d1d", handH: "#fca5a5", handM: "#fca5a5", handS: "#ef4444", ticks: "#f87171" },
+            { id: 26, name: "27. ヴィンテージブロンズ", bg: "#291e07", dial: "#45320c", handH: "#fef08a", handM: "#fef08a", handS: "#eab308", ticks: "#ca8a04" },
+            { id: 27, name: "28. アイスブルー", bg: "#082f49", dial: "#0c4a6e", handH: "#bae6fd", handM: "#bae6fd", handS: "#38bdf8", ticks: "#7dd3fc" },
+            { id: 28, name: "29. カワイイピンク", bg: "#500724", dial: "#831843", handH: "#fbcfe8", handM: "#fbcfe8", handS: "#f472b6", ticks: "#f9a8d4" },
+            { id: 29, name: "30. スケルトンモダン", bg: "#09090b", dial: "#18181b", handH: "#38bdf8", handM: "#818cf8", handS: "#c084fc", ticks: "#3f3f46" }
+        ];
+
+        const DIGITAL_STYLES = [
+            { id: 0, name: "1. Orbitron Cyan", font: "font-orbitron", color: "text-cyan-400", glow: "glow-cyan" },
+            { id: 1, name: "2. 7-Seg Red LED", font: "font-vt323", color: "text-red-500", glow: "glow-red" },
+            { id: 2, name: "3. Matrix Green", font: "font-sharetech", color: "text-emerald-400", glow: "glow-green" },
+            { id: 3, name: "4. Retro 8-Bit Pixel", font: "font-pressstart", color: "text-yellow-400", glow: "glow-gold" },
+            { id: 4, name: "5. Chakra Modern", font: "font-chakra", color: "text-blue-400", glow: "" },
+            { id: 5, name: "6. Soft Comfortaa", font: "font-comfortaa", color: "text-pink-400", glow: "" },
+            { id: 6, name: "7. Classic Cinzel", font: "font-cinzel", color: "text-amber-300", glow: "" },
+            { id: 7, name: "8. Monoton Art", font: "font-monoton", color: "text-purple-400", glow: "" },
+            { id: 8, name: "9. Neon Purple Glow", font: "font-orbitron", color: "text-fuchsia-400", glow: "glow-cyan" },
+            { id: 9, name: "10. Casio LCD Gray", font: "font-vt323", color: "text-slate-800 bg-slate-300 px-4 py-2 rounded-lg", glow: "" },
+            { id: 10, name: "11. Ultra Bold White", font: "font-sans font-black", color: "text-white", glow: "" },
+            { id: 11, name: "12. Sunset Gradient", font: "font-orbitron bg-gradient-to-r from-amber-400 to-rose-500 bg-clip-text text-transparent", color: "", glow: "" },
+            { id: 12, name: "13. Ocean Gradient", font: "font-orbitron bg-gradient-to-r from-teal-300 to-blue-500 bg-clip-text text-transparent", color: "", glow: "" },
+            { id: 13, name: "14. Cyber Neon Pink", font: "font-sharetech", color: "text-rose-400", glow: "glow-red" },
+            { id: 14, name: "15. Minimal Monospaced", font: "font-mono", color: "text-slate-200", glow: "" },
+            { id: 15, name: "16. Hacker Lime", font: "font-vt323", color: "text-lime-400", glow: "glow-green" },
+            { id: 16, name: "17. Gold Luxury", font: "font-cinzel", color: "text-amber-400", glow: "glow-gold" },
+            { id: 17, name: "18. Ice Blue Glow", font: "font-orbitron", color: "text-sky-300", glow: "glow-cyan" },
+            { id: 18, name: "19. Kawaii Pastel Pink", font: "font-comfortaa", color: "text-pink-300", glow: "" },
+            { id: 19, name: "20. Electric Yellow", font: "font-pressstart text-2xl sm:text-4xl", color: "text-yellow-300", glow: "glow-gold" },
+            { id: 20, name: "21. Terminal Amber", font: "font-sharetech", color: "text-amber-500", glow: "" },
+            { id: 21, name: "22. Deep Indigo", font: "font-chakra", color: "text-indigo-400", glow: "" },
+            { id: 22, name: "23. Clean Slate", font: "font-sans", color: "text-slate-400", glow: "" },
+            { id: 23, name: "24. Vivid Orange", font: "font-orbitron", color: "text-orange-400", glow: "" },
+            { id: 24, name: "25. Plasma Violet", font: "font-orbitron", color: "text-violet-400", glow: "" },
+            { id: 25, name: "26. High Contrast Mono", font: "font-mono bg-white text-black px-4 py-1 rounded", color: "", glow: "" },
+            { id: 26, name: "27. Futuristic Teal", font: "font-chakra", color: "text-teal-400", glow: "glow-cyan" },
+            { id: 27, name: "28. Blood Red Gothic", font: "font-cinzel", color: "text-red-600", glow: "glow-red" },
+            { id: 28, name: "29. Soft Mint", font: "font-comfortaa", color: "text-emerald-300", glow: "" },
+            { id: 29, name: "30. Cosmic Purple", font: "font-monoton", color: "text-purple-300", glow: "" }
+        ];
+
+        function initSelectOptions() {
+            const analogSel = document.getElementById('analogStyleSelect');
+            analogSel.innerHTML = ANALOG_STYLES.map(s => `<option value="${s.id}" ${s.id === currentAnalogStyle ? 'selected' : ''}>${s.name}</option>`).join('');
+
+            const digitalSel = document.getElementById('digitalStyleSelect');
+            digitalSel.innerHTML = DIGITAL_STYLES.map(s => `<option value="${s.id}" ${s.id === currentDigitalStyle ? 'selected' : ''}>${s.name}</option>`).join('');
+        }
+
+        /* ==========================================================================
+           4. ANALOG CLOCK CANVAS DRAWING LOGIC
+           ========================================================================== */
+        function drawAnalogClock(date) {
+            const canvas = document.getElementById('analogCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+            const radius = width / 2;
+
+            const style = ANALOG_STYLES[currentAnalogStyle] || ANALOG_STYLES[0];
+
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.beginPath();
+            ctx.arc(radius, radius, radius - 8, 0, 2 * Math.PI);
+            ctx.fillStyle = style.dial;
+            ctx.fill();
+            ctx.lineWidth = 4;
+            ctx.strokeStyle = style.ticks;
+            ctx.stroke();
+
+            ctx.save();
+            ctx.translate(radius, radius);
+
+            for (let num = 1; num <= 12; num++) {
+                const angle = num * Math.PI / 6;
+                ctx.rotate(angle);
+                ctx.translate(0, -radius + 28);
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 0);
+                ctx.lineTo(0, -8);
+                ctx.lineWidth = 3;
+                ctx.strokeStyle = style.ticks;
+                ctx.stroke();
+
+                ctx.rotate(-angle);
+                ctx.fillStyle = style.ticks;
+                ctx.font = 'bold 14px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+
+                let label = num.toString();
+                if (style.numerals === 'roman') {
+                    const romans = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII"];
+                    label = romans[num - 1];
+                } else if (style.numerals === 'kanji') {
+                    const kanjis = ["一", "二", "三", "四", "五", "六", "七", "八", "九", "十", "十一", "十二"];
+                    label = kanjis[num - 1];
+                }
+
+                ctx.fillText(label, 0, 12);
+                ctx.rotate(angle);
+                ctx.translate(0, radius - 28);
+                ctx.rotate(-angle);
+            }
+
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            const seconds = date.getSeconds() + date.getMilliseconds() / 1000;
+
+            const hourAngle = ((hours % 12) + minutes / 60) * Math.PI / 6;
+            drawHand(ctx, hourAngle, radius * 0.5, 6, style.handH);
+
+            const minuteAngle = (minutes + seconds / 60) * Math.PI / 30;
+            drawHand(ctx, minuteAngle, radius * 0.72, 4, style.handM);
+
+            const secondAngle = seconds * Math.PI / 30;
+            drawHand(ctx, secondAngle, radius * 0.85, 2, style.handS);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 6, 0, 2 * Math.PI);
+            ctx.fillStyle = style.handS;
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function drawHand(ctx, pos, length, width, color) {
+            ctx.beginPath();
+            ctx.lineWidth = width;
+            ctx.lineCap = "round";
+            ctx.strokeStyle = color;
+            ctx.moveTo(0, 0);
+            ctx.rotate(pos);
+            ctx.lineTo(0, -length);
+            ctx.stroke();
+            ctx.rotate(-pos);
+        }
+
+        /* ==========================================================================
+           5. MAIN CLOCK UPDATE LOOP & METADATA
+           ========================================================================== */
+        function updateMainClock() {
+            const now = new Date();
+
+            drawAnalogClock(now);
+
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            const seconds = String(now.getSeconds()).padStart(2, '0');
+            
+            const timeEl = document.getElementById('digitalTime');
+            if (timeEl) {
+                timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            const dateEl = document.getElementById('digitalDate');
+            if (dateEl) {
+                const days = ['日', '月', '火', '水', '木', '金', '土'];
+                dateEl.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日(${days[now.getDay()]})`;
+            }
+
+            checkHourlyChime(now);
+            checkAlarms(now);
+        }
+
+        function updateMetaInfo() {
+            const now = new Date();
+            
+            const start = new Date(now.getFullYear(), 0, 0);
+            const diff = now - start;
+            const oneDay = 1000 * 60 * 60 * 24;
+            const day = Math.floor(diff / oneDay);
+            document.getElementById('dayOfYear').textContent = `${day}日目 / 365`;
+
+            const firstJan = new Date(now.getFullYear(), 0, 1);
+            const week = Math.ceil((((now - firstJan) / 86400000) + firstJan.getDay() + 1) / 7);
+            document.getElementById('weekOfYear').textContent = `第 ${week} 週`;
+
+            const year = now.getFullYear();
+            const g = year - 19 * Math.floor(year / 19);
+            const moonAge = (g * 11 + 8) % 30;
+            const phases = ["新月 🌑", "三日月 🌒", "上弦の月 🌓", "十三夜 🌔", "満月 🌕", "十六夜 🌖", "下弦の月 🌗", "有明月 🌘"];
+            const phaseIndex = Math.floor((moonAge / 30) * 8) % 8;
+            document.getElementById('moonPhase').textContent = phases[phaseIndex];
+        }
+
+        function changeAnalogStyle(id) {
+            currentAnalogStyle = parseInt(id);
+            saveState();
+            updateMainClock();
+        }
+
+        function changeDigitalStyle(id) {
+            currentDigitalStyle = parseInt(id);
+            saveState();
+            const style = DIGITAL_STYLES[currentDigitalStyle] || DIGITAL_STYLES[0];
+            const timeEl = document.getElementById('digitalTime');
+            
+            timeEl.className = "text-4xl sm:text-6xl md:text-7xl font-bold tracking-tight my-2 transition-all " + 
+                               style.font + " " + style.color + " " + style.glow;
+        }
+
+        function setDisplayType(type) {
+            displayType = type;
+            saveState();
+            const analogBox = document.getElementById('analogClockContainer');
+            const digitalBox = document.getElementById('digitalClockContainer');
+
+            document.getElementById('btnDisplayAnalog').className = type === 'analog' ? 'px-4 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 text-white shadow' : 'px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white';
+            document.getElementById('btnDisplayDigital').className = type === 'digital' ? 'px-4 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 text-white shadow' : 'px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white';
+            document.getElementById('btnDisplayBoth').className = type === 'both' ? 'px-4 py-1.5 rounded-lg text-xs font-semibold bg-cyan-600 text-white shadow' : 'px-4 py-1.5 rounded-lg text-xs font-semibold text-slate-400 hover:text-white';
+
+            if (type === 'analog') {
+                analogBox.classList.remove('hidden');
+                digitalBox.classList.add('hidden');
+            } else if (type === 'digital') {
+                analogBox.classList.add('hidden');
+                digitalBox.classList.remove('hidden');
+            } else {
+                analogBox.classList.remove('hidden');
+                digitalBox.classList.remove('hidden');
+            }
+        }
+
+        /* ==========================================================================
+           6. WORLD CLOCK MODULE (ALL CITIES, LOCAL POSITION & FILTERS)
+           ========================================================================== */
+        function updateLocalPositionClock() {
+            const now = new Date();
+            const userTz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Tokyo";
+            
+            const cityEl = document.getElementById('localCityNameDisplay');
+            if (cityEl) {
+                cityEl.textContent = `${userTz.replace('_', ' ')} (自動検知)`;
+            }
+
+            const timeEl = document.getElementById('localTimeDisplay');
+            if (timeEl) {
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                timeEl.textContent = `${hours}:${minutes}:${seconds}`;
+            }
+
+            const dateEl = document.getElementById('localDateDisplay');
+            if (dateEl) {
+                const days = ['日', '月', '火', '水', '木', '金', '土'];
+                dateEl.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日(${days[now.getDay()]})`;
+            }
+        }
+
+        function renderWorldCities() {
+            updateLocalPositionClock();
+
+            const grid = document.getElementById('worldCitiesGrid');
+            if (!grid) return;
+
+            // Filter logic
+            const filtered = worldCities.filter(city => {
+                const matchesRegion = (activeRegionFilter === 'ALL') || (city.region === activeRegionFilter);
+                const q = searchQuery.toLowerCase().trim();
+                const matchesSearch = !q || city.name.toLowerCase().includes(q) || city.country.toLowerCase().includes(q) || city.tz.toLowerCase().includes(q);
+                return matchesRegion && matchesSearch;
+            });
+
+            if (filtered.length === 0) {
+                grid.innerHTML = `<div class="col-span-full text-center py-12 text-slate-500 text-xs">該当する都市が見つかりませんでした。</div>`;
+                return;
+            }
+
+            const now = Date.now();
+
+            if (isTableViewMode) {
+                // Table View
+                grid.className = "col-span-full overflow-x-auto bg-slate-900/80 rounded-2xl border border-slate-800 p-2";
+                grid.innerHTML = `
+                    <table class="w-full text-left text-xs">
+                        <thead class="text-slate-400 border-b border-slate-800">
+                            <tr>
+                                <th class="p-2.5">都市 / 国</th>
+                                <th class="p-2.5">地域</th>
+                                <th class="p-2.5">現在時刻</th>
+                                <th class="p-2.5">日付</th>
+                                <th class="p-2.5">時差</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-800/60">
+                            ${filtered.map((city) => {
+                                const cityDate = new Date();
+                                let timeStr = "--:--:--";
+                                let dateStr = "----/--/--";
+                                let diffStr = "";
+                                try {
+                                    timeStr = new Intl.DateTimeFormat('ja-JP', { timeZone: city.tz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(cityDate);
+                                    dateStr = new Intl.DateTimeFormat('ja-JP', { timeZone: city.tz, month: '2-digit', day: '2-digit', weekday: 'short' }).format(cityDate);
+                                    
+                                    // Calculate Offset vs Local
+                                    const localOffset = -new Date().getTimezoneOffset();
+                                    const tzDate = new Date(cityDate.toLocaleString('en-US', { timeZone: city.tz }));
+                                    const localTzDate = new Date(cityDate.toLocaleString('en-US'));
+                                    const diffHours = Math.round((tzDate - localTzDate) / (1000 * 60 * 60));
+                                    diffStr = diffHours >= 0 ? `+${diffHours}時間` : `${diffHours}時間`;
+                                } catch(e) {}
+
+                                return `
+                                    <tr class="hover:bg-slate-800/40">
+                                        <td class="p-2.5 font-bold text-slate-200">
+                                            <span class="mr-1.5">${city.flag}</span>${city.name} <span class="text-[10px] text-slate-500 font-normal">(${city.country})</span>
+                                        </td>
+                                        <td class="p-2.5 text-slate-400">${city.region}</td>
+                                        <td class="p-2.5 font-orbitron font-bold text-cyan-400 text-sm">${timeStr}</td>
+                                        <td class="p-2.5 font-mono text-slate-400">${dateStr}</td>
+                                        <td class="p-2.5 font-mono text-slate-400 text-[11px]">${diffStr}</td>
+                                    </tr>
+                                `;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                `;
+            } else {
+                // Card Grid View
+                grid.className = "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3";
+                grid.innerHTML = filtered.map((city) => {
+                    const cityDate = new Date();
+                    let timeStr = "--:--:--";
+                    let dateStr = "----/--/--";
+                    let diffStr = "";
+                    try {
+                        timeStr = new Intl.DateTimeFormat('ja-JP', { timeZone: city.tz, hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(cityDate);
+                        dateStr = new Intl.DateTimeFormat('ja-JP', { timeZone: city.tz, year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short' }).format(cityDate);
+                        
+                        const tzDate = new Date(cityDate.toLocaleString('en-US', { timeZone: city.tz }));
+                        const localTzDate = new Date(cityDate.toLocaleString('en-US'));
+                        const diffHours = Math.round((tzDate - localTzDate) / (1000 * 60 * 60));
+                        diffStr = diffHours >= 0 ? `日本との時差: +${diffHours}時間` : `日本との時差: ${diffHours}時間`;
+                    } catch(e) {}
+
+                    return `
+                        <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex flex-col justify-between hover:border-slate-700 transition">
+                            <div class="flex items-center justify-between">
+                                <div class="text-xs text-slate-400 flex items-center gap-1.5 font-medium truncate">
+                                    <span class="text-base">${city.flag}</span> ${city.name}
+                                </div>
+                                <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700/60">${city.region}</span>
+                            </div>
+
+                            <div class="my-2">
+                                <div class="text-2xl sm:text-3xl font-bold font-orbitron text-cyan-400">${timeStr}</div>
+                                <div class="text-[11px] text-slate-400 font-mono mt-1">${dateStr}</div>
+                            </div>
+
+                            <div class="text-[10px] text-slate-500 font-mono flex items-center justify-between border-t border-slate-800/80 pt-2 mt-1">
+                                <span>${city.tz}</span>
+                                <span>${diffStr}</span>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+        }
+
+        function filterWorldRegion(region) {
+            activeRegionFilter = region;
+            document.querySelectorAll('.region-tab').forEach(btn => {
+                btn.className = "region-tab px-3 py-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-slate-200 whitespace-nowrap";
+            });
+            const activeBtn = document.getElementById(`region-${region}`);
+            if (activeBtn) {
+                activeBtn.className = "region-tab px-3 py-1.5 rounded-lg bg-cyan-600 text-white font-semibold whitespace-nowrap";
+            }
+            renderWorldCities();
+        }
+
+        function onWorldSearchChange() {
+            searchQuery = document.getElementById('worldSearchInput').value;
+            renderWorldCities();
+        }
+
+        function toggleWorldViewMode() {
+            isTableViewMode = !isTableViewMode;
+            const btn = document.getElementById('viewModeBtn');
+            btn.innerHTML = isTableViewMode ? 
+                `<i class="fa-solid fa-border-all mr-1"></i> グリッド表示` : 
+                `<i class="fa-solid fa-table-cells mr-1"></i> リスト表示`;
+            renderWorldCities();
+        }
+
+        function resetWorldCitiesToDefault() {
+            if (confirm("世界時計のリストを初期表示（JAL & ラッコツールズの全100+都市）に戻しますか？")) {
+                worldCities = [...DEFAULT_WORLD_CITIES];
+                saveState();
+                renderWorldCities();
+            }
+        }
+
+        /* ==========================================================================
+           7. ALARM MODULE
+           ========================================================================== */
+        let alarms = [];
+        let lastTriggeredAlarmTime = "";
+
+        function addAlarm() {
+            const time = document.getElementById('alarmTimeInput').value;
+            const label = document.getElementById('alarmLabelInput').value.trim() || 'アラーム';
+            if (!time) return;
+
+            alarms.push({ id: Date.now(), time, label, enabled: true });
+            saveState();
+            document.getElementById('alarmLabelInput').value = '';
+            renderAlarms();
+        }
+
+        function toggleAlarm(id) {
+            const alarm = alarms.find(a => a.id === id);
+            if (alarm) alarm.enabled = !alarm.enabled;
+            saveState();
+            renderAlarms();
+        }
+
+        function deleteAlarm(id) {
+            alarms = alarms.filter(a => a.id !== id);
+            saveState();
+            renderAlarms();
+        }
+
+        function renderAlarms() {
+            const list = document.getElementById('alarmList');
+            if (!list) return;
+
+            if (alarms.length === 0) {
+                list.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">登録済みのアラームはありません</div>`;
+                return;
+            }
+
+            list.innerHTML = alarms.map(a => `
+                <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <div class="text-2xl font-bold font-orbitron ${a.enabled ? 'text-amber-400' : 'text-slate-600'}">${a.time}</div>
+                        <div class="text-xs text-slate-400 mt-0.5">${a.label}</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" ${a.enabled ? 'checked' : ''} onchange="toggleAlarm(${a.id})" class="sr-only peer">
+                            <div class="w-11 h-6 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-500"></div>
+                        </label>
+                        <button onclick="deleteAlarm(${a.id})" class="text-slate-600 hover:text-rose-400 p-2"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function checkAlarms(now) {
+            const currentStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+            if (now.getSeconds() === 0 && lastTriggeredAlarmTime !== currentStr) {
+                alarms.forEach(a => {
+                    if (a.enabled && a.time === currentStr) {
+                        lastTriggeredAlarmTime = currentStr;
+                        playAlarmSound();
+                        alert(`⏰ アラーム時間です: ${a.label} (${a.time})`);
+                    }
+                });
+            }
+        }
+
+        function playAlarmSound() {
+            const ctx = getAudioContext();
+            for (let i = 0; i < 5; i++) {
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.type = 'square';
+                osc.frequency.value = 880;
+                gain.gain.value = 0.3;
+
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+
+                const startTime = ctx.currentTime + i * 0.3;
+                osc.start(startTime);
+                osc.stop(startTime + 0.15);
+            }
+        }
+
+        /* ==========================================================================
+           8. STOPWATCH MODULE
+           ========================================================================== */
+        let swInterval = null;
+        let swStartTime = 0;
+        let swElapsedTime = 0;
+        let swLaps = [];
+
+        function toggleStopwatch() {
+            const btn = document.getElementById('swStartBtn');
+            const lapBtn = document.getElementById('swLapBtn');
+
+            if (swInterval) {
+                clearInterval(swInterval);
+                swInterval = null;
+                btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> 再開`;
+                btn.className = "w-28 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/30";
+                lapBtn.disabled = true;
+            } else {
+                swStartTime = Date.now() - swElapsedTime;
+                swInterval = setInterval(updateSwDisplay, 10);
+                btn.innerHTML = `<i class="fa-solid fa-pause mr-1"></i> 停止`;
+                btn.className = "w-28 py-3 bg-amber-600 hover:bg-amber-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-amber-600/30";
+                lapBtn.disabled = false;
+            }
+        }
+
+        function updateSwDisplay() {
+            swElapsedTime = Date.now() - swStartTime;
+            document.getElementById('swDisplay').innerHTML = formatMs(swElapsedTime);
+        }
+
+        function recordSwLap() {
+            if (!swInterval) return;
+            swLaps.unshift(swElapsedTime);
+            renderSwLaps();
+        }
+
+        function resetStopwatch() {
+            clearInterval(swInterval);
+            swInterval = null;
+            swElapsedTime = 0;
+            swLaps = [];
+            document.getElementById('swDisplay').innerHTML = `00:00:00.<span class="text-3xl sm:text-5xl">00</span>`;
+            document.getElementById('swStartBtn').innerHTML = `<i class="fa-solid fa-play mr-1"></i> スタート`;
+            document.getElementById('swStartBtn').className = "w-28 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold text-sm shadow-lg shadow-emerald-600/30";
+            document.getElementById('swLapBtn').disabled = true;
+            renderSwLaps();
+        }
+
+        function renderSwLaps() {
+            const tbody = document.getElementById('swLapTableBody');
+            tbody.innerHTML = swLaps.map((lap, idx) => {
+                const lapNum = swLaps.length - idx;
+                const prevLap = swLaps[idx + 1] || 0;
+                const splitTime = lap - prevLap;
+                return `
+                    <tr class="border-b border-slate-800">
+                        <td class="px-4 py-2 font-mono">Lap ${lapNum}</td>
+                        <td class="px-4 py-2 font-mono text-emerald-400">${formatMsRaw(splitTime)}</td>
+                        <td class="px-4 py-2 font-mono text-slate-400">${formatMsRaw(lap)}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function formatMs(ms) {
+            const m = String(Math.floor(ms / 60000)).padStart(2, '0');
+            const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const cs = String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
+            return `${m}:${s}.<span class="text-3xl sm:text-5xl">${cs}</span>`;
+        }
+
+        function formatMsRaw(ms) {
+            const m = String(Math.floor(ms / 60000)).padStart(2, '0');
+            const s = String(Math.floor((ms % 60000) / 1000)).padStart(2, '0');
+            const cs = String(Math.floor((ms % 1000) / 10)).padStart(2, '0');
+            return `${m}:${s}.${cs}`;
+        }
+
+        /* ==========================================================================
+           9. TIMER MODULE
+           ========================================================================== */
+        let timerInterval = null;
+        let timerRemaining = 0;
+
+        function setTimerPreset(minutes) {
+            resetTimer();
+            document.getElementById('timerMin').value = String(minutes).padStart(2, '0');
+            document.getElementById('timerSec').value = '00';
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('tmStartBtn');
+            const inputGroup = document.getElementById('timerInputGroup');
+            const displayGroup = document.getElementById('timerDisplayContainer');
+
+            if (timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+                btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> 再開`;
+            } else {
+                if (timerRemaining === 0) {
+                    const m = parseInt(document.getElementById('timerMin').value) || 0;
+                    const s = parseInt(document.getElementById('timerSec').value) || 0;
+                    timerRemaining = m * 60 + s;
+                }
+                if (timerRemaining <= 0) return;
+
+                inputGroup.classList.add('hidden');
+                displayGroup.classList.remove('hidden');
+                updateTimerDisplay();
+
+                timerInterval = setInterval(() => {
+                    timerRemaining--;
+                    updateTimerDisplay();
+                    if (timerRemaining <= 0) {
+                        clearInterval(timerInterval);
+                        timerInterval = null;
+                        playAlarmSound();
+                        alert('⌛ タイマーが終了しました！');
+                        resetTimer();
+                    }
+                }, 1000);
+
+                btn.innerHTML = `<i class="fa-solid fa-pause mr-1"></i> 一時停止`;
+            }
+        }
+
+        function updateTimerDisplay() {
+            const m = String(Math.floor(timerRemaining / 60)).padStart(2, '0');
+            const s = String(timerRemaining % 60).padStart(2, '0');
+            document.getElementById('timerDisplay').textContent = `${m}:${s}`;
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            timerInterval = null;
+            timerRemaining = 0;
+            document.getElementById('timerInputGroup').classList.remove('hidden');
+            document.getElementById('timerDisplayContainer').classList.add('hidden');
+            document.getElementById('tmStartBtn').innerHTML = `<i class="fa-solid fa-play mr-1"></i> スタート`;
+        }
+
+        /* ==========================================================================
+           10. POMODORO TIMER MODULE
+           ========================================================================== */
+        let pomoInterval = null;
+        let pomoTime = 25 * 60;
+        let isPomoFocus = true;
+        let pomoCount = 0;
+
+        function togglePomodoro() {
+            const btn = document.getElementById('pomoStartBtn');
+            if (pomoInterval) {
+                clearInterval(pomoInterval);
+                pomoInterval = null;
+                btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> 再開`;
+            } else {
+                pomoInterval = setInterval(() => {
+                    pomoTime--;
+                    updatePomoDisplay();
+                    if (pomoTime <= 0) {
+                        clearInterval(pomoInterval);
+                        pomoInterval = null;
+                        playAlarmSound();
+                        
+                        if (isPomoFocus) {
+                            pomoCount++;
+                            document.getElementById('pomoCount').textContent = pomoCount;
+                            isPomoFocus = false;
+                            pomoTime = 5 * 60;
+                            document.getElementById('pomoStatus').textContent = "リフレッシュ休憩 (Break)";
+                            document.getElementById('pomoStatus').className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 mb-4";
+                            alert("🎉 集中セッション終了！ 5分間の休憩をどうぞ。");
+                        } else {
+                            isPomoFocus = true;
+                            pomoTime = 25 * 60;
+                            document.getElementById('pomoStatus').textContent = "集中タイム (Focus)";
+                            document.getElementById('pomoStatus').className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4";
+                            alert("💪 休憩終了！ 次の25分間集中しましょう。");
+                        }
+                        updatePomoDisplay();
+                        togglePomodoro();
+                    }
+                }, 1000);
+                btn.innerHTML = `<i class="fa-solid fa-pause mr-1"></i> 一時停止`;
+            }
+        }
+
+        function updatePomoDisplay() {
+            const m = String(Math.floor(pomoTime / 60)).padStart(2, '0');
+            const s = String(pomoTime % 60).padStart(2, '0');
+            document.getElementById('pomoDisplay').textContent = `${m}:${s}`;
+        }
+
+        function resetPomodoro() {
+            clearInterval(pomoInterval);
+            pomoInterval = null;
+            isPomoFocus = true;
+            pomoTime = 25 * 60;
+            document.getElementById('pomoStatus').textContent = "集中タイム (Focus)";
+            document.getElementById('pomoStatus').className = "px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest bg-rose-500/20 text-rose-400 border border-rose-500/30 mb-4";
+            document.getElementById('pomoStartBtn').innerHTML = `<i class="fa-solid fa-play mr-1"></i> 開始`;
+            updatePomoDisplay();
+        }
+
+        /* ==========================================================================
+           11. HOURLY CHIME & VOICE (TTS)
+           ========================================================================== */
+        let hourlyChimeEnabled = false;
+        let lastChimeHour = -1;
+
+        function toggleHourlyChime(enabled) {
+            hourlyChimeEnabled = enabled;
+        }
+
+        function checkHourlyChime(now) {
+            if (!hourlyChimeEnabled) return;
+            if (now.getMinutes() === 0 && now.getSeconds() === 0 && lastChimeHour !== now.getHours()) {
+                lastChimeHour = now.getHours();
+                playChimeSound();
+            }
+        }
+
+        function playChimeSound() {
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(523.25, ctx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(1046.50, ctx.currentTime + 0.8);
+
+            gain.gain.setValueAtTime(0.3, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 1.2);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 1.2);
+        }
+
+        function speakCurrentTime() {
+            if (!('speechSynthesis' in window)) {
+                alert('お使いのブラウザは音声読み上げに対応していません。');
+                return;
+            }
+            const now = new Date();
+            const text = `現在の時刻は、${now.getHours()}時${now.getMinutes()}分です。`;
+            const uttr = new SpeechSynthesisUtterance(text);
+            uttr.lang = 'ja-JP';
+            speechSynthesis.speak(uttr);
+        }
+
+        /* ==========================================================================
+           12. METRONOME MODULE
+           ========================================================================== */
+        let metroInterval = null;
+        let metroBpm = 120;
+
+        function updateBpm(val) {
+            metroBpm = parseInt(val);
+            document.getElementById('metroBpmDisplay').innerHTML = `${metroBpm} <span class="text-lg font-sans text-slate-400">BPM</span>`;
+            if (metroInterval) {
+                toggleMetronome();
+                toggleMetronome();
+            }
+        }
+
+        function adjustBpm(delta) {
+            const newBpm = Math.max(40, Math.min(240, metroBpm + delta));
+            document.getElementById('metroBpmSlider').value = newBpm;
+            updateBpm(newBpm);
+        }
+
+        function toggleMetronome() {
+            const btn = document.getElementById('metroStartBtn');
+            if (metroInterval) {
+                clearInterval(metroInterval);
+                metroInterval = null;
+                btn.innerHTML = `<i class="fa-solid fa-play mr-1"></i> スタート`;
+            } else {
+                const intervalMs = (60 / metroBpm) * 1000;
+                metroInterval = setInterval(playClickSound, intervalMs);
+                btn.innerHTML = `<i class="fa-solid fa-pause mr-1"></i> 停止`;
+            }
+        }
+
+        function playClickSound() {
+            const ctx = getAudioContext();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'triangle';
+            osc.frequency.value = 1200;
+            gain.gain.value = 0.2;
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.03);
+        }
+
+        /* ==========================================================================
+           13. EVENT COUNTDOWN MODULE
+           ========================================================================== */
+        let eventList = [];
+
+        function addEventCountdown() {
+            const name = document.getElementById('eventNameInput').value.trim();
+            const dateVal = document.getElementById('eventDateInput').value;
+            if (!name || !dateVal) return;
+
+            eventList.push({ id: Date.now(), name, target: new Date(dateVal).getTime() });
+            saveState();
+            document.getElementById('eventNameInput').value = '';
+            renderEvents();
+        }
+
+        function deleteEvent(id) {
+            eventList = eventList.filter(e => e.id !== id);
+            saveState();
+            renderEvents();
+        }
+
+        function renderEvents() {
+            const container = document.getElementById('eventList');
+            if (!container) return;
+
+            if (eventList.length === 0) {
+                container.innerHTML = `<div class="text-center py-8 text-xs text-slate-500">登録されたイベントはありません</div>`;
+                return;
+            }
+
+            const now = Date.now();
+            container.innerHTML = eventList.map(ev => {
+                const diff = ev.target - now;
+                let timeString = "";
+                if (diff <= 0) {
+                    timeString = "<span class='text-emerald-400 font-bold'>🎉 イベント当日です！</span>";
+                } else {
+                    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+                    const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                    const secs = Math.floor((diff % (1000 * 60)) / 1000);
+                    timeString = `<span class="font-mono text-teal-300 font-bold text-lg">${days}日 ${hours}時間 ${mins}分 ${secs}秒</span> 残り`;
+                }
+
+                return `
+                    <div class="bg-slate-900/80 p-4 rounded-2xl border border-slate-800 flex items-center justify-between">
+                        <div>
+                            <div class="text-sm font-bold text-slate-200">${ev.name}</div>
+                            <div class="text-xs text-slate-400 mt-1">${timeString}</div>
+                        </div>
+                        <button onclick="deleteEvent(${ev.id})" class="text-slate-600 hover:text-rose-400 p-2"><i class="fa-solid fa-trash"></i></button>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        /* ==========================================================================
+           14. UTILITIES & NAVIGATION
+           ========================================================================== */
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-tab').forEach(el => {
+                el.className = "nav-tab px-3 py-2 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 flex items-center gap-2 whitespace-nowrap";
+            });
+            const activeBtn = document.getElementById(`tab-${tabId}`);
+            if (activeBtn) {
+                activeBtn.className = "nav-tab px-3 py-2 rounded-lg text-cyan-400 bg-slate-800/80 border border-cyan-500/30 flex items-center gap-2 whitespace-nowrap";
+            }
+        }
+
+        async function toggleWakeLock() {
+            if ('wakeLock' in navigator) {
+                try {
+                    if (!wakeLock) {
+                        wakeLock = await navigator.wakeLock.request('screen');
+                        document.getElementById('wakeLockIcon').className = "fa-solid fa-bolt text-amber-400";
+                        document.getElementById('wakeLockText').textContent = "スリープ防止: ON";
+                    } else {
+                        await wakeLock.release();
+                        wakeLock = null;
+                        document.getElementById('wakeLockIcon').className = "fa-solid fa-bolt text-slate-500";
+                        document.getElementById('wakeLockText').textContent = "スリープ防止: OFF";
+                    }
+                } catch (err) {
+                    console.error("Wake Lock error:", err);
+                }
+            } else {
+                alert("お使いのブラウザは Wake Lock API（画面スリープ防止）に対応していません。");
+            }
+        }
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                if (document.exitFullscreen) {
+                    document.exitFullscreen();
+                }
+            }
+        }
+
+        /* ==========================================================================
+           15. INITIALIZATION
+           ========================================================================== */
+        window.onload = function() {
+            loadSavedState();
+            initSelectOptions();
+            changeDigitalStyle(currentDigitalStyle);
+            setDisplayType(displayType);
+            updateMetaInfo();
+
+            // Main Clock Render Loops
+            setInterval(updateMainClock, 1000);
+            setInterval(renderWorldCities, 1000);
+            setInterval(renderEvents, 1000);
+
+            // Initial Renders
+            updateMainClock();
+            renderWorldCities();
+            renderAlarms();
+            renderEvents();
+        };
     </script>
 </body>
 </html>
