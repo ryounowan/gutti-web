@@ -1,0 +1,996 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Screenshot Difference Inspector Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .checkerboard {
+            background-image: 
+                linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+                linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+                linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+            background-size: 20px 20px;
+            background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+        }
+        input[type="range"] {
+            accent-color: #3b82f6;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.95); opacity: 0.8; }
+            50% { transform: scale(1.05); opacity: 1; }
+            100% { transform: scale(0.95); opacity: 0.8; }
+        }
+        .diff-marker {
+            animation: pulse-ring 2s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <header class="bg-slate-900 border-b border-slate-800 py-4 px-6 shadow-md">
+        <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-lg shadow-blue-600/30">
+                    <i class="fa-solid fa-wand-magic-sparkles text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight text-white">Screenshot Diff Pro & Manual Align</h1>
+                    <p class="text-xs text-slate-400">高精度手動位置合わせ・マルチカラー差分解析・差異赤丸ハイライト</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <button id="reset-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium rounded-lg transition border border-slate-700 flex items-center gap-2">
+                    <i class="fa-solid fa-rotate-right"></i> リセット
+                </button>
+                <button id="export-btn" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition shadow-lg shadow-blue-600/25 flex items-center gap-2">
+                    <i class="fa-solid fa-download"></i> 比較画像を保存
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 grid grid-cols-1 lg:grid-cols-4 gap-6">
+        
+        <!-- Left Sidebar: Controls & Uploads -->
+        <div class="lg:col-span-1 flex flex-col gap-6">
+            <!-- Upload Box -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-images text-blue-400"></i> スクリーンショット追加
+                </h2>
+                <label for="file-input" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-xl p-6 flex flex-col items-center justify-center cursor-pointer bg-slate-800/50 hover:bg-slate-800 transition group text-center">
+                    <div class="w-12 h-12 rounded-full bg-blue-600/10 text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition">
+                        <i class="fa-solid fa-cloud-arrow-up text-xl"></i>
+                    </div>
+                    <span class="text-sm font-medium text-slate-200">画像を選択またはドロップ</span>
+                    <span class="text-xs text-slate-400 mt-1">PNG, JPG, WEBP (複数可)</span>
+                    <input type="file" id="file-input" accept="image/*" multiple class="hidden">
+                </label>
+            </div>
+
+            <!-- Manual Alignment Control Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-up-down-left-right text-blue-400"></i> 手動位置合わせ (アライメント)
+                    </h2>
+                </div>
+                <div class="space-y-3">
+                    <div class="bg-slate-800/60 p-3 rounded-xl border border-slate-700/50 text-xs text-slate-300 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-slate-200">選択中レイヤー:</span>
+                            <span id="active-layer-name" class="font-bold text-blue-400 truncate max-w-[140px]">なし</span>
+                        </div>
+                        <p class="text-[11px] text-slate-400">
+                            レイヤーを選択し、下のアローキーかキーボードの <kbd class="px-1 py-0.5 bg-slate-700 rounded text-slate-200">↑</kbd><kbd class="px-1 py-0.5 bg-slate-700 rounded text-slate-200">↓</kbd><kbd class="px-1 py-0.5 bg-slate-700 rounded text-slate-200">←</kbd><kbd class="px-1 py-0.5 bg-slate-700 rounded text-slate-200">→</kbd> で1pxずつ微調整できます。(Shiftキー併用で10px移動)
+                        </p>
+                    </div>
+
+                    <!-- D-Pad for Direct Nudging -->
+                    <div class="flex flex-col items-center justify-center gap-1 py-2 bg-slate-800/30 rounded-xl border border-slate-800">
+                        <button onclick="nudgeActiveLayer(0, -1)" class="w-10 h-8 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white rounded-lg transition border border-slate-700 flex items-center justify-center text-xs active:scale-95" title="上に1px移動 (Shift+クリックで10px)">
+                            <i class="fa-solid fa-arrow-up"></i>
+                        </button>
+                        <div class="flex gap-2">
+                            <button onclick="nudgeActiveLayer(-1, 0)" class="w-10 h-8 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white rounded-lg transition border border-slate-700 flex items-center justify-center text-xs active:scale-95" title="左に1px移動 (Shift+クリックで10px)">
+                                <i class="fa-solid fa-arrow-left"></i>
+                            </button>
+                            <button onclick="resetActiveLayerOffset()" class="px-2 h-8 bg-slate-700 hover:bg-slate-600 text-slate-300 text-[11px] font-medium rounded-lg transition border border-slate-600 flex items-center justify-center active:scale-95">
+                                原点(0,0)
+                            </button>
+                            <button onclick="nudgeActiveLayer(1, 0)" class="w-10 h-8 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white rounded-lg transition border border-slate-700 flex items-center justify-center text-xs active:scale-95" title="右に1px移動 (Shift+クリックで10px)">
+                                <i class="fa-solid fa-arrow-right"></i>
+                            </button>
+                        </div>
+                        <button onclick="nudgeActiveLayer(0, 1)" class="w-10 h-8 bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white rounded-lg transition border border-slate-700 flex items-center justify-center text-xs active:scale-95" title="下に1px移動 (Shift+クリックで10px)">
+                            <i class="fa-solid fa-arrow-down"></i>
+                        </button>
+                    </div>
+
+                    <div class="flex items-center justify-between bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                        <div class="text-xs">
+                            <span class="font-medium text-slate-200 block">キャンバス直接ドラッグ調整</span>
+                            <span class="text-slate-400">選択中画像をマウスドラッグで移動</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="drag-move-toggle" class="sr-only peer">
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Image List & Layer Config -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex-1 flex flex-col">
+                <div class="flex items-center justify-between mb-3">
+                    <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+                        <i class="fa-solid fa-layer-group text-blue-400"></i> レイヤー設定 & 位置調整
+                    </h2>
+                    <span id="image-count" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-medium">0 枚</span>
+                </div>
+                
+                <div id="image-list" class="flex-1 overflow-y-auto space-y-3 max-h-[300px] pr-1">
+                    <div class="text-center py-8 text-slate-500 text-sm">
+                        画像がありません。<br>上のボックスから画像を追加してください。
+                    </div>
+                </div>
+            </div>
+
+            <!-- Settings Panel -->
+            <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <h2 class="text-sm font-semibold text-slate-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-blue-400"></i> 詳細設定
+                </h2>
+                <div class="space-y-4 text-sm">
+                    <div>
+                        <div class="flex justify-between text-slate-400 mb-1 text-xs">
+                            <span>差異検出感度</span>
+                            <span id="threshold-val">15</span>
+                        </div>
+                        <input type="range" id="threshold-slider" min="1" max="100" value="15" class="w-full bg-slate-800 rounded-lg h-2 cursor-pointer">
+                    </div>
+                    <div class="flex items-center justify-between bg-slate-800/60 p-2.5 rounded-xl border border-slate-700/50">
+                        <div class="text-xs">
+                            <span class="font-medium text-slate-200 block">重要違いへの赤丸ハイライト</span>
+                            <span class="text-slate-400">大きな差異箇所を自動で丸囲み</span>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <input type="checkbox" id="red-circle-toggle" class="sr-only peer" checked>
+                            <div class="w-9 h-5 bg-slate-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
+                        </label>
+                    </div>
+                    <div>
+                        <div class="flex justify-between text-slate-400 mb-1 text-xs">
+                            <span>比較基準画像 (ベース)</span>
+                            <span id="base-image-label">#1</span>
+                        </div>
+                        <select id="base-image-select" class="w-full bg-slate-800 border border-slate-700 text-slate-200 rounded-lg p-2 text-sm focus:outline-none focus:border-blue-500">
+                            <option value="0">#1 のみ</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Preview Area -->
+        <div class="lg:col-span-3 bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl flex flex-col">
+            <!-- Mode Switcher Tabs -->
+            <div class="flex flex-wrap items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-800">
+                <div class="flex flex-wrap bg-slate-800 p-1 rounded-xl gap-1 text-xs font-medium">
+                    <button data-mode="diff" class="mode-tab px-3.5 py-2 rounded-lg bg-blue-600 text-white transition shadow">マルチカラー差分 + 赤丸</button>
+                    <button data-mode="overlay" class="mode-tab px-3.5 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition">半透明重ね合わせ</button>
+                    <button data-mode="slider" class="mode-tab px-3.5 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition">スライダー比較</button>
+                    <button data-mode="sidebyside" class="mode-tab px-3.5 py-2 rounded-lg text-slate-400 hover:text-slate-200 transition">並べて比較 (2画面)</button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <span id="canvas-dimensions" class="text-xs text-slate-400 font-mono">- × - px</span>
+                    <button id="zoom-fit-btn" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs rounded-lg transition border border-slate-700 flex items-center gap-1.5" title="表示倍率をリセット">
+                        <i class="fa-solid fa-compress"></i> フィット
+                    </button>
+                </div>
+            </div>
+
+            <!-- Viewport Canvas Container with Zoom/Pan capability -->
+            <div id="viewport-container" class="flex-1 checkerboard rounded-xl relative overflow-hidden flex items-center justify-center min-h-[500px] cursor-grab active:cursor-grabbing">
+                <div id="placeholder-view" class="text-center p-8 text-slate-500">
+                    <i class="fa-solid fa-image text-5xl mb-3 text-slate-600"></i>
+                    <p class="text-base font-medium">2枚以上の画像をアップロードすると比較が始まります</p>
+                    <p class="text-xs text-slate-500 mt-1">画像をドラッグして移動、スクロールで拡大縮小できます</p>
+                </div>
+                
+                <!-- Zoomable Wrapper -->
+                <div id="canvas-wrapper" class="relative transition-transform duration-75 hidden">
+                    <!-- Canvas for Diff & Overlay -->
+                    <canvas id="output-canvas" class="block shadow-2xl rounded max-w-none"></canvas>
+                    
+                    <!-- Side-by-Side View Container -->
+                    <div id="sidebyside-view" class="hidden flex gap-4 items-center">
+                        <div class="flex flex-col items-center">
+                            <span id="sbs-left-label" class="text-xs bg-slate-900/80 px-2 py-1 rounded mb-1 text-slate-300 font-medium">画像 A</span>
+                            <canvas id="sbs-left-canvas" class="block shadow-2xl rounded border border-slate-700"></canvas>
+                        </div>
+                        <div class="flex flex-col items-center">
+                            <span id="sbs-right-label" class="text-xs bg-slate-900/80 px-2 py-1 rounded mb-1 text-slate-300 font-medium">画像 B</span>
+                            <canvas id="sbs-right-canvas" class="block shadow-2xl rounded border border-slate-700"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Slider View Container -->
+                    <div id="slider-view" class="hidden relative overflow-hidden shadow-2xl rounded">
+                        <div id="slider-container" class="relative overflow-hidden select-none">
+                            <canvas id="slider-base-canvas" class="block max-w-none"></canvas>
+                            <div id="slider-top-wrapper" class="absolute inset-0 overflow-hidden" style="width: 50%;">
+                                <canvas id="slider-top-canvas" class="block max-w-none" style="max-width: none;"></canvas>
+                            </div>
+                            <div id="slider-handle" class="absolute top-0 bottom-0 w-1 bg-blue-500 cursor-ew-resize" style="left: 50%;">
+                                <div class="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-lg border-2 border-white text-xs">
+                                    <i class="fa-solid fa-arrows-left-right"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Legend for Colors -->
+            <div id="legend-container" class="mt-4 pt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3 text-xs hidden">
+                <div class="flex flex-wrap items-center gap-3">
+                    <span class="text-slate-400 font-medium">スクリーンショット別の差異カラー:</span>
+                    <div id="legend-items" class="flex flex-wrap gap-2"></div>
+                </div>
+                <div class="text-slate-400 text-[11px] flex items-center gap-2">
+                    <span class="w-3 h-3 rounded-full border-2 border-red-500 inline-block"></i> 重要な違いを赤丸でハイライト
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        const PALETTE = [
+            { name: 'レッド', hex: '#ef4444', rgb: [239, 68, 68] },
+            { name: 'グリーン', hex: '#22c55e', rgb: [34, 197, 94] },
+            { name: 'イエロー', hex: '#eab308', rgb: [234, 179, 8] },
+            { name: 'パープル', hex: '#a855f7', rgb: [168, 85, 247] },
+            { name: 'ピンク', hex: '#ec4899', rgb: [236, 72, 153] },
+            { name: 'シアン', hex: '#06b6d4', rgb: [6, 182, 212] },
+            { name: 'オレンジ', hex: '#f97316', rgb: [249, 115, 22] }
+        ];
+
+        let images = []; 
+        let currentMode = 'diff'; 
+        let threshold = 15;
+        let baseImageIndex = 0;
+        let activeImageIndex = 0; // Currently selected layer for manual adjustment
+        let redCircleEnabled = true;
+        let dragMoveEnabled = false;
+        let sliderPos = 50;
+
+        let scale = 1;
+        let panX = 0;
+        let panY = 0;
+        let isDraggingPan = false;
+        let isDraggingLayer = false;
+        let startX = 0;
+        let startY = 0;
+        let layerStartOffsetX = 0;
+        let layerStartOffsetY = 0;
+
+        const fileInput = document.getElementById('file-input');
+        const imageListEl = document.getElementById('image-list');
+        const imageCountEl = document.getElementById('image-count');
+        const placeholderView = document.getElementById('placeholder-view');
+        const canvasWrapper = document.getElementById('canvas-wrapper');
+        const outputCanvas = document.getElementById('output-canvas');
+        const sidebysideView = document.getElementById('sidebyside-view');
+        const sbsLeftCanvas = document.getElementById('sbs-left-canvas');
+        const sbsRightCanvas = document.getElementById('sbs-right-canvas');
+        const sbsLeftLabel = document.getElementById('sbs-left-label');
+        const sbsRightLabel = document.getElementById('sbs-right-label');
+        const sliderView = document.getElementById('slider-view');
+        const sliderBaseCanvas = document.getElementById('slider-base-canvas');
+        const sliderTopCanvas = document.getElementById('slider-top-canvas');
+        const sliderTopWrapper = document.getElementById('slider-top-wrapper');
+        const sliderHandle = document.getElementById('slider-handle');
+        const sliderContainer = document.getElementById('slider-container');
+        const canvasDimensions = document.getElementById('canvas-dimensions');
+        const legendContainer = document.getElementById('legend-container');
+        const legendItems = document.getElementById('legend-items');
+        const thresholdSlider = document.getElementById('threshold-slider');
+        const thresholdVal = document.getElementById('threshold-val');
+        const baseImageSelect = document.getElementById('base-image-select');
+        const redCircleToggle = document.getElementById('red-circle-toggle');
+        const dragMoveToggle = document.getElementById('drag-move-toggle');
+        const resetBtn = document.getElementById('reset-btn');
+        const zoomFitBtn = document.getElementById('zoom-fit-btn');
+        const viewportContainer = document.getElementById('viewport-container');
+        const activeLayerNameEl = document.getElementById('active-layer-name');
+
+        document.querySelectorAll('.mode-tab').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.mode-tab').forEach(b => {
+                    b.classList.remove('bg-blue-600', 'text-white', 'shadow');
+                    b.classList.add('text-slate-400');
+                });
+                btn.classList.add('bg-blue-600', 'text-white', 'shadow');
+                btn.classList.remove('text-slate-400');
+                currentMode = btn.dataset.mode;
+                updateView();
+            });
+        });
+
+        thresholdSlider.addEventListener('input', (e) => {
+            threshold = parseInt(e.target.value);
+            thresholdVal.textContent = threshold;
+            if (images.length >= 2) updateView();
+        });
+
+        baseImageSelect.addEventListener('change', (e) => {
+            baseImageIndex = parseInt(e.target.value);
+            document.getElementById('base-image-label').textContent = `#${baseImageIndex + 1}`;
+            if (images.length >= 2) updateView();
+        });
+
+        redCircleToggle.addEventListener('change', (e) => {
+            redCircleEnabled = e.target.checked;
+            if (images.length >= 2) updateView();
+        });
+
+        dragMoveToggle.addEventListener('change', (e) => {
+            dragMoveEnabled = e.target.checked;
+            if (dragMoveEnabled) {
+                viewportContainer.classList.remove('cursor-grab', 'active:cursor-grabbing');
+                viewportContainer.classList.add('cursor-crosshair');
+            } else {
+                viewportContainer.classList.remove('cursor-crosshair');
+                viewportContainer.classList.add('cursor-grab', 'active:cursor-grabbing');
+            }
+        });
+
+        function onImagesUpdated() {
+            if (images.length > 0 && activeImageIndex >= images.length) {
+                activeImageIndex = images.length - 1;
+            }
+            renderImageList();
+            updateBaseImageSelect();
+            updateActiveLayerUI();
+
+            if (images.length > 0) {
+                placeholderView.classList.add('hidden');
+                canvasWrapper.classList.remove('hidden');
+                updateView();
+            } else {
+                placeholderView.classList.remove('hidden');
+                canvasWrapper.classList.add('hidden');
+                legendContainer.classList.add('hidden');
+                canvasDimensions.textContent = '- × - px';
+            }
+        }
+
+        function renderImageList() {
+            imageCountEl.textContent = `${images.length} 枚`;
+            if (images.length === 0) {
+                imageListEl.innerHTML = `<div class="text-center py-8 text-slate-500 text-sm">画像がありません。<br>上のボックスから画像を追加してください。</div>`;
+                return;
+            }
+
+            imageListEl.innerHTML = images.map((item, idx) => {
+                const isActive = idx === activeImageIndex;
+                const isBase = idx === baseImageIndex;
+                return `
+                <div onclick="selectActiveLayer(${idx})" class="p-3 rounded-xl border transition cursor-pointer ${
+                    isActive 
+                    ? 'bg-blue-950/40 border-blue-500/80 shadow-md shadow-blue-500/10' 
+                    : 'bg-slate-800/80 border-slate-700/60 hover:bg-slate-800'
+                }">
+                    <div class="flex items-center justify-between gap-2 mb-2">
+                        <div class="flex items-center gap-2 overflow-hidden">
+                            <div class="w-3.5 h-3.5 rounded-full flex-shrink-0" style="background-color: ${item.color.hex}"></div>
+                            <span class="text-xs font-bold text-slate-100 truncate" title="${item.name}">
+                                #${idx + 1}: ${item.name}
+                            </span>
+                            ${isBase ? '<span class="text-[10px] bg-blue-600/30 text-blue-300 border border-blue-500/30 px-1.5 py-0.2 rounded">ベース</span>' : ''}
+                        </div>
+                        <button onclick="event.stopPropagation(); removeImage('${item.id}')" class="text-slate-400 hover:text-red-400 p-1 transition flex-shrink-0">
+                            <i class="fa-solid fa-trash-can text-xs"></i>
+                        </button>
+                    </div>
+
+                    <!-- Manual Coordinate Controls -->
+                    <div class="flex items-center gap-2 text-xs" onclick="event.stopPropagation()">
+                        <div class="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700/60 flex-1">
+                            <span class="text-slate-400 font-mono text-[11px]">X:</span>
+                            <input type="number" value="${item.offset.x}" onchange="updateImageOffset(${idx}, 'x', this.value)" class="w-full bg-transparent text-slate-100 font-mono focus:outline-none text-right">
+                            <span class="text-slate-500 text-[10px]">px</span>
+                        </div>
+                        <div class="flex items-center gap-1 bg-slate-900/80 px-2 py-1 rounded-lg border border-slate-700/60 flex-1">
+                            <span class="text-slate-400 font-mono text-[11px]">Y:</span>
+                            <input type="number" value="${item.offset.y}" onchange="updateImageOffset(${idx}, 'y', this.value)" class="w-full bg-transparent text-slate-100 font-mono focus:outline-none text-right">
+                            <span class="text-slate-500 text-[10px]">px</span>
+                        </div>
+                        <button onclick="resetSingleOffset(${idx})" class="p-1 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded text-[10px] transition" title="このレイヤーの位置を(0,0)にリセット">
+                            <i class="fa-solid fa-arrow-rotate-left"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+            }).join('');
+        }
+
+        function selectActiveLayer(index) {
+            activeImageIndex = index;
+            updateActiveLayerUI();
+            renderImageList();
+        }
+
+        function updateActiveLayerUI() {
+            if (images.length === 0 || !images[activeImageIndex]) {
+                activeLayerNameEl.textContent = "なし";
+            } else {
+                activeLayerNameEl.textContent = `#${activeImageIndex + 1} (${images[activeImageIndex].name})`;
+            }
+        }
+
+        function updateImageOffset(index, axis, val) {
+            const num = parseInt(val) || 0;
+            if (images[index]) {
+                images[index].offset[axis] = num;
+                renderImageList();
+                if (images.length >= 2) updateView();
+            }
+        }
+
+        function nudgeActiveLayer(dx, dy, e) {
+            if (images.length === 0 || !images[activeImageIndex]) return;
+            const multiplier = (e && e.shiftKey) ? 10 : 1;
+            images[activeImageIndex].offset.x += dx * multiplier;
+            images[activeImageIndex].offset.y += dy * multiplier;
+            renderImageList();
+            if (images.length >= 2) updateView();
+        }
+
+        function resetActiveLayerOffset() {
+            if (images.length === 0 || !images[activeImageIndex]) return;
+            images[activeImageIndex].offset = { x: 0, y: 0 };
+            renderImageList();
+            if (images.length >= 2) updateView();
+        }
+
+        function resetSingleOffset(index) {
+            if (images[index]) {
+                images[index].offset = { x: 0, y: 0 };
+                renderImageList();
+                if (images.length >= 2) updateView();
+            }
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if (['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement.tagName)) return;
+            if (images.length === 0 || !images[activeImageIndex]) return;
+
+            const step = e.shiftKey ? 10 : 1;
+            let handled = true;
+
+            switch (e.key) {
+                case 'ArrowLeft':
+                    images[activeImageIndex].offset.x -= step;
+                    break;
+                case 'ArrowRight':
+                    images[activeImageIndex].offset.x += step;
+                    break;
+                case 'ArrowUp':
+                    images[activeImageIndex].offset.y -= step;
+                    break;
+                case 'ArrowDown':
+                    images[activeImageIndex].offset.y += step;
+                    break;
+                default:
+                    handled = false;
+            }
+
+            if (handled) {
+                e.preventDefault();
+                renderImageList();
+                if (images.length >= 2) updateView();
+            }
+        });
+
+        viewportContainer.addEventListener('mousedown', (e) => {
+            if (images.length === 0) return;
+            
+            if (dragMoveEnabled && images[activeImageIndex]) {
+                isDraggingLayer = true;
+                startX = e.clientX;
+                startY = e.clientY;
+                layerStartOffsetX = images[activeImageIndex].offset.x;
+                layerStartOffsetY = images[activeImageIndex].offset.y;
+            } else {
+                isDraggingPan = true;
+                startX = e.clientX - panX;
+                startY = e.clientY - panY;
+            }
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (isDraggingLayer && images[activeImageIndex]) {
+                const deltaX = Math.round((e.clientX - startX) / scale);
+                const deltaY = Math.round((e.clientY - startY) / scale);
+                images[activeImageIndex].offset.x = layerStartOffsetX + deltaX;
+                images[activeImageIndex].offset.y = layerStartOffsetY + deltaY;
+                renderImageList();
+                if (images.length >= 2) updateView();
+            } else if (isDraggingPan) {
+                panX = e.clientX - startX;
+                panY = e.clientY - startY;
+                updateTransform();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingPan = false;
+            isDraggingLayer = false;
+        });
+
+        thresholdSlider.addEventListener('input', (e) => {
+            threshold = parseInt(e.target.value);
+            thresholdVal.textContent = threshold;
+            if (images.length >= 2) updateView();
+        });
+
+        baseImageSelect.addEventListener('change', (e) => {
+            baseImageIndex = parseInt(e.target.value);
+            document.getElementById('base-image-label').textContent = `#${baseImageIndex + 1}`;
+            if (images.length >= 2) updateView();
+        });
+
+        redCircleToggle.addEventListener('change', (e) => {
+            redCircleEnabled = e.target.checked;
+            if (images.length >= 2) updateView();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+
+            let loadedCount = 0;
+            files.forEach((file) => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        images.push({
+                            id: Math.random().toString(36).substr(2, 9),
+                            name: file.name,
+                            imgElement: img,
+                            color: PALETTE[images.length % PALETTE.length],
+                            offset: { x: 0, y: 0 }
+                        });
+                        loadedCount++;
+                        if (loadedCount === files.length) {
+                            onImagesUpdated();
+                        }
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+            fileInput.value = '';
+        });
+
+        const dropZone = document.querySelector('label[for="file-input"]');
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.add('border-blue-500', 'bg-slate-800'); });
+        });
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => { e.preventDefault(); dropZone.classList.remove('border-blue-500', 'bg-slate-800'); });
+        });
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length) {
+                fileInput.files = files;
+                fileInput.dispatchEvent(new Event('change'));
+            }
+        });
+
+        window.removeImage = function(id) {
+            images = images.filter(img => img.id !== id);
+            images.forEach((img, idx) => {
+                img.color = PALETTE[idx % PALETTE.length];
+            });
+            if (baseImageIndex >= images.length) baseImageIndex = Math.max(0, images.length - 1);
+            onImagesUpdated();
+        };
+
+        function updateBaseImageSelect() {
+            baseImageSelect.innerHTML = images.map((img, idx) => `
+                <option value="${idx}">#${idx + 1} (${img.name})</option>
+            `).join('');
+            baseImageSelect.value = baseImageIndex;
+            document.getElementById('base-image-label').textContent = `#${baseImageIndex + 1}`;
+        }
+
+        resetBtn.addEventListener('click', () => {
+            images = [];
+            baseImageIndex = 0;
+            onImagesUpdated();
+        });
+
+        function updateView() {
+            if (images.length === 0) return;
+
+            outputCanvas.classList.add('hidden');
+            sidebysideView.classList.add('hidden');
+            sliderView.classList.add('hidden');
+
+            if (currentMode === 'sidebyside') {
+                sidebysideView.classList.remove('hidden');
+                legendContainer.classList.add('hidden');
+                renderSideBySide();
+            } else if (currentMode === 'slider') {
+                sliderView.classList.remove('hidden');
+                legendContainer.classList.add('hidden');
+                renderSlider();
+            } else if (currentMode === 'overlay') {
+                outputCanvas.classList.remove('hidden');
+                legendContainer.classList.add('hidden');
+                renderOverlay();
+            } else {
+                outputCanvas.classList.remove('hidden');
+                legendContainer.classList.remove('hidden');
+                renderDiff();
+            }
+        }
+
+        function renderOverlay() {
+            const baseImg = images[baseImageIndex].imgElement;
+            const width = baseImg.naturalWidth;
+            const height = baseImg.naturalHeight;
+            canvasDimensions.textContent = `${width} × ${height} px`;
+
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+            const ctx = outputCanvas.getContext('2d');
+            ctx.clearRect(0, 0, width, height);
+
+            const opacity = 1 / images.length;
+            images.forEach(item => {
+                ctx.globalAlpha = opacity;
+                ctx.drawImage(item.imgElement, item.offset.x, item.offset.y, width, height);
+            });
+            ctx.globalAlpha = 1.0;
+        }
+
+        // Clustering algorithm to detect significant difference areas and draw red circles
+        function detectAndDrawRedCircles(ctx, width, height, diffMask, thres) {
+            if (!redCircleEnabled) return;
+
+            // Grid resolution for density clustering
+            const gridSize = 30;
+            const cols = Math.ceil(width / gridSize);
+            const rows = Math.ceil(height / gridSize);
+            const grid = Array(rows).fill(0).map(() => Array(cols).fill(0));
+
+            for (let y = 0; y < height; y += 4) {
+                for (let x = 0; x < width; x += 4) {
+                    const idx = (y * width + x);
+                    if (diffMask[idx]) {
+                        const gx = Math.floor(x / gridSize);
+                        const gy = Math.floor(y / gridSize);
+                        if (gx < cols && gy < rows) {
+                            grid[gy][gx]++;
+                        }
+                    }
+                }
+            }
+
+            // Find high-density clusters of changes to place prominent red circles
+            const clusters = [];
+            const visited = Array(rows).fill(0).map(() => Array(cols).fill(false));
+
+            for (let gy = 0; gy < rows; gy++) {
+                for (let gx = 0; gx < cols; gx++) {
+                    if (grid[gy][gx] > 4 && !visited[gy][gx]) {
+                        // BFS/Flood fill for cluster bounding box
+                        let minX = gx, maxX = gx, minY = gy, maxY = gy;
+                        let queue = [[gx, gy]];
+                        visited[gy][gx] = true;
+                        let count = 0;
+
+                        while(queue.length > 0) {
+                            let [cx, cy] = queue.shift();
+                            count += grid[cy][cx];
+                            minX = Math.min(minX, cx);
+                            maxX = Math.max(maxX, cx);
+                            minY = Math.min(minY, cy);
+                            maxY = Math.max(maxY, cy);
+
+                            const neighbors = [[1,0], [-1,0], [0,1], [0,-1]];
+                            for (let [nx, ny] of neighbors) {
+                                let nnx = cx + nx, nny = cy + ny;
+                                if (nnx >= 0 && nnx < cols && nny >= 0 && nny < rows && !visited[nny][nnx] && grid[nny][nnx] > 2) {
+                                    visited[nny][nnx] = true;
+                                    queue.push([nnx, nny]);
+                                }
+                            }
+                        }
+
+                        if (count > 12) {
+                            const pixelX1 = minX * gridSize;
+                            const pixelY1 = minY * gridSize;
+                            const pixelX2 = (maxX + 1) * gridSize;
+                            const pixelY2 = (maxY + 1) * gridSize;
+                            
+                            clusters.push({
+                                cx: (pixelX1 + pixelX2) / 2,
+                                cy: (pixelY1 + pixelY2) / 2,
+                                radius: Math.max(25, Math.hypot(pixelX2 - pixelX1, pixelY2 - pixelY1) / 1.6)
+                            });
+                        }
+                    }
+                }
+            }
+
+            // Draw red circles on significant difference clusters
+            clusters.forEach(c => {
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(c.cx, c.cy, c.radius, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 3;
+                ctx.setLineDash([6, 3]);
+                ctx.stroke();
+
+                // Inner soft glowing ring
+                ctx.beginPath();
+                ctx.arc(c.cx, c.cy, c.radius + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([]);
+                ctx.stroke();
+                ctx.restore();
+            });
+        }
+
+        function renderDiff() {
+            if (images.length < 2) {
+                renderOverlay();
+                return;
+            }
+
+            const baseImgObj = images[baseImageIndex];
+            const baseImg = baseImgObj.imgElement;
+            const width = baseImg.naturalWidth;
+            const height = baseImg.naturalHeight;
+            canvasDimensions.textContent = `${width} × ${height} px`;
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+
+            tempCtx.drawImage(baseImg, 0, 0, width, height);
+            const baseData = tempCtx.getImageData(0, 0, width, height).data;
+
+            const otherDataList = [];
+            images.forEach((item, idx) => {
+                if (idx === baseImageIndex) {
+                    otherDataList.push(null);
+                    return;
+                }
+                tempCtx.clearRect(0, 0, width, height);
+                tempCtx.drawImage(item.imgElement, item.offset.x, item.offset.y, width, height);
+                otherDataList.push(tempCtx.getImageData(0, 0, width, height).data);
+            });
+
+            outputCanvas.width = width;
+            outputCanvas.height = height;
+            const ctx = outputCanvas.getContext('2d');
+            ctx.clearRect(0, 0, width, height);
+
+            ctx.globalAlpha = 0.4;
+            ctx.drawImage(baseImg, 0, 0, width, height);
+            ctx.globalAlpha = 1.0;
+
+            const outputImageData = ctx.getImageData(0, 0, width, height);
+            const data = outputImageData.data;
+            const thres = threshold;
+            const diffMask = new Uint8Array(width * height);
+
+            for (let i = 0; i < baseData.length; i += 4) {
+                const pixelIdx = i / 4;
+                for (let imgIdx = 0; imgIdx < images.length; imgIdx++) {
+                    if (imgIdx === baseImageIndex) continue;
+                    const otherData = otherDataList[imgIdx];
+                    
+                    const dr = Math.abs(baseData[i] - otherData[i]);
+                    const dg = Math.abs(baseData[i+1] - otherData[i+1]);
+                    const db = Math.abs(baseData[i+2] - otherData[i+2]);
+
+                    if (dr > thres || dg > thres || db > thres) {
+                        const colorRgb = images[imgIdx].color.rgb;
+                        data[i] = colorRgb[0];
+                        data[i+1] = colorRgb[1];
+                        data[i+2] = colorRgb[2];
+                        data[i+3] = 230;
+                        diffMask[pixelIdx] = 1;
+                        break; 
+                    }
+                }
+            }
+
+            ctx.putImageData(outputImageData, 0, 0);
+
+            // Draw red circles on significant differing regions
+            detectAndDrawRedCircles(ctx, width, height, diffMask, thres);
+
+            renderLegend();
+        }
+
+        function renderLegend() {
+            legendItems.innerHTML = images.map((img, idx) => `
+                <div class="flex items-center gap-1.5 bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">
+                    <div class="w-2.5 h-2.5 rounded-full" style="background-color: ${img.color.hex}"></div>
+                    <span class="text-slate-300 font-medium">#${idx + 1} (${img.name})</span>
+                </div>
+            `).join('');
+        }
+
+        function renderSideBySide() {
+            if (images.length === 0) return;
+            const leftItem = images[baseImageIndex];
+            const rightIndex = (baseImageIndex + 1) % images.length;
+            const rightItem = images[rightIndex];
+
+            const width = leftItem.imgElement.naturalWidth;
+            const height = leftItem.imgElement.naturalHeight;
+            canvasDimensions.textContent = `${width} × ${height} px (並べて比較)`;
+
+            sbsLeftCanvas.width = width;
+            sbsLeftCanvas.height = height;
+            sbsRightCanvas.width = width;
+            sbsRightCanvas.height = height;
+
+            sbsLeftLabel.textContent = `#${baseImageIndex + 1}: ${leftItem.name}`;
+            sbsRightLabel.textContent = `#${rightIndex + 1}: ${rightItem.name}`;
+
+            const lCtx = sbsLeftCanvas.getContext('2d');
+            lCtx.clearRect(0, 0, width, height);
+            lCtx.drawImage(leftItem.imgElement, 0, 0, width, height);
+
+            const rCtx = sbsRightCanvas.getContext('2d');
+            rCtx.clearRect(0, 0, width, height);
+            rCtx.drawImage(rightItem.imgElement, rightItem.offset.x, rightItem.offset.y, width, height);
+        }
+
+        function renderSlider() {
+            if (images.length === 0) return;
+            const baseItem = images[baseImageIndex];
+            const targetIndex = (baseImageIndex + 1) % images.length;
+            const targetItem = images[targetIndex];
+
+            const width = baseItem.imgElement.naturalWidth;
+            const height = baseItem.imgElement.naturalHeight;
+            canvasDimensions.textContent = `${width} × ${height} px (スライダー)`;
+
+            sliderBaseCanvas.width = width;
+            sliderBaseCanvas.height = height;
+            sliderTopCanvas.width = width;
+            sliderTopCanvas.height = height;
+
+            const bCtx = sliderBaseCanvas.getContext('2d');
+            bCtx.clearRect(0, 0, width, height);
+            bCtx.drawImage(baseItem.imgElement, 0, 0, width, height);
+
+            const tCtx = sliderTopCanvas.getContext('2d');
+            tCtx.clearRect(0, 0, width, height);
+            tCtx.drawImage(targetItem.imgElement, targetItem.offset.x, targetItem.offset.y, width, height);
+
+            updateSliderClip();
+        }
+
+        let isDraggingSlider = false;
+        sliderContainer.addEventListener('mousedown', (e) => { isDraggingSlider = true; updateSliderPos(e); e.stopPropagation(); });
+        window.addEventListener('mouseup', () => { isDraggingSlider = false; });
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingSlider) return;
+            updateSliderPos(e);
+        });
+
+        sliderContainer.addEventListener('touchstart', (e) => { isDraggingSlider = true; updateSliderPos(e.touches[0]); e.stopPropagation(); });
+        window.addEventListener('touchend', () => { isDraggingSlider = false; });
+        window.addEventListener('touchmove', (e) => {
+            if (!isDraggingSlider) return;
+            updateSliderPos(e.touches[0]);
+        });
+
+        function updateSliderPos(e) {
+            const rect = sliderContainer.getBoundingClientRect();
+            let x = e.clientX - rect.left;
+            let percent = (x / rect.width) * 100;
+            if (percent < 0) percent = 0;
+            if (percent > 100) percent = 100;
+            sliderPos = percent;
+            updateSliderClip();
+        }
+
+        function updateSliderClip() {
+            sliderTopWrapper.style.width = `${sliderPos}%`;
+            sliderHandle.style.left = `${sliderPos}%`;
+        }
+
+        function resetZoomAndPan() {
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            updateTransform();
+        }
+
+        zoomFitBtn.addEventListener('click', resetZoomAndPan);
+
+        viewportContainer.addEventListener('wheel', (e) => {
+            if (images.length === 0) return;
+            e.preventDefault();
+            const zoomIntensity = 0.15;
+            if (e.deltaY < 0) {
+                scale *= (1 + zoomIntensity);
+            } else {
+                scale /= (1 + zoomIntensity);
+            }
+            if (scale < 0.2) scale = 0.2;
+            if (scale > 10) scale = 10;
+            updateTransform();
+        }, { passive: false });
+
+        viewportContainer.addEventListener('mousedown', (e) => {
+            if (images.length === 0) return;
+            isDraggingPan = true;
+            startX = e.clientX - panX;
+            startY = e.clientY - panY;
+        });
+
+        window.addEventListener('mousemove', (e) => {
+            if (!isDraggingPan) return;
+            panX = e.clientX - startX;
+            panY = e.clientY - startY;
+            updateTransform();
+        });
+
+        window.addEventListener('mouseup', () => {
+            isDraggingPan = false;
+        });
+
+        function updateTransform() {
+            canvasWrapper.style.transform = `translate(${panX}px, ${panY}px) scale(${scale})`;
+        }
+
+        document.getElementById('export-btn').addEventListener('click', () => {
+            if (images.length === 0) return;
+            const link = document.createElement('a');
+            link.download = `screenshot-diff-ai-${Date.now()}.png`;
+            link.href = outputCanvas.toDataURL('image/png');
+            link.click();
+        });
+    </script>
+</body>
+</html>
