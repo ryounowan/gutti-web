@@ -6,11 +6,16 @@
     <title>AetherChat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- QR Code Generator & Scanner Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+        /* Scanner video frame styling */
+        #qr-reader video { object-fit: cover !important; border-radius: 1rem; }
     </style>
 </head>
 <body id="app-body" class="bg-slate-950 text-slate-100 h-screen flex flex-col overflow-hidden select-none theme-dark">
@@ -45,7 +50,7 @@
             <!-- ID / パスワード認証ビュー -->
             <div id="auth-view-idpass" class="hidden">
                 <h3 class="text-xl font-bold text-white mb-1">ID / パスワード認証</h3>
-                <p class="text-xs text-slate-400 mb-5">お好きなIDとパスワードを設定して作成・ログインできます。（後からGoogleアカウントの連携も可能です）</p>
+                <p class="text-xs text-slate-400 mb-5">お好きなIDとパスワードを設定して作成・ログインできます。</p>
                 <div class="space-y-4 text-left">
                     <div>
                         <label class="block text-xs font-semibold text-slate-400 mb-1">ユーザーID (半角英数字)</label>
@@ -62,7 +67,7 @@
                 </div>
             </div>
 
-            <!-- プロフィール初期設定ビュー（新規ユーザー時） -->
+            <!-- プロフィール初期設定ビュー -->
             <div id="auth-view-profile" class="hidden text-center">
                 <div class="w-20 h-20 rounded-full bg-indigo-600 text-white font-bold text-2xl mx-auto flex items-center justify-center mb-4 shadow-lg overflow-hidden border-2 border-indigo-500/50 relative group cursor-pointer" onclick="document.getElementById('setup-avatar-input').click()" title="クリックして画像を選択">
                     <span id="setup-avatar-preview">🪐</span>
@@ -109,22 +114,43 @@
             </div>
             <input type="file" id="edit-bg-input" accept="image/*" class="hidden" onchange="updateProfileBg(this)" />
 
-            <div class="relative inline-block mb-3 group cursor-pointer z-10" onclick="document.getElementById('edit-avatar-input').click()" title="クリックしてアイコン画像を変更">
+            <div class="relative inline-block mb-2 group cursor-pointer z-10" onclick="document.getElementById('edit-avatar-input').click()" title="クリックしてアイコン画像を変更">
                 <div id="my-profile-avatar" class="w-20 h-20 rounded-full bg-indigo-600 text-white font-bold text-2xl mx-auto flex items-center justify-center shadow-lg overflow-hidden border-4 border-slate-900">私</div>
                 <div class="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white font-bold transition">変更</div>
             </div>
             <input type="file" id="edit-avatar-input" accept="image/*" class="hidden" onchange="updateProfileAvatar(this)" />
             
             <h3 id="my-profile-name" class="font-bold text-lg text-white mb-0.5">ゲスト</h3>
-            <p id="my-profile-status" class="text-xs text-slate-400 italic mb-2">ステータスメッセージ...</p>
-            <p class="text-[10px] text-slate-500 mb-4 font-mono">ID: <span id="my-full-id" class="text-indigo-400 select-all">読み込み中...</span></p>
+            <p id="my-profile-status" class="text-xs text-slate-400 italic mb-3">ステータスメッセージ...</p>
+            
+            <!-- 改修: 見やすいアカウントIDカード＆QRコード生成エリア -->
+            <div class="mb-4 bg-gradient-to-br from-indigo-950/60 to-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 text-left shadow-md">
+                <div class="flex items-center justify-between mb-1">
+                    <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
+                        マイ アカウントID
+                    </span>
+                    <button onclick="copyMyId()" class="text-[10px] bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-lg transition font-semibold">IDコピー</button>
+                </div>
+                <div id="my-full-id" onclick="copyMyId()" class="text-xs font-mono font-bold text-white bg-slate-900/80 p-2 rounded-xl border border-slate-800 break-all select-all cursor-pointer hover:border-indigo-500/50 transition">
+                    読み込み中...
+                </div>
+                
+                <div class="mt-3 flex gap-2">
+                    <button onclick="openMyQrModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/30">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                        QRコードで共有
+                    </button>
+                    <button onclick="copyShareLink()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition border border-slate-700">
+                        招待URLコピー
+                    </button>
+                </div>
+            </div>
 
-            <!-- アカウント連携セクション (新規追加) -->
+            <!-- アカウント連携セクション -->
             <div class="mb-4 bg-slate-950 p-3 rounded-2xl border border-slate-800 text-left">
                 <label class="block text-[10px] text-slate-400 mb-1.5 font-semibold">Googleアカウント連携</label>
-                <div id="google-link-status-container">
-                    <!-- JavaScriptで連携状態を動的描画 -->
-                </div>
+                <div id="google-link-status-container"></div>
             </div>
             
             <div class="space-y-3 text-left mb-4 bg-slate-950 p-3 rounded-2xl border border-slate-800">
@@ -144,17 +170,33 @@
                 </div>
             </div>
 
-            <div class="bg-slate-950 p-3 rounded-2xl border border-slate-800 mb-4 text-left">
-                <label class="block text-[10px] text-slate-400 mb-1">招待リンク</label>
-                <div class="flex items-center gap-2">
-                    <input type="text" id="share-link-input" readonly class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-indigo-300 font-mono select-all" />
-                    <button onclick="copyShareLink()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition">コピー</button>
-                </div>
-            </div>
-
             <div class="space-y-2">
                 <button onclick="logoutUser()" class="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 py-2.5 rounded-xl text-xs font-semibold transition">ログアウト</button>
                 <button onclick="closeProfileModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">閉じる</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- マイQRコード表示モーダル (新規追加) -->
+    <div id="my-qr-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
+        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full mx-4 shadow-2xl text-center">
+            <h3 class="text-lg font-bold text-white mb-1">マイ QR コード</h3>
+            <p class="text-xs text-slate-400 mb-5">友達にこのQRコードをかざしてもらうと追加できます</p>
+
+            <div class="bg-white p-4 rounded-2xl inline-block shadow-xl mb-4 border-4 border-indigo-500/30" id="qrcode-container">
+                <!-- JavaScriptでここにQRコードが描画されます -->
+            </div>
+
+            <p id="qr-user-name" class="font-bold text-base text-white mb-1"></p>
+            <p class="text-[10px] font-mono text-indigo-400 mb-5 break-all" id="qr-user-id"></p>
+
+            <div class="flex gap-2">
+                <button onclick="copyShareLink()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30">
+                    招待リンクをコピー
+                </button>
+                <button onclick="closeMyQrModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition">
+                    閉じる
+                </button>
             </div>
         </div>
     </div>
@@ -198,20 +240,50 @@
         </div>
     </div>
 
-    <!-- 友達追加モーダル -->
+    <!-- 友達追加モーダル (QRスキャナー統合) -->
     <div id="add-friend-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300">
         <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full mx-4 shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-2">友達を追加</h3>
-            <p class="text-xs text-slate-400 mb-4">友達のIDを入力して申請を送信します。</p>
-            <div class="space-y-4">
+            
+            <!-- 追加方法タブ切り替え -->
+            <div class="flex bg-slate-950 rounded-xl p-1 mb-4 border border-slate-800">
+                <button onclick="switchAddFriendTab('scan')" id="tab-add-scan" class="flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white transition flex items-center justify-center gap-1.5">
+                    📷 QR読み取り
+                </button>
+                <button onclick="switchAddFriendTab('id')" id="tab-add-id" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5">
+                    ✏️ ID直接入力
+                </button>
+            </div>
+
+            <!-- QRコードスキャナータブ -->
+            <div id="add-view-scan" class="space-y-3">
+                <div id="qr-reader" class="w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[220px] flex items-center justify-center relative">
+                    <p class="text-xs text-slate-500">カメラを起動中...</p>
+                </div>
+                <div class="flex justify-between items-center text-xs">
+                    <label class="cursor-pointer text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1">
+                        🖼️ QR画像をファイルから選択
+                        <input type="file" accept="image/*" class="hidden" onchange="scanQrFromImageFile(this)" />
+                    </label>
+                    <button onclick="openMyQrModalFromAdd()" class="text-slate-400 hover:text-white flex items-center gap-1">
+                        📱 マイQRコード表示
+                    </button>
+                </div>
+            </div>
+
+            <!-- ID手入力タブ -->
+            <div id="add-view-id" class="space-y-4 hidden">
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 mb-1">相手のユーザーID</label>
                     <input type="text" id="target-friend-id" placeholder="相手のIDを貼り付け..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono" />
                 </div>
+                <button onclick="sendFriendRequest()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30">
+                    申請を送信
+                </button>
             </div>
-            <div class="flex justify-end space-x-3 mt-6">
-                <button onclick="closeAddFriendModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold transition">キャンセル</button>
-                <button onclick="sendFriendRequest()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold transition shadow-lg shadow-indigo-600/30">申請を送信</button>
+
+            <div class="flex justify-end mt-5">
+                <button onclick="closeAddFriendModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-5 py-2.5 rounded-xl text-xs font-semibold transition">閉じる</button>
             </div>
         </div>
     </div>
@@ -262,7 +334,7 @@
         <aside id="sidebar" class="w-full md:w-80 lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col z-20 absolute md:relative inset-y-0 left-0 transition-transform duration-300 transform -translate-x-full md:translate-x-0">
             <!-- ユーザープロフィールバナー -->
             <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
-                <div class="flex items-center space-x-3 cursor-pointer" onclick="openProfileModal()">
+                <div class="flex items-center space-x-3 cursor-pointer group" onclick="openProfileModal()">
                     <div id="sidebar-avatar" class="w-11 h-11 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shadow-inner overflow-hidden border border-indigo-500/30">
                         私
                     </div>
@@ -272,13 +344,16 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-1.5">
+                    <button onclick="openMyQrModal()" title="マイQRコードを表示" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
+                    </button>
                     <button onclick="openThemeModal()" title="デザインテーマ変更" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         🎨
                     </button>
                     <button onclick="openCreateGroupModal()" title="グループを作成" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
                     </button>
-                    <button onclick="openAddFriendModal()" title="友達を追加" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
+                    <button onclick="openAddFriendModal()" title="友達を追加 (QR/ID)" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
                     </button>
                 </div>
@@ -297,7 +372,7 @@
             <div class="flex-1 overflow-y-auto p-2 space-y-1 hidden" id="tab-content-requests"></div>
 
             <div class="p-3 border-t border-slate-800 text-[10px] text-slate-500 text-center flex items-center justify-between">
-                <span>AetherChat v6.0</span>
+                <span>AetherChat v6.1</span>
                 <button onclick="openBlockedListModal()" class="text-indigo-400 hover:underline">ブロック管理</button>
             </div>
         </aside>
@@ -419,8 +494,9 @@
         let unsubscribeRequests = null;
         let unsubscribeRooms = null;
         let tempAvatarBase64 = null;
+        let html5QrCodeScanner = null;
 
-        // LINE風デフォルトアイコンを生成するヘルパー (名前の頭文字からカラー＆イニシャル作成)
+        // LINE風デフォルトアイコンを生成するヘルパー
         function getInitialsAvatar(name) {
             if (!name) name = "U";
             const initial = name.substring(0, 1).toUpperCase();
@@ -593,7 +669,6 @@
                 return;
             }
 
-            // ID形式の簡易検証 (半角英数字、アンダースコア、ハイフン)
             if (!/^[a-z0-9_-]+$/i.test(idInput)) {
                 showModal("入力エラー", "ユーザーIDは半角英数字(文字・数字・_・-)で入力してください。");
                 return;
@@ -604,14 +679,11 @@
                 return;
             }
 
-            // IDを内部で安全なメールアドレス形式にマッピング
             const internalEmail = `${idInput}@aetherchat.internal`;
 
             try {
-                // まず既存アカウントとしてログインを試みる
                 await signInWithEmailAndPassword(auth, internalEmail, password);
             } catch(e) {
-                // アカウントが存在しない場合は新規作成を試みる
                 if (e.code === 'auth/user-not-found' || e.code === 'auth/invalid-credential') {
                     try {
                         await createUserWithEmailAndPassword(auth, internalEmail, password);
@@ -635,7 +707,6 @@
                 const provider = new GoogleAuthProvider();
                 const result = await linkWithPopup(auth.currentUser, provider);
                 
-                // 連携成功時、Firestoreのユーザードキュメントを更新
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', auth.currentUser.uid);
                 const googleData = {
                     isGoogleLinked: true,
@@ -650,7 +721,7 @@
                 }
 
                 showModal("連携完了", "Googleアカウントとの連携が完了しました！次回からGoogleログインもご利用いただけます。");
-                openProfileModal(); // ダイアログ再描画
+                openProfileModal();
             } catch(error) {
                 if (error.code === 'auth/credential-already-in-use') {
                     showModal("連携エラー", "このGoogleアカウントは既に他のユーザーアカウントに連携されています。");
@@ -669,14 +740,12 @@
             }
         }
 
-        // 認証状態の監視
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 currentUser = user;
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
                 const userSnap = await getDoc(userRef);
 
-                // GoogleログインかID/Passログインかを判別
                 const isGoogleUser = user.providerData.some(p => p.providerId === 'google.com');
 
                 if (!userSnap.exists()) {
@@ -686,7 +755,6 @@
                 } else {
                     myUserData = userSnap.data();
                     
-                    // Googleログインできたユーザーでドキュメントのフラグが未更新なら自動セット
                     if (isGoogleUser && !myUserData.isGoogleLinked) {
                         myUserData.isGoogleLinked = true;
                         await updateDoc(userRef, { isGoogleLinked: true, googleEmail: user.email || "" });
@@ -758,6 +826,145 @@
             });
             document.getElementById(`tab-content-${tabName}`).classList.remove("hidden");
             document.getElementById(`tab-btn-${tabName}`).className = "py-3 text-indigo-400 border-b-2 border-indigo-500 transition font-semibold";
+        }
+
+        // マイQRコード表示モーダルの表示
+        window.openMyQrModal = function() {
+            if (!currentUser || !myUserData) return;
+            
+            const qrContainer = document.getElementById("qrcode-container");
+            qrContainer.innerHTML = "";
+            
+            const shareUrl = window.location.origin + window.location.pathname + "?add=" + currentUser.uid;
+            
+            // QRCode.jsを利用して生成
+            new QRCode(qrContainer, {
+                text: shareUrl,
+                width: 180,
+                height: 180,
+                colorDark : "#0f172a",
+                colorLight : "#ffffff",
+                correctLevel : QRCode.CorrectLevel.H
+            });
+
+            document.getElementById("qr-user-name").innerText = myUserData.name;
+            document.getElementById("qr-user-id").innerText = "ID: " + currentUser.uid;
+
+            const modal = document.getElementById("my-qr-modal");
+            modal.classList.remove("hidden");
+            setTimeout(() => modal.classList.remove("opacity-0"), 10);
+        }
+
+        window.closeMyQrModal = function() {
+            const modal = document.getElementById("my-qr-modal");
+            modal.classList.add("opacity-0");
+            setTimeout(() => modal.classList.add("hidden"), 300);
+        }
+
+        window.openMyQrModalFromAdd = function() {
+            closeAddFriendModal();
+            openMyQrModal();
+        }
+
+        // 友達追加タブの切り替え＆QRカメラ起動
+        window.switchAddFriendTab = function(tabType) {
+            const tabScan = document.getElementById("tab-add-scan");
+            const tabId = document.getElementById("tab-add-id");
+            const viewScan = document.getElementById("add-view-scan");
+            const viewId = document.getElementById("add-view-id");
+
+            if (tabType === 'scan') {
+                tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white transition flex items-center justify-center gap-1.5";
+                tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
+                viewScan.classList.remove("hidden");
+                viewId.classList.add("hidden");
+                startQrScanner();
+            } else {
+                tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white transition flex items-center justify-center gap-1.5";
+                tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
+                viewId.classList.remove("hidden");
+                viewScan.classList.add("hidden");
+                stopQrScanner();
+            }
+        }
+
+        // カメラでのQR読み取り開始
+        function startQrScanner() {
+            if (html5QrCodeScanner) return;
+            
+            try {
+                html5QrCodeScanner = new Html5Qrcode("qr-reader");
+                const config = { fps: 10, qrbox: { width: 180, height: 180 } };
+
+                html5QrCodeScanner.start({ facingMode: "environment" }, config, onQrCodeSuccess)
+                .catch((err) => {
+                    document.getElementById("qr-reader").innerHTML = `
+                        <div class="p-4 text-center">
+                            <p class="text-xs text-amber-400 font-semibold mb-1">カメラへのアクセスが許可されていません</p>
+                            <p class="text-[10px] text-slate-500">ブラウザのカメラ権限を許可するか、画像選択・ID入力をご利用ください。</p>
+                        </div>
+                    `;
+                });
+            } catch(e) {}
+        }
+
+        function stopQrScanner() {
+            if (html5QrCodeScanner) {
+                html5QrCodeScanner.stop().then(() => {
+                    html5QrCodeScanner.clear();
+                    html5QrCodeScanner = null;
+                }).catch(() => {
+                    html5QrCodeScanner = null;
+                });
+            }
+        }
+
+        // QR読み取り成功時のハンドラー
+        function onQrCodeSuccess(decodedText) {
+            stopQrScanner();
+            
+            // 招待URL (`?add=USER_ID`) または 生のUSER_ID か判別
+            let targetId = decodedText;
+            if (decodedText.includes("?add=")) {
+                const url = new URL(decodedText);
+                targetId = url.searchParams.get("add");
+            }
+
+            if (targetId) {
+                document.getElementById("target-friend-id").value = targetId;
+                closeAddFriendModal();
+                sendDirectFriendRequest(targetId);
+                showModal("QRスキャン成功", "友達申請を送信しました！");
+            } else {
+                showModal("エラー", "有効なAetherChatのQRコードではありません。");
+            }
+        }
+
+        // QR画像ファイルからの解析処理
+        window.scanQrFromImageFile = function(input) {
+            if (!input.files || !input.files[0]) return;
+            const file = input.files[0];
+            
+            const html5QrCode = new Html5Qrcode("qr-reader");
+            html5QrCode.scanFile(file, true)
+            .then(decodedText => {
+                onQrCodeSuccess(decodedText);
+            })
+            .catch(err => {
+                showModal("読み取り失敗", "画像からQRコードを検出できませんでした。別の画像をお試しください。");
+            });
+        }
+
+        // マイIDをコピーする
+        window.copyMyId = function() {
+            if (!currentUser) return;
+            const tempInput = document.createElement("input");
+            tempInput.value = currentUser.uid;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempInput);
+            showModal("コピー完了", "マイアカウントIDをクリップボードにコピーしました！");
         }
 
         window.sendFriendRequest = async function() {
@@ -898,7 +1105,7 @@
                 document.getElementById("friends-count").innerText = snapshot.size;
 
                 if (snapshot.empty) {
-                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">まだ友達がいません<br>「+」ボタンからIDで追加しましょう</div>`;
+                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">まだ友達がいません<br>「+」ボタンからQR/IDで追加しましょう</div>`;
                     return;
                 }
 
@@ -930,7 +1137,6 @@
             });
         }
 
-        // 友達削除
         window.deleteFriend = async function(friendId, friendName) {
             if (!confirm(`${friendName}さんを友達リストから削除しますか？`)) return;
             try {
@@ -941,7 +1147,6 @@
             }
         }
 
-        // 友達ブロック
         window.blockFriend = async function(friendId, friendName) {
             if (!confirm(`${friendName}さんをブロックしますか？チャットや申請ができなくなります。`)) return;
             try {
@@ -1350,7 +1555,6 @@
             document.getElementById("edit-name-input").value = myUserData.name;
             document.getElementById("edit-status-input").value = myUserData.statusMessage || "";
 
-            // Googleアカウント連携UIの状態設定
             const linkContainer = document.getElementById("google-link-status-container");
             const isGoogleLinked = myUserData.isGoogleLinked || currentUser.providerData.some(p => p.providerId === 'google.com');
 
@@ -1394,9 +1598,6 @@
                 bgEl.style.backgroundImage = "";
             }
 
-            const shareUrl = window.location.origin + window.location.pathname + "?add=" + currentUser.uid;
-            document.getElementById("share-link-input").value = shareUrl;
-
             const modal = document.getElementById("profile-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
@@ -1409,9 +1610,13 @@
         }
 
         window.copyShareLink = function() {
-            const input = document.getElementById("share-link-input");
-            input.select();
+            const shareUrl = window.location.origin + window.location.pathname + "?add=" + currentUser.uid;
+            const tempInput = document.createElement("input");
+            tempInput.value = shareUrl;
+            document.body.appendChild(tempInput);
+            tempInput.select();
             document.execCommand('copy');
+            document.body.removeChild(tempInput);
             showModal("コピー完了", "招待リンクをクリップボードにコピーしました！");
         }
 
@@ -1419,9 +1624,11 @@
             const modal = document.getElementById("add-friend-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
+            switchAddFriendTab('scan');
         }
 
         window.closeAddFriendModal = function() {
+            stopQrScanner();
             const modal = document.getElementById("add-friend-modal");
             modal.classList.add("opacity-0");
             setTimeout(() => modal.classList.add("hidden"), 300);
