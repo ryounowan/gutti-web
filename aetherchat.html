@@ -3,12 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AetherChat　test</title>
+    <title>AetherChat - Custom & Multi-functional Chat</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <!-- QR Code Generator & Scanner Libraries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     
     <style>
         :root {
@@ -58,7 +55,6 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
         ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
-        #qr-reader video { object-fit: cover !important; border-radius: 1rem; }
 
         @keyframes slideUp {
             from { transform: translateY(10px); opacity: 0; }
@@ -75,6 +71,7 @@
 </head>
 <body id="app-body" class="app-height flex flex-col overflow-hidden select-none">
 
+    <!-- 新着メッセージポップアップ通知コンテナ -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col space-y-2 w-11/12 max-w-md pointer-events-none"></div>
 
     <!-- 認証 / 初回登録モーダル -->
@@ -235,12 +232,9 @@
                     読み込み中...
                 </div>
                 
-                <div class="mt-3 flex gap-2">
-                    <button onclick="openMyQrModal()" class="flex-1 theme-primary-bg hover:opacity-90 text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md">
-                        📱 QRコード共有
-                    </button>
-                    <button onclick="copyShareLink()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition border border-slate-700">
-                        招待URL
+                <div class="mt-3">
+                    <button onclick="copyShareLink()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition border border-slate-700">
+                        招待URLをコピー
                     </button>
                 </div>
             </div>
@@ -282,28 +276,6 @@
                 </button>
                 <button onclick="closeAccountResetModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-semibold transition">
                     キャンセル
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- マイQRコード表示モーダル -->
-    <div id="my-qr-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
-            <h3 class="text-lg font-bold text-white mb-1">マイ QR コード</h3>
-            <p class="text-xs text-slate-400 mb-5">友達にこのQRコードをかざしてもらうと追加できます</p>
-
-            <div class="bg-white p-4 rounded-2xl inline-block shadow-xl mb-4 border-4 border-indigo-500/30" id="qrcode-container"></div>
-
-            <p id="qr-user-name" class="font-bold text-base text-white mb-1"></p>
-            <p class="text-[10px] font-mono text-indigo-400 mb-5 break-all" id="qr-user-id"></p>
-
-            <div class="flex gap-2">
-                <button onclick="copyShareLink()" class="flex-1 theme-primary-bg hover:opacity-90 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg">
-                    招待リンクをコピー
-                </button>
-                <button onclick="closeMyQrModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition">
-                    閉じる
                 </button>
             </div>
         </div>
@@ -361,36 +333,13 @@
         </div>
     </div>
 
-    <!-- 友達追加モーダル -->
+    <!-- 友達追加モーダル（ID入力のみ） -->
     <div id="add-friend-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
         <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-2">友達を追加</h3>
-            
-            <div class="flex bg-slate-950 rounded-xl p-1 mb-4 border border-slate-800">
-                <button onclick="switchAddFriendTab('scan')" id="tab-add-scan" class="flex-1 py-2 rounded-lg text-xs font-bold theme-primary-bg text-white transition flex items-center justify-center gap-1.5">
-                    📷 QR読み取り
-                </button>
-                <button onclick="switchAddFriendTab('id')" id="tab-add-id" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5">
-                    ✏️ ID直接入力
-                </button>
-            </div>
+            <p class="text-xs text-slate-400 mb-4">相手のユーザーIDを入力してプロフィールを検索できます。</p>
 
-            <div id="add-view-scan" class="space-y-3">
-                <div id="qr-reader" class="w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[220px] flex items-center justify-center relative">
-                    <p class="text-xs text-slate-500">カメラを起動中...</p>
-                </div>
-                <div class="flex justify-between items-center text-xs">
-                    <label class="cursor-pointer theme-primary-text font-semibold flex items-center gap-1">
-                        🖼️ QR画像をファイルから選択
-                        <input type="file" accept="image/*" class="hidden" onchange="scanQrFromImageFile(this)" />
-                    </label>
-                    <button onclick="openMyQrModalFromAdd()" class="text-slate-400 hover:text-white flex items-center gap-1">
-                        📱 マイQR表示
-                    </button>
-                </div>
-            </div>
-
-            <div id="add-view-id" class="space-y-4 hidden">
+            <div class="space-y-4">
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 mb-1">相手のユーザーID</label>
                     <input type="text" id="target-friend-id" placeholder="相手のIDを貼り付け..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono" />
@@ -457,16 +406,13 @@
                     </div>
                 </div>
                 <div class="flex items-center space-x-1.5">
-                    <button onclick="openMyQrModal()" title="マイQRコードを表示" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-                    </button>
                     <button onclick="openThemeModal()" title="カラー・テーマ変更" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         🎨
                     </button>
                     <button onclick="openCreateGroupModal()" title="グループを作成" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         👥
                     </button>
-                    <button onclick="openAddFriendModal()" title="友達を追加 (QR/ID)" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
+                    <button onclick="openAddFriendModal()" title="友達を追加 (ID)" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         ➕
                     </button>
                 </div>
@@ -595,7 +541,7 @@
             apiKey: "AIzaSyAhvaLu0BcyBKUyER8PqxDdDBJwUOmfeOk",
             authDomain: "my-chat-app-12165.firebaseapp.com",
             projectId: "my-chat-app-12165",
-            storageBucket: "my-chat-app-12165.appspot.com",
+            storageBucket: "my-chat-app-12165.firebasestorage.app",
             messagingSenderId: "148974103771",
             appId: "1:148974103771:web:4ed8ee98b354dceda9b0fe",
             measurementId: "G-VYBR9QPG3S"
@@ -618,7 +564,6 @@
         let unsubscribeRooms = null;
         let globalAllMessagesUnsubscribers = {};
         let tempAvatarBase64 = null;
-        let html5QrCodeScanner = null;
 
         function escapeHTML(str) {
             if (!str) return "";
@@ -1316,35 +1261,6 @@
             }
         }
 
-        window.openMyQrModal = function() {
-            if (!currentUser || !myUserData) return;
-            const qrContainer = document.getElementById("qrcode-container");
-            qrContainer.innerHTML = "";
-            const shareUrl = window.location.origin + window.location.pathname + "?add=" + currentUser.uid;
-            
-            new QRCode(qrContainer, {
-                text: shareUrl,
-                width: 180,
-                height: 180,
-                colorDark : "#0f172a",
-                colorLight : "#ffffff",
-                correctLevel : QRCode.CorrectLevel.H
-            });
-
-            document.getElementById("qr-user-name").innerText = myUserData.name;
-            document.getElementById("qr-user-id").innerText = "ID: " + currentUser.uid;
-
-            const modal = document.getElementById("my-qr-modal");
-            modal.classList.remove("hidden");
-            setTimeout(() => modal.classList.remove("opacity-0"), 10);
-        }
-
-        window.closeMyQrModal = function() {
-            const modal = document.getElementById("my-qr-modal");
-            modal.classList.add("opacity-0");
-            setTimeout(() => modal.classList.add("hidden"), 300);
-        }
-
         window.openProfileModal = function() {
             const modal = document.getElementById("profile-modal");
             modal.classList.remove("hidden");
@@ -1361,95 +1277,12 @@
             const modal = document.getElementById("add-friend-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
-            switchAddFriendTab('scan');
         }
 
         window.closeAddFriendModal = function() {
-            stopQrScanner();
             const modal = document.getElementById("add-friend-modal");
             modal.classList.add("opacity-0");
             setTimeout(() => modal.classList.add("hidden"), 300);
-        }
-
-        window.switchAddFriendTab = function(tabType) {
-            const tabScan = document.getElementById("tab-add-scan");
-            const tabId = document.getElementById("tab-add-id");
-            const viewScan = document.getElementById("add-view-scan");
-            const viewId = document.getElementById("add-view-id");
-
-            if (tabType === 'scan') {
-                tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold theme-primary-bg text-white transition flex items-center justify-center gap-1.5";
-                tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
-                viewScan.classList.remove("hidden");
-                viewId.classList.add("hidden");
-                startQrScanner();
-            } else {
-                tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold theme-primary-bg text-white transition flex items-center justify-center gap-1.5";
-                tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
-                viewId.classList.remove("hidden");
-                viewScan.classList.add("hidden");
-                stopQrScanner();
-            }
-        }
-
-        function startQrScanner() {
-            if (html5QrCodeScanner) return;
-            try {
-                html5QrCodeScanner = new Html5Qrcode("qr-reader");
-                const config = { fps: 10, qrbox: { width: 180, height: 180 } };
-
-                html5QrCodeScanner.start({ facingMode: "environment" }, config, onQrCodeSuccess)
-                .catch((err) => {
-                    document.getElementById("qr-reader").innerHTML = `
-                        <div class="p-4 text-center">
-                            <p class="text-xs text-amber-400 font-semibold mb-1">カメラを起動できませんでした</p>
-                            <p class="text-[10px] text-slate-500">カメラ権限を許可するか、画像ファイル選択をご利用ください。</p>
-                        </div>
-                    `;
-                });
-            } catch(e) {}
-        }
-
-        function stopQrScanner() {
-            if (html5QrCodeScanner) {
-                html5QrCodeScanner.stop().then(() => {
-                    html5QrCodeScanner.clear();
-                    html5QrCodeScanner = null;
-                }).catch(() => { html5QrCodeScanner = null; });
-            }
-        }
-
-        function onQrCodeSuccess(decodedText) {
-            stopQrScanner();
-            closeAddFriendModal();
-
-            let targetId = decodedText;
-            if (decodedText.includes("?add=")) {
-                try {
-                    const url = new URL(decodedText);
-                    targetId = url.searchParams.get("add");
-                } catch(e) {
-                    const match = decodedText.match(/[?&]add=([^&]+)/);
-                    if (match) targetId = match[1];
-                }
-            }
-
-            if (targetId) {
-                openUserProfileView(targetId);
-            } else {
-                showModal("エラー", "有効なAetherChatのQRコードではありません。");
-            }
-        }
-
-        window.scanQrFromImageFile = function(input) {
-            if (!input.files || !input.files[0]) return;
-            const file = input.files[0];
-            const html5QrCode = new Html5Qrcode("qr-reader");
-            html5QrCode.scanFile(file, true)
-            .then(decodedText => { onQrCodeSuccess(decodedText); })
-            .catch(err => {
-                showModal("読み取り失敗", "画像からQRコードを検出できませんでした。");
-            });
         }
 
         window.searchUserAndShowProfile = function() {
@@ -1492,7 +1325,7 @@
                 document.getElementById("friends-count").innerText = snapshot.size;
 
                 if (snapshot.empty) {
-                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">まだ友達がいません<br>「+」ボタンからQRで追加しましょう</div>`;
+                    container.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">まだ友達がいません<br>「+」ボタンからIDで追加しましょう</div>`;
                     return;
                 }
 
@@ -1788,140 +1621,173 @@
             };
 
             toast.innerHTML = `
-                <div>
-                    <div class="font-bold text-xs text-white">${escapeHTML(senderName)} <span class="text-[10px] text-slate-400 font-normal">(${escapeHTML(roomName)})</span></div>
-                    <div class="text-xs text-slate-300 truncate max-w-xs mt-0.5">${escapeHTML(text)}</div>
+                <div class="flex items-center space-x-3 overflow-hidden">
+                    <div class="w-9 h-9 rounded-full theme-primary-bg flex items-center justify-center font-bold text-white shrink-0">💬</div>
+                    <div class="overflow-hidden">
+                        <div class="text-xs font-bold text-white truncate">${escapeHTML(senderName)} <span class="text-[10px] text-slate-400 font-normal">(${escapeHTML(roomName)})</span></div>
+                        <div class="text-xs text-slate-300 truncate">${escapeHTML(text)}</div>
+                    </div>
                 </div>
-                <button onclick="event.stopPropagation(); this.parentElement.remove();" class="text-slate-400 hover:text-white p-1">✕</button>
+                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white p-1">✕</button>
             `;
             container.appendChild(toast);
-            setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
+            setTimeout(() => {
+                if (toast.parentElement) toast.remove();
+            }, 5000);
         }
 
         window.switchTab = function(tabName) {
-            const btnChats = document.getElementById("tab-btn-chats");
-            const btnFriends = document.getElementById("tab-btn-friends");
-            const btnRequests = document.getElementById("tab-btn-requests");
-            const contentChats = document.getElementById("tab-content-chats");
-            const contentFriends = document.getElementById("tab-content-friends");
-            const contentRequests = document.getElementById("tab-content-requests");
-
-            btnChats.className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
-            btnFriends.className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
-            btnRequests.className = "py-3.5 text-slate-400 hover:text-slate-200 transition relative";
-            contentChats.classList.add("hidden");
-            contentFriends.classList.add("hidden");
-            contentRequests.classList.add("hidden");
-
-            if (tabName === 'chats') {
-                btnChats.className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition";
-                contentChats.classList.remove("hidden");
-            } else if (tabName === 'friends') {
-                btnFriends.className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition";
-                contentFriends.classList.remove("hidden");
-            } else if (tabName === 'requests') {
-                btnRequests.className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition relative";
-                contentRequests.classList.remove("hidden");
-            }
+            ['chats', 'friends', 'requests'].forEach(t => {
+                document.getElementById(`tab-content-${t}`).classList.add("hidden");
+                document.getElementById(`tab-btn-${t}`).className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
+            });
+            document.getElementById(`tab-content-${tabName}`).classList.remove("hidden");
+            document.getElementById(`tab-btn-${tabName}`).className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition font-semibold";
         }
 
-        window.selectRoom = async function(roomId, roomName, isGroup, members) {
+        window.selectRoom = async function(roomId, roomName, isGroup = false, members = []) {
             currentRoomId = roomId;
-            currentRoomData = { roomId, name: roomName, isGroup, members };
+            currentRoomData = { roomId, roomName, isGroup, members };
+            document.getElementById("current-chat-title").innerText = roomName;
+            document.getElementById("current-chat-sub").innerText = isGroup ? `グループ (${members.length}人)` : `タップで相手のプロフィールを表示`;
             
-            if (window.innerWidth < 768) {
-                toggleSidebar();
+            const headerIcon = document.getElementById("chat-header-icon");
+            if (isGroup) {
+                headerIcon.innerText = '👥';
+                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text shrink-0';
+            } else {
+                headerIcon.innerHTML = getInitialsAvatar(roomName);
+                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text overflow-hidden shrink-0';
             }
 
-            document.getElementById("current-chat-title").innerText = roomName;
-            document.getElementById("current-chat-sub").innerText = isGroup ? `${members.length}人のメンバー` : "タップしてプロフィールを表示";
             document.getElementById("chat-header-actions").classList.remove("hidden");
-            document.getElementById("btn-group-info").classList.toggle("hidden", !isGroup);
+            const btnGroupInfo = document.getElementById("btn-group-info");
+            if (isGroup) {
+                btnGroupInfo.classList.remove("hidden");
+            } else {
+                btnGroupInfo.classList.add("hidden");
+            }
 
             roomMembersMap = {};
-            if (members && members.length > 0) {
-                for (const mId of members) {
-                    try {
-                        const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
-                        if (uSnap.exists()) {
-                            roomMembersMap[mId] = uSnap.data();
-                        }
-                    } catch(e){}
-                }
+            for (const mId of members) {
+                try {
+                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
+                    if (uSnap.exists()) {
+                        roomMembersMap[mId] = uSnap.data();
+                    }
+                } catch(e){}
             }
 
-            loadMessages(roomId);
-        }
-
-        function loadMessages(roomId) {
-            const chatBox = document.getElementById("chat-box");
-            chatBox.innerHTML = "";
+            if (window.innerWidth < 768) {
+                document.getElementById("sidebar").classList.add("-translate-x-full");
+                document.getElementById("sidebar-overlay").classList.add("hidden");
+            }
 
             if (unsubscribeMessages) unsubscribeMessages();
 
             const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`);
             const q = query(messagesRef, orderBy("createdAt", "asc"));
+            const chatBox = document.getElementById("chat-box");
 
             unsubscribeMessages = onSnapshot(q, (snapshot) => {
                 chatBox.innerHTML = "";
+
                 if (snapshot.empty) {
-                    chatBox.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">メッセージはまだありません。<br>最初のメッセージを送信しましょう！</div>`;
+                    chatBox.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-2">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">💬</div>
+                            <p class="text-xs">まだメッセージがありません。会話を始めましょう！</p>
+                        </div>
+                    `;
                     return;
                 }
 
-                snapshot.forEach((docSnap) => {
-                    const msg = docSnap.data();
-                    const msgId = docSnap.id;
-                    const isMe = msg.senderId === currentUser.uid;
-                    const sender = roomMembersMap[msg.senderId] || { name: msg.senderName || "ユーザー", avatar: msg.senderAvatar || "" };
+                const batch = writeBatch(db);
+                let hasUnread = false;
 
-                    const div = document.createElement("div");
-                    div.className = `flex items-end space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : 'flex-row'} mb-3`;
+                snapshot.forEach((msgDoc) => {
+                    const data = msgDoc.data();
+                    const msgId = msgDoc.id;
+                    const isMe = data.senderId === currentUser.uid;
 
-                    const avatarHtml = sender.avatar
-                        ? `<img src="${sender.avatar}" class="w-8 h-8 rounded-full object-cover cursor-pointer" onclick="openUserProfileView('${msg.senderId}')" />`
-                        : `<div class="w-8 h-8 rounded-full overflow-hidden cursor-pointer" onclick="openUserProfileView('${msg.senderId}')">${getInitialsAvatar(sender.name)}</div>`;
+                    if (!isMe && !data.read) {
+                        hasUnread = true;
+                        batch.update(msgDoc.ref, { read: true });
+                    }
+
+                    let timeStr = "";
+                    if (data.createdAt && typeof data.createdAt.toDate === "function") {
+                        timeStr = data.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    }
+
+                    const messageDiv = document.createElement("div");
+                    messageDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 group relative`;
 
                     let contentHtml = "";
-                    if (msg.imageUrl) {
-                        contentHtml = `<img src="${msg.imageUrl}" class="max-w-xs rounded-xl mb-1 cursor-pointer hover:opacity-95 transition shadow-md" onclick="showModal('画像プレビュー', '拡大表示')" />`;
-                    }
-                    if (msg.text) {
-                        contentHtml += `<p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHTML(msg.text)}</p>`;
+                    if (data.type === "image") {
+                        contentHtml = `<img src="${data.imageUrl}" alt="画像" class="max-w-[200px] sm:max-w-xs rounded-xl shadow-lg cursor-pointer hover:opacity-95 transition" onclick="window.open('${data.imageUrl}')" />`;
+                    } else if (data.type === "stamp") {
+                        contentHtml = `<div class="text-4xl sm:text-5xl py-1">${data.text}</div>`;
+                    } else {
+                        let formattedText = escapeHTML(data.text);
+                        const isMentionedMe = myUserData && myUserData.name && formattedText.includes(`@${myUserData.name}`);
+                        
+                        formattedText = formattedText.replace(/@([^\s]+)/g, '<span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.5 rounded-md font-bold text-xs">@$1</span>');
+
+                        contentHtml = `
+                            <div class="leading-relaxed break-words text-sm">
+                                ${isMentionedMe ? '<span class="inline-block bg-amber-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.5 rounded-full mr-1 shadow-sm">@あなた宛</span>' : ''}
+                                ${formattedText}
+                            </div>
+                        `;
                     }
 
-                    const timeStr = msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
+                    const avatarImgHtml = data.senderAvatar 
+                        ? `<img src="${data.senderAvatar}" class="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')" />`
+                        : `<div class="w-6 h-6 rounded-full overflow-hidden shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${getInitialsAvatar(data.senderName)}</div>`;
 
-                    div.innerHTML = `
-                        ${!isMe ? avatarHtml : '<div class="w-8"></div>'}
-                        <div class="max-w-[75%] sm:max-w-[65%]">
-                            ${!isMe && currentRoomData && currentRoomData.isGroup ? `<div class="text-[10px] text-slate-400 mb-1 ml-1 font-semibold">${escapeHTML(sender.name)}</div>` : ''}
-                            <div class="p-3 rounded-2xl shadow-md ${isMe ? 'bubble-me rounded-br-none' : 'bubble-other rounded-bl-none'} relative group">
+                    const deleteBtnHtml = isMe 
+                        ? `<button onclick="deleteSingleMessage('${msgId}')" title="メッセージを削除" class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-rose-400 text-xs px-1">🗑️</button>`
+                        : '';
+
+                    const readStatusHtml = (isMe && data.read) ? `<span class="text-[9px] text-indigo-400 font-semibold">既読</span>` : '';
+
+                    messageDiv.innerHTML = `
+                        <div class="flex items-center space-x-1 mb-0.5 px-1">
+                            ${!isMe ? avatarImgHtml : ''}
+                            <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${escapeHTML(data.senderName)}</span>
+                        </div>
+                        <div class="flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%] ${isMe ? 'flex-row-reverse space-x-reverse' : 'flex-row'}">
+                            <div class="relative px-3.5 py-2 rounded-2xl shadow-md ${isMe ? 'bubble-me rounded-br-xs' : 'bubble-other rounded-bl-xs'}">
                                 ${contentHtml}
-                                <div class="flex items-center justify-end space-x-1 mt-1">
-                                    <span class="text-[9px] opacity-70">${timeStr}</span>
-                                    ${isMe ? `<button onclick="deleteSingleMessage('${msgId}')" class="text-[9px] opacity-0 group-hover:opacity-100 hover:text-rose-300 transition ml-1">🗑️</button>` : ''}
+                            </div>
+                            <div class="flex flex-col items-end shrink-0 mb-0.5 space-y-0.5">
+                                ${deleteBtnHtml}
+                                <div class="flex items-center space-x-1">
+                                    ${readStatusHtml}
+                                    <span class="text-[9px] text-slate-500">${timeStr}</span>
                                 </div>
                             </div>
                         </div>
                     `;
-                    chatBox.appendChild(div);
+                    chatBox.appendChild(messageDiv);
                 });
+
+                if (hasUnread) {
+                    batch.commit().catch(()=>{});
+                }
+
                 chatBox.scrollTop = chatBox.scrollHeight;
             });
         }
 
         window.sendMessage = async function() {
-            if (!currentRoomId) {
-                showModal("注意", "チャットルームを選択してください。");
-                return;
-            }
             const input = document.getElementById("message-input");
             const text = input.value.trim();
-            if (!text) return;
+            if (!text || !currentRoomId) return;
 
             input.value = "";
-            input.style.height = 'auto';
+            hideMentionPopup();
 
             try {
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
@@ -1930,6 +1796,8 @@
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
                     text: text,
+                    type: "text",
+                    read: false,
                     createdAt: serverTimestamp()
                 });
             } catch(e) {
@@ -1938,8 +1806,8 @@
         }
 
         window.sendStamp = async function(stampText) {
-            toggleStampPanel();
             if (!currentRoomId) return;
+            toggleStampPanel();
             try {
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
@@ -1947,23 +1815,28 @@
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
                     text: stampText,
+                    type: "stamp",
+                    read: false,
                     createdAt: serverTimestamp()
                 });
-            } catch(e){}
+            } catch(e) {
+                showModal("エラー", "スタンプの送信に失敗しました。");
+            }
         }
 
         window.sendImage = async function(input) {
             if (!input.files || !input.files[0] || !currentRoomId) return;
             const file = input.files[0];
-            const base64Img = await resizeImage(file, 800, 800, 0.75);
-
             try {
+                const resizedBase64 = await resizeImage(file, 800, 800, 0.75);
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
                     senderId: currentUser.uid,
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
-                    imageUrl: base64Img,
+                    imageUrl: resizedBase64,
+                    type: "image",
+                    read: false,
                     createdAt: serverTimestamp()
                 });
             } catch(e) {
@@ -1971,32 +1844,69 @@
             }
         }
 
-        window.openCreateGroupModal = async function() {
-            const container = document.getElementById("group-friends-checkboxes");
-            container.innerHTML = "読み込み中...";
-            const modal = document.getElementById("create-group-modal");
+        window.openGroupInfoModal = async function() {
+            if (!currentRoomData || !currentRoomData.isGroup) return;
+            const modal = document.getElementById("group-info-modal");
+            document.getElementById("info-group-title").innerText = currentRoomData.roomName;
+            
+            const listContainer = document.getElementById("info-members-list");
+            listContainer.innerHTML = "読み込み中...";
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
 
+            listContainer.innerHTML = "";
+            for (const mId of currentRoomData.members) {
+                const uInfo = roomMembersMap[mId] || { name: 'ユーザー', avatar: '' };
+                const div = document.createElement("div");
+                div.className = "flex items-center space-x-3 p-2 bg-slate-900 rounded-xl cursor-pointer hover:bg-slate-800 transition";
+                div.onclick = () => openUserProfileView(mId);
+
+                const avatarHtml = uInfo.avatar
+                    ? `<img src="${uInfo.avatar}" class="w-8 h-8 rounded-full object-cover" />`
+                    : `<div class="w-8 h-8 rounded-full overflow-hidden">${getInitialsAvatar(uInfo.name)}</div>`;
+
+                div.innerHTML = `
+                    ${avatarHtml}
+                    <div class="overflow-hidden">
+                        <div class="font-bold text-xs text-white truncate">${escapeHTML(uInfo.name)} ${mId === currentUser.uid ? '(あなた)' : ''}</div>
+                        <div class="text-[9px] text-slate-400 truncate">${escapeHTML(uInfo.statusMessage || 'ステータスなし')}</div>
+                    </div>
+                `;
+                listContainer.appendChild(div);
+            }
+        }
+
+        window.closeGroupInfoModal = function() {
+            const modal = document.getElementById("group-info-modal");
+            modal.classList.add("opacity-0");
+            setTimeout(() => modal.classList.add("hidden"), 300);
+        }
+
+        window.openCreateGroupModal = async function() {
             const friendsRef = collection(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`);
             const snap = await getDocs(friendsRef);
-
+            const container = document.getElementById("group-friends-checkboxes");
             container.innerHTML = "";
+
             if (snap.empty) {
-                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-3">グループを作成できる友達がいません</div>`;
-                return;
+                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">友達がいません。グループを作るにはまず友達を追加してください。</div>`;
+            } else {
+                snap.forEach(docSnap => {
+                    const f = docSnap.data();
+                    const div = document.createElement("label");
+                    div.className = "flex items-center space-x-2.5 p-2 bg-slate-900 rounded-xl cursor-pointer hover:bg-slate-800 transition";
+                    div.innerHTML = `
+                        <input type="checkbox" value="${f.friendId}" class="group-friend-checkbox w-4 h-4 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-0" />
+                        <span class="text-xs font-semibold text-white">${escapeHTML(f.friendName)}</span>
+                    `;
+                    container.appendChild(div);
+                });
             }
 
-            snap.forEach((docSnap) => {
-                const f = docSnap.data();
-                const label = document.createElement("label");
-                label.className = "flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-900 cursor-pointer transition";
-                label.innerHTML = `
-                    <input type="checkbox" value="${f.friendId}" data-name="${escapeHTML(f.friendName)}" class="group-member-checkbox rounded border-slate-800 text-indigo-600 focus:ring-indigo-500 w-4 h-4" />
-                    <span class="text-xs font-semibold text-white">${escapeHTML(f.friendName)}</span>
-                `;
-                container.appendChild(label);
-            });
+            document.getElementById("group-name-input").value = "";
+            const modal = document.getElementById("create-group-modal");
+            modal.classList.remove("hidden");
+            setTimeout(() => modal.classList.remove("opacity-0"), 10);
         }
 
         window.closeCreateGroupModal = function() {
@@ -2006,13 +1916,13 @@
         }
 
         window.createGroupChat = async function() {
-            const nameInput = document.getElementById("group-name-input").value.trim();
-            if (!nameInput) {
+            const groupName = document.getElementById("group-name-input").value.trim();
+            if (!groupName) {
                 showModal("入力エラー", "グループ名を入力してください。");
                 return;
             }
 
-            const checkboxes = document.querySelectorAll(".group-member-checkbox:checked");
+            const checkboxes = document.querySelectorAll(".group-friend-checkbox:checked");
             const selectedMembers = [currentUser.uid];
             checkboxes.forEach(cb => selectedMembers.push(cb.value));
 
@@ -2023,68 +1933,20 @@
 
             try {
                 const roomsRef = collection(db, 'artifacts', appId, 'public', 'data', 'rooms');
-                const newRoomRef = doc(roomsRef);
-                await setDoc(newRoomRef, {
+                const newRoomRef = await addDoc(roomsRef, {
                     isGroup: true,
-                    name: nameInput,
+                    name: groupName,
                     members: selectedMembers,
                     createdAt: serverTimestamp()
                 });
 
                 closeCreateGroupModal();
-                selectRoom(newRoomRef.id, nameInput, true, selectedMembers);
-                showModal("作成完了", `グループ「${nameInput}」を作成しました！`);
+                selectRoom(newRoomRef.id, groupName, true, selectedMembers);
+                showModal("作成完了", `グループ「${groupName}」を作成しました！`);
             } catch(e) {
                 showModal("エラー", "グループの作成に失敗しました。");
             }
         }
-
-        window.openGroupInfoModal = function() {
-            if (!currentRoomData || !currentRoomData.isGroup) return;
-            document.getElementById("info-group-title").innerText = currentRoomData.name;
-            const container = document.getElementById("info-members-list");
-            container.innerHTML = "";
-
-            currentRoomData.members.forEach(mId => {
-                const info = roomMembersMap[mId] || { name: 'ユーザー', avatar: '' };
-                const isMe = mId === currentUser.uid;
-                const div = document.createElement("div");
-                div.className = "flex items-center justify-between p-2 rounded-xl bg-slate-900 cursor-pointer hover:bg-slate-800 transition";
-                div.onclick = () => openUserProfileView(mId);
-
-                const avatarHtml = info.avatar
-                    ? `<img src="${info.avatar}" class="w-8 h-8 rounded-full object-cover" />`
-                    : `<div class="w-8 h-8 rounded-full overflow-hidden text-xs">${getInitialsAvatar(info.name)}</div>`;
-
-                div.innerHTML = `
-                    <div class="flex items-center space-x-3">
-                        ${avatarHtml}
-                        <div>
-                            <div class="font-bold text-xs text-white">${escapeHTML(info.name)} ${isMe ? '(あなた)' : ''}</div>
-                            <div class="text-[9px] text-indigo-400">プロフィールを見る</div>
-                        </div>
-                    </div>
-                    <span class="text-xs text-slate-500">›</span>
-                `;
-                container.appendChild(div);
-            });
-
-            const modal = document.getElementById("group-info-modal");
-            modal.classList.remove("hidden");
-            setTimeout(() => modal.classList.remove("opacity-0"), 10);
-        }
-
-        window.closeGroupInfoModal = function() {
-            const modal = document.getElementById("group-info-modal");
-            modal.classList.add("opacity-0");
-            setTimeout(() => modal.classList.add("hidden"), 300);
-        }
-
-        window.openMyQrModalFromAdd = function() {
-            closeAddFriendModal();
-            openMyQrModal();
-        }
-
     </script>
 </body>
 </html>
