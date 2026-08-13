@@ -71,6 +71,21 @@
 </head>
 <body id="app-body" class="app-height flex flex-col overflow-hidden select-none">
 
+    <!-- アプリ起動時パスコード画面 (画面が見えないように全面保護) -->
+    <div id="app-lock-screen" class="fixed inset-0 bg-slate-950 z-[100] flex flex-col items-center justify-center p-6 hidden">
+        <div class="w-16 h-16 rounded-3xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 flex items-center justify-center text-3xl mb-4 shadow-xl">
+            🔒
+        </div>
+        <h2 class="text-xl font-bold text-white mb-1">Passcode Locked</h2>
+        <p class="text-xs text-slate-400 mb-6">設定した4桁のパスコードを入力してください</p>
+        
+        <input type="password" id="passcode-input-field" maxlength="4" placeholder="••••" pattern="[0-9]*" inputmode="numeric"
+            class="w-40 text-center tracking-[1em] text-2xl font-bold bg-slate-900 border border-slate-700 rounded-2xl py-3 text-white focus:outline-none focus:border-indigo-500 shadow-inner mb-4"
+            oninput="checkAppPasscode(this)" />
+        
+        <p id="passcode-error-msg" class="text-xs text-rose-400 font-semibold h-4 mb-2"></p>
+    </div>
+
     <!-- 認証 / 初回登録モーダル -->
     <div id="auth-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="theme-surface border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90dvh]">
@@ -241,6 +256,18 @@
                     <button onclick="copyShareLink()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition border border-slate-700">
                         招待URL
                     </button>
+                </div>
+            </div>
+
+            <!-- アプリロック設定エリア -->
+            <div class="mb-4 bg-slate-950 p-3.5 rounded-2xl border border-slate-800 text-left space-y-2">
+                <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block">🔒 アプリ保護（ロック設定）</span>
+                <p class="text-[11px] text-slate-400">4桁のパスコードを設定すると、自動ログインでも起動時に画面を保護できます。</p>
+                <div class="flex gap-2 pt-1">
+                    <input type="password" id="passcode-setup-input" maxlength="4" placeholder="4桁の数字" pattern="[0-9]*" inputmode="numeric"
+                        class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-center text-white focus:outline-none focus:border-indigo-500 font-mono tracking-widest" />
+                    <button onclick="savePasscodeSetting()" class="theme-primary-bg hover:opacity-90 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">保存</button>
+                    <button onclick="clearPasscodeSetting()" class="bg-slate-800 hover:bg-slate-700 text-slate-400 px-2 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">解除</button>
                 </div>
             </div>
 
@@ -469,7 +496,7 @@
             <div class="flex-1 overflow-y-auto p-2 space-y-1 hidden" id="tab-content-requests"></div>
 
             <div class="p-3 border-t border-slate-800 text-[10px] text-slate-500 text-center flex items-center justify-between">
-                <span>AetherChat Pro v7.0</span>
+                <span>AetherChat Pro v7.5</span>
                 <button onclick="openBlockedListModal()" class="theme-primary-text hover:underline">ブロック管理</button>
             </div>
         </aside>
@@ -493,6 +520,10 @@
                 
                 <!-- チャット消去・操作アクションエリア -->
                 <div id="chat-header-actions" class="hidden items-center gap-1.5 shrink-0">
+                    <!-- 検索バー展開ボタン -->
+                    <button onclick="toggleSearchArea()" title="メッセージ検索" class="bg-slate-800 hover:bg-slate-700 text-slate-200 p-2 rounded-xl text-xs font-semibold transition">
+                        🔍
+                    </button>
                     <button onclick="openGroupInfoModal()" id="btn-group-info" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 hidden">
                         👥 <span class="hidden sm:inline">メンバー</span>
                     </button>
@@ -502,6 +533,23 @@
                     </button>
                 </div>
             </header>
+
+            <!-- メッセージ検索用入力エリア (初期非表示) -->
+            <div id="chat-search-bar" class="hidden bg-slate-900 border-b border-slate-800 p-2 flex items-center gap-2 px-4 z-10 shrink-0">
+                <span class="text-xs text-slate-400">🔍</span>
+                <input type="text" id="chat-search-input" placeholder="チャット内を検索..." oninput="filterChatMessages(this.value)"
+                    class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
+                <button onclick="toggleSearchArea()" class="text-xs text-slate-400 hover:text-white shrink-0 px-1">✕</button>
+            </div>
+
+            <!-- ピン留め表示エリア -->
+            <div id="pinned-msg-bar" class="hidden bg-indigo-950/80 border-b border-indigo-500/30 p-2 px-4 flex items-center justify-between text-xs text-indigo-200 z-10 shrink-0">
+                <div class="flex items-center gap-2 overflow-hidden">
+                    <span class="shrink-0">📌</span>
+                    <span id="pinned-msg-text" class="truncate font-medium"></span>
+                </div>
+                <button onclick="unpinMessage()" class="text-[10px] text-indigo-300 hover:text-white bg-indigo-900/50 px-2 py-0.5 rounded-md shrink-0">解除</button>
+            </div>
 
             <!-- メッセージタイムライン -->
             <div id="chat-box" class="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 space-y-4 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950">
@@ -637,6 +685,50 @@
             return `<div class="w-full h-full ${colorClass} flex items-center justify-center font-bold text-white">${initial}</div>`;
         }
 
+        // --- 🔒 アプリロック（パスコード）制御 ---
+        function checkPasscodeRequirement() {
+            const savedPasscode = localStorage.getItem('aether_app_passcode');
+            const lockScreen = document.getElementById("app-lock-screen");
+            if (savedPasscode && savedPasscode.length === 4) {
+                lockScreen.classList.remove("hidden");
+                document.getElementById("passcode-input-field").focus();
+            } else {
+                lockScreen.classList.add("hidden");
+            }
+        }
+
+        window.checkAppPasscode = function(input) {
+            const savedPasscode = localStorage.getItem('aether_app_passcode');
+            const errEl = document.getElementById("passcode-error-msg");
+            if (input.value.length === 4) {
+                if (input.value === savedPasscode) {
+                    document.getElementById("app-lock-screen").classList.add("hidden");
+                    input.value = "";
+                    errEl.innerText = "";
+                } else {
+                    errEl.innerText = "パスコードが正しくありません";
+                    input.value = "";
+                }
+            }
+        }
+
+        window.savePasscodeSetting = function() {
+            const val = document.getElementById("passcode-setup-input").value.trim();
+            if (val.length === 4 && /^\d+$/.test(val)) {
+                localStorage.setItem('aether_app_passcode', val);
+                document.getElementById("passcode-setup-input").value = "";
+                showModal("ロック設定完了", "4桁のパスコードを設定しました。次回起動時からロックがかかります。");
+            } else {
+                showModal("エラー", "半角数字4桁で入力してください。");
+            }
+        }
+
+        window.clearPasscodeSetting = function() {
+            localStorage.removeItem('aether_app_passcode');
+            document.getElementById("passcode-setup-input").value = "";
+            showModal("解除完了", "アプリのパスコードロックを解除しました。");
+        }
+
         window.toggleSidebar = function() {
             const sidebar = document.getElementById("sidebar");
             const overlay = document.getElementById("sidebar-overlay");
@@ -745,6 +837,50 @@
             setTimeout(() => modal.classList.add("hidden"), 300);
         }
 
+        // --- 🔍 メッセージ検索機能 & 📌 ピン留め機能 ---
+        window.toggleSearchArea = function() {
+            const bar = document.getElementById("chat-search-bar");
+            bar.classList.toggle("hidden");
+            if (!bar.classList.contains("hidden")) {
+                document.getElementById("chat-search-input").focus();
+            } else {
+                document.getElementById("chat-search-input").value = "";
+                filterChatMessages("");
+            }
+        }
+
+        window.filterChatMessages = function(queryStr) {
+            const messages = document.querySelectorAll(".msg-item");
+            const q = queryStr.toLowerCase();
+            messages.forEach(msg => {
+                const text = msg.getAttribute("data-text") || "";
+                if (!q || text.toLowerCase().includes(q)) {
+                    msg.classList.remove("hidden");
+                } else {
+                    msg.classList.add("hidden");
+                }
+            });
+        }
+
+        window.pinMessage = async function(msgText) {
+            if (!currentRoomId) return;
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+                await updateDoc(roomRef, { pinnedMessage: msgText });
+                showModal("ピン留め", "メッセージを上部にピン留めしました。");
+            } catch(e) {
+                showModal("エラー", "ピン留めに失敗しました。");
+            }
+        }
+
+        window.unpinMessage = async function() {
+            if (!currentRoomId) return;
+            try {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId);
+                await updateDoc(roomRef, { pinnedMessage: "" });
+            } catch(e){}
+        }
+
         // --- メンション機能 (@Mention) ---
         window.handleInputMentions = function(e) {
             const val = e.target.value;
@@ -824,7 +960,6 @@
             document.getElementById("mention-popup").classList.add("hidden");
         }
 
-        // --- STREAMING_CHUNK:Implementing Chat Deletion & Clear Logic... ---
         // --- 🗑️ チャット消去機能 ---
         window.openClearChatModal = function() {
             if (!currentRoomId) return;
@@ -1187,6 +1322,8 @@
         }
 
         onAuthStateChanged(auth, async (user) => {
+            checkPasscodeRequirement();
+
             // ローカル保存テーマの復元
             const savedTheme = localStorage.getItem('aether_theme_config');
             if (savedTheme) {
@@ -1546,18 +1683,48 @@
             }
         }
 
+        // --- 友達削除＆DM・チャット欄の同時一括消去機能 ---
         window.deleteFriend = async function(friendId, friendName) {
             try {
+                // 1. 友達リストから削除
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
-                showModal("削除完了", `${friendName}さんを友達から削除しました。`);
+
+                // 2. DMルームのメッセージ履歴およびルーム自体の完全削除
+                const roomId = [currentUser.uid, friendId].sort().join('_');
+                
+                // メッセージをバッチ削除
+                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`);
+                const snap = await getDocs(messagesRef);
+                const batch = writeBatch(db);
+                snap.forEach(docSnap => batch.delete(docSnap.ref));
+                await batch.commit();
+
+                // ルーム本体を削除
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId));
+
+                // 3. 現在開いているチャット画面がこのDMの場合、画面をリセット
+                if (currentRoomId === roomId) {
+                    currentRoomId = null;
+                    currentRoomData = null;
+                    document.getElementById("chat-box").innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-3">
+                            <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🔒</div>
+                            <p class="font-semibold text-slate-300 text-sm">セキュアチャットルーム</p>
+                        </div>
+                    `;
+                    document.getElementById("current-chat-title").innerText = "ルームを選択してください";
+                    document.getElementById("chat-header-actions").classList.add("hidden");
+                }
+
+                showModal("削除完了", `${friendName}さんを削除し、DMのチャット欄・メッセージ履歴も同時に完全に消去しました。`);
             } catch(e) {
-                showModal("エラー", "削除に失敗しました。");
+                showModal("エラー", "削除処理に失敗しました。");
             }
         }
 
         window.blockFriend = async function(friendId, friendName) {
             try {
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
+                await deleteFriend(friendId, friendName);
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `blocks_${currentUser.uid}`, friendId), {
                     blockedId: friendId,
                     blockedName: friendName,
@@ -1633,7 +1800,7 @@
                         const isGroup = room.isGroup === true;
                         const div = document.createElement("div");
                         div.className = `p-3 rounded-2xl cursor-pointer transition flex items-center justify-between group ${currentRoomId === roomId ? 'bg-indigo-600/20 border border-indigo-500/40' : 'hover:bg-slate-800/60'}`;
-                        div.onclick = () => selectRoom(roomId, room.name, isGroup, room.members);
+                        div.onclick = () => selectRoom(roomId, room.name, isGroup, room.members, room.pinnedMessage);
 
                         div.innerHTML = `
                             <div class="flex items-center space-x-3 overflow-hidden">
@@ -1666,12 +1833,21 @@
             document.getElementById(`tab-btn-${tabName}`).className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition font-semibold";
         }
 
-        window.selectRoom = async function(roomId, roomName, isGroup = false, members = []) {
+        window.selectRoom = async function(roomId, roomName, isGroup = false, members = [], pinnedMessage = "") {
             currentRoomId = roomId;
             currentRoomData = { roomId, roomName, isGroup, members };
             document.getElementById("current-chat-title").innerText = roomName;
             document.getElementById("current-chat-sub").innerText = isGroup ? `グループ (${members.length}人)` : `タップで相手のプロフィールを表示`;
             
+            // ピン留め表示の制御
+            const pinnedBar = document.getElementById("pinned-msg-bar");
+            if (pinnedMessage) {
+                pinnedBar.classList.remove("hidden");
+                document.getElementById("pinned-msg-text").innerText = pinnedMessage;
+            } else {
+                pinnedBar.classList.add("hidden");
+            }
+
             const headerIcon = document.getElementById("chat-header-icon");
             if (isGroup) {
                 headerIcon.innerText = '👥';
@@ -1735,7 +1911,8 @@
                     }
 
                     const messageDiv = document.createElement("div");
-                    messageDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 group relative`;
+                    messageDiv.className = `msg-item flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 group relative`;
+                    messageDiv.setAttribute("data-text", data.text || "");
 
                     let contentHtml = "";
                     if (data.type === "image") {
@@ -1762,9 +1939,12 @@
                         ? `<img src="${data.senderAvatar}" class="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')" />`
                         : `<div class="w-6 h-6 rounded-full overflow-hidden shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${getInitialsAvatar(data.senderName)}</div>`;
 
-                    // メッセージ削除アイコン (ホバー/タップ時表示)
+                    // メッセージ操作アイコン（削除・ピン留め）
                     const deleteBtnHtml = isMe 
                         ? `<button onclick="deleteSingleMessage('${msgId}')" title="メッセージを削除" class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-rose-400 text-xs px-1">🗑️</button>`
+                        : '';
+                    const pinBtnHtml = (data.type === "text")
+                        ? `<button onclick="pinMessage('${escapeHTML(data.text)}')" title="ピン留め" class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-indigo-400 text-xs px-1">📌</button>`
                         : '';
 
                     messageDiv.innerHTML = `
@@ -1777,7 +1957,10 @@
                                 ${contentHtml}
                             </div>
                             <div class="flex flex-col items-end shrink-0 mb-0.5 space-y-0.5">
-                                ${deleteBtnHtml}
+                                <div class="flex items-center">
+                                    ${pinBtnHtml}
+                                    ${deleteBtnHtml}
+                                </div>
                                 <span class="text-[9px] text-slate-500">${timeStr}</span>
                             </div>
                         </div>
