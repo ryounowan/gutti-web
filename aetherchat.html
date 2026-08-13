@@ -223,6 +223,7 @@
             </div>
 
             <div class="space-y-2">
+                <button onclick="resetAccountData()" class="w-full bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 py-2.5 rounded-xl text-xs font-semibold transition">アカウントをリセット</button>
                 <button onclick="logoutUser()" class="w-full bg-rose-600/20 hover:bg-rose-600/30 text-rose-400 border border-rose-500/30 py-2.5 rounded-xl text-xs font-semibold transition">ログアウト</button>
                 <button onclick="closeProfileModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">閉じる</button>
             </div>
@@ -854,6 +855,20 @@
             showModal("設定完了", pin ? "PINコードを設定しました。" : "PINコードを解除しました。");
         }
 
+        window.resetAccountData = async function() {
+            if (!confirm("本当にアカウントデータをリセットしますか？プロフィール、フレンド、チャット履歴がすべて消去されます。")) return;
+            try {
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid));
+                showModal("リセット完了", "アカウントデータを初期化しました。再ログインします。");
+                setTimeout(async () => {
+                    await signOut(auth);
+                    window.location.reload();
+                }, 1500);
+            } catch(e) {
+                showModal("エラー", "リセットに失敗しました。");
+            }
+        }
+
         window.showModal = function(title, desc) {
             document.getElementById("modal-title").innerText = title;
             document.getElementById("modal-desc").innerText = desc;
@@ -1202,11 +1217,13 @@
                 snapshot.forEach(async (docSnap) => {
                     const f = docSnap.data();
 
-                    // 相手が自分を友達から消去している、またはブロックしたかをリアルタイム監視し、自動連動削除
+                    // 相手が自分を友達から消去している場合、自動連動してDM等も整理する
                     const inverseFriendRef = doc(db, 'artifacts', appId, 'public', 'data', `friends_${f.friendId}`, currentUser.uid);
                     const inverseSnap = await getDoc(inverseFriendRef);
                     if (!inverseSnap.exists()) {
                         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, f.friendId));
+                        const roomId = [currentUser.uid, f.friendId].sort().join('_');
+                        await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId)).catch(()=>{});
                         return;
                     }
 
@@ -1251,7 +1268,6 @@
                 snapshot.forEach((docSnap) => {
                     const req = docSnap.data();
                     
-                    // 新規申請ポップアップ通知
                     if (!lastMessageTimestamps['req_' + docSnap.id]) {
                         lastMessageTimestamps['req_' + docSnap.id] = true;
                         showTopToast("新しい友達申請", `${req.senderName}さんからフレンド申請が届きました！`, () => {
@@ -1311,9 +1327,13 @@
         window.deleteFriend = async function(friendId, friendName) {
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
-                // 相手側からも自分を自動削除させる
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${friendId}`, currentUser.uid)).catch(()=>{});
-                showModal("削除完了", `${friendName}さんを友達から削除しました。`);
+                
+                // 消去された場合DMの欄も消去
+                const roomId = [currentUser.uid, friendId].sort().join('_');
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId)).catch(()=>{});
+
+                showModal("削除完了", `${friendName}さんを友達から削除し、DMを消去しました。`);
             } catch(e) {
                 showModal("エラー", "削除に失敗しました。");
             }
@@ -1323,12 +1343,17 @@
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${friendId}`, currentUser.uid)).catch(()=>{});
+                
+                // ブロック時もDMを消去
+                const roomId = [currentUser.uid, friendId].sort().join('_');
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId)).catch(()=>{});
+
                 await setDoc(doc(db, 'artifacts', appId, 'public', 'data', `blocks_${currentUser.uid}`, friendId), {
                     blockedId: friendId,
                     blockedName: friendName,
                     blockedAt: serverTimestamp()
                 });
-                showModal("ブロック完了", `${friendName}さんをブロックしました。`);
+                showModal("ブロック完了", `${friendName}さんをブロックし、DMを消去しました。`);
             } catch(e) {
                 showModal("エラー", "ブロックに失敗しました。");
             }
@@ -1470,7 +1495,6 @@
                     const data = msgDoc.data();
                     const isMe = data.senderId === currentUser.uid;
 
-                    // 新着メッセージかつ自分以外の場合に画面上部にポップアップ通知
                     if (!isMe && currentRoomId === roomId && data.createdAt) {
                         const msgKey = msgDoc.id;
                         const msgTime = data.createdAt.toMillis ? data.createdAt.toMillis() : Date.now();
