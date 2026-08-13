@@ -38,6 +38,7 @@
             height: 100dvh;
         }
 
+        /* Dynamic Theme Classes */
         .theme-surface { background-color: var(--color-bg-surface); }
         .theme-card { background-color: var(--color-bg-card); }
         .theme-primary-bg { background-color: var(--color-primary); }
@@ -60,6 +61,7 @@
         ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
         #qr-reader video { object-fit: cover !important; border-radius: 1rem; }
 
+        /* Mention suggestion popup animation */
         @keyframes slideUp {
             from { transform: translateY(10px); opacity: 0; }
             to { transform: translateY(0); opacity: 1; }
@@ -69,27 +71,10 @@
 </head>
 <body id="app-body" class="app-height flex flex-col overflow-hidden select-none">
 
-    <!-- セキュリティ・起動時ロック画面モーダル -->
-    <div id="app-lock-modal" class="fixed inset-0 bg-slate-950 z-[100] flex items-center justify-center p-4 hidden">
-        <div class="theme-surface border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center">
-            <div class="w-16 h-16 rounded-2xl bg-indigo-600/25 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center text-3xl mb-4 shadow-inner">🔒</div>
-            <h2 class="text-xl font-bold text-white mb-1">AetherChat はロックされています</h2>
-            <p class="text-xs text-slate-400 mb-6">プライバシー保護のため、暗証番号またはパスコードを入力してください。</p>
-
-            <div class="mb-5">
-                <input type="password" id="app-lock-input" placeholder="4桁以上のPINコード" maxlength="10" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-center text-lg text-white focus:outline-none focus:border-indigo-500 font-mono tracking-widest" />
-            </div>
-
-            <button onclick="verifyAppLock()" class="w-full theme-primary-bg hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-lg mb-3">
-                ロックを解除
-            </button>
-            <p class="text-[10px] text-slate-500">※初期設定時は未設定であれば「0000」または任意のコードを入力して登録できます。</p>
-        </div>
-    </div>
-
     <!-- 認証 / 初回登録モーダル -->
     <div id="auth-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="theme-surface border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90dvh]">
+            <!-- 未ログイン時：ログイン方法選択 -->
             <div id="auth-view-login" class="text-center">
                 <div class="w-16 h-16 rounded-2xl bg-indigo-600/25 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center text-3xl mb-4 shadow-inner">🪐</div>
                 <h2 class="text-2xl font-bold text-white mb-2">AetherChat へようこそ</h2>
@@ -113,6 +98,7 @@
                 </div>
             </div>
 
+            <!-- ID / パスワード認証ビュー -->
             <div id="auth-view-idpass" class="hidden">
                 <h3 class="text-xl font-bold text-white mb-1">ID / パスワード認証</h3>
                 <p class="text-xs text-slate-400 mb-5">お好きなIDとパスワードを設定して作成・ログインできます。</p>
@@ -132,6 +118,7 @@
                 </div>
             </div>
 
+            <!-- プロフィール初期設定ビュー -->
             <div id="auth-view-profile" class="hidden text-center">
                 <div class="w-20 h-20 rounded-full theme-primary-bg text-white font-bold text-2xl mx-auto flex items-center justify-center mb-4 shadow-lg overflow-hidden border-2 border-indigo-500/50 relative group cursor-pointer" onclick="document.getElementById('setup-avatar-input').click()" title="クリックして画像を選択">
                     <span id="setup-avatar-preview">🪐</span>
@@ -179,7 +166,9 @@
                     <p id="target-profile-status" class="text-xs text-slate-200 leading-relaxed italic">設定されていません</p>
                 </div>
 
-                <div id="target-profile-actions" class="mt-auto space-y-2"></div>
+                <div id="target-profile-actions" class="mt-auto space-y-2">
+                    <!-- Dynamic Buttons -->
+                </div>
             </div>
         </div>
     </div>
@@ -255,18 +244,6 @@
                 </div>
             </div>
 
-            <!-- アプリロック設定項目 -->
-            <div class="space-y-3 text-left mb-4 bg-slate-950 p-3.5 rounded-2xl border border-slate-800">
-                <span class="text-[10px] font-bold theme-primary-text uppercase tracking-wider block">🔒 アプリ起動ロック設定</span>
-                <div>
-                    <label class="block text-[10px] text-slate-400 mb-1">新規PINコードの設定・変更</label>
-                    <div class="flex gap-2">
-                        <input type="password" id="new-lock-pin-input" placeholder="4桁以上のPIN" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
-                        <button onclick="saveNewAppLockPin()" class="theme-primary-bg hover:opacity-90 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">設定</button>
-                    </div>
-                </div>
-            </div>
-
             <div class="space-y-3 text-left mb-4 bg-slate-950 p-3 rounded-2xl border border-slate-800">
                 <div>
                     <label class="block text-[10px] text-slate-400 mb-1">表示名を変更</label>
@@ -319,6 +296,7 @@
             <h3 class="text-lg font-bold text-white mb-1">デザイン・カラーカスタマイズ</h3>
             <p class="text-xs text-slate-400 mb-4">プリセットまたは好きなカラーでアプリ全体の配色を設定できます。</p>
 
+            <!-- プリセット選択 -->
             <div class="space-y-2 mb-5">
                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">プリセットテーマ</span>
                 <div class="grid grid-cols-3 gap-2">
@@ -337,6 +315,7 @@
                 </div>
             </div>
 
+            <!-- カスタムカラー選択 -->
             <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-3 mb-5 text-left">
                 <span class="text-[10px] font-bold theme-primary-text uppercase tracking-wider block">🎨 自由カラーカスタマイズ</span>
                 
@@ -450,6 +429,7 @@
         
         <!-- サイドバー -->
         <aside id="sidebar" class="w-full md:w-80 lg:w-96 theme-surface border-r border-slate-800/80 flex flex-col z-30 absolute md:relative inset-y-0 left-0 transition-transform duration-300 transform -translate-x-full md:translate-x-0">
+            <!-- ユーザープロフィールバナー -->
             <div class="p-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/40">
                 <div class="flex items-center space-x-3 cursor-pointer group" onclick="openProfileModal()">
                     <div id="sidebar-avatar" class="w-11 h-11 rounded-full theme-primary-bg flex items-center justify-center font-bold text-white shadow-inner overflow-hidden border border-white/20 shrink-0">
@@ -483,12 +463,13 @@
                 <button onclick="switchTab('requests')" id="tab-btn-requests" class="py-3.5 text-slate-400 hover:text-slate-200 transition relative">申請 <span id="req-badge" class="hidden absolute top-2 right-4 w-2 h-2 rounded-full bg-rose-500"></span></button>
             </div>
 
+            <!-- タブコンテンツエリア -->
             <div class="flex-1 overflow-y-auto p-2 space-y-1" id="tab-content-chats"></div>
             <div class="flex-1 overflow-y-auto p-2 space-y-1 hidden" id="tab-content-friends"></div>
             <div class="flex-1 overflow-y-auto p-2 space-y-1 hidden" id="tab-content-requests"></div>
 
             <div class="p-3 border-t border-slate-800 text-[10px] text-slate-500 text-center flex items-center justify-between">
-                <span>AetherChat Pro v7.1</span>
+                <span>AetherChat Pro v7.0</span>
                 <button onclick="openBlockedListModal()" class="theme-primary-text hover:underline">ブロック管理</button>
             </div>
         </aside>
@@ -497,6 +478,7 @@
 
         <!-- チャットメイン領域 -->
         <main class="flex-1 flex flex-col bg-slate-950 relative w-full h-full overflow-hidden">
+            <!-- チャットヘッダー -->
             <header class="theme-surface/90 backdrop-blur-md border-b border-slate-800 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between z-10 shrink-0">
                 <div class="flex items-center space-x-2 sm:space-x-3 overflow-hidden">
                     <button onclick="toggleSidebar()" class="md:hidden text-slate-300 hover:text-white p-2 rounded-xl bg-slate-800/80 active:bg-slate-700 transition shrink-0">
@@ -509,16 +491,19 @@
                     </div>
                 </div>
                 
+                <!-- チャット消去・操作アクションエリア -->
                 <div id="chat-header-actions" class="hidden items-center gap-1.5 shrink-0">
                     <button onclick="openGroupInfoModal()" id="btn-group-info" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 hidden">
                         👥 <span class="hidden sm:inline">メンバー</span>
                     </button>
+                    <!-- チャット消去ボタン -->
                     <button onclick="openClearChatModal()" title="チャットの消去" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1">
                         🗑️ <span class="hidden sm:inline">消去</span>
                     </button>
                 </div>
             </header>
 
+            <!-- メッセージタイムライン -->
             <div id="chat-box" class="flex-1 overflow-y-auto px-3 py-4 sm:px-4 sm:py-6 space-y-4 bg-gradient-to-b from-slate-950 via-slate-900/30 to-slate-950">
                 <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-3">
                     <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🔒</div>
@@ -551,13 +536,16 @@
             <footer id="chat-footer-area" class="theme-surface/95 backdrop-blur-md border-t border-slate-800 p-2.5 sm:p-3 shadow-2xl shrink-0">
                 <div class="max-w-4xl mx-auto flex items-end gap-1.5 sm:gap-2">
                     <div class="flex items-center space-x-0.5 sm:space-x-1 shrink-0">
+                        <!-- 画像添付 -->
                         <label class="cursor-pointer text-slate-400 hover:text-indigo-400 p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             <input type="file" id="image-file-input" accept="image/*" onchange="sendImage(this)" class="hidden" />
                         </label>
+                        <!-- メンション挿入ボタン -->
                         <button onclick="triggerMentionPopup()" title="メンションを追加" class="text-slate-400 hover:text-indigo-400 p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 transition font-bold text-base">
                             @
                         </button>
+                        <!-- スタンプ -->
                         <button onclick="toggleStampPanel()" class="text-slate-400 hover:text-indigo-400 p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
@@ -609,7 +597,7 @@
             measurementId: "G-VYBR9QPG3S"
         };
 
-        const appId = 'aetherchat-v7.1-custom';
+        const appId = 'aetherchat-v7.0-custom';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -619,7 +607,7 @@
         let myUserData = null;
         let currentRoomId = null;
         let currentRoomData = null;
-        let roomMembersMap = {}; 
+        let roomMembersMap = {}; // id -> { name, avatar }
         let unsubscribeMessages = null;
         let unsubscribeFriends = null;
         let unsubscribeRequests = null;
@@ -649,51 +637,6 @@
             return `<div class="w-full h-full ${colorClass} flex items-center justify-center font-bold text-white">${initial}</div>`;
         }
 
-        // --- 🔒 アプリ起動ロック (PINコード) 機能 ---
-        window.checkAppLockOnStart = function() {
-            const savedPin = localStorage.getItem('aether_app_lock_pin');
-            const lockModal = document.getElementById('app-lock-modal');
-            if (savedPin) {
-                lockModal.classList.remove('hidden');
-            } else {
-                lockModal.classList.add('hidden');
-            }
-        }
-
-        window.verifyAppLock = function() {
-            const inputPin = document.getElementById('app-lock-input').value.trim();
-            const savedPin = localStorage.getItem('aether_app_lock_pin');
-
-            if (!savedPin) {
-                if (inputPin.length >= 4) {
-                    localStorage.setItem('aether_app_lock_pin', inputPin);
-                    document.getElementById('app-lock-modal').classList.add('hidden');
-                    showModal("ロック設定完了", "アプリ起動ロックのPINコードを設定しました！");
-                } else {
-                    showModal("エラー", "PINコードは4桁以上で入力してください。");
-                }
-                return;
-            }
-
-            if (inputPin === savedPin) {
-                document.getElementById('app-lock-modal').classList.add('hidden');
-                document.getElementById('app-lock-input').value = "";
-            } else {
-                showModal("認証エラー", "PINコードが違います。");
-            }
-        }
-
-        window.saveNewAppLockPin = function() {
-            const newPin = document.getElementById('new-lock-pin-input').value.trim();
-            if (newPin.length < 4) {
-                showModal("エラー", "PINコードは4桁以上で設定してください。");
-                return;
-            }
-            localStorage.setItem('aether_app_lock_pin', newPin);
-            document.getElementById('new-lock-pin-input').value = "";
-            showModal("設定変更", "アプリ起動ロックPINを変更しました。次回起動時から有効です。");
-        }
-
         window.toggleSidebar = function() {
             const sidebar = document.getElementById("sidebar");
             const overlay = document.getElementById("sidebar-overlay");
@@ -718,7 +661,7 @@
             }
         }
 
-        // --- 🎨 カスタムテーマ機能 ---
+        // --- 🎨 カスタムテーマ・配色機能 ---
         window.applyPresetTheme = function(preset) {
             const root = document.documentElement;
             if (preset === 'dark') {
@@ -881,7 +824,7 @@
             document.getElementById("mention-popup").classList.add("hidden");
         }
 
-        // --- 🗑️ チャットおよびDM同時消去機能 ---
+        // --- 🗑️ チャット消去・DM連動削除機能 ---
         window.openClearChatModal = function() {
             if (!currentRoomId) return;
             const modal = document.getElementById("clear-chat-modal");
@@ -946,6 +889,7 @@
             }
         }
 
+        // --- メッセージ単体削除 ---
         window.deleteSingleMessage = async function(messageId) {
             if (!currentRoomId || !messageId) return;
             try {
@@ -953,46 +897,6 @@
                 await deleteDoc(msgRef);
             } catch(e) {
                 showModal("エラー", "メッセージの削除に失敗しました。");
-            }
-        }
-
-        // --- 友達削除時にDMチャットルームも同時に消去する修正ロジック ---
-        window.deleteFriendAndRoom = async function(friendId, friendName) {
-            try {
-                // 1. 友達データを削除
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
-
-                // 2. 該当するDMチャットルームIDを特定して削除（両者のUIDから生成されるルームID）
-                const roomId = [currentUser.uid, friendId].sort().join('_');
-                
-                // メッセージをすべて削除
-                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`);
-                const snap = await getDocs(messagesRef);
-                const batch = writeBatch(db);
-                snap.forEach(docSnap => {
-                    batch.delete(docSnap.ref);
-                });
-                await batch.commit();
-
-                // ルーム自体のドキュメントも削除
-                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId));
-
-                if (currentRoomId === roomId) {
-                    currentRoomId = null;
-                    currentRoomData = null;
-                    document.getElementById("chat-box").innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-3">
-                            <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🗑️</div>
-                            <p class="font-semibold text-slate-300 text-sm">チャットルームも同時に削除されました</p>
-                        </div>
-                    `;
-                    document.getElementById("current-chat-title").innerText = "ルームを選択してください";
-                    document.getElementById("chat-header-actions").classList.add("hidden");
-                }
-
-                showModal("削除完了", `${friendName}さんを友達から削除し、DMチャット欄も同時に消去しました。`);
-            } catch(e) {
-                showModal("エラー", "削除処理に失敗しました。");
             }
         }
 
@@ -1075,9 +979,9 @@
                             💬 メッセージを送る
                         </button>
                         <div class="flex gap-2">
-                            <button onclick="deleteFriendAndRoom('${targetUserId}', '${escapeHTML(targetData.name)}'); closeUserProfileViewModal();" 
+                            <button onclick="deleteFriend('${targetUserId}', '${escapeHTML(targetData.name)}'); closeUserProfileViewModal();" 
                                 class="flex-1 bg-slate-800 hover:bg-slate-700 text-rose-400 py-2.5 rounded-xl text-xs font-semibold transition">
-                                友達削除 (DMも消去)
+                                友達削除
                             </button>
                             <button onclick="blockFriend('${targetUserId}', '${escapeHTML(targetData.name)}'); closeUserProfileViewModal();" 
                                 class="flex-1 bg-slate-800 hover:bg-slate-700 text-amber-400 py-2.5 rounded-xl text-xs font-semibold transition">
@@ -1286,9 +1190,6 @@
                 try { loadSavedTheme(JSON.parse(savedTheme)); } catch(e){}
             }
 
-            // 起動時にPINロックがあればモーダルを表示
-            checkAppLockOnStart();
-
             if (user) {
                 currentUser = user;
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
@@ -1370,8 +1271,10 @@
 
         window.openMyQrModal = function() {
             if (!currentUser || !myUserData) return;
+            
             const qrContainer = document.getElementById("qrcode-container");
             qrContainer.innerHTML = "";
+            
             const shareUrl = window.location.origin + window.location.pathname + "?add=" + currentUser.uid;
             
             new QRCode(qrContainer, {
@@ -1640,6 +1543,48 @@
             }
         }
 
+        // 友達削除時にDMルームも同時に完全削除する修正
+        window.deleteFriend = async function(friendId, friendName) {
+            try {
+                // 1. 友達リストから削除
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
+
+                // 2. 対応する個別DMルームIDを特定して削除
+                const roomId = [currentUser.uid, friendId].sort().join('_');
+                
+                // ルーム内のメッセージをすべて削除
+                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`);
+                const msgSnap = await getDocs(messagesRef);
+                const batch = writeBatch(db);
+                msgSnap.forEach(docSnap => {
+                    batch.delete(docSnap.ref);
+                });
+                await batch.commit();
+
+                // ルーム本体を削除
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId));
+
+                // 現在開いていたルームなら閉じる
+                if (currentRoomId === roomId) {
+                    currentRoomId = null;
+                    currentRoomData = null;
+                    document.getElementById("chat-box").innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-3">
+                            <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🔒</div>
+                            <p class="font-semibold text-slate-300 text-sm">ルームが削除されました</p>
+                        </div>
+                    `;
+                    document.getElementById("current-chat-title").innerText = "ルームを選択してください";
+                    document.getElementById("chat-header-actions").classList.add("hidden");
+                }
+
+                showModal("削除完了", `${friendName}さんとの友達関係およびDMルームをすべて削除しました。`);
+            } catch(e) {
+                showModal("エラー", "削除処理に失敗しました。");
+            }
+        }
+
+        // ブロック時も同様にDMルームを同時削除
         window.blockFriend = async function(friendId, friendName) {
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
@@ -1648,9 +1593,34 @@
                     blockedName: friendName,
                     blockedAt: serverTimestamp()
                 });
-                showModal("ブロック完了", `${friendName}さんをブロックしました。`);
+
+                // 対応する個別DMルームも削除
+                const roomId = [currentUser.uid, friendId].sort().join('_');
+                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`);
+                const msgSnap = await getDocs(messagesRef);
+                const batch = writeBatch(db);
+                msgSnap.forEach(docSnap => {
+                    batch.delete(docSnap.ref);
+                });
+                await batch.commit();
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId));
+
+                if (currentRoomId === roomId) {
+                    currentRoomId = null;
+                    currentRoomData = null;
+                    document.getElementById("chat-box").innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-3">
+                            <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🔒</div>
+                            <p class="font-semibold text-slate-300 text-sm">ルームが削除されました</p>
+                        </div>
+                    `;
+                    document.getElementById("current-chat-title").innerText = "ルームを選択してください";
+                    document.getElementById("chat-header-actions").classList.add("hidden");
+                }
+
+                showModal("ブロック完了", `${friendName}さんをブロックし、DMルームを削除しました。`);
             } catch(e) {
-                showModal("エラー", "ブロックに失敗しました。");
+                showModal("エラー", "ブロック処理に失敗しました。");
             }
         }
 
@@ -1829,6 +1799,7 @@
                     } else {
                         let formattedText = escapeHTML(data.text);
                         const isMentionedMe = myUserData && myUserData.name && formattedText.includes(`@${myUserData.name}`);
+                        
                         formattedText = formattedText.replace(/@([^\s]+)/g, '<span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.5 rounded-md font-bold text-xs">@$1</span>');
 
                         contentHtml = `
@@ -1912,48 +1883,49 @@
 
         window.sendImage = async function(input) {
             if (!input.files || !input.files[0] || !currentRoomId) return;
-            const file = input.files[0];
             try {
-                const base64Url = await resizeImage(file, 800, 800, 0.75);
+                const resizedBase64 = await resizeImage(input.files[0], 800, 800, 0.75);
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
                     senderId: currentUser.uid,
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
-                    imageUrl: base64Url,
+                    imageUrl: resizedBase64,
                     type: "image",
                     createdAt: serverTimestamp()
                 });
-                input.value = "";
             } catch(e) {
                 showModal("エラー", "画像の送信に失敗しました。");
             }
         }
 
         window.openCreateGroupModal = async function() {
-            const friendsRef = collection(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`);
-            const snap = await getDocs(friendsRef);
             const container = document.getElementById("group-friends-checkboxes");
-            container.innerHTML = "";
-
-            if (snap.empty) {
-                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">グループに招待できる友達がいません</div>`;
-            } else {
-                snap.forEach((docSnap) => {
-                    const f = docSnap.data();
-                    const label = document.createElement("label");
-                    label.className = "flex items-center space-x-3 p-2 rounded-xl bg-slate-900 hover:bg-slate-800 cursor-pointer";
-                    label.innerHTML = `
-                        <input type="checkbox" value="${f.friendId}" class="group-friend-chk w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500" />
-                        <span class="text-xs text-white font-semibold">${escapeHTML(f.friendName)}</span>
-                    `;
-                    container.appendChild(label);
-                });
-            }
+            container.innerHTML = "読み込み中...";
 
             const modal = document.getElementById("create-group-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
+
+            const friendsRef = collection(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`);
+            const snap = await getDocs(friendsRef);
+
+            container.innerHTML = "";
+            if (snap.empty) {
+                container.innerHTML = `<div class="text-xs text-slate-500 py-2">招待できる友達がいません</div>`;
+                return;
+            }
+
+            snap.forEach((docSnap) => {
+                const f = docSnap.data();
+                const label = document.createElement("label");
+                label.className = "flex items-center space-x-2 p-2 hover:bg-slate-900 rounded-xl cursor-pointer transition";
+                label.innerHTML = `
+                    <input type="checkbox" value="${f.friendId}" class="group-friend-cb w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-950 border-slate-800" />
+                    <span class="text-xs font-semibold text-white">${escapeHTML(f.friendName)}</span>
+                `;
+                container.appendChild(label);
+            });
         }
 
         window.closeCreateGroupModal = function() {
@@ -1963,19 +1935,18 @@
         }
 
         window.createGroupChat = async function() {
-            const groupNameInput = document.getElementById("group-name-input");
-            const groupName = groupNameInput.value.trim();
-            if (!groupName) {
-                showModal("エラー", "グループ名を入力してください。");
+            const nameInput = document.getElementById("group-name-input").value.trim();
+            if (!nameInput) {
+                showModal("入力エラー", "グループ名を入力してください。");
                 return;
             }
 
-            const checkboxes = document.querySelectorAll(".group-friend-chk:checked");
+            const cbs = document.querySelectorAll(".group-friend-cb:checked");
             const memberIds = [currentUser.uid];
-            checkboxes.forEach(chk => memberIds.push(chk.value));
+            cbs.forEach(cb => memberIds.push(cb.value));
 
             if (memberIds.length < 2) {
-                showModal("エラー", "メンバーを1人以上選択してください。");
+                showModal("メンバーエラー", "1人以上の友達を選択してください。");
                 return;
             }
 
@@ -1983,15 +1954,14 @@
                 const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'));
                 await setDoc(roomRef, {
                     isGroup: true,
-                    name: groupName,
+                    name: nameInput,
                     members: memberIds,
+                    createdBy: currentUser.uid,
                     createdAt: serverTimestamp()
                 });
 
-                groupNameInput.value = "";
                 closeCreateGroupModal();
-                selectRoom(roomRef.id, groupName, true, memberIds);
-                showModal("作成成功", "グループチャットを作成しました！");
+                showModal("グループ作成完了", `グループ「${nameInput}」を作成しました！`);
             } catch(e) {
                 showModal("エラー", "グループの作成に失敗しました。");
             }
@@ -2009,22 +1979,27 @@
 
             container.innerHTML = "";
             for (const mId of currentRoomData.members) {
-                const info = roomMembersMap[mId] || { name: 'ユーザー', avatar: '', statusMessage: '' };
-                const avatarHtml = info.avatar
-                    ? `<img src="${info.avatar}" class="w-9 h-9 rounded-full object-cover" />`
-                    : `<div class="w-9 h-9 rounded-full overflow-hidden">${getInitialsAvatar(info.name)}</div>`;
+                try {
+                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
+                    const uData = uSnap.exists() ? uSnap.data() : { name: "ユーザー" };
 
-                const div = document.createElement("div");
-                div.className = "flex items-center space-x-3 p-2 bg-slate-900 rounded-xl cursor-pointer hover:bg-slate-800 transition";
-                div.onclick = () => { closeGroupInfoModal(); openUserProfileView(mId); };
-                div.innerHTML = `
-                    ${avatarHtml}
-                    <div>
-                        <div class="font-bold text-xs text-white">${escapeHTML(info.name)} ${mId === currentUser.uid ? '(あなた)' : ''}</div>
-                        <div class="text-[10px] text-slate-400 truncate max-w-[200px]">${escapeHTML(info.statusMessage || 'ステータスなし')}</div>
-                    </div>
-                `;
-                container.appendChild(div);
+                    const div = document.createElement("div");
+                    div.className = "flex items-center justify-between p-2 hover:bg-slate-900 rounded-xl cursor-pointer transition";
+                    div.onclick = () => { closeGroupInfoModal(); openUserProfileView(mId); };
+
+                    const avatarHtml = uData.avatar
+                        ? `<img src="${uData.avatar}" class="w-8 h-8 rounded-full object-cover" />`
+                        : `<div class="w-8 h-8 rounded-full overflow-hidden text-xs">${getInitialsAvatar(uData.name)}</div>`;
+
+                    div.innerHTML = `
+                        <div class="flex items-center space-x-2.5">
+                            ${avatarHtml}
+                            <span class="text-xs font-bold text-white">${escapeHTML(uData.name)} ${mId === currentUser.uid ? '(あなた)' : ''}</span>
+                        </div>
+                        <span class="text-[10px] theme-primary-text">詳細 ›</span>
+                    `;
+                    container.appendChild(div);
+                } catch(e){}
             }
         }
 
@@ -2032,11 +2007,6 @@
             const modal = document.getElementById("group-info-modal");
             modal.classList.add("opacity-0");
             setTimeout(() => modal.classList.add("hidden"), 300);
-        }
-
-        window.openMyQrModalFromAdd = function() {
-            closeAddFriendModal();
-            openMyQrModal();
         }
     </script>
 </body>
