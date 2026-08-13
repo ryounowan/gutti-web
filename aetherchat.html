@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>AetherChat</title>
+    <title>AetherChat　test</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- QR Code Generator & Scanner Libraries -->
@@ -75,7 +75,6 @@
 </head>
 <body id="app-body" class="app-height flex flex-col overflow-hidden select-none">
 
-    <!-- 新着メッセージポップアップ通知コンテナ -->
     <div id="toast-container" class="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 flex flex-col space-y-2 w-11/12 max-w-md pointer-events-none"></div>
 
     <!-- 認証 / 初回登録モーダル -->
@@ -596,7 +595,7 @@
             apiKey: "AIzaSyAhvaLu0BcyBKUyER8PqxDdDBJwUOmfeOk",
             authDomain: "my-chat-app-12165.firebaseapp.com",
             projectId: "my-chat-app-12165",
-            storageBucket: "my-chat-app-12165.firebasestorage.app",
+            storageBucket: "my-chat-app-12165.appspot.com",
             messagingSenderId: "148974103771",
             appId: "1:148974103771:web:4ed8ee98b354dceda9b0fe",
             measurementId: "G-VYBR9QPG3S"
@@ -1138,13 +1137,9 @@
             if (!currentUser) return;
             try {
                 const uid = currentUser.uid;
-                // Firestoreデータの削除
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid));
                 
-                // フレンドリスト、リクエスト、ブロックのクリーンアップ（簡易的に自身のアカウントドキュメント等を削除）
                 const batch = writeBatch(db);
-                
-                // ルームの検索などして自分がメンバーのルームから抜けたり削除
                 const roomsSnap = await getDocs(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'));
                 roomsSnap.forEach(rDoc => {
                     const data = rDoc.data();
@@ -1163,7 +1158,6 @@
                 });
                 await batch.commit();
 
-                // Authユーザー削除
                 await deleteUser(currentUser);
                 closeAccountResetModal();
                 closeProfileModal();
@@ -1505,12 +1499,10 @@
                 snapshot.forEach(async (docSnap) => {
                     const f = docSnap.data();
                     
-                    // 相手が自分をフレンドから消しているか / ブロックしているかを監視・自動連動
                     const theirFriendSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${f.friendId}`, currentUser.uid));
                     const theirBlockSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', `blocks_${f.friendId}`, currentUser.uid));
 
                     if (!theirFriendSnap.exists() || theirBlockSnap.exists()) {
-                        // 相手が自分を削除またはブロックしていた場合：自分もフレンド削除し、チャット欄(ルーム)も消去
                         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, f.friendId));
                         const roomId = [currentUser.uid, f.friendId].sort().join('_');
                         await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId)).catch(()=>{});
@@ -1610,7 +1602,6 @@
         window.deleteFriend = async function(friendId, friendName) {
             try {
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, friendId));
-                // 自分側のチャットルームも削除
                 const roomId = [currentUser.uid, friendId].sort().join('_');
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId)).catch(()=>{});
                 
@@ -1642,7 +1633,6 @@
                     blockedAt: serverTimestamp()
                 });
                 
-                // チャットルームも削除
                 const roomId = [currentUser.uid, friendId].sort().join('_');
                 await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomId)).catch(()=>{});
 
@@ -1753,7 +1743,6 @@
             });
         }
 
-        // 新着メッセージのポップアップ通知機能の設定
         function setupGlobalMessageListenerForPopups() {
             const roomsRef = collection(db, 'artifacts', appId, 'public', 'data', 'rooms');
             getDocs(roomsRef).then(snap => {
@@ -1781,7 +1770,6 @@
                 snapshot.docChanges().forEach((change) => {
                     if (change.type === "added") {
                         const msgData = change.doc.data();
-                        // 自分が送信したものでなく、かつ現在開いているルーム以外、またはバックグラウンドの時にポップアップ
                         if (msgData.senderId !== currentUser.uid) {
                             showToastNotification(msgData.senderName, msgData.text || "画像が送信されました", roomName, roomId);
                         }
@@ -1800,175 +1788,140 @@
             };
 
             toast.innerHTML = `
-                <div class="flex items-center space-x-3 overflow-hidden">
-                    <div class="w-9 h-9 rounded-full theme-primary-bg flex items-center justify-center font-bold text-white shrink-0">💬</div>
-                    <div class="overflow-hidden">
-                        <div class="text-xs font-bold text-white truncate">${escapeHTML(senderName)} <span class="text-[10px] text-slate-400 font-normal">(${escapeHTML(roomName)})</span></div>
-                        <div class="text-xs text-slate-300 truncate">${escapeHTML(text)}</div>
-                    </div>
+                <div>
+                    <div class="font-bold text-xs text-white">${escapeHTML(senderName)} <span class="text-[10px] text-slate-400 font-normal">(${escapeHTML(roomName)})</span></div>
+                    <div class="text-xs text-slate-300 truncate max-w-xs mt-0.5">${escapeHTML(text)}</div>
                 </div>
-                <button onclick="this.parentElement.remove()" class="text-slate-400 hover:text-white p-1">✕</button>
+                <button onclick="event.stopPropagation(); this.parentElement.remove();" class="text-slate-400 hover:text-white p-1">✕</button>
             `;
             container.appendChild(toast);
-            setTimeout(() => {
-                if (toast.parentElement) toast.remove();
-            }, 5000);
+            setTimeout(() => { if (toast.parentElement) toast.remove(); }, 5000);
         }
 
         window.switchTab = function(tabName) {
-            ['chats', 'friends', 'requests'].forEach(t => {
-                document.getElementById(`tab-content-${t}`).classList.add("hidden");
-                document.getElementById(`tab-btn-${t}`).className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
-            });
-            document.getElementById(`tab-content-${tabName}`).classList.remove("hidden");
-            document.getElementById(`tab-btn-${tabName}`).className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition font-semibold";
+            const btnChats = document.getElementById("tab-btn-chats");
+            const btnFriends = document.getElementById("tab-btn-friends");
+            const btnRequests = document.getElementById("tab-btn-requests");
+            const contentChats = document.getElementById("tab-content-chats");
+            const contentFriends = document.getElementById("tab-content-friends");
+            const contentRequests = document.getElementById("tab-content-requests");
+
+            btnChats.className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
+            btnFriends.className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
+            btnRequests.className = "py-3.5 text-slate-400 hover:text-slate-200 transition relative";
+            contentChats.classList.add("hidden");
+            contentFriends.classList.add("hidden");
+            contentRequests.classList.add("hidden");
+
+            if (tabName === 'chats') {
+                btnChats.className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition";
+                contentChats.classList.remove("hidden");
+            } else if (tabName === 'friends') {
+                btnFriends.className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition";
+                contentFriends.classList.remove("hidden");
+            } else if (tabName === 'requests') {
+                btnRequests.className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition relative";
+                contentRequests.classList.remove("hidden");
+            }
         }
 
-        window.selectRoom = async function(roomId, roomName, isGroup = false, members = []) {
+        window.selectRoom = async function(roomId, roomName, isGroup, members) {
             currentRoomId = roomId;
-            currentRoomData = { roomId, roomName, isGroup, members };
-            document.getElementById("current-chat-title").innerText = roomName;
-            document.getElementById("current-chat-sub").innerText = isGroup ? `グループ (${members.length}人)` : `タップで相手のプロフィールを表示`;
+            currentRoomData = { roomId, name: roomName, isGroup, members };
             
-            const headerIcon = document.getElementById("chat-header-icon");
-            if (isGroup) {
-                headerIcon.innerText = '👥';
-                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text shrink-0';
-            } else {
-                headerIcon.innerHTML = getInitialsAvatar(roomName);
-                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text overflow-hidden shrink-0';
+            if (window.innerWidth < 768) {
+                toggleSidebar();
             }
 
+            document.getElementById("current-chat-title").innerText = roomName;
+            document.getElementById("current-chat-sub").innerText = isGroup ? `${members.length}人のメンバー` : "タップしてプロフィールを表示";
             document.getElementById("chat-header-actions").classList.remove("hidden");
-            const btnGroupInfo = document.getElementById("btn-group-info");
-            if (isGroup) {
-                btnGroupInfo.classList.remove("hidden");
-            } else {
-                btnGroupInfo.classList.add("hidden");
-            }
+            document.getElementById("btn-group-info").classList.toggle("hidden", !isGroup);
 
             roomMembersMap = {};
-            for (const mId of members) {
-                try {
-                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
-                    if (uSnap.exists()) {
-                        roomMembersMap[mId] = uSnap.data();
-                    }
-                } catch(e){}
+            if (members && members.length > 0) {
+                for (const mId of members) {
+                    try {
+                        const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
+                        if (uSnap.exists()) {
+                            roomMembersMap[mId] = uSnap.data();
+                        }
+                    } catch(e){}
+                }
             }
 
-            if (window.innerWidth < 768) {
-                document.getElementById("sidebar").classList.add("-translate-x-full");
-                document.getElementById("sidebar-overlay").classList.add("hidden");
-            }
+            loadMessages(roomId);
+        }
+
+        function loadMessages(roomId) {
+            const chatBox = document.getElementById("chat-box");
+            chatBox.innerHTML = "";
 
             if (unsubscribeMessages) unsubscribeMessages();
 
             const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`);
             const q = query(messagesRef, orderBy("createdAt", "asc"));
-            const chatBox = document.getElementById("chat-box");
 
             unsubscribeMessages = onSnapshot(q, (snapshot) => {
                 chatBox.innerHTML = "";
-
                 if (snapshot.empty) {
-                    chatBox.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-2">
-                            <div class="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">💬</div>
-                            <p class="text-xs">まだメッセージがありません。会話を始めましょう！</p>
-                        </div>
-                    `;
+                    chatBox.innerHTML = `<div class="text-center py-10 text-slate-500 text-xs">メッセージはまだありません。<br>最初のメッセージを送信しましょう！</div>`;
                     return;
                 }
 
-                // 既読機能の反映：未読のメッセージを既読（read: true）に更新
-                const batch = writeBatch(db);
-                let hasUnread = false;
+                snapshot.forEach((docSnap) => {
+                    const msg = docSnap.data();
+                    const msgId = docSnap.id;
+                    const isMe = msg.senderId === currentUser.uid;
+                    const sender = roomMembersMap[msg.senderId] || { name: msg.senderName || "ユーザー", avatar: msg.senderAvatar || "" };
 
-                snapshot.forEach((msgDoc) => {
-                    const data = msgDoc.data();
-                    const msgId = msgDoc.id;
-                    const isMe = data.senderId === currentUser.uid;
+                    const div = document.createElement("div");
+                    div.className = `flex items-end space-x-2 ${isMe ? 'flex-row-reverse space-x-reverse' : 'flex-row'} mb-3`;
 
-                    if (!isMe && !data.read) {
-                        hasUnread = true;
-                        batch.update(msgDoc.ref, { read: true });
-                    }
-
-                    let timeStr = "";
-                    if (data.createdAt && typeof data.createdAt.toDate === "function") {
-                        timeStr = data.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                    }
-
-                    const messageDiv = document.createElement("div");
-                    messageDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 group relative`;
+                    const avatarHtml = sender.avatar
+                        ? `<img src="${sender.avatar}" class="w-8 h-8 rounded-full object-cover cursor-pointer" onclick="openUserProfileView('${msg.senderId}')" />`
+                        : `<div class="w-8 h-8 rounded-full overflow-hidden cursor-pointer" onclick="openUserProfileView('${msg.senderId}')">${getInitialsAvatar(sender.name)}</div>`;
 
                     let contentHtml = "";
-                    if (data.type === "image") {
-                        contentHtml = `<img src="${data.imageUrl}" alt="画像" class="max-w-[200px] sm:max-w-xs rounded-xl shadow-lg cursor-pointer hover:opacity-95 transition" onclick="window.open('${data.imageUrl}')" />`;
-                    } else if (data.type === "stamp") {
-                        contentHtml = `<div class="text-4xl sm:text-5xl py-1">${data.text}</div>`;
-                    } else {
-                        let formattedText = escapeHTML(data.text);
-                        const isMentionedMe = myUserData && myUserData.name && formattedText.includes(`@${myUserData.name}`);
-                        
-                        formattedText = formattedText.replace(/@([^\s]+)/g, '<span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.5 rounded-md font-bold text-xs">@$1</span>');
-
-                        contentHtml = `
-                            <div class="leading-relaxed break-words text-sm">
-                                ${isMentionedMe ? '<span class="inline-block bg-amber-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.5 rounded-full mr-1 shadow-sm">@あなた宛</span>' : ''}
-                                ${formattedText}
-                            </div>
-                        `;
+                    if (msg.imageUrl) {
+                        contentHtml = `<img src="${msg.imageUrl}" class="max-w-xs rounded-xl mb-1 cursor-pointer hover:opacity-95 transition shadow-md" onclick="showModal('画像プレビュー', '拡大表示')" />`;
+                    }
+                    if (msg.text) {
+                        contentHtml += `<p class="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap break-words">${escapeHTML(msg.text)}</p>`;
                     }
 
-                    const avatarImgHtml = data.senderAvatar 
-                        ? `<img src="${data.senderAvatar}" class="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')" />`
-                        : `<div class="w-6 h-6 rounded-full overflow-hidden shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${getInitialsAvatar(data.senderName)}</div>`;
+                    const timeStr = msg.createdAt ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "";
 
-                    const deleteBtnHtml = isMe 
-                        ? `<button onclick="deleteSingleMessage('${msgId}')" title="メッセージを削除" class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-rose-400 text-xs px-1">🗑️</button>`
-                        : '';
-
-                    // 既読表示
-                    const readStatusHtml = (isMe && data.read) ? `<span class="text-[9px] text-indigo-400 font-semibold">既読</span>` : '';
-
-                    messageDiv.innerHTML = `
-                        <div class="flex items-center space-x-1 mb-0.5 px-1">
-                            ${!isMe ? avatarImgHtml : ''}
-                            <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${escapeHTML(data.senderName)}</span>
-                        </div>
-                        <div class="flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%] ${isMe ? 'flex-row-reverse space-x-reverse' : 'flex-row'}">
-                            <div class="relative px-3.5 py-2 rounded-2xl shadow-md ${isMe ? 'bubble-me rounded-br-xs' : 'bubble-other rounded-bl-xs'}">
+                    div.innerHTML = `
+                        ${!isMe ? avatarHtml : '<div class="w-8"></div>'}
+                        <div class="max-w-[75%] sm:max-w-[65%]">
+                            ${!isMe && currentRoomData && currentRoomData.isGroup ? `<div class="text-[10px] text-slate-400 mb-1 ml-1 font-semibold">${escapeHTML(sender.name)}</div>` : ''}
+                            <div class="p-3 rounded-2xl shadow-md ${isMe ? 'bubble-me rounded-br-none' : 'bubble-other rounded-bl-none'} relative group">
                                 ${contentHtml}
-                            </div>
-                            <div class="flex flex-col items-end shrink-0 mb-0.5 space-y-0.5">
-                                ${deleteBtnHtml}
-                                <div class="flex items-center space-x-1">
-                                    ${readStatusHtml}
-                                    <span class="text-[9px] text-slate-500">${timeStr}</span>
+                                <div class="flex items-center justify-end space-x-1 mt-1">
+                                    <span class="text-[9px] opacity-70">${timeStr}</span>
+                                    ${isMe ? `<button onclick="deleteSingleMessage('${msgId}')" class="text-[9px] opacity-0 group-hover:opacity-100 hover:text-rose-300 transition ml-1">🗑️</button>` : ''}
                                 </div>
                             </div>
                         </div>
                     `;
-                    chatBox.appendChild(messageDiv);
+                    chatBox.appendChild(div);
                 });
-
-                if (hasUnread) {
-                    batch.commit().catch(()=>{});
-                }
-
                 chatBox.scrollTop = chatBox.scrollHeight;
             });
         }
 
         window.sendMessage = async function() {
+            if (!currentRoomId) {
+                showModal("注意", "チャットルームを選択してください。");
+                return;
+            }
             const input = document.getElementById("message-input");
             const text = input.value.trim();
-            if (!text || !currentRoomId) return;
+            if (!text) return;
 
             input.value = "";
-            hideMentionPopup();
+            input.style.height = 'auto';
 
             try {
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
@@ -1977,8 +1930,6 @@
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
                     text: text,
-                    type: "text",
-                    read: false,
                     createdAt: serverTimestamp()
                 });
             } catch(e) {
@@ -1986,37 +1937,33 @@
             }
         }
 
-        window.sendStamp = async function(stampEmoji) {
-            if (!currentRoomId) return;
+        window.sendStamp = async function(stampText) {
             toggleStampPanel();
+            if (!currentRoomId) return;
             try {
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
                     senderId: currentUser.uid,
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
-                    text: stampEmoji,
-                    type: "stamp",
-                    read: false,
+                    text: stampText,
                     createdAt: serverTimestamp()
                 });
-            } catch(e) {
-                showModal("エラー", "スタンプの送信に失敗しました。");
-            }
+            } catch(e){}
         }
 
         window.sendImage = async function(input) {
             if (!input.files || !input.files[0] || !currentRoomId) return;
+            const file = input.files[0];
+            const base64Img = await resizeImage(file, 800, 800, 0.75);
+
             try {
-                const resizedBase64 = await resizeImage(input.files[0], 800, 800, 0.75);
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
                     senderId: currentUser.uid,
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
-                    imageUrl: resizedBase64,
-                    type: "image",
-                    read: false,
+                    imageUrl: base64Img,
                     createdAt: serverTimestamp()
                 });
             } catch(e) {
@@ -2027,7 +1974,6 @@
         window.openCreateGroupModal = async function() {
             const container = document.getElementById("group-friends-checkboxes");
             container.innerHTML = "読み込み中...";
-
             const modal = document.getElementById("create-group-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
@@ -2037,16 +1983,16 @@
 
             container.innerHTML = "";
             if (snap.empty) {
-                container.innerHTML = `<div class="text-xs text-slate-500 py-2">招待できる友達がいません</div>`;
+                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-3">グループを作成できる友達がいません</div>`;
                 return;
             }
 
             snap.forEach((docSnap) => {
                 const f = docSnap.data();
                 const label = document.createElement("label");
-                label.className = "flex items-center space-x-2 p-2 hover:bg-slate-900 rounded-xl cursor-pointer transition";
+                label.className = "flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-900 cursor-pointer transition";
                 label.innerHTML = `
-                    <input type="checkbox" value="${f.friendId}" class="group-friend-cb w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-950 border-slate-800" />
+                    <input type="checkbox" value="${f.friendId}" data-name="${escapeHTML(f.friendName)}" class="group-member-checkbox rounded border-slate-800 text-indigo-600 focus:ring-indigo-500 w-4 h-4" />
                     <span class="text-xs font-semibold text-white">${escapeHTML(f.friendName)}</span>
                 `;
                 container.appendChild(label);
@@ -2066,66 +2012,66 @@
                 return;
             }
 
-            const cbs = document.querySelectorAll(".group-friend-cb:checked");
-            const memberIds = [currentUser.uid];
-            cbs.forEach(cb => memberIds.push(cb.value));
+            const checkboxes = document.querySelectorAll(".group-member-checkbox:checked");
+            const selectedMembers = [currentUser.uid];
+            checkboxes.forEach(cb => selectedMembers.push(cb.value));
 
-            if (memberIds.length < 2) {
-                showModal("メンバーエラー", "1人以上の友達を選択してください。");
+            if (selectedMembers.length < 2) {
+                showModal("選択エラー", "メンバーを1人以上選択してください。");
                 return;
             }
 
             try {
-                const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'));
-                await setDoc(roomRef, {
+                const roomsRef = collection(db, 'artifacts', appId, 'public', 'data', 'rooms');
+                const newRoomRef = doc(roomsRef);
+                await setDoc(newRoomRef, {
                     isGroup: true,
                     name: nameInput,
-                    members: memberIds,
-                    createdBy: currentUser.uid,
+                    members: selectedMembers,
                     createdAt: serverTimestamp()
                 });
 
                 closeCreateGroupModal();
-                showModal("グループ作成完了", `グループ「${nameInput}」を作成しました！`);
+                selectRoom(newRoomRef.id, nameInput, true, selectedMembers);
+                showModal("作成完了", `グループ「${nameInput}」を作成しました！`);
             } catch(e) {
                 showModal("エラー", "グループの作成に失敗しました。");
             }
         }
 
-        window.openGroupInfoModal = async function() {
+        window.openGroupInfoModal = function() {
             if (!currentRoomData || !currentRoomData.isGroup) return;
-            document.getElementById("info-group-title").innerText = currentRoomData.roomName;
+            document.getElementById("info-group-title").innerText = currentRoomData.name;
             const container = document.getElementById("info-members-list");
-            container.innerHTML = "読み込み中...";
+            container.innerHTML = "";
+
+            currentRoomData.members.forEach(mId => {
+                const info = roomMembersMap[mId] || { name: 'ユーザー', avatar: '' };
+                const isMe = mId === currentUser.uid;
+                const div = document.createElement("div");
+                div.className = "flex items-center justify-between p-2 rounded-xl bg-slate-900 cursor-pointer hover:bg-slate-800 transition";
+                div.onclick = () => openUserProfileView(mId);
+
+                const avatarHtml = info.avatar
+                    ? `<img src="${info.avatar}" class="w-8 h-8 rounded-full object-cover" />`
+                    : `<div class="w-8 h-8 rounded-full overflow-hidden text-xs">${getInitialsAvatar(info.name)}</div>`;
+
+                div.innerHTML = `
+                    <div class="flex items-center space-x-3">
+                        ${avatarHtml}
+                        <div>
+                            <div class="font-bold text-xs text-white">${escapeHTML(info.name)} ${isMe ? '(あなた)' : ''}</div>
+                            <div class="text-[9px] text-indigo-400">プロフィールを見る</div>
+                        </div>
+                    </div>
+                    <span class="text-xs text-slate-500">›</span>
+                `;
+                container.appendChild(div);
+            });
 
             const modal = document.getElementById("group-info-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
-
-            container.innerHTML = "";
-            for (const mId of currentRoomData.members) {
-                try {
-                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
-                    const uData = uSnap.exists() ? uSnap.data() : { name: "ユーザー" };
-
-                    const div = document.createElement("div");
-                    div.className = "flex items-center justify-between p-2 hover:bg-slate-900 rounded-xl cursor-pointer transition";
-                    div.onclick = () => { closeGroupInfoModal(); openUserProfileView(mId); };
-
-                    const avatarHtml = uData.avatar
-                        ? `<img src="${uData.avatar}" class="w-8 h-8 rounded-full object-cover" />`
-                        : `<div class="w-8 h-8 rounded-full overflow-hidden text-xs">${getInitialsAvatar(uData.name)}</div>`;
-
-                    div.innerHTML = `
-                        <div class="flex items-center space-x-2.5">
-                            ${avatarHtml}
-                            <span class="text-xs font-bold text-white">${escapeHTML(uData.name)} ${mId === currentUser.uid ? '(あなた)' : ''}</span>
-                        </div>
-                        <span class="text-[10px] theme-primary-text">詳細 ›</span>
-                    `;
-                    container.appendChild(div);
-                } catch(e){}
-            }
         }
 
         window.closeGroupInfoModal = function() {
@@ -2133,6 +2079,12 @@
             modal.classList.add("opacity-0");
             setTimeout(() => modal.classList.add("hidden"), 300);
         }
+
+        window.openMyQrModalFromAdd = function() {
+            closeAddFriendModal();
+            openMyQrModal();
+        }
+
     </script>
 </body>
 </html>
