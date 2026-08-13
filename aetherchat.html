@@ -100,7 +100,7 @@
         </div>
     </div>
 
-    <!-- 【新規追加機能】 相手のプロフィール確認・操作モーダル (QR読み取り時・友達タップ時共通) -->
+    <!-- 相手のプロフィール確認・操作モーダル -->
     <div id="user-profile-view-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
         <div class="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="user-profile-box">
             <!-- 相手の背景画像エリア -->
@@ -164,7 +164,7 @@
             <h3 id="my-profile-name" class="font-bold text-lg text-white mb-0.5">ゲスト</h3>
             <p id="my-profile-status" class="text-xs text-slate-400 italic mb-3">ステータスメッセージ...</p>
             
-            <!-- 見やすいアカウントIDカード＆QRコード生成エリア -->
+            <!-- アカウントIDカード＆QRコード生成エリア -->
             <div class="mb-4 bg-gradient-to-br from-indigo-950/60 to-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 text-left shadow-md">
                 <div class="flex items-center justify-between mb-1">
                     <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
@@ -356,10 +356,10 @@
         </div>
     </div>
 
-    <!-- メイン画面レイアウト (スマホ対応 h-[100dvh]) -->
+    <!-- メイン画面レイアウト -->
     <div class="flex-1 flex overflow-hidden relative w-full h-full">
         
-        <!-- サイドバー (スマホ時：ドロワー型オーバーレイ) -->
+        <!-- サイドバー -->
         <aside id="sidebar" class="w-full md:w-80 lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col z-30 absolute md:relative inset-y-0 left-0 transition-transform duration-300 transform -translate-x-full md:translate-x-0">
             <!-- ユーザープロフィールバナー -->
             <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
@@ -409,7 +409,7 @@
         <!-- モバイル用サイドバー背景オーバーレイ -->
         <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 md:hidden hidden transition-opacity"></div>
 
-        <!-- チャットメイン領域 (スマホで全画面表示) -->
+        <!-- チャットメイン領域 -->
         <main class="flex-1 flex flex-col bg-slate-950 relative w-full h-full overflow-hidden">
             <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between z-10 shrink-0">
                 <div class="flex items-center space-x-2 sm:space-x-3 overflow-hidden">
@@ -451,7 +451,7 @@
                 <button onclick="sendStamp('🚀')" class="p-2 text-2xl hover:bg-slate-800 active:scale-90 rounded-xl transition">🚀</button>
             </div>
 
-            <!-- メッセージ入力欄 (スマホのソフトキーボード対応) -->
+            <!-- メッセージ入力欄 -->
             <footer id="chat-footer-area" class="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2.5 sm:p-3 shadow-2xl shrink-0">
                 <div class="max-w-4xl mx-auto flex items-end gap-1.5 sm:gap-2">
                     <div class="flex items-center space-x-0.5 sm:space-x-1 shrink-0">
@@ -501,15 +501,16 @@
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, arrayUnion, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-const firebaseConfig = {
-  apiKey: "AIzaSyDztzIGUmOsrsFSCKcV1Yit3JJYjvl4KpI",
-  authDomain: "aetherchat0106.firebaseapp.com",
-  projectId: "aetherchat0106",
-  storageBucket: "aetherchat0106.firebasestorage.app",
-  messagingSenderId: "201619305939",
-  appId: "1:201619305939:web:b710511171f50d27666b26",
-  measurementId: "G-JXCRVLCJR7"
-};
+        // 指定された Firebase 設定に更新
+        const firebaseConfig = {
+            apiKey: "AIzaSyCwG2G5rzij2SywaAa1_UaxZRQe3QmUcDc",
+            authDomain: "gutti-online.firebaseapp.com",
+            projectId: "gutti-online",
+            storageBucket: "gutti-online.firebasestorage.app",
+            messagingSenderId: "150698976186",
+            appId: "1:150698976186:web:c45ffbda85dfc763bab383",
+            measurementId: "G-0B98TBF0NS"
+        };
         const appId = 'aetherchat-v6.0-prod';
 
         const app = initializeApp(firebaseConfig);
@@ -629,18 +630,15 @@ const firebaseConfig = {
             });
         }
 
-        // 【新規機能】 相手のプロフィールを表示し、追加・チャット等の操作を行うコア関数
         window.openUserProfileView = async function(targetUserId) {
             if (!targetUserId) return;
 
-            // 自分自身の場合
             if (targetUserId === currentUser.uid) {
                 openProfileModal();
                 return;
             }
 
             try {
-                // Firestoreから相手の最新ユーザー情報を取得
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', targetUserId);
                 const userSnap = await getDoc(userRef);
 
@@ -651,12 +649,10 @@ const firebaseConfig = {
 
                 const targetData = userSnap.data();
 
-                // UI要素の更新
                 document.getElementById("target-profile-name").innerText = targetData.name || "ユーザー";
                 document.getElementById("target-profile-id").innerText = "ID: " + targetUserId;
                 document.getElementById("target-profile-status").innerText = targetData.statusMessage || "ステータスメッセージはありません。";
 
-                // アイコンの描画
                 const avatarContainer = document.getElementById("target-profile-avatar");
                 if (targetData.avatar) {
                     avatarContainer.innerHTML = `<img src="${targetData.avatar}" class="w-full h-full object-cover" />`;
@@ -664,7 +660,6 @@ const firebaseConfig = {
                     avatarContainer.innerHTML = getInitialsAvatar(targetData.name);
                 }
 
-                // 背景画像の描画
                 const bgContainer = document.getElementById("target-profile-bg");
                 if (targetData.background) {
                     bgContainer.style.backgroundImage = `url('${targetData.background}')`;
@@ -672,19 +667,16 @@ const firebaseConfig = {
                     bgContainer.style.backgroundImage = '';
                 }
 
-                // 関係性の判定 (友達・申請中・未登録)
                 const friendSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, targetUserId));
                 const isFriend = friendSnap.exists();
 
                 const reqSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', `requests_${targetUserId}`, currentUser.uid));
                 const isRequested = reqSnap.exists();
 
-                // アクションボタン領域の組み立て
                 const actionsContainer = document.getElementById("target-profile-actions");
                 actionsContainer.innerHTML = "";
 
                 if (isFriend) {
-                    // 既に友達の場合
                     const roomId = [currentUser.uid, targetUserId].sort().join('_');
                     actionsContainer.innerHTML = `
                         <button onclick="closeUserProfileViewModal(); selectRoom('${roomId}', '${escapeHTML(targetData.name)}', false, ['${currentUser.uid}', '${targetUserId}'])" 
@@ -703,14 +695,12 @@ const firebaseConfig = {
                         </div>
                     `;
                 } else if (isRequested) {
-                    // すでに申請中の場合
                     actionsContainer.innerHTML = `
                         <button disabled class="w-full bg-slate-800 text-slate-400 font-bold py-3 rounded-2xl text-sm cursor-not-allowed">
                             友達申請済み (承認待ち)
                         </button>
                     `;
                 } else {
-                    // 未登録の場合（追加操作可能）
                     actionsContainer.innerHTML = `
                         <button onclick="sendFriendRequestToTarget('${targetUserId}', '${escapeHTML(targetData.name)}')" 
                             class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-2xl text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
@@ -719,7 +709,6 @@ const firebaseConfig = {
                     `;
                 }
 
-                // モーダルを開く
                 const modal = document.getElementById("user-profile-view-modal");
                 const box = document.getElementById("user-profile-box");
                 modal.classList.remove("hidden");
@@ -972,7 +961,6 @@ const firebaseConfig = {
             loadFriendRequests();
             loadChatRooms();
 
-            // URL共有からの友達追加検知 -> プロフィールプレビューモーダル起動
             const urlParams = new URLSearchParams(window.location.search);
             const addId = urlParams.get("add");
             if (addId && addId !== currentUser.uid) {
@@ -1085,7 +1073,6 @@ const firebaseConfig = {
             }
         }
 
-        // QR読み取り成功時のハンドラー -> 相手のプロフィール確認画面を表示！
         function onQrCodeSuccess(decodedText) {
             stopQrScanner();
             closeAddFriendModal();
@@ -1172,7 +1159,6 @@ const firebaseConfig = {
                     const div = document.createElement("div");
                     div.className = "p-3 rounded-2xl bg-slate-900/60 hover:bg-slate-800/80 transition flex items-center justify-between group cursor-pointer";
                     
-                    // 【改修】友達欄をタップした際、相手の背景やステータスメッセージが見えるプロフィールモーダルを開く
                     div.onclick = () => openUserProfileView(f.friendId);
 
                     div.innerHTML = `
@@ -1399,7 +1385,6 @@ const firebaseConfig = {
                 actionBtn.classList.add("hidden");
             }
 
-            // スマホ表示時、ルーム選択後にサイドバーを閉じる
             if (window.innerWidth < 768) {
                 document.getElementById("sidebar").classList.add("-translate-x-full");
                 document.getElementById("sidebar-overlay").classList.add("hidden");
