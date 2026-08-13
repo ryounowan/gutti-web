@@ -5,36 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>AetherChat</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- QR Code Generator & Scanner Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    
     <style>
+        :root {
+            --color-bg-base: #020617;
+            --color-bg-surface: #0f172a;
+            --color-bg-card: #1e293b;
+            --color-primary: #6366f1;
+            --color-primary-hover: #4f46e5;
+            --color-primary-light: rgba(99, 102, 241, 0.15);
+            --color-text-main: #f8fafc;
+            --color-text-sub: #94a3b8;
+            --color-bubble-me: #4f46e5;
+            --color-bubble-other: #1e293b;
+            --radius-app: 1.5rem;
+        }
+
         body { 
             font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
             touch-action: manipulation;
+            background-color: var(--color-bg-base);
+            color: var(--color-text-main);
+            transition: background-color 0.3s ease, color 0.3s ease;
         }
-        /* Mobile height fix for iOS and Android webview */
+
         .app-height {
             height: 100vh;
             height: 100dvh;
         }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
+
+        /* Dynamic Theme Classes */
+        .theme-surface { background-color: var(--color-bg-surface); }
+        .theme-card { background-color: var(--color-bg-card); }
+        .theme-primary-bg { background-color: var(--color-primary); }
+        .theme-primary-text { color: var(--color-primary); }
+        .theme-primary-border { border-color: var(--color-primary); }
+        
+        .bubble-me {
+            background-color: var(--color-bubble-me);
+            color: #ffffff;
+        }
+        .bubble-other {
+            background-color: var(--color-bubble-other);
+            color: var(--color-text-main);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 9999px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.4); }
         #qr-reader video { object-fit: cover !important; border-radius: 1rem; }
+
+        /* Mention suggestion popup animation */
+        @keyframes slideUp {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .animate-slide-up { animation: slideUp 0.18s ease-out forwards; }
     </style>
 </head>
-<body id="app-body" class="bg-slate-950 text-slate-100 app-height flex flex-col overflow-hidden select-none theme-dark">
+<body id="app-body" class="app-height flex flex-col overflow-hidden select-none">
 
     <!-- 認証 / 初回登録モーダル -->
     <div id="auth-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
-        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90dvh]">
+        <div class="theme-surface border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl overflow-y-auto max-h-[90dvh]">
             <!-- 未ログイン時：ログイン方法選択 -->
             <div id="auth-view-login" class="text-center">
                 <div class="w-16 h-16 rounded-2xl bg-indigo-600/25 text-indigo-400 border border-indigo-500/30 mx-auto flex items-center justify-center text-3xl mb-4 shadow-inner">🪐</div>
                 <h2 class="text-2xl font-bold text-white mb-2">AetherChat へようこそ</h2>
-                <p class="text-xs text-slate-400 mb-6">安全なクラウド上のプライベート・グループチャット</p>
+                <p class="text-xs text-slate-400 mb-6">高機能で自分好みにカスタムできるグループチャット</p>
 
                 <div class="space-y-3">
                     <button onclick="loginWithGoogle()" class="w-full bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-3 shadow-lg">
@@ -70,13 +114,13 @@
                 </div>
                 <div class="flex gap-2 mt-6">
                     <button onclick="switchAuthTab('login')" class="w-1/3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold py-3 rounded-xl text-xs transition">戻る</button>
-                    <button onclick="submitIdPassAuth()" class="w-2/3 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-indigo-600/30">ログイン / 新規登録</button>
+                    <button onclick="submitIdPassAuth()" class="w-2/3 theme-primary-bg hover:opacity-90 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg">ログイン / 新規登録</button>
                 </div>
             </div>
 
             <!-- プロフィール初期設定ビュー -->
             <div id="auth-view-profile" class="hidden text-center">
-                <div class="w-20 h-20 rounded-full bg-indigo-600 text-white font-bold text-2xl mx-auto flex items-center justify-center mb-4 shadow-lg overflow-hidden border-2 border-indigo-500/50 relative group cursor-pointer" onclick="document.getElementById('setup-avatar-input').click()" title="クリックして画像を選択">
+                <div class="w-20 h-20 rounded-full theme-primary-bg text-white font-bold text-2xl mx-auto flex items-center justify-center mb-4 shadow-lg overflow-hidden border-2 border-indigo-500/50 relative group cursor-pointer" onclick="document.getElementById('setup-avatar-input').click()" title="クリックして画像を選択">
                     <span id="setup-avatar-preview">🪐</span>
                     <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white font-bold transition">変更</div>
                 </div>
@@ -93,24 +137,21 @@
                         <input type="text" id="setup-status-msg" placeholder="例: こんにちは！よろしくお願いします" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500" />
                     </div>
                 </div>
-                <button onclick="completeProfileSetup()" class="w-full mt-6 bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-lg shadow-indigo-600/30">
+                <button onclick="completeProfileSetup()" class="w-full mt-6 theme-primary-bg hover:opacity-90 text-white font-bold py-3.5 rounded-xl text-sm transition shadow-lg">
                     チャットを始める
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- 【新規追加機能】 相手のプロフィール確認・操作モーダル (QR読み取り時・友達タップ時共通) -->
+    <!-- 相手のプロフィール確認・操作モーダル -->
     <div id="user-profile-view-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700/80 rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="user-profile-box">
-            <!-- 相手の背景画像エリア -->
+        <div class="theme-surface border border-slate-700/80 rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden flex flex-col transform scale-95 transition-transform duration-300" id="user-profile-box">
             <div id="target-profile-bg" class="w-full h-32 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 relative bg-cover bg-center">
                 <button onclick="closeUserProfileViewModal()" class="absolute top-3 right-3 bg-black/40 hover:bg-black/60 text-white w-8 h-8 rounded-full flex items-center justify-center transition backdrop-blur-sm">✕</button>
             </div>
             
-            <!-- プロフィールヘッダー情報 -->
             <div class="px-6 pb-6 pt-0 text-center relative flex-1 flex flex-col">
-                <!-- アイコン (背景の上に重なる) -->
                 <div class="relative -mt-12 mb-3 inline-block mx-auto">
                     <div id="target-profile-avatar" class="w-24 h-24 rounded-full bg-slate-800 border-4 border-slate-900 shadow-xl overflow-hidden mx-auto flex items-center justify-center text-3xl font-bold text-white">
                         👤
@@ -120,43 +161,61 @@
                 <h3 id="target-profile-name" class="font-bold text-xl text-white mb-1">ユーザー名</h3>
                 <p id="target-profile-id" class="text-[11px] font-mono text-indigo-400 mb-3 bg-indigo-950/50 py-0.5 px-2.5 rounded-full inline-block mx-auto border border-indigo-500/30">ID: ---</p>
                 
-                <!-- ステータスメッセージ (ひとこと) -->
                 <div class="bg-slate-950/80 p-3 rounded-2xl border border-slate-800/80 mb-6 text-left">
                     <span class="text-[10px] text-slate-500 font-bold block mb-0.5 uppercase tracking-wider">ステータスメッセージ</span>
                     <p id="target-profile-status" class="text-xs text-slate-200 leading-relaxed italic">設定されていません</p>
                 </div>
 
-                <!-- 動的アクションボタンエリア -->
                 <div id="target-profile-actions" class="mt-auto space-y-2">
-                    <!-- JavaScriptでボタンが動的に生成されます -->
+                    <!-- Dynamic Buttons -->
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- カスタムメッセージモーダル -->
+    <!-- 汎用お知らせモーダル -->
     <div id="modal-overlay" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700/80 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-300" id="modal-box">
+        <div class="theme-surface border border-slate-700/80 rounded-2xl p-6 max-w-sm w-full shadow-2xl transform scale-95 transition-transform duration-300" id="modal-box">
             <h3 id="modal-title" class="text-lg font-bold text-white mb-2">通知</h3>
             <p id="modal-desc" class="text-sm text-slate-300 mb-6 leading-relaxed"></p>
             <div class="flex justify-end">
-                <button onclick="closeModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-sm font-semibold transition">OK</button>
+                <button onclick="closeModal()" class="theme-primary-bg hover:opacity-90 text-white px-5 py-2 rounded-xl text-sm font-semibold transition">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- チャット履歴消去 / ルーム削除確認モーダル -->
+    <div id="clear-chat-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
+        <div class="theme-surface border border-rose-500/30 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
+            <div class="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 border border-rose-500/30 mx-auto flex items-center justify-center text-2xl mb-3">🗑️</div>
+            <h3 class="text-lg font-bold text-white text-center mb-1">チャットの消去</h3>
+            <p class="text-xs text-slate-400 text-center mb-6" id="clear-chat-desc">このチャットのメッセージ履歴を消去します。削除されたメッセージは元に戻せません。</p>
+
+            <div class="space-y-2">
+                <button onclick="executeClearChatHistory()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl text-xs transition shadow-lg shadow-rose-600/30">
+                    メッセージ履歴をすべて消去
+                </button>
+                <button id="btn-delete-room" onclick="executeDeleteRoom()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl text-xs font-semibold transition hidden">
+                    チャットルームごと削除
+                </button>
+                <button onclick="closeClearChatModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-400 py-2.5 rounded-xl text-xs font-semibold transition">
+                    キャンセル
+                </button>
             </div>
         </div>
     </div>
 
     <!-- 自分のプロフィール＆アカウント設定モーダル -->
     <div id="profile-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center max-h-[90dvh] overflow-y-auto">
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center max-h-[90dvh] overflow-y-auto">
             
-            <!-- 背景＆アイコン設定エリア -->
             <div id="profile-bg-preview" class="w-full h-24 rounded-2xl bg-gradient-to-r from-indigo-600 to-purple-600 mb-[-40px] relative overflow-hidden group cursor-pointer bg-cover bg-center" onclick="document.getElementById('edit-bg-input').click()" title="クリックして背景を変更">
                 <div class="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white font-bold transition">背景を変更</div>
             </div>
             <input type="file" id="edit-bg-input" accept="image/*" class="hidden" onchange="updateProfileBg(this)" />
 
             <div class="relative inline-block mb-2 group cursor-pointer z-10" onclick="document.getElementById('edit-avatar-input').click()" title="クリックしてアイコン画像を変更">
-                <div id="my-profile-avatar" class="w-20 h-20 rounded-full bg-indigo-600 text-white font-bold text-2xl mx-auto flex items-center justify-center shadow-lg overflow-hidden border-4 border-slate-900">私</div>
+                <div id="my-profile-avatar" class="w-20 h-20 rounded-full theme-primary-bg text-white font-bold text-2xl mx-auto flex items-center justify-center shadow-lg overflow-hidden border-4 border-slate-900">私</div>
                 <div class="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-xs text-white font-bold transition">変更</div>
             </div>
             <input type="file" id="edit-avatar-input" accept="image/*" class="hidden" onchange="updateProfileAvatar(this)" />
@@ -164,12 +223,10 @@
             <h3 id="my-profile-name" class="font-bold text-lg text-white mb-0.5">ゲスト</h3>
             <p id="my-profile-status" class="text-xs text-slate-400 italic mb-3">ステータスメッセージ...</p>
             
-            <!-- 見やすいアカウントIDカード＆QRコード生成エリア -->
             <div class="mb-4 bg-gradient-to-br from-indigo-950/60 to-slate-950 p-3.5 rounded-2xl border border-indigo-500/30 text-left shadow-md">
                 <div class="flex items-center justify-between mb-1">
-                    <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-wider flex items-center gap-1">
-                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V8a2 2 0 00-2-2h-5m-4 0V5a2 2 0 012-2h2a2 2 0 012 2v1m-4 0h4"/></svg>
-                        マイ アカウントID
+                    <span class="text-[10px] font-bold theme-primary-text uppercase tracking-wider flex items-center gap-1">
+                        🔑 マイ アカウントID
                     </span>
                     <button onclick="copyMyId()" class="text-[10px] bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/40 px-2 py-0.5 rounded-lg transition font-semibold">IDコピー</button>
                 </div>
@@ -178,30 +235,28 @@
                 </div>
                 
                 <div class="mt-3 flex gap-2">
-                    <button onclick="openMyQrModal()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md shadow-indigo-600/30">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
-                        QRコードで共有
+                    <button onclick="openMyQrModal()" class="flex-1 theme-primary-bg hover:opacity-90 text-white py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1.5 shadow-md">
+                        📱 QRコード共有
                     </button>
                     <button onclick="copyShareLink()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-2 rounded-xl text-xs font-semibold transition border border-slate-700">
-                        招待URLコピー
+                        招待URL
                     </button>
                 </div>
             </div>
 
-            <!-- アカウント編集セクション -->
             <div class="space-y-3 text-left mb-4 bg-slate-950 p-3 rounded-2xl border border-slate-800">
                 <div>
                     <label class="block text-[10px] text-slate-400 mb-1">表示名を変更</label>
                     <div class="flex gap-2">
                         <input type="text" id="edit-name-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
-                        <button onclick="saveProfileName()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">保存</button>
+                        <button onclick="saveProfileName()" class="theme-primary-bg hover:opacity-90 text-white px-3 py-1.5 rounded-xl text-xs font-semibold shrink-0 transition">保存</button>
                     </div>
                 </div>
                 <div>
                     <label class="block text-[10px] text-slate-400 mb-1">ステータスメッセージを変更</label>
                     <div class="flex gap-2">
                         <input type="text" id="edit-status-input" class="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-indigo-500" />
-                        <button onclick="saveProfileStatus()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition">保存</button>
+                        <button onclick="saveProfileStatus()" class="theme-primary-bg hover:opacity-90 text-white px-3 py-1.5 rounded-xl text-xs font-semibold transition">保存</button>
                     </div>
                 </div>
             </div>
@@ -215,19 +270,17 @@
 
     <!-- マイQRコード表示モーダル -->
     <div id="my-qr-modal" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl text-center">
             <h3 class="text-lg font-bold text-white mb-1">マイ QR コード</h3>
             <p class="text-xs text-slate-400 mb-5">友達にこのQRコードをかざしてもらうと追加できます</p>
 
-            <div class="bg-white p-4 rounded-2xl inline-block shadow-xl mb-4 border-4 border-indigo-500/30" id="qrcode-container">
-                <!-- JavaScriptでここにQRコードが描画されます -->
-            </div>
+            <div class="bg-white p-4 rounded-2xl inline-block shadow-xl mb-4 border-4 border-indigo-500/30" id="qrcode-container"></div>
 
             <p id="qr-user-name" class="font-bold text-base text-white mb-1"></p>
             <p class="text-[10px] font-mono text-indigo-400 mb-5 break-all" id="qr-user-id"></p>
 
             <div class="flex gap-2">
-                <button onclick="copyShareLink()" class="flex-1 bg-indigo-600 hover:bg-indigo-500 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30">
+                <button onclick="copyShareLink()" class="flex-1 theme-primary-bg hover:opacity-90 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg">
                     招待リンクをコピー
                 </button>
                 <button onclick="closeMyQrModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition">
@@ -237,46 +290,67 @@
         </div>
     </div>
 
-    <!-- アプリデザイン変更モーダル -->
+    <!-- アプリデザイン＆カスタムカラー変更モーダル -->
     <div id="theme-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 class="text-lg font-bold text-white mb-2">デザイン・テーマ変更</h3>
-            <p class="text-xs text-slate-400 mb-4">アプリのカラーテーマや雰囲気をカスタマイズできます。</p>
-            <div class="space-y-3 mb-6">
-                <button onclick="setTheme('dark')" class="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-indigo-500 flex items-center justify-between transition text-left">
-                    <div>
-                        <div class="font-bold text-sm text-white">🌙 ダークスペース (既定)</div>
-                        <div class="text-[10px] text-slate-400">深みのあるダークナイトブルー基調</div>
-                    </div>
-                    <div class="w-6 h-6 rounded-full bg-slate-950 border-2 border-indigo-500"></div>
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-sm w-full shadow-2xl max-h-[90dvh] overflow-y-auto">
+            <h3 class="text-lg font-bold text-white mb-1">デザイン・カラーカスタマイズ</h3>
+            <p class="text-xs text-slate-400 mb-4">プリセットまたは好きなカラーでアプリ全体の配色を設定できます。</p>
+
+            <!-- プリセット選択 -->
+            <div class="space-y-2 mb-5">
+                <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">プリセットテーマ</span>
+                <div class="grid grid-cols-3 gap-2">
+                    <button onclick="applyPresetTheme('dark')" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-indigo-500 text-center transition">
+                        <div class="w-5 h-5 rounded-full bg-indigo-600 mx-auto mb-1"></div>
+                        <span class="text-[10px] font-bold text-white block">ダーク</span>
+                    </button>
+                    <button onclick="applyPresetTheme('cyber')" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-cyan-500 text-center transition">
+                        <div class="w-5 h-5 rounded-full bg-cyan-500 mx-auto mb-1"></div>
+                        <span class="text-[10px] font-bold text-cyan-400 block">サイバー</span>
+                    </button>
+                    <button onclick="applyPresetTheme('sakura')" class="p-2.5 rounded-xl bg-slate-950 border border-slate-800 hover:border-pink-500 text-center transition">
+                        <div class="w-5 h-5 rounded-full bg-pink-500 mx-auto mb-1"></div>
+                        <span class="text-[10px] font-bold text-pink-400 block">サクラ</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- カスタムカラー選択 -->
+            <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 space-y-3 mb-5 text-left">
+                <span class="text-[10px] font-bold theme-primary-text uppercase tracking-wider block">🎨 自由カラーカスタマイズ</span>
+                
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-slate-300">メインブランドカラー</label>
+                    <input type="color" id="custom-color-primary" value="#6366f1" class="w-9 h-9 rounded-lg bg-transparent cursor-pointer border-0" onchange="updateCustomColors()" />
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-slate-300">自分の吹き出しカラー</label>
+                    <input type="color" id="custom-color-bubble" value="#4f46e5" class="w-9 h-9 rounded-lg bg-transparent cursor-pointer border-0" onchange="updateCustomColors()" />
+                </div>
+                <div class="flex items-center justify-between">
+                    <label class="text-xs text-slate-300">背景トーン</label>
+                    <input type="color" id="custom-color-bg" value="#020617" class="w-9 h-9 rounded-lg bg-transparent cursor-pointer border-0" onchange="updateCustomColors()" />
+                </div>
+            </div>
+
+            <div class="flex gap-2">
+                <button onclick="saveCustomTheme()" class="flex-1 theme-primary-bg hover:opacity-90 text-white py-2.5 rounded-xl text-xs font-bold transition shadow-lg">
+                    テーマ保存
                 </button>
-                <button onclick="setTheme('cyber')" class="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-cyan-500 flex items-center justify-between transition text-left">
-                    <div>
-                        <div class="font-bold text-sm text-cyan-400">⚡ サイバーネオン</div>
-                        <div class="text-[10px] text-slate-400">ネオンシアンとダークチャコール</div>
-                    </div>
-                    <div class="w-6 h-6 rounded-full bg-cyan-500"></div>
-                </button>
-                <button onclick="setTheme('sakura')" class="w-full p-3 rounded-2xl bg-slate-950 border border-slate-800 hover:border-pink-500 flex items-center justify-between transition text-left">
-                    <div>
-                        <div class="font-bold text-sm text-pink-400">🌸 サクラパステル</div>
-                        <div class="text-[10px] text-slate-400">柔らかなピンクとライトモーヴ</div>
-                    </div>
-                    <div class="w-6 h-6 rounded-full bg-pink-500"></div>
+                <button onclick="closeThemeModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2.5 rounded-xl text-xs font-semibold transition">
+                    閉じる
                 </button>
             </div>
-            <button onclick="closeThemeModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">閉じる</button>
         </div>
     </div>
 
-    <!-- 友達追加モーダル (QRスキャナー統合) -->
+    <!-- 友達追加モーダル -->
     <div id="add-friend-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-2">友達を追加</h3>
             
-            <!-- 追加方法タブ切り替え -->
             <div class="flex bg-slate-950 rounded-xl p-1 mb-4 border border-slate-800">
-                <button onclick="switchAddFriendTab('scan')" id="tab-add-scan" class="flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white transition flex items-center justify-center gap-1.5">
+                <button onclick="switchAddFriendTab('scan')" id="tab-add-scan" class="flex-1 py-2 rounded-lg text-xs font-bold theme-primary-bg text-white transition flex items-center justify-center gap-1.5">
                     📷 QR読み取り
                 </button>
                 <button onclick="switchAddFriendTab('id')" id="tab-add-id" class="flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5">
@@ -284,13 +358,12 @@
                 </button>
             </div>
 
-            <!-- QRコードスキャナータブ -->
             <div id="add-view-scan" class="space-y-3">
                 <div id="qr-reader" class="w-full bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden min-h-[220px] flex items-center justify-center relative">
                     <p class="text-xs text-slate-500">カメラを起動中...</p>
                 </div>
                 <div class="flex justify-between items-center text-xs">
-                    <label class="cursor-pointer text-indigo-400 hover:text-indigo-300 font-semibold flex items-center gap-1">
+                    <label class="cursor-pointer theme-primary-text font-semibold flex items-center gap-1">
                         🖼️ QR画像をファイルから選択
                         <input type="file" accept="image/*" class="hidden" onchange="scanQrFromImageFile(this)" />
                     </label>
@@ -300,13 +373,12 @@
                 </div>
             </div>
 
-            <!-- ID手入力タブ -->
             <div id="add-view-id" class="space-y-4 hidden">
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 mb-1">相手のユーザーID</label>
                     <input type="text" id="target-friend-id" placeholder="相手のIDを貼り付け..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-indigo-500 font-mono" />
                 </div>
-                <button onclick="searchUserAndShowProfile()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg shadow-indigo-600/30">
+                <button onclick="searchUserAndShowProfile()" class="w-full theme-primary-bg hover:opacity-90 text-white py-3 rounded-xl text-xs font-bold transition shadow-lg">
                     プロフィールを確認
                 </button>
             </div>
@@ -319,7 +391,7 @@
 
     <!-- グループ作成モーダル -->
     <div id="create-group-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <h3 class="text-lg font-bold text-white mb-2">グループチャットを作成</h3>
             <p class="text-xs text-slate-400 mb-4">グループ名を入力し、招待したい友達を選択してください。</p>
             <div class="space-y-4">
@@ -329,42 +401,38 @@
                 </div>
                 <div>
                     <label class="block text-xs font-semibold text-slate-400 mb-2">招待する友達を選択</label>
-                    <div id="group-friends-checkboxes" class="max-h-48 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800">
-                        <!-- 動的挿入 -->
-                    </div>
+                    <div id="group-friends-checkboxes" class="max-h-48 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800"></div>
                 </div>
             </div>
             <div class="flex justify-end space-x-3 mt-6">
                 <button onclick="closeCreateGroupModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-4 py-2 rounded-xl text-xs font-semibold transition">キャンセル</button>
-                <button onclick="createGroupChat()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-5 py-2 rounded-xl text-xs font-semibold transition shadow-lg shadow-indigo-600/30">グループを作成</button>
+                <button onclick="createGroupChat()" class="theme-primary-bg hover:opacity-90 text-white px-5 py-2 rounded-xl text-xs font-semibold transition shadow-lg">グループを作成</button>
             </div>
         </div>
     </div>
 
     <!-- メンバー一覧・グループ情報モーダル -->
     <div id="group-info-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <div class="flex items-center justify-between mb-4">
                 <h3 id="info-group-title" class="text-lg font-bold text-white">グループ情報</h3>
                 <button onclick="closeGroupInfoModal()" class="text-slate-400 hover:text-white">✕</button>
             </div>
             <p class="text-xs text-slate-400 mb-3">参加メンバー一覧（タップするとプロフィールを確認できます）</p>
-            <div id="info-members-list" class="max-h-64 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4">
-                <!-- 動的挿入 -->
-            </div>
+            <div id="info-members-list" class="max-h-64 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4"></div>
             <button onclick="closeGroupInfoModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">閉じる</button>
         </div>
     </div>
 
-    <!-- メイン画面レイアウト (スマホ対応 h-[100dvh]) -->
+    <!-- メイン画面レイアウト -->
     <div class="flex-1 flex overflow-hidden relative w-full h-full">
         
-        <!-- サイドバー (スマホ時：ドロワー型オーバーレイ) -->
-        <aside id="sidebar" class="w-full md:w-80 lg:w-96 bg-slate-900 border-r border-slate-800 flex flex-col z-30 absolute md:relative inset-y-0 left-0 transition-transform duration-300 transform -translate-x-full md:translate-x-0">
+        <!-- サイドバー -->
+        <aside id="sidebar" class="w-full md:w-80 lg:w-96 theme-surface border-r border-slate-800/80 flex flex-col z-30 absolute md:relative inset-y-0 left-0 transition-transform duration-300 transform -translate-x-full md:translate-x-0">
             <!-- ユーザープロフィールバナー -->
-            <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+            <div class="p-4 border-b border-slate-800/80 flex items-center justify-between bg-slate-900/40">
                 <div class="flex items-center space-x-3 cursor-pointer group" onclick="openProfileModal()">
-                    <div id="sidebar-avatar" class="w-11 h-11 rounded-full bg-indigo-600 flex items-center justify-center font-bold text-white shadow-inner overflow-hidden border border-indigo-500/30 shrink-0">
+                    <div id="sidebar-avatar" class="w-11 h-11 rounded-full theme-primary-bg flex items-center justify-center font-bold text-white shadow-inner overflow-hidden border border-white/20 shrink-0">
                         私
                     </div>
                     <div class="overflow-hidden">
@@ -376,21 +444,21 @@
                     <button onclick="openMyQrModal()" title="マイQRコードを表示" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"/></svg>
                     </button>
-                    <button onclick="openThemeModal()" title="デザインテーマ変更" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
+                    <button onclick="openThemeModal()" title="カラー・テーマ変更" class="bg-slate-800 hover:bg-slate-700 text-slate-300 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
                         🎨
                     </button>
                     <button onclick="openCreateGroupModal()" title="グループを作成" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"/></svg>
+                        👥
                     </button>
                     <button onclick="openAddFriendModal()" title="友達を追加 (QR/ID)" class="bg-indigo-600/20 hover:bg-indigo-600/30 text-indigo-400 border border-indigo-500/30 p-2.5 rounded-xl text-xs font-semibold flex items-center gap-1 transition">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"/></svg>
+                        ➕
                     </button>
                 </div>
             </div>
 
             <!-- タブ切り替え -->
             <div class="grid grid-cols-3 border-b border-slate-800 bg-slate-950/40 text-xs font-semibold">
-                <button onclick="switchTab('chats')" id="tab-btn-chats" class="py-3.5 text-indigo-400 border-b-2 border-indigo-500 transition">チャット</button>
+                <button onclick="switchTab('chats')" id="tab-btn-chats" class="py-3.5 theme-primary-text border-b-2 theme-primary-border transition">チャット</button>
                 <button onclick="switchTab('friends')" id="tab-btn-friends" class="py-3.5 text-slate-400 hover:text-slate-200 transition">友達 (<span id="friends-count">0</span>)</button>
                 <button onclick="switchTab('requests')" id="tab-btn-requests" class="py-3.5 text-slate-400 hover:text-slate-200 transition relative">申請 <span id="req-badge" class="hidden absolute top-2 right-4 w-2 h-2 rounded-full bg-rose-500"></span></button>
             </div>
@@ -401,31 +469,36 @@
             <div class="flex-1 overflow-y-auto p-2 space-y-1 hidden" id="tab-content-requests"></div>
 
             <div class="p-3 border-t border-slate-800 text-[10px] text-slate-500 text-center flex items-center justify-between">
-                <span>AetherChat Mobile v6.2</span>
-                <button onclick="openBlockedListModal()" class="text-indigo-400 hover:underline">ブロック管理</button>
+                <span>AetherChat Pro v7.0</span>
+                <button onclick="openBlockedListModal()" class="theme-primary-text hover:underline">ブロック管理</button>
             </div>
         </aside>
 
-        <!-- モバイル用サイドバー背景オーバーレイ -->
         <div id="sidebar-overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black/60 z-20 md:hidden hidden transition-opacity"></div>
 
-        <!-- チャットメイン領域 (スマホで全画面表示) -->
+        <!-- チャットメイン領域 -->
         <main class="flex-1 flex flex-col bg-slate-950 relative w-full h-full overflow-hidden">
-            <header class="bg-slate-900/90 backdrop-blur-md border-b border-slate-800 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between z-10 shrink-0">
+            <!-- チャットヘッダー -->
+            <header class="theme-surface/90 backdrop-blur-md border-b border-slate-800 px-3 py-2.5 sm:px-4 sm:py-3 flex items-center justify-between z-10 shrink-0">
                 <div class="flex items-center space-x-2 sm:space-x-3 overflow-hidden">
                     <button onclick="toggleSidebar()" class="md:hidden text-slate-300 hover:text-white p-2 rounded-xl bg-slate-800/80 active:bg-slate-700 transition shrink-0">
                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
                     </button>
-                    <div id="chat-header-icon" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-indigo-400 shrink-0">💬</div>
+                    <div id="chat-header-icon" class="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text shrink-0">💬</div>
                     <div class="overflow-hidden cursor-pointer" onclick="openCurrentChatProfile()">
                         <h2 id="current-chat-title" class="font-bold text-sm sm:text-base text-white truncate">ルームを選択してください</h2>
                         <p id="current-chat-sub" class="text-[10px] sm:text-xs text-slate-400 truncate">タップでプロフィールまたはメンバーを表示</p>
                     </div>
                 </div>
-                <div id="chat-header-action" class="hidden shrink-0">
-                    <button onclick="openGroupInfoModal()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
-                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
-                        <span class="hidden sm:inline">メンバー</span>
+                
+                <!-- チャット消去・操作アクションエリア -->
+                <div id="chat-header-actions" class="hidden items-center gap-1.5 shrink-0">
+                    <button onclick="openGroupInfoModal()" id="btn-group-info" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1.5 hidden">
+                        👥 <span class="hidden sm:inline">メンバー</span>
+                    </button>
+                    <!-- チャット消去ボタン -->
+                    <button onclick="openClearChatModal()" title="チャットの消去" class="bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 p-2 sm:px-3 sm:py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-1">
+                        🗑️ <span class="hidden sm:inline">消去</span>
                     </button>
                 </div>
             </header>
@@ -436,13 +509,21 @@
                     <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🔒</div>
                     <div>
                         <p class="font-semibold text-slate-300 text-sm">セキュアチャットルーム</p>
-                        <p class="text-xs text-slate-500 mt-1">左上のメニューから友達を選択するかQRで追加してください</p>
+                        <p class="text-xs text-slate-500 mt-1">左側のメニューからチャットを選択するか友達を追加してください</p>
                     </div>
                 </div>
             </div>
 
+            <!-- @メンション選択ポップアップリスト -->
+            <div id="mention-popup" class="hidden absolute bottom-20 left-4 sm:left-6 z-20 bg-slate-900/95 backdrop-blur-md border border-indigo-500/40 rounded-2xl p-2 shadow-2xl max-h-48 overflow-y-auto w-64 animate-slide-up">
+                <div class="text-[10px] font-bold theme-primary-text px-2 py-1 uppercase tracking-wider border-b border-slate-800 mb-1">
+                    メンション先を選択 (@)
+                </div>
+                <div id="mention-list-items" class="space-y-1"></div>
+            </div>
+
             <!-- スタンプパレット -->
-            <div id="extra-panel" class="hidden bg-slate-900 border-t border-slate-800 p-2.5 grid grid-cols-6 gap-2 max-w-lg mx-auto w-full shrink-0">
+            <div id="extra-panel" class="hidden theme-surface border-t border-slate-800 p-2.5 grid grid-cols-6 gap-2 max-w-lg mx-auto w-full shrink-0">
                 <button onclick="sendStamp('😊')" class="p-2 text-2xl hover:bg-slate-800 active:scale-90 rounded-xl transition">😊</button>
                 <button onclick="sendStamp('🔥')" class="p-2 text-2xl hover:bg-slate-800 active:scale-90 rounded-xl transition">🔥</button>
                 <button onclick="sendStamp('👍')" class="p-2 text-2xl hover:bg-slate-800 active:scale-90 rounded-xl transition">👍</button>
@@ -451,25 +532,32 @@
                 <button onclick="sendStamp('🚀')" class="p-2 text-2xl hover:bg-slate-800 active:scale-90 rounded-xl transition">🚀</button>
             </div>
 
-            <!-- メッセージ入力欄 (スマホのソフトキーボード対応) -->
-            <footer id="chat-footer-area" class="bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2.5 sm:p-3 shadow-2xl shrink-0">
+            <!-- メッセージ入力エリア -->
+            <footer id="chat-footer-area" class="theme-surface/95 backdrop-blur-md border-t border-slate-800 p-2.5 sm:p-3 shadow-2xl shrink-0">
                 <div class="max-w-4xl mx-auto flex items-end gap-1.5 sm:gap-2">
                     <div class="flex items-center space-x-0.5 sm:space-x-1 shrink-0">
+                        <!-- 画像添付 -->
                         <label class="cursor-pointer text-slate-400 hover:text-indigo-400 p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
                             <input type="file" id="image-file-input" accept="image/*" onchange="sendImage(this)" class="hidden" />
                         </label>
+                        <!-- メンション挿入ボタン -->
+                        <button onclick="triggerMentionPopup()" title="メンションを追加" class="text-slate-400 hover:text-indigo-400 p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 transition font-bold text-base">
+                            @
+                        </button>
+                        <!-- スタンプ -->
                         <button onclick="toggleStampPanel()" class="text-slate-400 hover:text-indigo-400 p-2 sm:p-2.5 rounded-xl hover:bg-slate-800 transition">
                             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
                         </button>
                     </div>
 
-                    <textarea id="message-input" rows="1" placeholder="メッセージ..." 
+                    <textarea id="message-input" rows="1" placeholder="メッセージ... (@でメンション)" 
                         class="flex-1 bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-2.5 text-sm text-slate-100 placeholder-slate-500 focus:outline-none focus:border-indigo-500 transition resize-none max-h-28 shadow-inner"
+                        oninput="handleInputMentions(event)"
                         onkeydown="handleKeydown(event)"></textarea>
 
                     <button onclick="sendMessage()" 
-                        class="bg-indigo-600 hover:bg-indigo-500 active:scale-95 text-white p-2.5 sm:p-3 rounded-xl transition shadow-lg shadow-indigo-600/30 flex items-center justify-center shrink-0">
+                        class="theme-primary-bg hover:opacity-90 active:scale-95 text-white p-2.5 sm:p-3 rounded-xl transition shadow-lg flex items-center justify-center shrink-0">
                         <svg class="w-5 h-5 rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                     </button>
                 </div>
@@ -479,15 +567,13 @@
 
     <!-- ブロック管理モーダル -->
     <div id="blocked-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden opacity-0 transition-opacity duration-300 p-4">
-        <div class="bg-slate-900 border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+        <div class="theme-surface border border-slate-700 rounded-3xl p-6 max-w-md w-full shadow-2xl">
             <div class="flex items-center justify-between mb-4">
                 <h3 class="text-lg font-bold text-white">ブロック管理</h3>
                 <button onclick="closeBlockedListModal()" class="text-slate-400 hover:text-white">✕</button>
             </div>
             <p class="text-xs text-slate-400 mb-4">ブロックしているユーザーの一覧です。解除することができます。</p>
-            <div id="blocked-list-container" class="max-h-60 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4">
-                <!-- 動的挿入 -->
-            </div>
+            <div id="blocked-list-container" class="max-h-60 overflow-y-auto space-y-2 bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4"></div>
             <button onclick="closeBlockedListModal()" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 py-2.5 rounded-xl text-xs font-semibold transition">閉じる</button>
         </div>
     </div>
@@ -499,7 +585,7 @@
             GoogleAuthProvider, signInWithPopup,
             createUserWithEmailAndPassword, signInWithEmailAndPassword
         } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, arrayUnion, addDoc, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, collection, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, query, orderBy, serverTimestamp, arrayUnion, addDoc, getDocs, writeBatch } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyAhvaLu0BcyBKUyER8PqxDdDBJwUOmfeOk",
@@ -511,7 +597,7 @@
             measurementId: "G-VYBR9QPG3S"
         };
 
-        const appId = 'aetherchat-v6.0-prod';
+        const appId = 'aetherchat-v7.0-custom';
 
         const app = initializeApp(firebaseConfig);
         const db = getFirestore(app);
@@ -521,6 +607,7 @@
         let myUserData = null;
         let currentRoomId = null;
         let currentRoomData = null;
+        let roomMembersMap = {}; // id -> { name, avatar }
         let unsubscribeMessages = null;
         let unsubscribeFriends = null;
         let unsubscribeRequests = null;
@@ -574,22 +661,76 @@
             }
         }
 
-        window.setTheme = function(themeName) {
-            const body = document.getElementById("app-body");
-            body.className = `app-height flex flex-col overflow-hidden select-none theme-${themeName}`;
-            
-            if (themeName === 'dark') {
-                body.style.backgroundColor = '#020617';
-                body.style.color = '#f1f5f9';
-            } else if (themeName === 'cyber') {
-                body.style.backgroundColor = '#050b14';
-                body.style.color = '#e0f2fe';
-            } else if (themeName === 'sakura') {
-                body.style.backgroundColor = '#fff1f2';
-                body.style.color = '#4c0519';
+        // --- 🎨 カスタムテーマ・配色機能 ---
+        window.applyPresetTheme = function(preset) {
+            const root = document.documentElement;
+            if (preset === 'dark') {
+                root.style.setProperty('--color-bg-base', '#020617');
+                root.style.setProperty('--color-bg-surface', '#0f172a');
+                root.style.setProperty('--color-primary', '#6366f1');
+                root.style.setProperty('--color-bubble-me', '#4f46e5');
+                document.getElementById('custom-color-primary').value = '#6366f1';
+                document.getElementById('custom-color-bubble').value = '#4f46e5';
+                document.getElementById('custom-color-bg').value = '#020617';
+            } else if (preset === 'cyber') {
+                root.style.setProperty('--color-bg-base', '#030812');
+                root.style.setProperty('--color-bg-surface', '#081226');
+                root.style.setProperty('--color-primary', '#06b6d4');
+                root.style.setProperty('--color-bubble-me', '#0891b2');
+                document.getElementById('custom-color-primary').value = '#06b6d4';
+                document.getElementById('custom-color-bubble').value = '#0891b2';
+                document.getElementById('custom-color-bg').value = '#030812';
+            } else if (preset === 'sakura') {
+                root.style.setProperty('--color-bg-base', '#1a0c16');
+                root.style.setProperty('--color-bg-surface', '#2d1424');
+                root.style.setProperty('--color-primary', '#ec4899');
+                root.style.setProperty('--color-bubble-me', '#db2777');
+                document.getElementById('custom-color-primary').value = '#ec4899';
+                document.getElementById('custom-color-bubble').value = '#db2777';
+                document.getElementById('custom-color-bg').value = '#1a0c16';
             }
+        }
+
+        window.updateCustomColors = function() {
+            const root = document.documentElement;
+            const primary = document.getElementById('custom-color-primary').value;
+            const bubble = document.getElementById('custom-color-bubble').value;
+            const bg = document.getElementById('custom-color-bg').value;
+
+            root.style.setProperty('--color-primary', primary);
+            root.style.setProperty('--color-bubble-me', bubble);
+            root.style.setProperty('--color-bg-base', bg);
+        }
+
+        window.saveCustomTheme = async function() {
+            const primary = document.getElementById('custom-color-primary').value;
+            const bubble = document.getElementById('custom-color-bubble').value;
+            const bg = document.getElementById('custom-color-bg').value;
+
+            const themeConfig = { primary, bubble, bg };
+            localStorage.setItem('aether_theme_config', JSON.stringify(themeConfig));
+
+            if (currentUser) {
+                const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', currentUser.uid);
+                await updateDoc(userRef, { themeConfig });
+            }
+
             closeThemeModal();
-            showModal("テーマ変更", "デザインテーマを適用しました！");
+            showModal("テーマ適用", "カスタム配色を保存・適用しました！");
+        }
+
+        function loadSavedTheme(themeConfig) {
+            if (!themeConfig) return;
+            const root = document.documentElement;
+            if (themeConfig.primary) root.style.setProperty('--color-primary', themeConfig.primary);
+            if (themeConfig.bubble) root.style.setProperty('--color-bubble-me', themeConfig.bubble);
+            if (themeConfig.bg) root.style.setProperty('--color-bg-base', themeConfig.bg);
+
+            if (document.getElementById('custom-color-primary')) {
+                document.getElementById('custom-color-primary').value = themeConfig.primary || '#6366f1';
+                document.getElementById('custom-color-bubble').value = themeConfig.bubble || '#4f46e5';
+                document.getElementById('custom-color-bg').value = themeConfig.bg || '#020617';
+            }
         }
 
         window.openThemeModal = function() {
@@ -602,6 +743,163 @@
             const modal = document.getElementById("theme-modal");
             modal.classList.add("opacity-0");
             setTimeout(() => modal.classList.add("hidden"), 300);
+        }
+
+        // --- メンション機能 (@Mention) ---
+        window.handleInputMentions = function(e) {
+            const val = e.target.value;
+            const cursor = e.target.selectionStart;
+            const textBeforeCursor = val.substring(0, cursor);
+            const atIndex = textBeforeCursor.lastIndexOf('@');
+
+            if (atIndex !== -1 && (atIndex === 0 || /\s/.test(textBeforeCursor[atIndex - 1]))) {
+                const queryStr = textBeforeCursor.substring(atIndex + 1).toLowerCase();
+                renderMentionSuggestions(queryStr);
+            } else {
+                hideMentionPopup();
+            }
+        }
+
+        window.triggerMentionPopup = function() {
+            const input = document.getElementById("message-input");
+            input.value += "@";
+            input.focus();
+            renderMentionSuggestions("");
+        }
+
+        function renderMentionSuggestions(filterText) {
+            const popup = document.getElementById("mention-popup");
+            const container = document.getElementById("mention-list-items");
+            container.innerHTML = "";
+
+            if (!currentRoomData || !currentRoomData.members) {
+                hideMentionPopup();
+                return;
+            }
+
+            const members = currentRoomData.members.filter(id => id !== currentUser.uid);
+            let count = 0;
+
+            members.forEach(mId => {
+                const memberInfo = roomMembersMap[mId] || { name: 'ユーザー', avatar: '' };
+                if (!filterText || memberInfo.name.toLowerCase().includes(filterText)) {
+                    count++;
+                    const div = document.createElement("div");
+                    div.className = "flex items-center space-x-2 p-1.5 rounded-xl hover:bg-indigo-600/30 cursor-pointer transition";
+                    div.onclick = () => insertMention(memberInfo.name);
+
+                    const avatarHtml = memberInfo.avatar
+                        ? `<img src="${memberInfo.avatar}" class="w-6 h-6 rounded-full object-cover" />`
+                        : `<div class="w-6 h-6 rounded-full overflow-hidden text-[10px]">${getInitialsAvatar(memberInfo.name)}</div>`;
+
+                    div.innerHTML = `
+                        ${avatarHtml}
+                        <span class="text-xs font-semibold text-white truncate">${escapeHTML(memberInfo.name)}</span>
+                    `;
+                    container.appendChild(div);
+                }
+            });
+
+            if (count > 0) {
+                popup.classList.remove("hidden");
+            } else {
+                hideMentionPopup();
+            }
+        }
+
+        function insertMention(name) {
+            const input = document.getElementById("message-input");
+            const val = input.value;
+            const atIndex = val.lastIndexOf('@');
+            if (atIndex !== -1) {
+                input.value = val.substring(0, atIndex) + `@${name} `;
+            } else {
+                input.value += `@${name} `;
+            }
+            hideMentionPopup();
+            input.focus();
+        }
+
+        function hideMentionPopup() {
+            document.getElementById("mention-popup").classList.add("hidden");
+        }
+
+        // --- STREAMING_CHUNK:Implementing Chat Deletion & Clear Logic... ---
+        // --- 🗑️ チャット消去機能 ---
+        window.openClearChatModal = function() {
+            if (!currentRoomId) return;
+            const modal = document.getElementById("clear-chat-modal");
+            const btnDeleteRoom = document.getElementById("btn-delete-room");
+
+            if (currentRoomData && currentRoomData.isGroup) {
+                btnDeleteRoom.classList.remove("hidden");
+            } else {
+                btnDeleteRoom.classList.add("hidden");
+            }
+
+            modal.classList.remove("hidden");
+            setTimeout(() => modal.classList.remove("opacity-0"), 10);
+        }
+
+        window.closeClearChatModal = function() {
+            const modal = document.getElementById("clear-chat-modal");
+            modal.classList.add("opacity-0");
+            setTimeout(() => modal.classList.add("hidden"), 300);
+        }
+
+        window.executeClearChatHistory = async function() {
+            if (!currentRoomId) return;
+            try {
+                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
+                const snap = await getDocs(messagesRef);
+
+                const batch = writeBatch(db);
+                snap.forEach(docSnap => {
+                    batch.delete(docSnap.ref);
+                });
+                await batch.commit();
+
+                closeClearChatModal();
+                showModal("消去完了", "このチャットの全メッセージ履歴をクリアしました。");
+            } catch(e) {
+                showModal("エラー", "チャットの消去に失敗しました。");
+            }
+        }
+
+        window.executeDeleteRoom = async function() {
+            if (!currentRoomId) return;
+            try {
+                // メッセージを消去後、ルームドキュメント削除
+                await executeClearChatHistory();
+                await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'rooms', currentRoomId));
+
+                currentRoomId = null;
+                currentRoomData = null;
+                document.getElementById("chat-box").innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-3">
+                        <div class="w-16 h-16 rounded-3xl bg-slate-900 border border-slate-800 flex items-center justify-center text-2xl shadow-xl">🔒</div>
+                        <p class="font-semibold text-slate-300 text-sm">ルームが削除されました</p>
+                    </div>
+                `;
+                document.getElementById("current-chat-title").innerText = "ルームを選択してください";
+                document.getElementById("chat-header-actions").classList.add("hidden");
+
+                closeClearChatModal();
+                showModal("削除完了", "グループチャットルームを削除しました。");
+            } catch(e) {
+                showModal("エラー", "ルームの削除に失敗しました。");
+            }
+        }
+
+        // --- メッセージ単体削除 ---
+        window.deleteSingleMessage = async function(messageId) {
+            if (!currentRoomId || !messageId) return;
+            try {
+                const msgRef = doc(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`, messageId);
+                await deleteDoc(msgRef);
+            } catch(e) {
+                showModal("エラー", "メッセージの削除に失敗しました。");
+            }
         }
 
         function resizeImage(file, maxWidth = 600, maxHeight = 600, quality = 0.8) {
@@ -630,18 +928,14 @@
             });
         }
 
-        // 【新規機能】 相手のプロフィールを表示し、追加・チャット等の操作を行うコア関数
         window.openUserProfileView = async function(targetUserId) {
             if (!targetUserId) return;
-
-            // 自分自身の場合
             if (targetUserId === currentUser.uid) {
                 openProfileModal();
                 return;
             }
 
             try {
-                // Firestoreから相手の最新ユーザー情報を取得
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', targetUserId);
                 const userSnap = await getDoc(userRef);
 
@@ -652,12 +946,10 @@
 
                 const targetData = userSnap.data();
 
-                // UI要素の更新
                 document.getElementById("target-profile-name").innerText = targetData.name || "ユーザー";
                 document.getElementById("target-profile-id").innerText = "ID: " + targetUserId;
                 document.getElementById("target-profile-status").innerText = targetData.statusMessage || "ステータスメッセージはありません。";
 
-                // アイコンの描画
                 const avatarContainer = document.getElementById("target-profile-avatar");
                 if (targetData.avatar) {
                     avatarContainer.innerHTML = `<img src="${targetData.avatar}" class="w-full h-full object-cover" />`;
@@ -665,7 +957,6 @@
                     avatarContainer.innerHTML = getInitialsAvatar(targetData.name);
                 }
 
-                // 背景画像の描画
                 const bgContainer = document.getElementById("target-profile-bg");
                 if (targetData.background) {
                     bgContainer.style.backgroundImage = `url('${targetData.background}')`;
@@ -673,24 +964,21 @@
                     bgContainer.style.backgroundImage = '';
                 }
 
-                // 関係性の判定 (友達・申請中・未登録)
                 const friendSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`, targetUserId));
                 const isFriend = friendSnap.exists();
 
                 const reqSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', `requests_${targetUserId}`, currentUser.uid));
                 const isRequested = reqSnap.exists();
 
-                // アクションボタン領域の組み立て
                 const actionsContainer = document.getElementById("target-profile-actions");
                 actionsContainer.innerHTML = "";
 
                 if (isFriend) {
-                    // 既に友達の場合
                     const roomId = [currentUser.uid, targetUserId].sort().join('_');
                     actionsContainer.innerHTML = `
                         <button onclick="closeUserProfileViewModal(); selectRoom('${roomId}', '${escapeHTML(targetData.name)}', false, ['${currentUser.uid}', '${targetUserId}'])" 
-                            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3 rounded-2xl text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-                            <span>💬</span> メッセージを送る
+                            class="w-full theme-primary-bg hover:opacity-90 text-white font-bold py-3 rounded-2xl text-sm transition shadow-lg flex items-center justify-center gap-2">
+                            💬 メッセージを送る
                         </button>
                         <div class="flex gap-2">
                             <button onclick="deleteFriend('${targetUserId}', '${escapeHTML(targetData.name)}'); closeUserProfileViewModal();" 
@@ -704,23 +992,20 @@
                         </div>
                     `;
                 } else if (isRequested) {
-                    // すでに申請中の場合
                     actionsContainer.innerHTML = `
                         <button disabled class="w-full bg-slate-800 text-slate-400 font-bold py-3 rounded-2xl text-sm cursor-not-allowed">
                             友達申請済み (承認待ち)
                         </button>
                     `;
                 } else {
-                    // 未登録の場合（追加操作可能）
                     actionsContainer.innerHTML = `
                         <button onclick="sendFriendRequestToTarget('${targetUserId}', '${escapeHTML(targetData.name)}')" 
-                            class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-3.5 rounded-2xl text-sm transition shadow-lg shadow-indigo-600/30 flex items-center justify-center gap-2">
-                            <span>➕</span> 友達に追加（申請を送信）
+                            class="w-full theme-primary-bg hover:opacity-90 text-white font-bold py-3.5 rounded-2xl text-sm transition shadow-lg flex items-center justify-center gap-2">
+                            ➕ 友達に追加（申請を送信）
                         </button>
                     `;
                 }
 
-                // モーダルを開く
                 const modal = document.getElementById("user-profile-view-modal");
                 const box = document.getElementById("user-profile-box");
                 modal.classList.remove("hidden");
@@ -902,6 +1187,12 @@
         }
 
         onAuthStateChanged(auth, async (user) => {
+            // ローカル保存テーマの復元
+            const savedTheme = localStorage.getItem('aether_theme_config');
+            if (savedTheme) {
+                try { loadSavedTheme(JSON.parse(savedTheme)); } catch(e){}
+            }
+
             if (user) {
                 currentUser = user;
                 const userRef = doc(db, 'artifacts', appId, 'public', 'data', 'users', user.uid);
@@ -913,6 +1204,7 @@
                     switchAuthTab('profile');
                 } else {
                     myUserData = userSnap.data();
+                    if (myUserData.themeConfig) loadSavedTheme(myUserData.themeConfig);
                     document.getElementById("auth-modal").classList.add("hidden");
                     updateUserUI();
                     initDashboard();
@@ -973,7 +1265,6 @@
             loadFriendRequests();
             loadChatRooms();
 
-            // URL共有からの友達追加検知 -> プロフィールプレビューモーダル起動
             const urlParams = new URLSearchParams(window.location.search);
             const addId = urlParams.get("add");
             if (addId && addId !== currentUser.uid) {
@@ -1045,13 +1336,13 @@
             const viewId = document.getElementById("add-view-id");
 
             if (tabType === 'scan') {
-                tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white transition flex items-center justify-center gap-1.5";
+                tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold theme-primary-bg text-white transition flex items-center justify-center gap-1.5";
                 tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
                 viewScan.classList.remove("hidden");
                 viewId.classList.add("hidden");
                 startQrScanner();
             } else {
-                tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold bg-indigo-600 text-white transition flex items-center justify-center gap-1.5";
+                tabId.className = "flex-1 py-2 rounded-lg text-xs font-bold theme-primary-bg text-white transition flex items-center justify-center gap-1.5";
                 tabScan.className = "flex-1 py-2 rounded-lg text-xs font-bold text-slate-400 hover:text-white transition flex items-center justify-center gap-1.5";
                 viewId.classList.remove("hidden");
                 viewScan.classList.add("hidden");
@@ -1086,7 +1377,6 @@
             }
         }
 
-        // QR読み取り成功時のハンドラー -> 相手のプロフィール確認画面を表示！
         function onQrCodeSuccess(decodedText) {
             stopQrScanner();
             closeAddFriendModal();
@@ -1172,8 +1462,6 @@
 
                     const div = document.createElement("div");
                     div.className = "p-3 rounded-2xl bg-slate-900/60 hover:bg-slate-800/80 transition flex items-center justify-between group cursor-pointer";
-                    
-                    // 【改修】友達欄をタップした際、相手の背景やステータスメッセージが見えるプロフィールモーダルを開く
                     div.onclick = () => openUserProfileView(f.friendId);
 
                     div.innerHTML = `
@@ -1184,7 +1472,7 @@
                                 <p class="text-[10px] text-emerald-400 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span> プロフィールを見る</p>
                             </div>
                         </div>
-                        <span class="text-xs text-slate-500 group-hover:text-indigo-400">›</span>
+                        <span class="text-xs text-slate-500 group-hover:theme-primary-text">›</span>
                     `;
                     container.appendChild(div);
                 });
@@ -1223,7 +1511,7 @@
                                 <p class="text-[10px] text-indigo-400">タップして確認</p>
                             </div>
                         </div>
-                        <button onclick="acceptFriend('${req.senderId}', '${escapeHTML(req.senderName)}', '${encodeURIComponent(req.senderAvatar || '')}')" class="bg-indigo-600 hover:bg-indigo-500 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition">承認</button>
+                        <button onclick="acceptFriend('${req.senderId}', '${escapeHTML(req.senderName)}', '${encodeURIComponent(req.senderAvatar || '')}')" class="theme-primary-bg hover:opacity-90 text-white px-3.5 py-1.5 rounded-xl text-xs font-semibold transition">承認</button>
                     `;
                     container.appendChild(div);
                 });
@@ -1349,7 +1637,7 @@
 
                         div.innerHTML = `
                             <div class="flex items-center space-x-3 overflow-hidden">
-                                <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold shrink-0 text-indigo-400 overflow-hidden">
+                                <div class="w-10 h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center text-sm font-bold shrink-0 theme-primary-text overflow-hidden">
                                     ${isGroup ? '👥' : getInitialsAvatar(room.name)}
                                 </div>
                                 <div class="overflow-hidden">
@@ -1357,7 +1645,7 @@
                                     <p class="text-[11px] text-slate-400 truncate">${isGroup ? 'グループチャット' : '個別の会話'}</p>
                                 </div>
                             </div>
-                            <span class="text-xs text-slate-500 group-hover:text-indigo-400">›</span>
+                            <span class="text-xs text-slate-500 group-hover:theme-primary-text">›</span>
                         `;
                         container.appendChild(div);
                     }
@@ -1375,10 +1663,10 @@
                 document.getElementById(`tab-btn-${t}`).className = "py-3.5 text-slate-400 hover:text-slate-200 transition";
             });
             document.getElementById(`tab-content-${tabName}`).classList.remove("hidden");
-            document.getElementById(`tab-btn-${tabName}`).className = "py-3.5 text-indigo-400 border-b-2 border-indigo-500 transition font-semibold";
+            document.getElementById(`tab-btn-${tabName}`).className = "py-3.5 theme-primary-text border-b-2 theme-primary-border transition font-semibold";
         }
 
-        window.selectRoom = function(roomId, roomName, isGroup = false, members = []) {
+        window.selectRoom = async function(roomId, roomName, isGroup = false, members = []) {
             currentRoomId = roomId;
             currentRoomData = { roomId, roomName, isGroup, members };
             document.getElementById("current-chat-title").innerText = roomName;
@@ -1387,20 +1675,31 @@
             const headerIcon = document.getElementById("chat-header-icon");
             if (isGroup) {
                 headerIcon.innerText = '👥';
-                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-indigo-400 shrink-0';
+                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text shrink-0';
             } else {
                 headerIcon.innerHTML = getInitialsAvatar(roomName);
-                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold text-indigo-400 overflow-hidden shrink-0';
+                headerIcon.className = 'w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-slate-800 border border-slate-700 flex items-center justify-center font-bold theme-primary-text overflow-hidden shrink-0';
             }
 
-            const actionBtn = document.getElementById("chat-header-action");
+            document.getElementById("chat-header-actions").classList.remove("hidden");
+            const btnGroupInfo = document.getElementById("btn-group-info");
             if (isGroup) {
-                actionBtn.classList.remove("hidden");
+                btnGroupInfo.classList.remove("hidden");
             } else {
-                actionBtn.classList.add("hidden");
+                btnGroupInfo.classList.add("hidden");
             }
 
-            // スマホ表示時、ルーム選択後にサイドバーを閉じる
+            // メンバー情報のキャッシュ更新 (メンション機能用)
+            roomMembersMap = {};
+            for (const mId of members) {
+                try {
+                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
+                    if (uSnap.exists()) {
+                        roomMembersMap[mId] = uSnap.data();
+                    }
+                } catch(e){}
+            }
+
             if (window.innerWidth < 768) {
                 document.getElementById("sidebar").classList.add("-translate-x-full");
                 document.getElementById("sidebar-overlay").classList.add("hidden");
@@ -1413,13 +1712,21 @@
             const chatBox = document.getElementById("chat-box");
 
             unsubscribeMessages = onSnapshot(q, (snapshot) => {
-                const isAtBottom = chatBox.scrollHeight - chatBox.scrollTop <= chatBox.clientHeight + 150;
                 chatBox.innerHTML = "";
 
-                let msgCount = 0;
+                if (snapshot.empty) {
+                    chatBox.innerHTML = `
+                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-2">
+                            <div class="w-12 h-12 rounded-2xl bg-slate-900 border border-slate-800 flex items-center justify-center text-xl">💬</div>
+                            <p class="text-xs">まだメッセージがありません。会話を始めましょう！</p>
+                        </div>
+                    `;
+                    return;
+                }
+
                 snapshot.forEach((msgDoc) => {
-                    msgCount++;
                     const data = msgDoc.data();
+                    const msgId = msgDoc.id;
                     const isMe = data.senderId === currentUser.uid;
 
                     let timeStr = "";
@@ -1428,7 +1735,7 @@
                     }
 
                     const messageDiv = document.createElement("div");
-                    messageDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3`;
+                    messageDiv.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'} mb-3 group relative`;
 
                     let contentHtml = "";
                     if (data.type === "image") {
@@ -1436,15 +1743,29 @@
                     } else if (data.type === "stamp") {
                         contentHtml = `<div class="text-4xl sm:text-5xl py-1">${data.text}</div>`;
                     } else {
-                        contentHtml = `<div class="leading-relaxed break-words text-sm">${escapeHTML(data.text)}</div>`;
-                    }
+                        // メンションタグの判定 & ハイライト処理
+                        let formattedText = escapeHTML(data.text);
+                        const isMentionedMe = myUserData && myUserData.name && formattedText.includes(`@${myUserData.name}`);
+                        
+                        // @メンションテキストをハイライト
+                        formattedText = formattedText.replace(/@([^\s]+)/g, '<span class="bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 px-1.5 py-0.5 rounded-md font-bold text-xs">@$1</span>');
 
-                    const readCount = data.readBy ? data.readBy.length : 1;
-                    const readStatusHtml = isMe ? `<span class="text-[9px] text-indigo-300/80 mt-0.5">${readCount > 1 ? '既読' : '送信済'}</span>` : '';
+                        contentHtml = `
+                            <div class="leading-relaxed break-words text-sm">
+                                ${isMentionedMe ? '<span class="inline-block bg-amber-500 text-slate-950 font-extrabold text-[9px] px-1.5 py-0.5 rounded-full mr-1 shadow-sm">@あなた宛</span>' : ''}
+                                ${formattedText}
+                            </div>
+                        `;
+                    }
 
                     const avatarImgHtml = data.senderAvatar 
                         ? `<img src="${data.senderAvatar}" class="w-6 h-6 rounded-full object-cover shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')" />`
                         : `<div class="w-6 h-6 rounded-full overflow-hidden shrink-0 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${getInitialsAvatar(data.senderName)}</div>`;
+
+                    // メッセージ削除アイコン (ホバー/タップ時表示)
+                    const deleteBtnHtml = isMe 
+                        ? `<button onclick="deleteSingleMessage('${msgId}')" title="メッセージを削除" class="opacity-0 group-hover:opacity-100 transition text-slate-500 hover:text-rose-400 text-xs px-1">🗑️</button>`
+                        : '';
 
                     messageDiv.innerHTML = `
                         <div class="flex items-center space-x-1 mb-0.5 px-1">
@@ -1452,136 +1773,109 @@
                             <span class="text-[10px] sm:text-[11px] font-bold text-slate-400 cursor-pointer" onclick="openUserProfileView('${data.senderId}')">${escapeHTML(data.senderName)}</span>
                         </div>
                         <div class="flex items-end gap-1.5 max-w-[85%] sm:max-w-[75%] ${isMe ? 'flex-row-reverse space-x-reverse' : 'flex-row'}">
-                            <div class="relative px-3.5 py-2 rounded-2xl shadow-md ${
-                                isMe ? 'bg-indigo-600 text-white rounded-br-xs shadow-indigo-600/20' : 'bg-slate-900 text-slate-100 border border-slate-800 rounded-bl-xs'
-                            }">
+                            <div class="relative px-3.5 py-2 rounded-2xl shadow-md ${isMe ? 'bubble-me rounded-br-xs' : 'bubble-other rounded-bl-xs'}">
                                 ${contentHtml}
                             </div>
-                            <div class="flex flex-col items-end shrink-0 mb-0.5">
+                            <div class="flex flex-col items-end shrink-0 mb-0.5 space-y-0.5">
+                                ${deleteBtnHtml}
                                 <span class="text-[9px] text-slate-500">${timeStr}</span>
-                                ${readStatusHtml}
                             </div>
                         </div>
                     `;
                     chatBox.appendChild(messageDiv);
-
-                    if (!isMe && (!data.readBy || !data.readBy.includes(currentUser.uid))) {
-                        updateDoc(doc(db, 'artifacts', appId, 'public', 'data', `room_${roomId}_messages`, msgDoc.id), {
-                            readBy: arrayUnion(currentUser.uid)
-                        }).catch(() => {});
-                    }
                 });
 
-                if (msgCount === 0) {
-                    chatBox.innerHTML = `
-                        <div class="flex flex-col items-center justify-center h-full text-center text-slate-500 space-y-2">
-                            <div class="text-3xl">✨</div>
-                            <p class="text-xs">メッセージを送信して会話を始めましょう！</p>
-                        </div>
-                    `;
-                }
-
-                if (isAtBottom || msgCount <= 3) {
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
+                chatBox.scrollTop = chatBox.scrollHeight;
             });
         }
 
         window.sendMessage = async function() {
-            if (!currentRoomId) {
-                showModal("ルーム未選択", "チャットするルームを選択してください。");
-                return;
-            }
-
             const input = document.getElementById("message-input");
             const text = input.value.trim();
-            if (!text) return;
+            if (!text || !currentRoomId) return;
+
+            input.value = "";
+            hideMentionPopup();
 
             try {
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
-                    text: text,
-                    type: "text",
                     senderId: currentUser.uid,
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
-                    createdAt: serverTimestamp(),
-                    readBy: [currentUser.uid]
+                    text: text,
+                    type: "text",
+                    createdAt: serverTimestamp()
                 });
-                input.value = "";
-                input.style.height = "auto";
-            } catch (e) {
+            } catch(e) {
                 showModal("エラー", "メッセージの送信に失敗しました。");
             }
         }
 
-        window.sendStamp = async function(emoji) {
+        window.sendStamp = async function(stampEmoji) {
             if (!currentRoomId) return;
+            toggleStampPanel();
             try {
                 const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
                 await addDoc(messagesRef, {
-                    text: emoji,
-                    type: "stamp",
                     senderId: currentUser.uid,
                     senderName: myUserData.name,
                     senderAvatar: myUserData.avatar || "",
-                    createdAt: serverTimestamp(),
-                    readBy: [currentUser.uid]
+                    text: stampEmoji,
+                    type: "stamp",
+                    createdAt: serverTimestamp()
                 });
-                toggleStampPanel();
-            } catch(e) {}
+            } catch(e) {
+                showModal("エラー", "スタンプの送信に失敗しました。");
+            }
         }
 
-        window.sendImage = function(input) {
-            if (!currentRoomId || !input.files || !input.files[0]) return;
-            const file = input.files[0];
-            resizeImage(file, 600, 600, 0.8).then(async (base64Img) => {
-                try {
-                    const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
-                    await addDoc(messagesRef, {
-                        imageUrl: base64Img,
-                        type: "image",
-                        senderId: currentUser.uid,
-                        senderName: myUserData.name,
-                        senderAvatar: myUserData.avatar || "",
-                        createdAt: serverTimestamp(),
-                        readBy: [currentUser.uid]
-                    });
-                    input.value = "";
-                } catch(err) {
-                    showModal("エラー", "画像の送信に失敗しました。");
-                }
-            });
+        window.sendImage = async function(input) {
+            if (!input.files || !input.files[0] || !currentRoomId) return;
+            try {
+                const resizedBase64 = await resizeImage(input.files[0], 800, 800, 0.75);
+                const messagesRef = collection(db, 'artifacts', appId, 'public', 'data', `room_${currentRoomId}_messages`);
+                await addDoc(messagesRef, {
+                    senderId: currentUser.uid,
+                    senderName: myUserData.name,
+                    senderAvatar: myUserData.avatar || "",
+                    imageUrl: resizedBase64,
+                    type: "image",
+                    createdAt: serverTimestamp()
+                });
+            } catch(e) {
+                showModal("エラー", "画像の送信に失敗しました。");
+            }
         }
 
+        // --- グループ作成機能 ---
         window.openCreateGroupModal = async function() {
-            const friendsRef = collection(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`);
             const container = document.getElementById("group-friends-checkboxes");
             container.innerHTML = "読み込み中...";
-
-            const snap = await new Promise((resolve) => {
-                onSnapshot(friendsRef, (s) => resolve(s), { once: true });
-            });
-
-            container.innerHTML = "";
-            if (snap.empty) {
-                container.innerHTML = `<div class="text-xs text-slate-500 text-center py-2">グループに招待できる友達がいません</div>`;
-            } else {
-                snap.forEach((docSnap) => {
-                    const f = docSnap.data();
-                    const div = document.createElement("label");
-                    div.className = "flex items-center space-x-3 p-2 hover:bg-slate-900 rounded-xl cursor-pointer";
-                    div.innerHTML = `
-                        <input type="checkbox" value="${f.friendId}" class="group-friend-chk rounded bg-slate-900 border-slate-700 text-indigo-600 focus:ring-0" />
-                        <span class="text-xs font-semibold text-white">${escapeHTML(f.friendName)}</span>
-                    `;
-                    container.appendChild(div);
-                });
-            }
 
             const modal = document.getElementById("create-group-modal");
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
+
+            const friendsRef = collection(db, 'artifacts', appId, 'public', 'data', `friends_${currentUser.uid}`);
+            const snap = await getDocs(friendsRef);
+
+            container.innerHTML = "";
+            if (snap.empty) {
+                container.innerHTML = `<div class="text-xs text-slate-500 py-2">招待できる友達がいません</div>`;
+                return;
+            }
+
+            snap.forEach((docSnap) => {
+                const f = docSnap.data();
+                const label = document.createElement("label");
+                label.className = "flex items-center space-x-2 p-2 hover:bg-slate-900 rounded-xl cursor-pointer transition";
+                label.innerHTML = `
+                    <input type="checkbox" value="${f.friendId}" class="group-friend-cb w-4 h-4 rounded text-indigo-600 focus:ring-0 bg-slate-950 border-slate-800" />
+                    <span class="text-xs font-semibold text-white">${escapeHTML(f.friendName)}</span>
+                `;
+                container.appendChild(label);
+            });
         }
 
         window.closeCreateGroupModal = function() {
@@ -1591,41 +1885,42 @@
         }
 
         window.createGroupChat = async function() {
-            const groupName = document.getElementById("group-name-input").value.trim();
-            if (!groupName) {
-                showModal("エラー", "グループ名を入力してください。");
+            const nameInput = document.getElementById("group-name-input").value.trim();
+            if (!nameInput) {
+                showModal("入力エラー", "グループ名を入力してください。");
                 return;
             }
 
-            const checkboxes = document.querySelectorAll(".group-friend-chk:checked");
-            const selectedMembers = [currentUser.uid];
-            checkboxes.forEach(chk => selectedMembers.push(chk.value));
+            const cbs = document.querySelectorAll(".group-friend-cb:checked");
+            const memberIds = [currentUser.uid];
+            cbs.forEach(cb => memberIds.push(cb.value));
 
-            if (selectedMembers.length < 2) {
-                showModal("エラー", "少なくとも1人以上の友達を招待してください。");
+            if (memberIds.length < 2) {
+                showModal("メンバーエラー", "1人以上の友達を選択してください。");
                 return;
             }
 
             try {
-                const newRoomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'));
-                await setDoc(newRoomRef, {
+                const roomRef = doc(collection(db, 'artifacts', appId, 'public', 'data', 'rooms'));
+                await setDoc(roomRef, {
                     isGroup: true,
-                    name: groupName,
-                    members: selectedMembers,
+                    name: nameInput,
+                    members: memberIds,
+                    createdBy: currentUser.uid,
                     createdAt: serverTimestamp()
                 });
 
                 closeCreateGroupModal();
-                showModal("作成成功", "グループチャットを作成しました！");
-                selectRoom(newRoomRef.id, groupName, true, selectedMembers);
+                showModal("グループ作成完了", `グループ「${nameInput}」を作成しました！`);
             } catch(e) {
                 showModal("エラー", "グループの作成に失敗しました。");
             }
         }
 
+        // --- グループ情報モーダル ---
         window.openGroupInfoModal = async function() {
             if (!currentRoomData || !currentRoomData.isGroup) return;
-            document.getElementById("info-group-title").innerText = currentRoomData.roomName + " メンバー";
+            document.getElementById("info-group-title").innerText = currentRoomData.roomName;
             const container = document.getElementById("info-members-list");
             container.innerHTML = "読み込み中...";
 
@@ -1633,39 +1928,28 @@
             modal.classList.remove("hidden");
             setTimeout(() => modal.classList.remove("opacity-0"), 10);
 
-            const members = currentRoomData.members;
             container.innerHTML = "";
-
-            for (const uid of members) {
+            for (const mId of currentRoomData.members) {
                 try {
-                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', uid));
-                    if (uSnap.exists()) {
-                        const uData = uSnap.data();
-                        const isMe = uid === currentUser.uid;
+                    const uSnap = await getDoc(doc(db, 'artifacts', appId, 'public', 'data', 'users', mId));
+                    const uData = uSnap.exists() ? uSnap.data() : { name: "ユーザー" };
 
-                        const avatarHtml = uData.avatar 
-                            ? `<img src="${uData.avatar}" class="w-9 h-9 rounded-full object-cover" />`
-                            : `<div class="w-9 h-9 rounded-full overflow-hidden text-xs">${getInitialsAvatar(uData.name)}</div>`;
+                    const div = document.createElement("div");
+                    div.className = "flex items-center justify-between p-2 hover:bg-slate-900 rounded-xl cursor-pointer transition";
+                    div.onclick = () => { closeGroupInfoModal(); openUserProfileView(mId); };
 
-                        const div = document.createElement("div");
-                        div.className = "flex items-center justify-between p-2.5 bg-slate-900 rounded-xl hover:bg-slate-800 transition cursor-pointer";
-                        div.onclick = () => {
-                            closeGroupInfoModal();
-                            openUserProfileView(uid);
-                        };
+                    const avatarHtml = uData.avatar
+                        ? `<img src="${uData.avatar}" class="w-8 h-8 rounded-full object-cover" />`
+                        : `<div class="w-8 h-8 rounded-full overflow-hidden text-xs">${getInitialsAvatar(uData.name)}</div>`;
 
-                        div.innerHTML = `
-                            <div class="flex items-center space-x-2.5">
-                                ${avatarHtml}
-                                <div>
-                                    <h4 class="font-bold text-xs text-white">${escapeHTML(uData.name)} ${isMe ? '(自分)' : ''}</h4>
-                                    <p class="text-[9px] text-slate-400 font-mono">ID: ${uid.substring(0,8)}...</p>
-                                </div>
-                            </div>
-                            <span class="text-xs text-indigo-400 font-semibold">詳細 ›</span>
-                        `;
-                        container.appendChild(div);
-                    }
+                    div.innerHTML = `
+                        <div class="flex items-center space-x-2.5">
+                            ${avatarHtml}
+                            <span class="text-xs font-bold text-white">${escapeHTML(uData.name)} ${mId === currentUser.uid ? '(あなた)' : ''}</span>
+                        </div>
+                        <span class="text-[10px] theme-primary-text">詳細 ›</span>
+                    `;
+                    container.appendChild(div);
                 } catch(e){}
             }
         }
