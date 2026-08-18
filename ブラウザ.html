@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebBrowser with DevTools</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #1e293b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 h-screen flex flex-col overflow-hidden font-sans">
+
+    <!-- トップブラウザツールバー -->
+    <header class="bg-slate-800 border-b border-slate-700 px-4 py-2 flex items-center gap-2 shadow-md shrink-0">
+        <div class="flex items-center gap-1 text-slate-400">
+            <button id="btn-back" class="p-2 hover:bg-slate-700 rounded-lg transition disabled:opacity-30" title="戻る">
+                <i data-lucide="arrow-left" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-forward" class="p-2 hover:bg-slate-700 rounded-lg transition disabled:opacity-30" title="進む">
+                <i data-lucide="arrow-right" class="w-4 h-4"></i>
+            </button>
+            <button id="btn-reload" class="p-2 hover:bg-slate-700 rounded-lg transition" title="再読み込み">
+                <i data-lucide="rotate-cw" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <!-- URL入力フォーム -->
+        <form id="url-form" class="flex-1 flex items-center bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 focus-within:border-sky-500 transition">
+            <i data-lucide="globe" class="w-4 h-4 text-slate-400 mr-2 shrink-0"></i>
+            <input type="text" id="url-input" class="bg-transparent flex-1 text-sm outline-none text-slate-100 placeholder-slate-500" placeholder="URLまたは検索キーワードを入力">
+            <button type="submit" class="text-xs bg-sky-600 hover:bg-sky-500 text-white px-3 py-1 rounded transition ml-2">移動</button>
+        </form>
+
+        <!-- ツール切り替え -->
+        <div class="flex items-center gap-1">
+            <button id="btn-toggle-devtools" class="p-2 bg-sky-600 hover:bg-sky-500 text-white rounded-lg transition flex items-center gap-1.5 text-xs font-medium" title="デベロッパーツールの表示切替">
+                <i data-lucide="code" class="w-4 h-4"></i>
+                <span class="hidden md:inline">デベロッパーツール</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- メインコンテンツエリア -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- ブラウザプレビュー画面 -->
+        <div id="browser-viewport-container" class="flex-1 flex flex-col bg-white relative overflow-hidden transition-all duration-300">
+            <div id="loading-bar" class="absolute top-0 left-0 right-0 h-1 bg-sky-500 transition-all duration-300 w-0 z-10"></div>
+            
+            <!-- iframe -->
+            <iframe id="browser-iframe" class="w-full h-full border-none" sandbox="allow-scripts allow-same-origin allow-forms allow-popups"></iframe>
+
+            <!-- 対策お知らせバナー（外部サイトブロック時用） -->
+            <div id="fallback-banner" class="absolute top-3 left-3 right-3 bg-amber-500/90 text-slate-950 p-3 rounded-lg shadow-lg text-xs flex items-center justify-between z-30 hidden">
+                <span id="fallback-msg">外部サイトはセキュリティ保護（X-Frame-Options）によりiframeで直接表示できません。内蔵プレビューまたはシミュレーションモードをご利用ください。</span>
+                <button id="btn-close-banner" class="font-bold underline ml-2">閉じる</button>
+            </div>
+
+            <!-- ホーム / サンプル選択画面 -->
+            <div id="welcome-screen" class="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center p-6 text-center z-20">
+                <div class="w-16 h-16 bg-sky-500/10 text-sky-400 rounded-2xl flex items-center justify-center mb-4 border border-sky-500/20 shadow-lg">
+                    <i data-lucide="compass" class="w-8 h-8"></i>
+                </div>
+                <h1 class="text-2xl font-bold text-white mb-2">DevTools Browser</h1>
+                <p class="text-slate-400 max-w-md text-sm mb-6">外部サイトはブラウザのセキュリティ制限で直接表示できないため、下のサンプルページやテスト用ツールをご活用ください。</p>
+                <div class="flex flex-wrap gap-3 justify-center">
+                    <button class="quick-link px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-200 transition flex items-center gap-2" data-url="sample">
+                        <i data-lucide="file-code" class="w-4 h-4 text-sky-400"></i> インタラクティブテストページ
+                    </button>
+                    <button class="quick-link px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-lg text-sm text-slate-200 transition flex items-center gap-2" data-url="wiki-simulator">
+                        <i data-lucide="book-open" class="w-4 h-4 text-emerald-400"></i> モック検索・記事ビューア
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- デベロッパーツールパネル -->
+        <div id="devtools-panel" class="w-full md:w-[45%] h-1/2 md:h-auto bg-slate-950 border-t md:border-t-0 md:border-l border-slate-800 flex flex-col shrink-0 transition-all duration-300 hidden">
+            
+            <div class="bg-slate-900 border-b border-slate-800 px-3 flex items-center justify-between shrink-0">
+                <div class="flex items-center gap-1 overflow-x-auto py-1">
+                    <button class="devtools-tab px-3 py-1.5 text-xs font-medium rounded text-sky-400 bg-slate-800 transition flex items-center gap-1.5" data-target="panel-elements">
+                        <i data-lucide="layout" class="w-3.5 h-3.5"></i> 要素
+                    </button>
+                    <button class="devtools-tab px-3 py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-1.5" data-target="panel-console">
+                        <i data-lucide="terminal" class="w-3.5 h-3.5"></i> コンソール
+                    </button>
+                    <button class="devtools-tab px-3 py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-1.5" data-target="panel-network">
+                        <i data-lucide="activity" class="w-3.5 h-3.5"></i> ネットワーク
+                    </button>
+                    <button class="devtools-tab px-3 py-1.5 text-xs font-medium rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800/50 transition flex items-center gap-1.5" data-target="panel-storage">
+                        <i data-lucide="database" class="w-3.5 h-3.5"></i> ストレージ
+                    </button>
+                </div>
+                <div class="flex items-center gap-1">
+                    <button id="btn-close-devtools" class="p-1.5 text-slate-400 hover:text-white rounded hover:bg-slate-800 transition" title="閉じる">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex-1 overflow-hidden relative">
+                <!-- 1. 要素パネル -->
+                <div id="panel-elements" class="devtools-content absolute inset-0 flex flex-col p-2 text-xs font-mono overflow-auto bg-slate-950">
+                    <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-800 text-slate-400 text-[11px]">
+                        <span>DOMツリーインスペクター</span>
+                        <button id="btn-refresh-dom" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded flex items-center gap-1 transition">
+                            <i data-lucide="refresh-cw" class="w-3 h-3"></i> 更新
+                        </button>
+                    </div>
+                    <div id="dom-tree-container" class="space-y-1 text-slate-300 select-text">
+                        <p class="text-slate-500 italic">ページが読み込まれていません。</p>
+                    </div>
+                </div>
+
+                <!-- 2. コンソールパネル -->
+                <div id="panel-console" class="devtools-content absolute inset-0 hidden flex flex-col bg-slate-950 font-mono text-xs">
+                    <div id="console-logs" class="flex-1 p-2 overflow-auto space-y-1.5 select-text">
+                        <div class="text-slate-500 italic">// コンソールログ</div>
+                    </div>
+                    <div class="border-t border-slate-800 p-2 bg-slate-900 flex items-center gap-2">
+                        <span class="text-sky-400 font-bold">&gt;</span>
+                        <input type="text" id="console-input" class="bg-transparent flex-1 outline-none text-slate-100 placeholder-slate-600" placeholder="JavaScriptコードを実行 (例: alert('Hello'))">
+                        <button id="btn-console-clear" class="text-slate-400 hover:text-white px-2 py-1 text-[11px] bg-slate-800 rounded">クリア</button>
+                    </div>
+                </div>
+
+                <!-- 3. ネットワークパネル -->
+                <div id="panel-network" class="devtools-content absolute inset-0 hidden flex flex-col bg-slate-950 text-xs">
+                    <div class="flex items-center justify-between p-2 border-b border-slate-800 text-slate-400 bg-slate-900/50">
+                        <div class="flex gap-4">
+                            <span>名前 / URL</span>
+                            <span>ステータス</span>
+                            <span>種別</span>
+                        </div>
+                        <button id="btn-network-clear" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">消去</button>
+                    </div>
+                    <div id="network-logs-list" class="flex-1 overflow-auto divide-y divide-slate-900 font-mono"></div>
+                </div>
+
+                <!-- 4. ストレージパネル -->
+                <div id="panel-storage" class="devtools-content absolute inset-0 hidden flex flex-col p-3 text-xs bg-slate-950 overflow-auto">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="font-bold text-slate-300">Local Storage</h3>
+                        <button id="btn-refresh-storage" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded">更新</button>
+                    </div>
+                    <div class="border border-slate-800 rounded-lg overflow-hidden">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-900 text-slate-400 border-b border-slate-800">
+                                    <th class="p-2 font-medium">キー</th>
+                                    <th class="p-2 font-medium">値</th>
+                                </tr>
+                            </thead>
+                            <tbody id="storage-table-body" class="divide-y divide-slate-900 font-mono">
+                                <tr><td colspan="2" class="p-4 text-center text-slate-500">データなし</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        let historyStack = [];
+        let historyIndex = -1;
+        let currentUrl = '';
+        let isDevToolsOpen = false;
+
+        const iframe = document.getElementById('browser-iframe');
+        const urlInput = document.getElementById('url-input');
+        const urlForm = document.getElementById('url-form');
+        const loadingBar = document.getElementById('loading-bar');
+        const welcomeScreen = document.getElementById('welcome-screen');
+        const fallbackBanner = document.getElementById('fallback-banner');
+        const devtoolsPanel = document.getElementById('devtools-panel');
+        const btnToggleDevtools = document.getElementById('btn-toggle-devtools');
+        const btnCloseDevtools = document.getElementById('btn-close-devtools');
+        const btnBack = document.getElementById('btn-back');
+        const btnForward = document.getElementById('btn-forward');
+        const btnReload = document.getElementById('btn-reload');
+
+        // テスト用サンプルページ
+        const samplePageHtml = `
+            <!DOCTYPE html>
+            <html lang="ja">
+            <head>
+                <meta charset="UTF-8">
+                <title>テスト用インタラクティブサンプル</title>
+                <style>
+                    body { font-family: sans-serif; background: #f8fafc; color: #334155; padding: 2rem; margin: 0; }
+                    .card { background: white; padding: 1.5rem; border-radius: 8px; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); max-width: 500px; margin: auto; }
+                    button { background: #0ea5e9; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; margin-top: 1rem; }
+                    button:hover { background: #0284c7; }
+                </style>
+            </head>
+            <body>
+                <div class="card" id="main-card">
+                    <h1 style="color: #0f172a; margin-top:0;">デベロッパーツール検証ページ</h1>
+                    <p>このページでコンソールログやDOM要素のインスペクション、ストレージ保存をテストできます。</p>
+                    <button id="test-btn" onclick="handleClick()">アクション実行</button>
+                    <p id="output" style="margin-top: 1rem; font-weight: bold; color: #10b981;"></p>
+                </div>
+                <script>
+                    console.log("サンプルページが正常に読み込まれました。");
+                    localStorage.setItem("sample_key", "DevTools_Value_123");
+                    function handleClick() {
+                        console.warn("警告：ボタンがクリックされました！");
+                        document.getElementById("output").innerText = "ボタンが押されました (時刻: " + new Date().toLocaleTimeString() + ")";
+                        console.error("エラーテストログ：サンプルエラーです。");
+                    }
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        // モック検索・記事シミュレーターページ
+        const wikiSimulatorHtml = `
+            <!DOCTYPE html>
+            <html lang="ja">
+            <head>
+                <meta charset="UTF-8">
+                <title>モックブラウザ 記事ビューア</title>
+                <style>
+                    body { font-family: sans-serif; background: #ffffff; color: #1e293b; padding: 2rem; margin: 0; line-height: 1.6; }
+                    header { border-bottom: 1px solid #e2e8f0; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+                    input { padding: 0.5rem; width: 60%; border: 1px solid #cbd5e1; border-radius: 4px; }
+                    button { background: #0284c7; color: white; border: none; padding: 0.5rem 1rem; border-radius: 4px; cursor: pointer; }
+                </style>
+            </head>
+            <body>
+                <header>
+                    <h2>モックブラウザ 検索エンジン</h2>
+                    <input type="text" id="query" value="HTML5とJavaScript">
+                    <button onclick="search()">検索</button>
+                </header>
+                <main id="result">
+                    <h3>検索結果: HTML5とJavaScript</h3>
+                    <p>HTML5は、Webページを作成するためのマークアップ言語の最新バージョンであり、動的なJavaScriptと組み合わせることで強力なWebアプリケーションを構築できます。</p>
+                </main>
+                <script>
+                    console.log("シミュレータページ初期化完了");
+                    function search() {
+                        const q = document.getElementById("query").value;
+                        document.getElementById("result").innerHTML = "<h3>検索結果: " + q + "</h3><p>「" + q + "」に関するモックデータを表示しています。</p>";
+                        console.log("検索クエリ実行: " + q);
+                    }
+                <\/script>
+            </body>
+            </html>
+        `;
+
+        let networkLogs = [];
+
+        function navigateTo(url, addHistory = true) {
+            if (!url) return;
+            loadingBar.style.width = '30%';
+            welcomeScreen.classList.add('hidden');
+            fallbackBanner.classList.add('hidden');
+
+            let targetUrl = url.trim();
+
+            if (targetUrl === 'sample' || targetUrl === 'about:sample') {
+                iframe.srcdoc = samplePageHtml;
+                finishNavigation('http://devtools.local/sample.html', addHistory, '200 OK', 'text/html');
+                return;
+            }
+
+            if (targetUrl === 'wiki-simulator' || targetUrl === 'about:wiki') {
+                iframe.srcdoc = wikiSimulatorHtml;
+                finishNavigation('http://devtools.local/wiki.html', addHistory, '200 OK', 'text/html');
+                return;
+            }
+
+            // 通常のURL入力時（外部サイトはX-Frame-Optionsでブロックされるため警告を表示しつつiframeに試行）
+            if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
+                targetUrl = 'https://' + targetUrl;
+            }
+
+            iframe.srcdoc = '';
+            iframe.src = targetUrl;
+            addNetworkLog(targetUrl, 200, 'document');
+
+            // 外部サイト表示不可時の注意喚起タイマー
+            setTimeout(() => {
+                fallbackBanner.classList.remove('hidden');
+            }, 1500);
+
+            finishNavigation(targetUrl, addHistory, '200 OK', 'document');
+        }
+
+        function finishNavigation(url, addHistory, status, type) {
+            currentUrl = url;
+            urlInput.value = url;
+
+            setTimeout(() => {
+                loadingBar.style.width = '100%';
+                setTimeout(() => { loadingBar.style.width = '0%'; }, 300);
+            }, 400);
+
+            if (addHistory) {
+                historyStack = historyStack.slice(0, historyIndex + 1);
+                historyStack.push(url);
+                historyIndex = historyStack.length - 1;
+            }
+            updateNavigationButtons();
+            setTimeout(updateDevToolsData, 600);
+        }
+
+        function updateNavigationButtons() {
+            btnBack.disabled = historyIndex <= 0;
+            btnForward.disabled = historyIndex >= historyStack.length - 1;
+        }
+
+        urlForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            navigateTo(urlInput.value);
+        });
+
+        btnBack.addEventListener('click', () => {
+            if (historyIndex > 0) {
+                historyIndex--;
+                navigateTo(historyStack[historyIndex], false);
+            }
+        });
+
+        btnForward.addEventListener('click', () => {
+            if (historyIndex < historyStack.length - 1) {
+                historyIndex++;
+                navigateTo(historyStack[historyIndex], false);
+            }
+        });
+
+        btnReload.addEventListener('click', () => {
+            if (currentUrl) navigateTo(currentUrl, false);
+        });
+
+        document.querySelectorAll('.quick-link').forEach(btn => {
+            btn.addEventListener('click', () => {
+                navigateTo(btn.getAttribute('data-url'));
+            });
+        });
+
+        document.getElementById('btn-close-banner').addEventListener('click', () => {
+            fallbackBanner.classList.add('hidden');
+        });
+
+        btnToggleDevtools.addEventListener('click', () => {
+            isDevToolsOpen = !isDevToolsOpen;
+            if (isDevToolsOpen) {
+                devtoolsPanel.classList.remove('hidden');
+                btnToggleDevtools.classList.add('bg-sky-500');
+                updateDevToolsData();
+            } else {
+                devtoolsPanel.classList.add('hidden');
+                btnToggleDevtools.classList.remove('bg-sky-500');
+            }
+        });
+
+        btnCloseDevtools.addEventListener('click', () => {
+            isDevToolsOpen = false;
+            devtoolsPanel.classList.add('hidden');
+            btnToggleDevtools.classList.remove('bg-sky-500');
+        });
+
+        const tabs = document.querySelectorAll('.devtools-tab');
+        const contents = document.querySelectorAll('.devtools-content');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                const targetId = tab.getAttribute('data-target');
+                tabs.forEach(t => {
+                    t.classList.remove('text-sky-400', 'bg-slate-800');
+                    t.classList.add('text-slate-400');
+                });
+                tab.classList.add('text-sky-400', 'bg-slate-800');
+                tab.classList.remove('text-slate-400');
+                contents.forEach(c => c.classList.add('hidden'));
+                document.getElementById(targetId).classList.remove('hidden');
+            });
+        });
+
+        function addNetworkLog(url, status, type) {
+            networkLogs.unshift({ url, status, type, time: new Date().toLocaleTimeString() });
+            renderNetworkLogs();
+        }
+
+        function renderNetworkLogs() {
+            const listContainer = document.getElementById('network-logs-list');
+            if (networkLogs.length === 0) {
+                listContainer.innerHTML = '<div class="p-4 text-center text-slate-500">ネットワークログはありません</div>';
+                return;
+            }
+            listContainer.innerHTML = networkLogs.map(log => `
+                <div class="flex items-center justify-between p-2 hover:bg-slate-900 transition">
+                    <span class="truncate max-w-[200px] text-sky-400">${log.url}</span>
+                    <span class="text-emerald-400">${log.status}</span>
+                    <span class="text-slate-500">${log.type}</span>
+                </div>
+            `).join('');
+        }
+
+        function updateDevToolsData() {
+            if (!isDevToolsOpen) return;
+            const domContainer = document.getElementById('dom-tree-container');
+            try {
+                const doc = iframe.contentDocument || iframe.contentWindow.document;
+                if (doc && doc.documentElement) {
+                    domContainer.innerHTML = '';
+                    renderDomNode(doc.documentElement, domContainer, 0);
+                } else {
+                    domContainer.innerHTML = '<p class="text-slate-500">DOMツリーにアクセスできません</p>';
+                }
+            } catch (e) {
+                domContainer.innerHTML = '<p class="text-slate-500">クロスドメイン制限によりDOMツリーを表示できません。</p>';
+            }
+
+            try {
+                const win = iframe.contentWindow;
+                if (win && win.localStorage) {
+                    const storageBody = document.getElementById('storage-table-body');
+                    storageBody.innerHTML = '';
+                    if (win.localStorage.length === 0) {
+                        storageBody.innerHTML = '<tr><td colspan="2" class="p-3 text-center text-slate-500">Local Storageは空です</td></tr>';
+                    } else {
+                        for (let i = 0; i < win.localStorage.length; i++) {
+                            const key = win.localStorage.key(i);
+                            const val = win.localStorage.getItem(key);
+                            storageBody.innerHTML += `<tr><td class="p-2 text-sky-300">${key}</td><td class="p-2 text-slate-200">${val}</td></tr>`;
+                        }
+                    }
+                }
+            } catch (err) {}
+        }
+
+        function renderDomNode(node, container, depth) {
+            if (node.nodeType === Node.ELEMENT_NODE) {
+                const nodeEl = document.createElement('div');
+                nodeEl.style.paddingLeft = `${depth * 12}px`;
+                nodeEl.className = 'py-0.5 hover:bg-slate-900/80 rounded cursor-pointer flex items-center gap-1';
+                
+                const tagSpan = document.createElement('span');
+                tagSpan.className = 'text-sky-400';
+                tagSpan.textContent = `<${node.tagName.toLowerCase()}`;
+
+                if (node.attributes.length > 0) {
+                    Array.from(node.attributes).forEach(attr => {
+                        const attrSpan = document.createElement('span');
+                        attrSpan.className = 'text-amber-300 ml-1';
+                        attrSpan.textContent = `${attr.name}="${attr.value}"`;
+                        tagSpan.appendChild(attrSpan);
+                    });
+                }
+                tagSpan.textContent += '>';
+                nodeEl.appendChild(tagSpan);
+                container.appendChild(nodeEl);
+
+                Array.from(node.children).forEach(child => {
+                    renderDomNode(child, container, depth + 1);
+                });
+            }
+        }
+
+        document.getElementById('btn-refresh-dom').addEventListener('click', updateDevToolsData);
+        document.getElementById('btn-refresh-storage').addEventListener('click', updateDevToolsData);
+
+        const consoleLogsContainer = document.getElementById('console-logs');
+        const consoleInput = document.getElementById('console-input');
+
+        function appendConsoleLog(message, type = 'log') {
+            const logDiv = document.createElement('div');
+            logDiv.className = 'border-b border-slate-900/50 py-1 flex items-start gap-2';
+            let colorClass = 'text-slate-300';
+            if (type === 'warn') colorClass = 'text-amber-400 bg-amber-500/10 px-1 rounded w-full';
+            else if (type === 'error') colorClass = 'text-rose-400 bg-rose-500/10 px-1 rounded w-full';
+
+            logDiv.innerHTML = `<span class="text-slate-500 text-[10px] select-none">${new Date().toLocaleTimeString()}</span> <span class="${colorClass}">${message}</span>`;
+            consoleLogsContainer.appendChild(logDiv);
+            consoleLogsContainer.scrollTop = consoleLogsContainer.scrollHeight;
+        }
+
+        consoleInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const code = consoleInput.value;
+                if (!code.trim()) return;
+                appendConsoleLog(`> ${code}`, 'log');
+                try {
+                    const iframeWin = iframe.contentWindow;
+                    const result = iframeWin ? iframeWin.eval(code) : eval(code);
+                    if (result !== undefined) appendConsoleLog(String(result), 'log');
+                } catch (err) {
+                    appendConsoleLog(err.toString(), 'error');
+                }
+                consoleInput.value = '';
+            }
+        });
+
+        document.getElementById('btn-console-clear').addEventListener('click', () => { consoleLogsContainer.innerHTML = ''; });
+        document.getElementById('btn-network-clear').addEventListener('click', () => { networkLogs = []; renderNetworkLogs(); });
+
+        navigateTo('sample');
+    </script>
+</body>
+</html>
