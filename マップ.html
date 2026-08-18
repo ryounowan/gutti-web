@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>3D高精度Webマップ</title>
+
+  <!-- PWA設定 -->
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#007bff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="3Dマップ">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+
+  <!-- MapLibre GL JS v3+ -->
+  <script src="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.js"></script>
+  <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
+
+  <!-- Turf.js (距離計測用) -->
+  <script src="https://unpkg.com/@turf/turf@6/turf.min.js"></script>
+
+  <style>
+    body, html { margin: 0; padding: 0; height: 100%; overflow: hidden; font-family: sans-serif; }
+    #map { width: 100vw; height: 100vh; }
+
+    /* コントロールUIパネル */
+    .panel {
+      position: absolute; top: 10px; left: 10px; z-index: 10;
+      background: rgba(255, 255, 255, 0.92); backdrop-filter: blur(8px);
+      padding: 12px 15px; border-radius: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      width: 280px; max-height: 85vh; overflow-y: auto;
+    }
+    h3 { margin: 0 0 10px 0; font-size: 16px; color: #333; }
+    .input-group { margin-bottom: 8px; }
+    label { font-size: 12px; font-weight: bold; color: #555; }
+    input, select, button {
+      width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box;
+      border: 1px solid #ccc; border-radius: 6px; font-size: 13px;
+    }
+    button { background: #007bff; color: white; border: none; font-weight: bold; cursor: pointer; transition: 0.2s; }
+    button:hover { background: #0056b3; }
+    button.active { background: #dc3545; }
+    .btn-compass { background: #28a745; margin-top: 5px; }
+    .btn-compass:hover { background: #1e7e34; }
+
+    .status-info { font-size: 11px; color: #666; margin-top: 3px; }
+    .results-list { list-style: none; padding: 0; margin: 4px 0 0; max-height: 120px; overflow-y: auto; }
+    .results-list li { padding: 6px; border-bottom: 1px solid #eee; cursor: pointer; font-size: 12px; }
+    .results-list li:hover { background: #e9ecef; }
+    #distance-display { font-weight: bold; color: #d9534f; font-size: 12px; margin-top: 4px; }
+
+    /* 高精度GPS現在地ピンアニメーション */
+    .gps-marker {
+      width: 18px; height: 18px; background-color: #007bff;
+      border: 3px solid #ffffff; border-radius: 50%; box-shadow: 0 0 8px rgba(0,123,255,0.8);
+      position: relative;
+    }
+    .gps-marker::after {
+      content: ''; position: absolute; top: -6px; left: -6px;
+      width: 24px; height: 24px; border-radius: 50%;
+      border: 2px solid #007bff; opacity: 0.8;
+      animation: pulse 1.8s infinite ease-out;
+    }
+    @keyframes pulse {
+      0% { transform: scale(1); opacity: 0.8; }
+      100% { transform: scale(2.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<div class="panel">
+  <h3>3D高精度ナビゲーション</h3>
+  
+  <!-- GPS ＆ コンパス -->
+  <div class="input-group">
+    <button id="gps-btn">高精度GPS現在地を取得</button>
+    <button id="compass-btn" class="btn-compass">コンパス（ヘディング）連動</button>
+    <div id="gps-status" class="status-info">GPS: 未測位</div>
+  </div>
+
+  <hr style="border:none; border-top:1px solid #ddd; margin:10px 0;">
+
+  <!-- 場所検索 -->
+  <div class="input-group">
+    <label>場所検索</label>
+    <input type="text" id="search-input" placeholder="例: 東京タワー, 富士山">
+    <button id="search-btn">検索</button>
+    <ul id="search-results" class="results-list"></ul>
+  </div>
+
+  <hr style="border:none; border-top:1px solid #ddd; margin:10px 0;">
+
+  <!-- カテゴリ周辺検索 -->
+  <div class="input-group">
+    <label>周辺スポット検索</label>
+    <select id="category-select">
+      <option value="">ジャンルを選択...</option>
+      <option value="restaurant">飲食店</option>
+      <option value="hotel">ホテル・宿泊施設</option>
+      <option value="convenience">コンビニ</option>
+      <option value="cafe">カフェ</option>
+    </select>
+    <button id="category-btn" style="margin-top:4px;">表示</button>
+  </div>
+
+  <hr style="border:none; border-top:1px solid #ddd; margin:10px 0;">
+
+  <!-- 距離計測 -->
+  <div class="input-group">
+    <label>距離計測モード</label>
+    <button id="measure-btn" style="background:#6c757d;">2点間距離を計測</button>
+    <div id="distance-display"></div>
+  </div>
+</div>
+
+<script>
+  // 1. 地図初期化
+  const map = new maplibregl.Map({
+    container: 'map',
+    center: [139.6917, 35.6895], // 初期位置：新宿周辺
+    zoom: 16,
+    pitch: 65,
+    bearing: -20,
+    style: {
+      version: 8,
+      sources: {
+        'gsi-std': {
+          type: 'raster',
+          tiles: ['https://cyberjapandata.gsi.go.jp/xyz/std/{z}/{x}/{y}.png'],
+          tileSize: 256,
+          attribution: '国土地理院'
+        }
+      },
+      layers: [{ id: 'gsi-std-layer', type: 'raster', source: 'gsi-std', minzoom: 0, maxzoom: 18 }]
+    }
+  });
+
+  map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }));
+
+  // 2. 3D地形 (Terrain) & PLATEAU 3D建物データの読み込み
+  map.on('load', () => {
+    // 国土地理院 標高タイル（3D地形）
+    map.addSource('gsi-terrain', {
+      type: 'raster-dem',
+      tiles: ['https://optile.github.io/gsi-dem-raster-dem-tiles/tiles/{z}/{x}/{y}.webp'],
+      tileSize: 256,
+      encoding: 'terrarium',
+      maxzoom: 14,
+      attribution: '国土地理院 標高タイル'
+    });
+    map.setTerrain({ source: 'gsi-terrain', exaggeration: 1.0 });
+
+    map.addLayer({
+      id: 'hillshade-layer',
+      type: 'hillshade',
+      source: 'gsi-terrain',
+      paint: { 'hillshade-exaggeration': 0.4 }
+    });
+
+    // PLATEAU 3D建物データ (MVT)
+    map.addSource('plateau-bldg', {
+      type: 'vector',
+      tiles: ['https://indigo-lab.github.io/plateau-lod2-mvt/{z}/{x}/{y}.pbf'],
+      minzoom: 10,
+      maxzoom: 16
+    });
+
+    map.addLayer({
+      id: 'plateau-buildings',
+      type: 'fill-extrusion',
+      source: 'plateau-bldg',
+      'source-layer': 'bldg',
+      paint: {
+        'fill-extrusion-height': ['get', 'z'],
+        'fill-extrusion-base': 0,
+        'fill-extrusion-color': [
+          'interpolate', ['linear'], ['get', 'z'],
+          0, '#ffffff',
+          30, '#90caf9',
+          100, '#1e88e5',
+          200, '#0d47a1'
+        ],
+        'fill-extrusion-opacity': 0.85
+      }
+    });
+
+    // 建物タップ時のポップアップ表示
+    map.on('click', 'plateau-buildings', (e) => {
+      const props = e.features[0].properties;
+      const height = props.z ? `${props.z}m` : '不明';
+      new maplibregl.Popup()
+        .setLngLat(e.lngLat)
+        .setHTML(`<b>PLATEAU 建物情報</b><br>高さ: ${height}`)
+        .addTo(map);
+    });
+  });
+
+  // 3. 高精度 GPS 現在地取得
+  let currentMarker = null;
+  let watchId = null;
+
+  document.getElementById('gps-btn').addEventListener('click', () => {
+    if (!navigator.geolocation) return alert('GPS非対応の環境です。');
+    const statusEl = document.getElementById('gps-status');
+    const btn = document.getElementById('gps-btn');
+
+    if (watchId !== null) {
+      navigator.geolocation.clearWatch(watchId);
+      watchId = null;
+      btn.innerText = '高精度GPS現在地を取得';
+      btn.classList.remove('active');
+      statusEl.innerText = 'GPS: 停止';
+      return;
+    }
+
+    btn.innerText = 'GPS追従を停止';
+    btn.classList.add('active');
+    statusEl.innerText = '測位中...';
+
+    watchId = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng, accuracy } = pos.coords;
+        statusEl.innerText = `精度: ±${Math.round(accuracy)}m`;
+
+        if (!currentMarker) {
+          const el = document.createElement('div');
+          el.className = 'gps-marker';
+          currentMarker = new maplibregl.Marker({ element: el }).setLngLat([lng, lat]).addTo(map);
+          map.flyTo({ center: [lng, lat], zoom: 17, pitch: 65 });
+        } else {
+          currentMarker.setLngLat([lng, lat]);
+        }
+      },
+      (err) => statusEl.innerText = `エラー: ${err.message}`,
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  });
+
+  // 4. 電子コンパス（ジャイロ連動）
+  let isCompassActive = false;
+  let currentHeading = 0;
+
+  document.getElementById('compass-btn').addEventListener('click', async () => {
+    if (typeof DeviceOrientationEvent !== 'undefined' && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const state = await DeviceOrientationEvent.requestPermission();
+        if (state === 'granted') toggleCompass();
+        else alert('コンパス許可が拒否されました。');
+      } catch (e) { console.error(e); }
+    } else {
+      toggleCompass();
+    }
+  });
+
+  function toggleCompass() {
+    const btn = document.getElementById('compass-btn');
+    if (isCompassActive) {
+      window.removeEventListener('deviceorientation', handleOrientation, true);
+      isCompassActive = false;
+      btn.innerText = 'コンパス（ヘディング）連動';
+      btn.classList.remove('active');
+    } else {
+      window.addEventListener('deviceorientation', handleOrientation, true);
+      isCompassActive = true;
+      btn.innerText = 'コンパス連動を停止';
+      btn.classList.add('active');
+    }
+  }
+
+  function handleOrientation(e) {
+    let heading = e.webkitCompassHeading !== undefined ? e.webkitCompassHeading : (e.alpha !== null ? 360 - e.alpha : null);
+    if (heading !== null) {
+      let diff = (heading - currentHeading) % 360;
+      if (diff < -180) diff += 360;
+      if (diff > 180) diff -= 360;
+      currentHeading = (currentHeading + diff * 0.15) % 360;
+
+      map.rotateTo(currentHeading, { duration: 0, animate: false });
+    }
+  }
+
+  // 5. 場所検索 (Nominatim API)
+  document.getElementById('search-btn').addEventListener('click', async () => {
+    const query = document.getElementById('search-input').value;
+    if (!query) return;
+
+    const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+    const data = await res.json();
+    const list = document.getElementById('search-results');
+    list.innerHTML = '';
+
+    data.forEach(place => {
+      const li = document.createElement('li');
+      li.innerText = place.display_name;
+      li.addEventListener('click', () => {
+        const lat = parseFloat(place.lat), lon = parseFloat(place.lon);
+        map.flyTo({ center: [lon, lat], zoom: 17 });
+        new maplibregl.Marker({ color: '#ff0000' })
+          .setLngLat([lon, lat])
+          .setPopup(new maplibregl.Popup().setHTML(`<b>${place.display_name}</b>`))
+          .addTo(map);
+      });
+      list.appendChild(li);
+    });
+  });
+
+  // 6. 周辺スポット検索 (Overpass API)
+  let poiMarkers = [];
+  document.getElementById('category-btn').addEventListener('click', async () => {
+    const category = document.getElementById('category-select').value;
+    if (!category) return;
+
+    poiMarkers.forEach(m => m.remove());
+    poiMarkers = [];
+
+    const b = map.getBounds();
+    const bbox = `${b.getSouth()},${b.getWest()},${b.getNorth()},${b.getEast()}`;
+    const tags = { restaurant: 'amenity=restaurant', hotel: 'tourism=hotel', convenience: 'shop=convenience', cafe: 'amenity=cafe' };
+
+    const res = await fetch(`https://overpass-api.de/api/interpreter?data=[out:json];node[${tags[category]}](${bbox});out;`);
+    const data = await res.json();
+
+    data.elements.forEach(item => {
+      const name = item.tags.name || '名称不明';
+      const m = new maplibregl.Marker({ color: '#28a745' })
+        .setLngLat([item.lon, item.lat])
+        .setPopup(new maplibregl.Popup().setHTML(`<b>${name}</b><br>ジャンル: ${category}`))
+        .addTo(map);
+      poiMarkers.push(m);
+    });
+  });
+
+  // 7. 2点間距離計測 (Turf.js)
+  let measurePoints = [], measureMarkers = [], isMeasuring = false;
+
+  document.getElementById('measure-btn').addEventListener('click', () => {
+    isMeasuring = !isMeasuring;
+    measurePoints = [];
+    measureMarkers.forEach(m => m.remove());
+    measureMarkers = [];
+    const btn = document.getElementById('measure-btn');
+    const disp = document.getElementById('distance-display');
+
+    if (isMeasuring) {
+      btn.innerText = '計測モード解除';
+      btn.classList.add('active');
+      disp.innerText = 'マップ上の1点目をタップ';
+    } else {
+      btn.innerText = '2点間距離を計測';
+      btn.classList.remove('active');
+      disp.innerText = '';
+    }
+  });
+
+  map.on('click', (e) => {
+    if (!isMeasuring) return;
+    const coords = [e.lngLat.lng, e.lngLat.lat];
+    measurePoints.push(coords);
+
+    const m = new maplibregl.Marker({ color: '#d9534f' }).setLngLat(coords).addTo(map);
+    measureMarkers.push(m);
+
+    if (measurePoints.length === 2) {
+      const dist = turf.distance(turf.point(measurePoints[0]), turf.point(measurePoints[1]), { units: 'kilometers' });
+      document.getElementById('distance-display').innerText = `距離: ${dist.toFixed(2)} km (${Math.round(dist * 1000)} m)`;
+      isMeasuring = false;
+      document.getElementById('measure-btn').innerText = '2点間距離を計測';
+      document.getElementById('measure-btn').classList.remove('active');
+    }
+  });
+
+  // 8. PWA Service Worker 登録
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(err => console.error(err));
+    });
+  }
+</script>
+</body>
+</html>
