@@ -9,50 +9,44 @@
         :root { 
             --bg: #0f1115; --panel: #20242a; --active: #00ff41; 
             --seek: #3b82f6; --record: #ff3e3e; --text: #e2e8f0;
+            --chime: #eab308; --freq: #a855f7;
         }
-        body { 
-            font-family: sans-serif; background: var(--bg); color: var(--text); 
-            margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center;
-        }
-        .console { 
-            background: var(--panel); width: 100%; max-width: 420px; border-radius: 20px; 
-            box-shadow: 0 30px 60px rgba(0,0,0,0.8); border: 1px solid #333; overflow: hidden;
-            display: flex; flex-direction: column;
-        }
-        /* ヘッダー */
+        body { font-family: sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; }
+        .console { background: var(--panel); width: 100%; max-width: 420px; border-radius: 20px; box-shadow: 0 30px 60px rgba(0,0,0,0.8); border: 1px solid #333; overflow: hidden; display: flex; flex-direction: column; }
         .top-unit { background: #000; padding: 15px; border-bottom: 2px solid #333; }
         .status-display { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .on-air-led { color: #444; font-weight: bold; font-family: monospace; display: flex; align-items: center; gap: 8px; }
         .on-air-led.active { color: var(--record); text-shadow: 0 0 10px var(--record); }
         .led-dot { width: 12px; height: 12px; background: #333; border-radius: 50%; }
         .active .led-dot { background: var(--record); box-shadow: 0 0 8px var(--record); }
+        .listener-badge { font-size: 11px; background: #1e293b; color: var(--active); padding: 3px 8px; border-radius: 12px; border: 1px solid #334155; }
+        
+        .freq-display { background: #111; color: var(--freq); font-family: monospace; padding: 8px; text-align: center; border-radius: 8px; font-size: 14px; font-weight: bold; border: 1px solid #333; margin-top: 5px; }
 
         .vu-meter { height: 10px; background: #111; border-radius: 5px; overflow: hidden; position: relative; border: 1px solid #222; }
         #level-bar { width: 0%; height: 100%; background: linear-gradient(90deg, #00ff41 60%, #ffaa00 80%, #ff0000 100%); transition: width 0.05s; }
 
-        /* スクロール可能なメイン操作部 */
         .main-scroll { padding: 15px; max-height: 80vh; overflow-y: auto; }
-        
         .unit-label { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 2px; margin: 20px 0 10px; display: flex; align-items: center; gap: 10px; }
         .unit-label::after { content: ""; flex: 1; height: 1px; background: #333; }
 
-        /* フェーダーカード */
         .strip { background: #2a2f37; border-radius: 12px; padding: 15px; margin-bottom: 15px; border-left: 5px solid #444; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
         .strip.active { border-left-color: var(--active); background: #2d353f; }
 
-        /* シークバー改修 */
         .seek-box { height: 28px; background: #000; border-radius: 6px; position: relative; overflow: hidden; cursor: crosshair; margin: 10px 0; border: 1px solid #444; touch-action: none; }
         .seek-fill { width: 0%; height: 100%; background: var(--seek); opacity: 0.4; pointer-events: none; }
         .seek-info { position: absolute; width: 100%; text-align: center; line-height: 28px; font-size: 11px; font-family: monospace; z-index: 2; pointer-events: none; }
 
-        /* ボタン・フェーダー */
         .btn-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
         .btn { padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; background: #3d444d; transition: 0.1s; font-size: 12px; }
         .btn:active { transform: scale(0.98); opacity: 0.8; }
         .btn-on { background: #2563eb; }
         .btn-rec { background: #b91c1c; }
         .btn-play { background: var(--active); color: #000; }
+        .btn-chime { background: var(--chime); color: #000; }
+        .btn-export { background: var(--freq); color: #fff; margin-top: 10px; }
 
+        input[type="text"] { width:100%; padding:12px; background:#111; border:1px solid #333; color:var(--active); font-family:monospace; border-radius:8px; box-sizing:border-box; margin-bottom:10px; }
         input[type="range"] { -webkit-appearance: none; width: 100%; height: 8px; background: #111; border-radius: 4px; margin: 15px 0; outline: none; }
         input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 32px; height: 20px; background: #f0f0f0; border-radius: 4px; border: 1px solid #999; cursor: ns-resize; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
 
@@ -61,6 +55,7 @@
 
         input[type="file"] { display: none; }
         .file-link { font-size: 10px; color: var(--seek); cursor: pointer; text-decoration: underline; }
+        .toggle-label { font-size: 11px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -69,15 +64,21 @@
     <div class="top-unit">
         <div class="status-display">
             <div id="air-led" class="on-air-led"><div class="led-dot"></div><span id="air-timer">OFF AIR</span></div>
+            <div class="listener-badge">👥 <span id="listener-count">0</span> 人</div>
             <div id="rec-label" style="display:none; color:var(--record); font-size:10px; font-weight:bold;">● RECORDING</div>
         </div>
         <div class="vu-meter"><div id="level-bar"></div></div>
+        <div class="freq-display" id="freq-bar">FM --.- MHz (未接続)</div>
     </div>
 
     <div class="main-scroll">
         <div id="setup">
-            <div style="font-size:11px; margin-bottom:5px; color:#666;">STATION NAME</div>
-            <input type="text" id="room" style="width:100%; padding:15px; background:#111; border:1px solid #333; color:var(--active); font-family:monospace; margin-bottom:15px; border-radius:8px; box-sizing:border-box;" value="Gutti Presents">
+            <div style="font-size:11px; margin-bottom:5px; color:#666;">STATION NAME (ステーション名)</div>
+            <input type="text" id="room" value="Gutti-FM">
+            
+            <div style="font-size:11px; margin-bottom:5px; color:#666;">PASSCODE (固定合言葉)</div>
+            <input type="text" id="secretPass" value="secret123" placeholder="固定する合言葉を入力">
+
             <button class="btn btn-play" style="width:100%; padding:20px;" onclick="openStation()">SYSTEM START</button>
         </div>
 
@@ -87,11 +88,26 @@
                 <button id="btnOffAir" class="btn" onclick="toggleAir(false)" disabled>STOP</button>
             </div>
             <button id="btnRec" class="btn btn-rec" style="width:100%; margin-top:10px;" onclick="toggleRecording()" disabled>録音開始 (START REC)</button>
+            <button class="btn btn-export" style="width:100%;" onclick="exportListenerHTML()">📥 受信側用HTMLツールを出力</button>
+
+            <!-- 時報 ユニット -->
+            <div class="unit-label">TIME SIGNAL (時報)</div>
+            <div class="strip">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                    <button class="btn btn-chime" style="flex:1; margin-right:10px;" onclick="triggerTimeSignal()">🔔 今すぐ時報を鳴らす</button>
+                    <label class="toggle-label" style="color:var(--chime)">
+                        <input type="checkbox" id="auto-chime" onchange="toggleAutoChime(this.checked)"> 毎時00分 自動
+                    </label>
+                </div>
+            </div>
 
             <div class="unit-label">MIC / VOICE FX</div>
             <div class="strip">
                 <div style="display:flex; justify-content:space-between; font-size:11px;">
                     <label style="color:var(--active)"><input type="checkbox" id="mon-check" onchange="toggleMonitor(this.checked)"> MONITOR ON</label>
+                    <label class="toggle-label" style="color:#aaa;">
+                        <input type="checkbox" id="ducking-check" onchange="isDuckingEnabled = this.checked"> AUTO DUCKING
+                    </label>
                     <span id="v-mic">100%</span>
                 </div>
                 <input type="range" min="0" max="2" step="0.01" value="1" oninput="updateVol('mic', this.value)">
@@ -108,7 +124,7 @@
                 </div>
             </div>
 
-            <div class="unit-label">BGM CHANNELS</div>
+            <div class="unit-label">BGM CHANNELS (自動連続再生機能付)</div>
             <div id="slots"></div>
 
             <div class="unit-label">SAMPLER</div>
@@ -121,79 +137,175 @@
 </div>
 
 <script>
-    let peer, audioCtx, destination, micGain, analyser, conns = {};
-    let micSource, echoDelay, echoGain, reverbNode, monitorGain;
+    let peer, audioCtx, destination, micGain, analyser, micAnalyser, conns = {}, calls = {};
+    let micSource, echoDelay, echoGain, monitorGain;
     let isAirOn = false, isRecording = false;
     let mediaRecorder, recordedChunks = [];
+    
+    let autoChimeEnabled = false;
+    let isDuckingEnabled = false;
+    let baseBgmGains = [0.5, 0.5, 0.5];
+    let assignedFreq = "";
+    let stationPasscode = "";
+    let stationName = "";
 
     let bgmStates = Array.from({length: 3}, (_, i) => ({ 
         id: i, buffer: null, source: null, gainNode: null, isPlaying: false, offset: 0, startTime: 0, loop: false 
     }));
     let seBuffers = Array.from({length: 4}, () => null);
 
-    // PeerJS設定
+    const PEER_CONFIG = { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] } };
+
+    // 合言葉から周波数を生成 (87.5 〜 108.0 MHz)
+    function generateFrequency(pass) {
+        let hash = 0;
+        for (let i = 0; i < pass.length; i++) hash = pass.charCodeAt(i) + ((hash << 5) - hash);
+        const val = 87.5 + (Math.abs(hash) % 206) / 10;
+        return val.toFixed(1);
+    }
+
     function openStation() {
-        peer = new Peer(`${document.getElementById('room').value}-host`);
+        stationName = document.getElementById('room').value.trim();
+        stationPasscode = document.getElementById('secretPass').value.trim();
+        if(!stationPasscode) { alert("合言葉を設定してください"); return; }
+        
+        assignedFreq = generateFrequency(stationPasscode);
+        document.getElementById('freq-bar').innerText = `FM ${assignedFreq} MHz (局名: ${stationName})`;
+
+        // IDは合言葉由来で固定化
+        const stationId = `radio-station-${assignedFreq.replace('.','')}`;
+        peer = new Peer(stationId, PEER_CONFIG);
+        
         peer.on('open', () => {
             document.getElementById('setup').style.display = 'none';
             document.getElementById('main').style.display = 'block';
             initAudio();
             initUI();
+            startHeartbeat();
         });
+
         peer.on('connection', c => {
             conns[c.peer] = c;
-            if(audioCtx) peer.call(c.peer, destination.stream);
+            c.on('data', data => {
+                // 合言葉の認証チェック
+                if (data.type === 'auth') {
+                    if (data.pass === stationPasscode || data.freq === assignedFreq) {
+                        c.send({ type: 'auth_ok', stationName: stationName, freq: assignedFreq });
+                        if(audioCtx && isAirOn) {
+                            setTimeout(() => {
+                                const call = peer.call(c.peer, destination.stream);
+                                if(call) calls[c.peer] = call;
+                            }, 300);
+                        }
+                    } else {
+                        c.send({ type: 'auth_fail' });
+                        c.close();
+                    }
+                }
+            });
+
+            c.on('close', () => {
+                delete conns[c.peer];
+                if(calls[c.peer]) { calls[c.peer].close(); delete calls[c.peer]; }
+                updateListenerCount();
+            });
         });
     }
 
-    // オーディオグラフの初期化
+    function startHeartbeat() {
+        setInterval(() => {
+            const count = Object.keys(conns).length;
+            Object.keys(conns).forEach(id => {
+                const conn = conns[id];
+                if(conn && conn.open) conn.send({ type: 'ping', listeners: count, stationName: stationName });
+                else delete conns[id];
+            });
+            updateListenerCount();
+        }, 3000);
+    }
+
+    function updateListenerCount() {
+        document.getElementById('listener-count').innerText = Object.keys(conns).length;
+    }
+
     function initAudio() {
         if(audioCtx) return;
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         destination = audioCtx.createMediaStreamDestination();
         analyser = audioCtx.createAnalyser();
+        micAnalyser = audioCtx.createAnalyser();
         
-        // --- MIC CHAIN ---
         micGain = audioCtx.createGain();
+        echoDelay = audioCtx.createDelay(); echoDelay.delayTime.value = 0.3;
+        echoGain = audioCtx.createGain(); echoGain.gain.value = 0;
         
-        // エコー設定
-        echoDelay = audioCtx.createDelay();
-        echoDelay.delayTime.value = 0.3;
-        echoGain = audioCtx.createGain();
-        echoGain.gain.value = 0;
-        
-        // リバーブ (簡易)
-        reverbNode = audioCtx.createConvolver();
-        // ※ 本来はインパルスレスポンスが必要だが、ここではGainで代用
-        
-        // モニター（自分用）
-        monitorGain = audioCtx.createGain();
-        monitorGain.gain.value = 0;
+        monitorGain = audioCtx.createGain(); monitorGain.gain.value = 0;
         monitorGain.connect(audioCtx.destination);
 
         micGain.connect(destination);
         micGain.connect(analyser);
+        micGain.connect(micAnalyser);
         micGain.connect(monitorGain);
 
-        // BGM Slots
         bgmStates.forEach(s => {
             s.gainNode = audioCtx.createGain();
-            s.gainNode.gain.value = 0.5;
+            s.gainNode.gain.value = baseBgmGains[s.id];
             s.gainNode.connect(destination);
             s.gainNode.connect(analyser);
         });
 
-        // メーター更新
         const updateMeter = () => {
             const d = new Uint8Array(analyser.frequencyBinCount);
             analyser.getByteFrequencyData(d);
             const val = (d.reduce((a,b)=>a+b)/d.length);
             document.getElementById('level-bar').style.width = Math.min(val * 1.8, 100) + "%";
+
+            if(isDuckingEnabled && micSource) {
+                const micData = new Uint8Array(micAnalyser.frequencyBinCount);
+                micAnalyser.getByteFrequencyData(micData);
+                const micVal = (micData.reduce((a,b)=>a+b)/micData.length);
+                bgmStates.forEach(s => {
+                    const targetGain = micVal > 15 ? baseBgmGains[s.id] * 0.25 : baseBgmGains[s.id];
+                    s.gainNode.gain.setTargetAtTime(targetGain, audioCtx.currentTime, 0.1);
+                });
+            }
             requestAnimationFrame(updateMeter);
         };
         updateMeter();
         requestAnimationFrame(smoothSeekUpdate);
+        setInterval(checkAutoChime, 500);
     }
+
+    function triggerTimeSignal() {
+        if(!audioCtx) return;
+        if(audioCtx.state === 'suspended') audioCtx.resume();
+        const now = audioCtx.currentTime;
+        [0, 1, 2].forEach(i => playBeep(440, now + i, 0.1));
+        playBeep(880, now + 3, 0.8);
+    }
+
+    function playBeep(freq, time, duration) {
+        const osc = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, time);
+        g.gain.setValueAtTime(0.5, time);
+        g.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        osc.connect(g); g.connect(destination); g.connect(analyser); g.connect(audioCtx.destination);
+        osc.start(time); osc.stop(time + duration);
+    }
+
+    let chimeFired = false;
+    function checkAutoChime() {
+        if(!autoChimeEnabled || !isAirOn) return;
+        const now = new Date();
+        if(now.getMinutes() === 59 && now.getSeconds() === 57 && !chimeFired) {
+            chimeFired = true; triggerTimeSignal();
+        }
+        if(now.getSeconds() === 5) chimeFired = false;
+    }
+
+    function toggleAutoChime(on) { autoChimeEnabled = on; }
 
     function initUI() {
         const slots = document.getElementById('slots');
@@ -202,7 +314,7 @@
             <div class="strip" id="slot-${s.id}">
                 <div style="display:flex; justify-content:space-between; font-size:10px;">
                     <span id="t-${s.id}" style="color:#aaa;">CH ${s.id+1}: NO DATA</span>
-                    <label><input type="checkbox" onchange="bgmStates[${s.id}].loop=this.checked"> LOOP</label>
+                    <label><input type="checkbox" id="loop-${s.id}" onchange="bgmStates[${s.id}].loop=this.checked"> LOOP</label>
                 </div>
                 <div class="seek-box" id="seekbox-${s.id}">
                     <div class="seek-info" id="time-${s.id}">0:00 / 0:00</div>
@@ -221,8 +333,6 @@
                 </div>
                 <input type="file" id="f${s.id}" onchange="loadAudio(${s.id}, this)">
             </div>`;
-            
-            // シークバーのイベント登録 (ドラッグ対応)
             setTimeout(() => setupSeekEvent(s.id), 100);
         });
 
@@ -236,7 +346,6 @@
         }
     }
 
-    // シークバーのドラッグ操作
     function setupSeekEvent(id) {
         const box = document.getElementById(`seekbox-${id}`);
         const handleMove = (e) => {
@@ -246,31 +355,10 @@
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const x = clientX - rect.left;
             s.offset = Math.max(0, Math.min((x / rect.width) * s.buffer.duration, s.buffer.duration));
-            if(s.isPlaying) playBGM(id);
-            else updateSeekDisplay(id);
+            if(s.isPlaying) playBGM(id); else updateSeekDisplay(id);
         };
-
-        box.addEventListener('mousedown', (e) => {
-            handleMove(e);
-            const moveListener = (ee) => handleMove(ee);
-            const upListener = () => {
-                window.removeEventListener('mousemove', moveListener);
-                window.removeEventListener('mouseup', upListener);
-            };
-            window.addEventListener('mousemove', moveListener);
-            window.addEventListener('mouseup', upListener);
-        });
-
-        box.addEventListener('touchstart', (e) => {
-            handleMove(e);
-            const moveListener = (ee) => handleMove(ee);
-            const upListener = () => {
-                window.removeEventListener('touchmove', moveListener);
-                window.removeEventListener('touchend', upListener);
-            };
-            window.addEventListener('touchmove', moveListener);
-            window.addEventListener('touchend', upListener);
-        });
+        box.addEventListener('mousedown', (e) => { handleMove(e); const move = (ee) => handleMove(ee); const up = () => { window.removeEventListener('mousemove', move); window.removeEventListener('mouseup', up); }; window.addEventListener('mousemove', move); window.addEventListener('mouseup', up); });
+        box.addEventListener('touchstart', (e) => { handleMove(e); const move = (ee) => handleMove(ee); const up = () => { window.removeEventListener('touchmove', move); window.removeEventListener('touchend', up); }; window.addEventListener('touchmove', move); window.addEventListener('touchend', up); });
     }
 
     function smoothSeekUpdate() {
@@ -301,19 +389,16 @@
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
                 micSource = audioCtx.createMediaStreamSource(stream);
-                // エコー接続
-                micSource.connect(echoDelay);
-                echoDelay.connect(echoGain);
-                echoGain.connect(micGain);
-                
-                micSource.connect(micGain);
-                Object.keys(conns).forEach(id => peer.call(id, destination.stream));
+                micSource.connect(echoDelay); echoDelay.connect(echoGain); echoGain.connect(micGain); micSource.connect(micGain);
+                Object.keys(conns).forEach(id => { calls[id] = peer.call(id, destination.stream); });
                 document.getElementById('air-timer').innerText = "LIVE ON AIR";
             } catch(e) { alert("マイクの許可が必要です"); toggleAir(false); }
         } else {
             if(isRecording) toggleRecording();
             bgmStates.forEach((_, i) => pauseBGM(i));
             if(micSource) micSource.disconnect();
+            Object.values(calls).forEach(call => call.close());
+            calls = {};
             document.getElementById('air-timer').innerText = "OFF AIR";
         }
     }
@@ -322,10 +407,26 @@
         if(!isAirOn) return;
         const s = bgmStates[i]; if(!s.buffer) return;
         if(s.source) s.source.stop();
+        
         s.source = audioCtx.createBufferSource();
         s.source.buffer = s.buffer;
         s.source.connect(s.gainNode);
-        s.source.onended = () => { if(s.isPlaying) { if(s.loop) playBGM(i); else pauseBGM(i); } };
+        
+        s.source.onended = () => { 
+            if(s.isPlaying) { 
+                if(s.loop) {
+                    playBGM(i);
+                } else {
+                    pauseBGM(i);
+                    const nextId = i + 1;
+                    if(nextId < bgmStates.length && bgmStates[nextId].buffer) {
+                        bgmStates[nextId].offset = 0;
+                        playBGM(nextId);
+                    }
+                } 
+            } 
+        };
+        
         s.source.start(0, s.offset);
         s.startTime = audioCtx.currentTime - s.offset;
         s.isPlaying = true;
@@ -352,19 +453,16 @@
 
     function updateVol(type, val) {
         if(type === 'mic') micGain.gain.value = val;
-        else bgmStates[type.replace('bgm','')].gainNode.gain.value = val;
+        else {
+            const idx = parseInt(type.replace('bgm',''));
+            baseBgmGains[idx] = parseFloat(val);
+            bgmStates[idx].gainNode.gain.value = val;
+        }
         document.getElementById(`v-${type}`).innerText = Math.round(val*100)+"%";
     }
 
-    function toggleMonitor(on) {
-        if(monitorGain) monitorGain.gain.value = on ? 1 : 0;
-    }
-
-    function updateFX(type, val) {
-        if(type === 'echo') echoGain.gain.value = val;
-        // リバーブはデモ用としてマイクGainに少し加味
-        if(type === 'verb') { /* Convolver等で実装可能 */ }
-    }
+    function toggleMonitor(on) { if(monitorGain) monitorGain.gain.value = on ? 1 : 0; }
+    function updateFX(type, val) { if(type === 'echo') echoGain.gain.value = val; }
 
     function toggleRecording() {
         if(!isRecording) {
@@ -374,28 +472,237 @@
             mediaRecorder.onstop = () => {
                 const blob = new Blob(recordedChunks, { type: 'audio/webm' });
                 const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `radio_log_${new Date().getTime()}.webm`;
-                a.click();
+                const a = document.createElement('a'); a.href = url; a.download = `radio_log_${new Date().getTime()}.webm`; a.click();
             };
-            mediaRecorder.start();
-            isRecording = true;
+            mediaRecorder.start(); isRecording = true;
             document.getElementById('btnRec').innerText = "録音停止 (SAVE)";
             document.getElementById('rec-label').style.display = "block";
         } else {
-            mediaRecorder.stop();
-            isRecording = false;
+            mediaRecorder.stop(); isRecording = false;
             document.getElementById('btnRec').innerText = "録音開始 (START REC)";
             document.getElementById('rec-label').style.display = "none";
         }
     }
 
-    function formatTime(sec) {
-        return `${Math.floor(sec/60)}:${Math.floor(sec%60).toString().padStart(2,'0')}`;
+    function formatTime(sec) { return `${Math.floor(sec/60)}:${Math.floor(sec%60).toString().padStart(2,'0')}`; }
+    function playSE(i) { if(isAirOn && seBuffers[i]) { const s = audioCtx.createBufferSource(); s.buffer = seBuffers[i]; s.connect(destination); s.connect(analyser); s.start(0); } }
+    async function loadSE(i, input) { const f = input.files[0]; if(f) { seBuffers[i] = await audioCtx.decodeAudioData(await f.arrayBuffer()); document.getElementById(`se-${i}`).style.borderColor = "var(--active)"; } }
+
+    // --- 受信側ツール用HTML出力機能 ---
+    function exportListenerHTML() {
+        const htmlContent = `<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FM Radio Tuner</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"><\/script>
+    <style>
+        :root { --accent: #a855f7; --bg: #0d1117; --panel: #161b22; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: white; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px 0; box-sizing: border-box; }
+        .tuner-card { background: var(--panel); border: 1px solid #30363d; padding: 25px; border-radius: 24px; width: 90%; max-width: 340px; text-align: center; box-shadow: 0 20px 40px rgba(0,0,0,0.6); }
+        .freq-display { background: #000; border: 2px solid #30363d; border-radius: 16px; padding: 15px; margin: 15px 0; position: relative; }
+        .freq-num { font-family: monospace; font-size: 38px; color: var(--accent); font-weight: bold; text-shadow: 0 0 10px rgba(168,85,247,0.4); }
+        .station-name { font-size: 14px; color: #8b949e; min-height: 20px; font-weight: bold; margin-top: 5px; }
+        
+        .dial-container { margin: 25px 0; }
+        input[type="range"].dial { -webkit-appearance: none; width: 100%; height: 12px; background: #21262d; border-radius: 6px; outline: none; border: 1px solid #30363d; }
+        input[type="range"].dial::-webkit-slider-thumb { -webkit-appearance: none; width: 28px; height: 38px; background: var(--accent); border-radius: 6px; cursor: pointer; box-shadow: 0 0 10px rgba(0,0,0,0.5); }
+        
+        input[type="text"] { width: 100%; padding: 12px; margin-bottom: 12px; border-radius: 10px; border: 1px solid #30363d; background: #0d1117; color: white; text-align: center; font-size: 14px; box-sizing: border-box; }
+        
+        .btn { width: 100%; padding: 14px; border-radius: 12px; border: none; background: #238636; color: white; font-weight: bold; cursor: pointer; font-size: 15px; transition: 0.2s; }
+        .btn:active { transform: scale(0.96); }
+
+        .saved-list { margin-top: 20px; border-top: 1px solid #30363d; padding-top: 15px; text-align: left; }
+        .saved-item { background: #21262d; border: 1px solid #30363d; padding: 10px; border-radius: 10px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 12px; cursor: pointer; }
+        .saved-item:hover { border-color: var(--accent); }
+
+        #status { margin-top: 15px; font-size: 12px; color: #8b949e; font-weight: bold; }
+        .meter-bar { height: 4px; background: #21262d; border-radius: 2px; overflow: hidden; margin-top: 10px; }
+        .meter-fill { width: 0%; height: 100%; background: var(--accent); transition: width 0.1s; }
+    </style>
+</head>
+<body>
+
+<div class="tuner-card">
+    <div style="font-size:11px; color:#8b949e; letter-spacing:1px;">FM TUNER</div>
+    <div class="freq-display">
+        <div class="freq-num" id="freqNum">87.5</div>
+        <div class="station-name" id="stName">未接続</div>
+    </div>
+
+    <!-- 周波数ダイヤル -->
+    <div class="dial-container">
+        <input type="range" class="dial" min="87.5" max="108.0" step="0.1" value="87.5" id="freqDial" oninput="onDialChange(this.value)">
+    </div>
+
+    <input type="text" id="passInput" placeholder="合言葉を入力">
+    <button class="btn" id="tuneBtn" onclick="tune()">TUNE (受信開始)</button>
+    <div id="status">合言葉を入力してチューニングしてください</div>
+    <div class="meter-bar"><div id="v-fill" class="meter-fill"></div></div>
+
+    <!-- 接続保存リスト -->
+    <div class="saved-list">
+        <div style="font-size:11px; color:#8b949e; margin-bottom:8px;">📌 保存済みチャンネル</div>
+        <div id="channelContainer"></div>
+    </div>
+
+    <audio id="audio" playsinline></audio>
+</div>
+
+<script>
+    let peer = null, dataConn = null, isListening = false, retryCount = 0;
+    let audioCtx = null, analyser = null;
+    let savedChannels = JSON.parse(localStorage.getItem('radio_saved_channels') || '[]');
+    const PEER_CONFIG = { config: { 'iceServers': [{ urls: 'stun:stun.l.google.com:19302' }, { urls: 'stun:stun1.l.google.com:19302' }] } };
+
+    window.onload = () => { renderSavedChannels(); };
+
+    function generateFrequency(pass) {
+        let hash = 0;
+        for (let i = 0; i < pass.length; i++) hash = pass.charCodeAt(i) + ((hash << 5) - hash);
+        const val = 87.5 + (Math.abs(hash) % 206) / 10;
+        return val.toFixed(1);
     }
 
-    function playSE(i) { if(isAirOn && seBuffers[i]) { const s = audioCtx.createBufferSource(); s.buffer = seBuffers[i]; s.connect(destination); s.start(0); } }
-    async function loadSE(i, input) { const f = input.files[0]; if(f) { seBuffers[i] = await audioCtx.decodeAudioData(await f.arrayBuffer()); document.getElementById(`se-${i}`).style.borderColor = "var(--active)"; } }
+    function onDialChange(val) {
+        document.getElementById('freqNum').innerText = parseFloat(val).toFixed(1);
+    }
+
+    function tune(targetPass = null, targetFreq = null) {
+        const pass = targetPass || document.getElementById('passInput').value.trim();
+        if(!pass) { alert("合言葉を入力してください"); return; }
+        document.getElementById('passInput').value = pass;
+
+        const freq = targetFreq || generateFrequency(pass);
+        document.getElementById('freqDial').value = freq;
+        document.getElementById('freqNum').innerText = freq;
+
+        isListening = true;
+        document.getElementById('tuneBtn').disabled = true;
+        const status = document.getElementById('status');
+        status.innerText = "🔍 電波を探しています...";
+
+        const audio = document.getElementById('audio');
+        audio.play().catch(() => {});
+
+        if(peer) { try { peer.destroy(); } catch(e){} }
+        peer = new Peer(\`listener-\${Math.floor(Math.random()*99999)}\`, PEER_CONFIG);
+
+        const targetStationId = \`radio-station-\${freq.replace('.','')}\`;
+
+        peer.on('open', () => {
+            dataConn = peer.connect(targetStationId);
+            dataConn.on('open', () => {
+                dataConn.send({ type: 'auth', pass: pass, freq: freq });
+            });
+
+            dataConn.on('data', data => {
+                if (data.type === 'auth_fail') {
+                    status.innerText = "❌ 周波数が違うか合言葉が不一致です";
+                    document.getElementById('tuneBtn').disabled = false;
+                    isListening = false;
+                } else if(data.type === 'auth_ok') {
+                    document.getElementById('stName').innerText = data.stationName;
+                    saveChannel(data.stationName, pass, freq);
+                } else if(data.type === 'ping') {
+                    if(data.stationName) document.getElementById('stName').innerText = data.stationName;
+                }
+            });
+
+            dataConn.on('close', () => handleDisconnect());
+        });
+
+        peer.on('call', call => {
+            status.innerText = "🔴 受信中";
+            call.answer();
+            call.on('stream', s => {
+                audio.srcObject = s;
+                setupAudioVisualizer(s);
+            });
+            call.on('close', () => handleDisconnect());
+        });
+
+        peer.on('error', () => handleDisconnect());
+    }
+
+    function handleDisconnect() {
+        if (!isListening) return;
+        const status = document.getElementById('status');
+        if (retryCount < 8) {
+            retryCount++;
+            status.innerText = \`⚠️ 信号を探しています (\${retryCount}/8)...\`;
+            setTimeout(() => tune(), 2500);
+        } else {
+            status.innerText = "📴 放送が受信できません";
+            document.getElementById('stName').innerText = "未接続";
+            document.getElementById('tuneBtn').disabled = false;
+        }
+    }
+
+    function saveChannel(name, pass, freq) {
+        if(!savedChannels.some(c => c.freq === freq && c.pass === pass)) {
+            savedChannels.push({ name, pass, freq });
+            localStorage.setItem('radio_saved_channels', JSON.stringify(savedChannels));
+            renderSavedChannels();
+        }
+    }
+
+    function renderSavedChannels() {
+        const box = document.getElementById('channelContainer');
+        box.innerHTML = '';
+        if(savedChannels.length === 0) {
+            box.innerHTML = '<div style="font-size:10px; color:#555;">保存されたチャンネルはありません</div>';
+            return;
+        }
+        savedChannels.forEach((c, idx) => {
+            box.innerHTML += \`
+            <div class="saved-item" onclick="tune('\${c.pass}', '\${c.freq}')">
+                <div>
+                    <div style="font-weight:bold; color:white;">\${c.name}</div>
+                    <div style="font-size:10px; color:#8b949e;">FM \${c.freq} MHz</div>
+                </div>
+                <div style="color:#f87171;" onclick="event.stopPropagation(); removeChannel(\${idx})">✖</div>
+            </div>\`;
+        });
+    }
+
+    function removeChannel(idx) {
+        savedChannels.splice(idx, 1);
+        localStorage.setItem('radio_saved_channels', JSON.stringify(savedChannels));
+        renderSavedChannels();
+    }
+
+    function setupAudioVisualizer(stream) {
+        if (audioCtx) return;
+        try {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            const source = audioCtx.createMediaStreamSource(stream);
+            source.connect(analyser);
+            const updateMeter = () => {
+                if(!isListening) return;
+                const data = new Uint8Array(analyser.frequencyBinCount);
+                analyser.getByteFrequencyData(data);
+                const val = (data.reduce((a,b)=>a+b)/data.length);
+                document.getElementById('v-fill').style.width = Math.min(val * 2.5, 100) + "%";
+                requestAnimationFrame(updateMeter);
+            };
+            updateMeter();
+        } catch(e){}
+    }
+<\/script>
+</body>
+</html>`;
+
+        const blob = new Blob([htmlContent], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `radio_tuner.html`;
+        a.click();
+    }
 </script>
 </body>
 </html>
