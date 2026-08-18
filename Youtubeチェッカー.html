@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Channel Dashboard</title>
+  <!-- Tailwind CSS / Lucide Icons / html2canvas -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 p-2 sm:p-4 md:p-8 selection:bg-red-500 selection:text-white">
+
+  <div class="max-w-5xl mx-auto space-y-4 sm:space-y-6">
+    
+    <!-- 検索・保存コントロール -->
+    <div class="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-slate-200 space-y-4">
+      <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 class="text-lg sm:text-xl font-bold flex items-center gap-2">
+          <i data-lucide="youtube" class="text-red-600 w-6 h-6"></i> Analytics Dashboard
+        </h1>
+        <div class="flex gap-2">
+          <button id="btn-export-csv" class="flex-1 sm:flex-none bg-slate-700 hover:bg-slate-800 text-white px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition active:scale-95">
+            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> CSV出力
+          </button>
+          <button id="btn-save-image" class="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold flex items-center justify-center gap-1.5 transition shadow-sm active:scale-95">
+            <i data-lucide="download" class="w-4 h-4"></i> 画像保存
+          </button>
+        </div>
+      </div>
+
+      <div class="flex flex-col sm:flex-row gap-2.5">
+        <input type="text" id="channel-input" placeholder="チャンネルID (UC...) または @ハンドル名" class="flex-1 px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-red-500 outline-none text-sm bg-slate-50 focus:bg-white transition">
+        <button id="btn-search" class="w-full sm:w-auto bg-red-600 hover:bg-red-700 text-white px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition active:scale-95">
+          <i data-lucide="search" class="w-4 h-4"></i> 全動画解析・データ取得
+        </button>
+      </div>
+
+      <!-- 進捗ステータス表示 -->
+      <div id="loading-status" class="hidden text-xs text-red-600 font-semibold flex items-center gap-2 animate-pulse">
+        <i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i>
+        <span id="loading-msg">全動画データを読み込んでいます...</span>
+      </div>
+    </div>
+
+    <!-- キャプチャ対象メインエリア -->
+    <div id="capture-area" class="bg-white rounded-2xl sm:rounded-3xl shadow-xl overflow-hidden border border-slate-200 relative">
+      
+      <!-- ヘッダー背景バナー -->
+      <div id="banner-bg" class="h-32 sm:h-48 md:h-56 bg-gradient-to-r from-slate-800 via-slate-700 to-slate-900 bg-cover bg-center relative">
+        <div class="absolute inset-0 bg-black/25"></div>
+      </div>
+
+      <div class="px-4 sm:px-6 md:px-8 pb-6 sm:pb-8 relative">
+        
+        <!-- チャンネルヘッダー情報 -->
+        <div class="flex flex-col sm:flex-row items-center sm:items-end gap-3 sm:gap-5 -mt-12 sm:-mt-16 mb-6 text-center sm:text-left">
+          <img id="channel-icon" src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='1.5'%3E%3Crect width='18' height='18' x='3' y='3' rx='2'/%3E%3Ccircle cx='12' cy='10' r='3'/%3E%3Cpath d='M7 21v-2a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2v2'/%3E%3C/svg%3E" class="w-24 h-24 sm:w-28 sm:h-28 md:w-32 md:h-32 rounded-full border-4 border-white shadow-md bg-slate-100 object-cover flex-shrink-0">
+          <div class="mb-1">
+            <h2 id="channel-title" class="text-xl sm:text-2xl md:text-3xl font-black text-slate-900 leading-tight">チャンネル名</h2>
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-1">
+              <span id="channel-handle" class="text-slate-500 font-semibold text-xs sm:text-sm">@handle</span>
+              <span id="published-at" class="text-slate-400 text-[11px] sm:text-xs bg-slate-100 px-2 py-0.5 rounded-full">開設日: ----/--/--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 指標カード（8項目） -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4 mb-6 sm:mb-8">
+          
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="users" class="w-3.5 h-3.5 text-blue-500"></i> 登録者数
+            </p>
+            <p id="stat-subscribers" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="play-circle" class="w-3.5 h-3.5 text-amber-500"></i> 全動画 総再生数
+            </p>
+            <p id="stat-views" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="video" class="w-3.5 h-3.5 text-emerald-500"></i> 総投稿数
+            </p>
+            <p id="stat-videos" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="thumbs-up" class="w-3.5 h-3.5 text-rose-500"></i> 全動画 高評価総数
+            </p>
+            <p id="stat-likes" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="message-square" class="w-3.5 h-3.5 text-indigo-500"></i> 全動画 コメント総数
+            </p>
+            <p id="stat-comments" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="activity" class="w-3.5 h-3.5 text-cyan-500"></i> 全動画 平均エンゲージメント
+            </p>
+            <p id="stat-engagement" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0.0%</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="clock" class="w-3.5 h-3.5 text-purple-500"></i> 平均動画尺
+            </p>
+            <p id="stat-avg-duration" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">0分0秒</p>
+          </div>
+
+          <div class="bg-slate-50 p-3 sm:p-4 rounded-xl sm:rounded-2xl border border-slate-100">
+            <p class="text-[11px] sm:text-xs text-slate-500 font-bold flex items-center gap-1 mb-1">
+              <i data-lucide="calendar" class="w-3.5 h-3.5 text-orange-500"></i> 最新投稿日
+            </p>
+            <p id="stat-last-upload" class="text-base sm:text-xl md:text-2xl font-black text-slate-800 truncate">----/--/--</p>
+          </div>
+
+        </div>
+
+        <!-- 動画ランキング & 絞り込みフィルターセクション -->
+        <div class="bg-slate-50/70 p-4 sm:p-5 rounded-2xl border border-slate-100 space-y-4">
+          
+          <div class="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-2 border-b border-slate-200">
+            <h3 class="text-base font-bold text-slate-800 flex items-center gap-2">
+              <i data-lucide="trophy" class="w-5 h-5 text-amber-500"></i> 歴代全動画 人気ランキング TOP 10
+            </h3>
+            
+            <div class="flex flex-wrap items-center gap-2">
+              <div class="relative flex-1 sm:w-64">
+                <i data-lucide="search" class="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2"></i>
+                <input type="text" id="video-filter-input" placeholder="タイトルで絞り込み..." class="w-full pl-8 pr-3 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-red-500">
+              </div>
+              <select id="video-sort-select" class="px-2.5 py-1.5 text-xs bg-white border border-slate-200 rounded-lg outline-none focus:ring-2 focus:ring-red-500 font-medium">
+                <option value="views">再生数順</option>
+                <option value="likes">高評価順</option>
+                <option value="date">投稿日順</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- 動画リスト表示エリア -->
+          <div id="popular-videos" class="space-y-2">
+            <p class="text-xs text-slate-400 py-8 text-center">データを取得するとランキングが表示されます</p>
+          </div>
+
+        </div>
+
+        <!-- 右下タイムスタンプ -->
+        <div class="mt-6 sm:mt-8 pt-3 border-t border-slate-100 text-right">
+          <p id="timestamp-display" class="text-[10px] sm:text-xs font-semibold text-slate-400">取得日時: ----/--/-- --:--</p>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    lucide.createIcons();
+
+    // =========================================================
+    // APIキー設定エリア
+    // 下記の "YOUR_YOUTUBE_API_KEY_HERE" にAPIキーを貼り付けてください
+    // =========================================================
+    const RAW_API_KEY = "AIzaSyA_Mwijae6mfHQVcn4IfHrA92hUo6Vf2q8";
+
+    function obfuscate(key) {
+      if (!key || key === "YOUR_YOUTUBE_API_KEY_HERE") return "";
+      return btoa(key.split('').map(c => String.fromCharCode(c.charCodeAt(0) ^ 0x05)).join(''));
+    }
+
+    function deobfuscate(encrypted) {
+      if (!encrypted) return "";
+      try {
+        const decoded = atob(encrypted);
+        return decoded.split('').map(c => String.fromCharCode(c.charCodeAt(0) ^ 0x05)).join('');
+      } catch(e) {
+        return "";
+      }
+    }
+
+    const ENCRYPTED_KEY = obfuscate(RAW_API_KEY);
+
+    let cachedVideos = [];
+
+    const channelInput = document.getElementById('channel-input');
+    const btnSearch = document.getElementById('btn-search');
+    const btnSaveImage = document.getElementById('btn-save-image');
+    const btnExportCsv = document.getElementById('btn-export-csv');
+    const filterInput = document.getElementById('video-filter-input');
+    const sortSelect = document.getElementById('video-sort-select');
+    const loadingStatus = document.getElementById('loading-status');
+    const loadingMsg = document.getElementById('loading-msg');
+
+    btnSearch.addEventListener('click', fetchChannelData);
+    btnSaveImage.addEventListener('click', saveAsImage);
+    btnExportCsv.addEventListener('click', exportToCSV);
+
+    filterInput.addEventListener('input', applyFilterAndSort);
+    sortSelect.addEventListener('change', applyFilterAndSort);
+
+    channelInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') fetchChannelData();
+    });
+
+    async function fetchChannelData() {
+      const apiKey = deobfuscate(ENCRYPTED_KEY);
+      const query = channelInput.value.trim();
+
+      if (!apiKey) {
+        alert('APIキーが埋め込まれていません。コード内の RAW_API_KEY を設定してください。');
+        return;
+      }
+
+      if (!query) {
+        alert('チャンネルIDまたは@ハンドルを入力してください');
+        return;
+      }
+
+      try {
+        loadingStatus.classList.remove('hidden');
+        loadingMsg.innerText = 'チャンネル情報を取得中...';
+
+        let channelId = query;
+        if (query.startsWith('@')) {
+          const res = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=id&forHandle=${encodeURIComponent(query)}&key=${apiKey}`);
+          const data = await res.json();
+          if (!data.items || data.items.length === 0) throw new Error('ハンドルに対応するチャンネルが見つかりません');
+          channelId = data.items[0].id;
+        }
+
+        const chRes = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=snippet,statistics,contentDetails,brandingSettings&id=${channelId}&key=${apiKey}`);
+        const chData = await chRes.json();
+        if (!chData.items || chData.items.length === 0) throw new Error('チャンネルが見つかりません');
+
+        const chInfo = chData.items[0];
+        updateChannelUI(chInfo);
+
+        const uploadsPlaylistId = chInfo.contentDetails.relatedPlaylists.uploads;
+
+        // 最大5000本の動画を取得・解析
+        await fetchAllChannelVideos(uploadsPlaylistId, apiKey);
+
+        const now = new Date();
+        document.getElementById('timestamp-display').innerText = `取得日時: ${now.getFullYear()}年${now.getMonth()+1}月${now.getDate()}日 ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+      } catch (err) {
+        alert('エラー: ' + err.message);
+      } finally {
+        loadingStatus.classList.add('hidden');
+      }
+    }
+
+    function updateChannelUI(data) {
+      const snippet = data.snippet;
+      const stats = data.statistics;
+      const branding = data.brandingSettings;
+
+      document.getElementById('channel-title').innerText = snippet.title;
+      document.getElementById('channel-handle').innerText = snippet.customUrl || '';
+      document.getElementById('channel-icon').src = snippet.thumbnails.high?.url || snippet.thumbnails.medium?.url;
+
+      const pubDate = new Date(snippet.publishedAt);
+      document.getElementById('published-at').innerText = `開設: ${pubDate.getFullYear()}/${pubDate.getMonth()+1}/${pubDate.getDate()}`;
+
+      const bannerUrl = branding?.image?.bannerExternalUrl;
+      const bannerBg = document.getElementById('banner-bg');
+      if (bannerUrl) {
+        bannerBg.style.backgroundImage = `url('${bannerUrl}=w1060')`;
+      } else {
+        bannerBg.style.backgroundImage = 'none';
+      }
+
+      document.getElementById('stat-subscribers').innerText = Number(stats.subscriberCount || 0).toLocaleString();
+      document.getElementById('stat-views').innerText = Number(stats.viewCount || 0).toLocaleString();
+      document.getElementById('stat-videos').innerText = Number(stats.videoCount || 0).toLocaleString();
+    }
+
+    // チャンネル内の全動画（最大5,000件）を取得し完全ソート
+    async function fetchAllChannelVideos(playlistId, apiKey) {
+      let allVideoIds = [];
+      let nextPageToken = '';
+      let pageCount = 0;
+      const maxPages = 100; // 50件 × 100ページ = 最大5,000動画まで全件対応
+
+      // 1. 全動画IDを順次取得
+      do {
+        pageCount++;
+        loadingMsg.innerText = `動画一覧を取得中... (${allVideoIds.length}件取得済み)`;
+        
+        const res = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${playlistId}&maxResults=50&pageToken=${nextPageToken}&key=${apiKey}`);
+        const data = await res.json();
+
+        if (data.items) {
+          const ids = data.items.map(item => item.contentDetails.videoId);
+          allVideoIds.push(...ids);
+        }
+
+        nextPageToken = data.nextPageToken;
+      } while (nextPageToken && pageCount < maxPages);
+
+      // 2. 取得した全動画の詳細データを50件ずつのバッチで取得
+      cachedVideos = [];
+      let totalLikes = 0;
+      let totalComments = 0;
+      let totalDurationSec = 0;
+      let totalViewsFromVideos = 0;
+      let lastUploadDate = null;
+
+      for (let i = 0; i < allVideoIds.length; i += 50) {
+        const batchIds = allVideoIds.slice(i, i + 50).join(',');
+        loadingMsg.innerText = `全動画の統計データを解析中... (${Math.min(i + 50, allVideoIds.length)} / ${allVideoIds.length}件)`;
+
+        const videoRes = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${batchIds}&key=${apiKey}`);
+        const videoData = await videoRes.json();
+
+        for (const video of videoData.items) {
+          const views = Number(video.statistics.viewCount || 0);
+          const likes = Number(video.statistics.likeCount || 0);
+          const comments = Number(video.statistics.commentCount || 0);
+          const durationSec = parseDurationToSeconds(video.contentDetails.duration);
+          const uploadDate = new Date(video.snippet.publishedAt);
+
+          totalLikes += likes;
+          totalComments += comments;
+          totalDurationSec += durationSec;
+          totalViewsFromVideos += views;
+
+          if (!lastUploadDate || uploadDate > lastUploadDate) {
+            lastUploadDate = uploadDate;
+          }
+
+          cachedVideos.push({
+            id: video.id,
+            title: video.snippet.title,
+            views: views,
+            likes: likes,
+            comments: comments,
+            durationSec: durationSec,
+            publishedAt: uploadDate,
+            thumb: video.snippet.thumbnails.medium?.url || video.snippet.thumbnails.default?.url,
+            url: `https://www.youtube.com/watch?v=${video.id}`
+          });
+        }
+      }
+
+      // 3. 集計結果を各指標カードへ反映
+      document.getElementById('stat-likes').innerText = totalLikes.toLocaleString();
+      document.getElementById('stat-comments').innerText = totalComments.toLocaleString();
+
+      const avgSec = Math.round(totalDurationSec / (cachedVideos.length || 1));
+      document.getElementById('stat-avg-duration').innerText = `${Math.floor(avgSec / 60)}分${avgSec % 60}秒`;
+
+      const engagementRate = totalViewsFromVideos > 0 ? (((totalLikes + totalComments) / totalViewsFromVideos) * 100).toFixed(2) : '0.0';
+      document.getElementById('stat-engagement').innerText = `${engagementRate}%`;
+
+      if (lastUploadDate) {
+        document.getElementById('stat-last-upload').innerText = `${lastUploadDate.getFullYear()}/${lastUploadDate.getMonth()+1}/${lastUploadDate.getDate()}`;
+      }
+
+      // 全動画を再生数順に確実にソートして描画
+      applyFilterAndSort();
+    }
+
+    function applyFilterAndSort() {
+      const keyword = filterInput.value.toLowerCase().trim();
+      const sortBy = sortSelect.value;
+
+      let filtered = cachedVideos.filter(v => v.title.toLowerCase().includes(keyword));
+
+      filtered.sort((a, b) => {
+        if (sortBy === 'views') return b.views - a.views;
+        if (sortBy === 'likes') return b.likes - a.likes;
+        if (sortBy === 'date') return b.publishedAt - a.publishedAt;
+        return 0;
+      });
+
+      renderVideoList(filtered.slice(0, 10));
+    }
+
+    function renderVideoList(list) {
+      const container = document.getElementById('popular-videos');
+      if (list.length === 0) {
+        container.innerHTML = `<p class="text-xs text-slate-400 py-8 text-center">該当する動画が見つかりません</p>`;
+        return;
+      }
+
+      container.innerHTML = list.map((item, index) => {
+        const min = Math.floor(item.durationSec / 60);
+        const sec = (item.durationSec % 60).toString().padStart(2, '0');
+        const pubStr = `${item.publishedAt.getFullYear()}/${item.publishedAt.getMonth()+1}/${item.publishedAt.getDate()}`;
+
+        return `
+          <a href="${item.url}" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 bg-white p-2.5 sm:p-3 rounded-xl border border-slate-200/80 hover:border-red-300 hover:shadow-md transition group">
+            <span class="font-black text-sm sm:text-base ${index < 3 ? 'text-red-500' : 'text-slate-400'} w-6 text-center flex-shrink-0">${index + 1}</span>
+            
+            <div class="relative w-20 h-12 sm:w-28 sm:h-16 flex-shrink-0 bg-slate-100 rounded-lg overflow-hidden">
+              <img src="${item.thumb}" class="w-full h-full object-cover group-hover:scale-105 transition duration-300">
+              <span class="absolute bottom-1 right-1 bg-black/80 text-white text-[9px] font-medium px-1 rounded">${min}:${sec}</span>
+            </div>
+
+            <div class="flex-1 min-w-0">
+              <p class="text-xs sm:text-sm font-bold text-slate-800 group-hover:text-red-600 truncate transition leading-snug">${item.title}</p>
+              <div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] sm:text-xs text-slate-500 mt-1">
+                <span class="font-bold text-slate-700">👀 ${item.views.toLocaleString()} 回</span>
+                <span>👍 ${item.likes.toLocaleString()}</span>
+                <span class="hidden sm:inline">💬 ${item.comments.toLocaleString()}</span>
+                <span class="text-slate-400">${pubStr}</span>
+              </div>
+            </div>
+
+            <i data-lucide="external-link" class="w-4 h-4 text-slate-300 group-hover:text-red-500 flex-shrink-0 transition mr-1"></i>
+          </a>
+        `;
+      }).join('');
+
+      lucide.createIcons();
+    }
+
+    function parseDurationToSeconds(duration) {
+      const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+      if (!match) return 0;
+      return (parseInt(match[1] || 0) * 3600) + (parseInt(match[2] || 0) * 60) + parseInt(match[3] || 0);
+    }
+
+    async function saveAsImage() {
+      const area = document.getElementById('capture-area');
+      const canvas = await html2canvas(area, {
+        useCORS: true,
+        scale: 2
+      });
+
+      const image = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.href = image;
+      link.download = `yt-analytics-${new Date().toISOString().slice(0,10)}.png`;
+      link.click();
+    }
+
+    function exportToCSV() {
+      if (cachedVideos.length === 0) {
+        alert('出力するデータがありません。先にデータを取得してください。');
+        return;
+      }
+
+      let csv = '\uFEFF順位,動画タイトル,再生回数,高評価数,コメント数,動画長(秒),投稿日,URL\n';
+      const sorted = [...cachedVideos].sort((a, b) => b.views - a.views);
+      sorted.forEach((v, i) => {
+        const title = `"${v.title.replace(/"/g, '""')}"`;
+        const date = `${v.publishedAt.getFullYear()}-${v.publishedAt.getMonth()+1}-${v.publishedAt.getDate()}`;
+        csv += `${i+1},${title},${v.views},${v.likes},${v.comments},${v.durationSec},${date},${v.url}\n`;
+      });
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `yt-videos-${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    }
+  </script>
+</body>
+</html>
