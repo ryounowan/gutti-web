@@ -1,0 +1,652 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ShapeVoice Recorder - 液体音響レコーダー</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            background-color: #080c14;
+            color: #f1f5f9;
+            font-family: system-ui, -apple-system, sans-serif;
+            overflow-x: hidden;
+        }
+        .glow-recording {
+            animation: pulse-red 2s infinite;
+        }
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.6); }
+            70% { box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+
+    <!-- ヘッダー -->
+    <header class="h-16 bg-slate-900/80 border-b border-slate-800 backdrop-blur-md flex items-center justify-between px-6 sticky top-0 z-30">
+        <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-fuchsia-500 flex items-center justify-center text-white shadow-lg">
+                <i class="fa-solid fa-water text-lg"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-base text-white leading-tight">FluidVoice <span class="text-xs bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 px-2 py-0.5 rounded-full ml-1">.REC</span></h1>
+                <p class="text-[10px] text-slate-400">音声を液体オーガニックシェイプとして可視化</p>
+            </div>
+        </div>
+
+        <!-- 右側アクション -->
+        <div class="flex items-center gap-3">
+            <div id="wakelock-status" class="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-xs text-slate-400">
+                <i class="fa-solid fa-shield-halved text-emerald-400"></i>
+                <span id="wakelock-text">スリープ防止: 有効</span>
+            </div>
+
+            <label class="cursor-pointer bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold transition flex items-center gap-2">
+                <i class="fa-solid fa-file-import text-cyan-400"></i>
+                <span>.rec を開く</span>
+                <input type="file" id="input-rec-file" accept=".rec,application/json" class="hidden">
+            </label>
+        </div>
+    </header>
+
+    <!-- メインコンテンツ -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 p-6 max-w-7xl mx-auto w-full">
+
+        <!-- 左カラム：流体キャンバス ＆ 録音操作 -->
+        <section class="lg:col-span-7 flex flex-col gap-6">
+            
+            <!-- キャンバス（液体の描画） -->
+            <div class="relative bg-slate-950 border border-slate-800 rounded-3xl p-2 aspect-square max-h-[460px] flex items-center justify-center overflow-hidden shadow-2xl">
+                
+                <div class="absolute inset-0 bg-[radial-gradient(#1e293b_1px,transparent_1px)] [background-size:20px_20px] opacity-40"></div>
+
+                <canvas id="fluid-canvas" class="relative z-10 w-full h-full cursor-pointer"></canvas>
+
+                <!-- 録音ステータスバッジ -->
+                <div id="recording-badge" class="hidden absolute top-4 left-4 z-20 bg-red-500/20 border border-red-500/40 backdrop-blur-md px-3 py-1 rounded-full flex items-center gap-2 text-xs text-red-400 font-semibold">
+                    <span class="w-2 h-2 rounded-full bg-red-500 animate-ping"></span>
+                    <span id="recording-timer">00:00</span>
+                </div>
+
+                <!-- 案内画面 -->
+                <div id="canvas-placeholder" class="absolute inset-0 flex flex-col items-center justify-center text-center p-6 z-0">
+                    <div class="w-16 h-16 rounded-full bg-cyan-500/10 text-cyan-400 flex items-center justify-center mb-3 text-2xl border border-cyan-500/20">
+                        <i class="fa-solid fa-droplet animate-pulse"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-300">録音を開始して音声を「液体」に変換しましょう</p>
+                    <p class="text-xs text-slate-500 mt-1">声の周波数と連動して有機的にうねる幾何学模様が生成されます</p>
+                </div>
+            </div>
+
+            <!-- コントロールパネル -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl">
+                
+                <button id="btn-record" class="w-full sm:w-auto flex-1 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white font-bold py-3.5 px-6 rounded-2xl transition shadow-lg flex items-center justify-center gap-3 text-sm">
+                    <i id="icon-record" class="fa-solid fa-microphone text-lg"></i>
+                    <span id="text-record">録音を開始</span>
+                </button>
+
+                <button id="btn-play" disabled class="w-full sm:w-auto flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-40 disabled:hover:bg-cyan-600 text-white font-bold py-3.5 px-6 rounded-2xl transition shadow-lg flex items-center justify-center gap-3 text-sm">
+                    <i id="icon-play" class="fa-solid fa-play text-lg"></i>
+                    <span id="text-play">音を出す (再生)</span>
+                </button>
+
+                <button id="btn-export" disabled class="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-slate-200 border border-slate-700 font-semibold py-3.5 px-5 rounded-2xl transition flex items-center justify-center gap-2 text-sm">
+                    <i class="fa-solid fa-download text-emerald-400"></i>
+                    <span>.rec 保存</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- 右カラム：リアルタイム文字起こし＆ファイル詳細 -->
+        <section class="lg:col-span-5 flex flex-col gap-6">
+            
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 flex flex-col h-full shadow-xl relative overflow-hidden">
+                <div class="flex items-center justify-between mb-4 border-b border-slate-800 pb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fa-solid fa-closed-captioning text-cyan-400 text-lg"></i>
+                        <h2 class="font-bold text-sm text-white">リアルタイム文字起こし</h2>
+                    </div>
+                    <span id="speech-status" class="text-[11px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">待機中</span>
+                </div>
+
+                <!-- 文字起こし表示エリア -->
+                <div class="flex-1 flex flex-col gap-3 min-h-[240px]">
+                    <textarea id="transcribe-text" readonly placeholder="録音を開始すると、話した言葉がリアルタイムでここに書き出されます（APIキー不要）..." class="w-full flex-1 bg-slate-950 border border-slate-800 rounded-2xl p-4 text-xs text-slate-300 leading-relaxed focus:outline-none resize-none"></textarea>
+                </div>
+
+                <!-- メタデータ表示 -->
+                <div id="metadata-panel" class="mt-4 pt-3 border-t border-slate-800/80 text-[11px] text-slate-400 flex items-center justify-between">
+                    <div>ファイル名: <span id="meta-filename" class="text-slate-200">未保存</span></div>
+                    <div>録音時間: <span id="meta-duration" class="text-slate-200">00:00</span></div>
+                </div>
+            </div>
+
+            <!-- ガイドパネル -->
+            <div class="bg-slate-900/50 border border-slate-800/80 rounded-3xl p-5 text-xs text-slate-400 space-y-2">
+                <div class="font-bold text-slate-200 flex items-center gap-2 mb-1">
+                    <i class="fa-solid fa-water text-cyan-400"></i>
+                    <span>機能説明</span>
+                </div>
+                <p>・<strong>流体シミュレーション</strong>: ノイズ関数を応用し、音声のピッチ（周波数）と音量で形を変える「液体のカタチ」を生成します。</p>
+                <p>・<strong>APIキー不要の文字起こし</strong>: ブラウザの Web Speech API を活用し、ローカル環境で直接文字起こしを行います。</p>
+            </div>
+        </section>
+    </main>
+
+    <!-- トースト通知 -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-slate-800 border border-slate-700 text-white px-4 py-3 rounded-2xl shadow-2xl transition-all opacity-0 pointer-events-none z-50 flex items-center gap-3 text-xs">
+        <i id="toast-icon" class="fa-solid fa-circle-info text-cyan-400"></i>
+        <span id="toast-message">メッセージ</span>
+    </div>
+
+    <script>
+        // --- アプリケーション状態 ---
+        const state = {
+            isRecording: false,
+            isPlaying: false,
+            mediaRecorder: null,
+            audioChunks: [],
+            audioBlob: null,
+            audioBase64: null,
+            audioBuffer: null,
+            audioCtx: null,
+            sourceNode: null,
+            analyser: null,
+            wakeLock: null,
+            recordingStartTime: 0,
+            timerInterval: null,
+            recordingDuration: 0,
+            
+            // 液体（オーガニック）シミュレーション用データ
+            fluidBlobs: [], // 液体ブロックの座標・速度データ
+            timeOffset: 0,  // ノイズ計算用の時間軸
+            
+            // 音声認識
+            recognition: null,
+            transcriptionText: ""
+        };
+
+        // --- DOM要素 ---
+        const canvas = document.getElementById('fluid-canvas');
+        const ctx = canvas.getContext('2d');
+        const btnRecord = document.getElementById('btn-record');
+        const iconRecord = document.getElementById('icon-record');
+        const textRecord = document.getElementById('text-record');
+        const btnPlay = document.getElementById('btn-play');
+        const iconPlay = document.getElementById('icon-play');
+        const textPlay = document.getElementById('text-play');
+        const btnExport = document.getElementById('btn-export');
+        const inputRecFile = document.getElementById('input-rec-file');
+        const transcribeText = document.getElementById('transcribe-text');
+        const speechStatus = document.getElementById('speech-status');
+        const recordingBadge = document.getElementById('recording-badge');
+        const recordingTimer = document.getElementById('recording-timer');
+        const canvasPlaceholder = document.getElementById('canvas-placeholder');
+        const metaFilename = document.getElementById('meta-filename');
+        const metaDuration = document.getElementById('meta-duration');
+        const wakelockStatus = document.getElementById('wakelock-status');
+
+        // --- キャンバスリサイズ ---
+        function resizeCanvas() {
+            const rect = canvas.parentElement.getBoundingClientRect();
+            canvas.width = rect.width * window.devicePixelRatio;
+            canvas.height = rect.height * window.devicePixelRatio;
+            ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function showToast(msg, icon = 'fa-circle-info') {
+            const toast = document.getElementById('toast');
+            const toastMessage = document.getElementById('toast-message');
+            const toastIcon = document.getElementById('toast-icon');
+            
+            toastMessage.textContent = msg;
+            toastIcon.className = `fa-solid ${icon} text-cyan-400`;
+            
+            toast.classList.remove('opacity-0', 'pointer-events-none');
+            toast.classList.add('opacity-100');
+            
+            setTimeout(() => {
+                toast.classList.remove('opacity-100');
+                toast.classList.add('opacity-0', 'pointer-events-none');
+            }, 3000);
+        }
+
+        // --- スリープ防止 (Screen Wake Lock API) ---
+        async function requestWakeLock() {
+            try {
+                if ('wakeLock' in navigator) {
+                    state.wakeLock = await navigator.wakeLock.request('screen');
+                    wakelockStatus.classList.remove('hidden');
+                }
+            } catch (err) {
+                console.warn('Wake Lock failed:', err);
+            }
+        }
+
+        function releaseWakeLock() {
+            if (state.wakeLock) {
+                state.wakeLock.release().then(() => {
+                    state.wakeLock = null;
+                });
+            }
+        }
+
+        // --- ブラウザ標準 音声認識 (Web Speech API) ---
+        function initSpeechRecognition() {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            if (!SpeechRecognition) {
+                speechStatus.textContent = "未対応ブラウザ";
+                return;
+            }
+
+            state.recognition = new SpeechRecognition();
+            state.recognition.lang = 'ja-JP';
+            state.recognition.continuous = true;
+            state.recognition.interimResults = true;
+
+            state.recognition.onresult = (event) => {
+                let interimTranscript = '';
+                let finalTranscript = '';
+
+                for (let i = event.resultIndex; i < event.results.length; ++i) {
+                    if (event.results[i].isFinal) {
+                        finalTranscript += event.results[i][0].transcript;
+                    } else {
+                        interimTranscript += event.results[i][0].transcript;
+                    }
+                }
+
+                if (finalTranscript) {
+                    state.transcriptionText += finalTranscript + '\n';
+                }
+                transcribeText.value = state.transcriptionText + (interimTranscript ? `[解析中: ${interimTranscript}]` : '');
+                transcribeText.scrollTop = transcribeText.scrollHeight;
+            };
+
+            state.recognition.onerror = (e) => {
+                console.warn("Speech recognition error", e.error);
+            };
+        }
+        initSpeechRecognition();
+
+        // --- AudioContext 初期化 ---
+        function initAudioContext() {
+            if (!state.audioCtx) {
+                const AudioCtx = window.AudioContext || window.webkitAudioContext;
+                state.audioCtx = new AudioCtx();
+            }
+            if (state.audioCtx.state === 'suspended') {
+                state.audioCtx.resume();
+            }
+        }
+
+        // --- 録音処理 ---
+        btnRecord.addEventListener('click', () => {
+            if (!state.isRecording) {
+                startRecording();
+            } else {
+                stopRecording();
+            }
+        });
+
+        async function startRecording() {
+            initAudioContext();
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                
+                const source = state.audioCtx.createMediaStreamSource(stream);
+                state.analyser = state.audioCtx.createAnalyser();
+                state.analyser.fftSize = 256;
+                source.connect(state.analyser);
+
+                state.mediaRecorder = new MediaRecorder(stream);
+                state.audioChunks = [];
+                state.fluidBlobs = [];
+                state.transcriptionText = "";
+                transcribeText.value = "";
+
+                state.mediaRecorder.ondataavailable = (e) => {
+                    if (e.data.size > 0) state.audioChunks.push(e.data);
+                };
+
+                state.mediaRecorder.onstop = async () => {
+                    state.audioBlob = new Blob(state.audioChunks, { type: 'audio/webm' });
+                    state.audioBase64 = await blobToBase64(state.audioBlob);
+                    
+                    const arrayBuffer = await state.audioBlob.arrayBuffer();
+                    state.audioBuffer = await state.audioCtx.decodeAudioData(arrayBuffer);
+
+                    btnPlay.disabled = false;
+                    btnExport.disabled = false;
+                    metaFilename.textContent = `fluid_${new Date().getTime().toString().slice(-6)}.rec`;
+                    metaDuration.textContent = formatTime(state.recordingDuration);
+
+                    showToast('録音が完了し、液体のカタチが生成されました', 'fa-circle-check');
+                };
+
+                state.mediaRecorder.start(100);
+                state.isRecording = true;
+                state.recordingStartTime = Date.now();
+
+                // 音声認識のスタート
+                if (state.recognition) {
+                    try {
+                        state.recognition.start();
+                        speechStatus.textContent = "音声認識中";
+                        speechStatus.className = "text-[11px] text-cyan-400 bg-cyan-950 px-2 py-0.5 rounded-full border border-cyan-800";
+                    } catch(e){}
+                }
+
+                await requestWakeLock();
+
+                canvasPlaceholder.classList.add('hidden');
+                recordingBadge.classList.remove('hidden');
+                btnRecord.classList.remove('from-red-500', 'to-rose-600');
+                btnRecord.classList.add('from-slate-700', 'to-slate-800', 'glow-recording');
+                textRecord.textContent = "録音を停止";
+                iconRecord.className = "fa-solid fa-square text-lg text-red-500";
+
+                state.timerInterval = setInterval(() => {
+                    const elapsed = Math.floor((Date.now() - state.recordingStartTime) / 1000);
+                    state.recordingDuration = elapsed;
+                    recordingTimer.textContent = formatTime(elapsed);
+                }, 1000);
+
+                // 流体アニメーション更新ループ開始
+                renderFluidLoop();
+
+            } catch (err) {
+                console.error("Mic error:", err);
+                showToast('マイクへのアクセスに失敗しました', 'fa-triangle-exclamation');
+            }
+        }
+
+        function stopRecording() {
+            if (state.mediaRecorder && state.isRecording) {
+                state.mediaRecorder.stop();
+                state.mediaRecorder.stream.getTracks().forEach(track => track.stop());
+                state.isRecording = false;
+
+                if (state.recognition) {
+                    try {
+                        state.recognition.stop();
+                        speechStatus.textContent = "完了";
+                        speechStatus.className = "text-[11px] text-slate-400 bg-slate-800 px-2 py-0.5 rounded-full";
+                    } catch(e){}
+                }
+
+                clearInterval(state.timerInterval);
+                releaseWakeLock();
+
+                recordingBadge.classList.add('hidden');
+                btnRecord.classList.remove('from-slate-700', 'to-slate-800', 'glow-recording');
+                btnRecord.classList.add('from-red-500', 'to-rose-600');
+                textRecord.textContent = "録音を開始";
+                iconRecord.className = "fa-solid fa-microphone text-lg";
+            }
+        }
+
+        // --- 液体（有機体流体）シミュレーション描画アルゴリズム ---
+        function renderFluidLoop() {
+            if (!state.isRecording && !state.isPlaying) return;
+
+            const bufferLength = state.analyser.frequencyBinCount;
+            const dataArray = new Uint8Array(bufferLength);
+            state.analyser.getByteFrequencyData(dataArray);
+
+            // 全体音量と低音・高音の抽出
+            let sum = 0, lowSum = 0, highSum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+                if (i < bufferLength / 3) lowSum += dataArray[i];
+                else highSum += dataArray[i];
+            }
+            const avgVolume = sum / bufferLength;
+            const lowFreq = lowSum / (bufferLength / 3);
+            const highFreq = highSum / (bufferLength * 2 / 3);
+
+            state.timeOffset += 0.015 + (avgVolume * 0.0005);
+
+            // 液体ブロックデータの保存（時系列記録）
+            state.fluidBlobs.push({
+                volume: avgVolume,
+                low: lowFreq,
+                high: highFreq,
+                time: state.timeOffset
+            });
+
+            drawFluidShape(state.fluidBlobs, state.timeOffset, avgVolume, lowFreq, highFreq);
+
+            requestAnimationFrame(renderFluidLoop);
+        }
+
+        function drawFluidShape(blobs, time, currentVol = 0, low = 0, high = 0) {
+            const w = canvas.width / window.devicePixelRatio;
+            const h = canvas.height / window.devicePixelRatio;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            ctx.clearRect(0, 0, w, h);
+
+            if (blobs.length === 0) return;
+
+            ctx.save();
+            ctx.translate(cx, cy);
+
+            const baseRadius = Math.min(w, h) * 0.22;
+            const numPoints = 60; // 液体の輪郭線頂点数
+
+            // 液体のレイヤー1 (背景の大きなネオン影)
+            drawLiquidLayer(ctx, baseRadius * 1.15, numPoints, time * 0.8, currentVol, low, high, 'rgba(168, 85, 247, 0.15)', 'rgba(56, 189, 248, 0.2)', 30);
+
+            // 液体のレイヤー2 (メイン流体)
+            drawLiquidLayer(ctx, baseRadius, numPoints, time, currentVol, low, high, 'rgba(6, 182, 212, 0.7)', 'rgba(236, 72, 153, 0.6)', 15);
+
+            // 液体のレイヤー3 (核・ハイライト)
+            drawLiquidLayer(ctx, baseRadius * 0.6, numPoints, time * 1.3, currentVol * 0.8, low, high, 'rgba(255, 255, 255, 0.8)', 'rgba(168, 85, 247, 0.5)', 5);
+
+            ctx.restore();
+        }
+
+        // 個別の液体層（波形状の滑らかな曲線の描画）
+        function drawLiquidLayer(context, radius, points, time, vol, low, high, color1, color2, blur) {
+            context.beginPath();
+
+            for (let i = 0; i <= points; i++) {
+                const angle = (i / points) * Math.PI * 2;
+                
+                // 複数のサイン波を重ね合わせた疑似液体ノイズ
+                const wave1 = Math.sin(angle * 3 + time * 2) * (12 + vol * 0.4);
+                const wave2 = Math.cos(angle * 5 - time * 1.5) * (8 + low * 0.3);
+                const wave3 = Math.sin(angle * 8 + time * 3) * (4 + high * 0.2);
+
+                const r = radius + wave1 + wave2 + wave3;
+                const x = Math.cos(angle) * r;
+                const y = Math.sin(angle) * r;
+
+                if (i === 0) {
+                    context.moveTo(x, y);
+                } else {
+                    // 滑らかな曲線に補正
+                    const prevAngle = ((i - 1) / points) * Math.PI * 2;
+                    const prevR = radius + Math.sin(prevAngle * 3 + time * 2) * (12 + vol * 0.4) + Math.cos(prevAngle * 5 - time * 1.5) * (8 + low * 0.3);
+                    const cx = (Math.cos(prevAngle) * prevR + x) / 2;
+                    const cy = (Math.sin(prevAngle) * prevR + y) / 2;
+                    context.quadraticCurveTo(Math.cos(prevAngle) * prevR, Math.sin(prevAngle) * prevR, cx, cy);
+                }
+            }
+
+            context.closePath();
+
+            const grad = context.createRadialGradient(0, 0, 10, 0, 0, radius * 1.8);
+            grad.addColorStop(0, color1);
+            grad.addColorStop(1, color2);
+
+            context.fillStyle = grad;
+            context.shadowColor = color1;
+            context.shadowBlur = blur;
+            context.fill();
+            context.shadowBlur = 0;
+        }
+
+        // --- 音を出す (再生) 制御 ---
+        btnPlay.addEventListener('click', () => {
+            if (!state.audioBuffer) return;
+
+            if (state.isPlaying) {
+                stopPlayback();
+            } else {
+                startPlayback();
+            }
+        });
+
+        function startPlayback() {
+            initAudioContext();
+
+            state.sourceNode = state.audioCtx.createBufferSource();
+            state.sourceNode.buffer = state.audioBuffer;
+
+            state.analyser = state.audioCtx.createAnalyser();
+            state.analyser.fftSize = 256;
+
+            state.sourceNode.connect(state.analyser);
+            state.analyser.connect(state.audioCtx.destination);
+
+            state.sourceNode.start(0);
+            state.isPlaying = true;
+
+            iconPlay.className = "fa-solid fa-square text-lg text-cyan-300";
+            textPlay.textContent = "再生を停止";
+
+            state.sourceNode.onended = () => {
+                stopPlayback();
+            };
+
+            renderFluidLoop();
+        }
+
+        function stopPlayback() {
+            if (state.sourceNode && state.isPlaying) {
+                state.sourceNode.stop();
+                state.isPlaying = false;
+            }
+            iconPlay.className = "fa-solid fa-play text-lg";
+            textPlay.textContent = "音を出す (再生)";
+            drawFluidShape(state.fluidBlobs, 0);
+        }
+
+        // --- .rec エクスポート ---
+        btnExport.addEventListener('click', () => {
+            if (!state.audioBase64) return;
+
+            const recPayload = {
+                version: "2.0-fluid",
+                timestamp: new Date().toISOString(),
+                duration: state.recordingDuration,
+                fluidBlobs: state.fluidBlobs,
+                transcription: transcribeText.value,
+                audioBase64: state.audioBase64
+            };
+
+            const jsonStr = JSON.stringify(recPayload);
+            const blob = new Blob([jsonStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fluid_voice_${new Date().getTime().toString().slice(-6)}.rec`;
+            a.click();
+            URL.revokeObjectURL(url);
+
+            showToast('.rec ファイルを保存しました', 'fa-download');
+        });
+
+        // --- .rec インポート ---
+        inputRecFile.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            try {
+                const text = await file.text();
+                const data = JSON.parse(text);
+
+                if (!data.audioBase64) {
+                    throw new Error('無効な .rec フォーマットです');
+                }
+
+                state.fluidBlobs = data.fluidBlobs || [];
+                state.recordingDuration = data.duration || 0;
+                state.audioBase64 = data.audioBase64;
+                state.transcriptionText = data.transcription || "";
+                transcribeText.value = state.transcriptionText;
+
+                state.audioBlob = base64ToBlob(data.audioBase64, 'audio/webm');
+                initAudioContext();
+                const arrayBuffer = await state.audioBlob.arrayBuffer();
+                state.audioBuffer = await state.audioCtx.decodeAudioData(arrayBuffer);
+
+                canvasPlaceholder.classList.add('hidden');
+                btnPlay.disabled = false;
+                btnExport.disabled = false;
+                metaFilename.textContent = file.name;
+                metaDuration.textContent = formatTime(state.recordingDuration);
+
+                // カタチ（液体）を再現描画
+                drawFluidShape(state.fluidBlobs, 1.0, 30, 20, 10);
+
+                showToast('.rec ファイルから復元しました', 'fa-file-circle-check');
+
+            } catch (err) {
+                console.error("Load error:", err);
+                showToast('.rec ファイルのロードに失敗しました', 'fa-triangle-exclamation');
+            }
+        });
+
+        // --- ユーティリティ ---
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60).toString().padStart(2, '0');
+            const s = (seconds % 60).toString().padStart(2, '0');
+            return `${m}:${s}`;
+        }
+
+        function blobToBase64(blob) {
+            return new Promise((resolve, _) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(blob);
+            });
+        }
+
+        function base64ToBlob(base64, mimeType) {
+            const byteCharacters = atob(base64.split(',')[1] || base64);
+            const byteArrays = [];
+            for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+                const slice = byteCharacters.slice(offset, offset + 512);
+                const byteNumbers = new Array(slice.length);
+                for (let i = 0; i < slice.length; i++) {
+                    byteNumbers[i] = slice.charCodeAt(i);
+                }
+                const byteArray = new Uint8Array(byteNumbers);
+                byteArrays.push(byteArray);
+            }
+            return new Blob(byteArrays, { type: mimeType });
+        }
+    </script>
+</body>
+</html>
