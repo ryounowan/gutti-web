@@ -1,0 +1,1190 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-900 text-slate-100">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MP3 Tag Batch Editor for Walkman</title>
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- jsmediatags (Tag Reader) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+  <!-- browser-id3-writer (Tag Writer) -->
+  <script src="https://cdn.jsdelivr.net/npm/browser-id3-writer@4.4.0/dist/browser-id3-writer.min.js"></script>
+  <!-- JSZip & FileSaver for Batch Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-slate-900 text-slate-100">
+
+  <header class="border-b border-slate-800 bg-slate-950/80 backdrop-blur sticky top-0 z-30 px-4 py-3">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center space-x-3">
+        <div class="p-2 bg-indigo-600/20 text-indigo-400 rounded-lg border border-indigo-500/30">
+          <i data-lucide="music-4" class="w-6 h-6"></i>
+        </div>
+        <div>
+          <h1 class="font-bold text-lg leading-tight text-white flex items-center gap-2">
+            MP3 Tag Batch Editor
+            <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">For Walkman</span>
+          </h1>
+          <p class="text-xs text-slate-400" data-i18n="subtitle">複数MP3のメタデータ（アーティスト・アルバム・画像・歌詞・テンポ等）を一括編集</p>
+        </div>
+      </div>
+
+      <!-- Action Buttons Top & Language Switcher -->
+      <div class="flex items-center space-x-3">
+        <!-- Language Switcher -->
+        <select id="langSelect" class="bg-slate-800 border border-slate-700 text-xs text-slate-200 rounded-lg px-2 py-1.5 focus:outline-none focus:border-indigo-500">
+          <option value="ja" selected>日本語</option>
+          <option value="en">English</option>
+        </select>
+
+        <button id="clearAllBtn" class="hidden items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-slate-400 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors border border-transparent">
+          <i data-lucide="trash-2" class="w-4 h-4"></i>
+          <span data-i18n="clearAll">全クリア</span>
+        </button>
+        <button id="overwriteBtn" disabled class="flex items-center gap-2 px-3.5 py-2 text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-lg transition-all shadow-lg shadow-emerald-600/20 disabled:shadow-none border border-emerald-500/30 disabled:border-slate-700/50">
+          <i data-lucide="save" class="w-4 h-4"></i>
+          <span data-i18n="overwrite">Walkmanへ直接上書き保存</span>
+        </button>
+        <button id="exportZipBtn" disabled class="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 hover:bg-indigo-500 disabled:bg-slate-800 disabled:text-slate-600 rounded-lg transition-all shadow-lg shadow-indigo-600/20 disabled:shadow-none border border-indigo-500/30 disabled:border-slate-700/50">
+          <i data-lucide="download" class="w-4 h-4"></i>
+          <span data-i18n="exportZip">一括保存 (ZIP)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-0 overflow-y-auto">
+    
+    <!-- Left Column: Batch Settings & Upload Area -->
+    <section class="lg:col-span-5 flex flex-col gap-6">
+      
+      <!-- Upload Drop Zone & Direct Access Buttons -->
+      <div class="space-y-3">
+        <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-indigo-500/70 bg-slate-800/40 hover:bg-slate-800/80 rounded-2xl p-5 transition-all text-center flex flex-col items-center justify-center cursor-pointer group relative overflow-hidden">
+          <input type="file" id="fileInput" multiple accept="audio/mp3,.mp3" class="hidden">
+          <div class="w-10 h-10 rounded-full bg-slate-700/50 text-indigo-400 group-hover:bg-indigo-600 group-hover:text-white flex items-center justify-center mb-2 transition-all">
+            <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+          </div>
+          <p class="text-xs font-semibold text-slate-200 group-hover:text-white" data-i18n="dropText">クリックして選択 または MP3をドロップ</p>
+          <p class="text-[11px] text-emerald-400 font-medium mt-1" data-i18n="dropSubText">✨ Walkman内のファイルを直接選択すると上書き可能</p>
+        </div>
+
+        <div class="flex items-center justify-end">
+          <button type="button" id="openFolderBtn" class="py-2 px-3 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 hover:text-white font-medium text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 w-full sm:w-auto">
+            <i data-lucide="folder-open" class="w-4 h-4 text-emerald-400"></i>
+            <span data-i18n="openFolder">Walkmanの「MUSIC」フォルダを一括指定</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Auto Fetch AI/Web Tag Fetcher Card (FREE & No API Key) -->
+      <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl flex flex-col gap-3 relative overflow-hidden">
+        <div class="flex items-center justify-between pb-2 border-b border-indigo-500/20">
+          <div class="flex items-center space-x-2 text-indigo-400">
+            <i data-lucide="sparkles" class="w-5 h-5"></i>
+            <h2 class="font-bold text-sm text-indigo-200" data-i18n="autoFetchTitle">Web自動情報取得 (APIキー不要・完全無料)</h2>
+          </div>
+          <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">Free Auto-Tag</span>
+        </div>
+        <p class="text-xs text-slate-300 leading-relaxed" data-i18n="autoFetchDesc">
+          曲名・ファイル名からインターネット（MusicBrainz/iTunes等）を自動検索し、全曲のアーティスト・アルバム・ジャケット画像・リリース年を一括入力します。
+        </p>
+        <button id="autoFetchAllBtn" disabled class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-40 disabled:shadow-none flex items-center justify-center gap-2">
+          <i data-lucide="globe" class="w-4 h-4"></i>
+          <span data-i18n="autoFetchBtn">全曲のタグ情報を自動でWeb検索・入力</span>
+        </button>
+      </div>
+
+      <!-- Batch Utilities Card (Find/Replace & Advanced Format) -->
+      <div class="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/60 shadow-xl flex flex-col gap-3">
+        <div class="flex items-center justify-between pb-2 border-b border-slate-700/60">
+          <div class="flex items-center space-x-2 text-amber-400">
+            <i data-lucide="wrench" class="w-5 h-5"></i>
+            <h2 class="font-bold text-sm text-slate-200" data-i18n="toolsTitle">一括便利な整理ツール</h2>
+          </div>
+        </div>
+
+        <!-- Find & Replace -->
+        <div class="space-y-2">
+          <p class="text-[11px] font-semibold text-slate-300" data-i18n="replaceDesc">文字列の一括置換（全曲の不要な文字を消去等）</p>
+          <div class="grid grid-cols-2 gap-2">
+            <input type="text" id="findText" placeholder="検索 (例: [PV])" class="bg-slate-900/80 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-600">
+            <input type="text" id="replaceText" placeholder="置換後 (空欄で削除)" class="bg-slate-900/80 border border-slate-700 focus:border-amber-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-600">
+          </div>
+          <div class="flex items-center justify-between gap-2">
+            <select id="replaceTarget" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300">
+              <option value="all" data-i18n="optAll">全項目 (曲名/歌手/アルバム)</option>
+              <option value="title" data-i18n="optTitle">曲名のみ</option>
+              <option value="artist" data-i18n="optArtist">アーティストのみ</option>
+              <option value="album" data-i18n="optAlbum">アルバムのみ</option>
+            </select>
+            <button id="execReplaceBtn" disabled class="py-1 px-3 bg-amber-600 hover:bg-amber-500 text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-1 disabled:opacity-40">
+              <i data-lucide="replace" class="w-3.5 h-3.5"></i> <span data-i18n="execReplace">置換実行</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Filename to Tag Converter & Case Converters -->
+        <div class="pt-2 border-t border-slate-700/50 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <p class="text-xs font-semibold text-slate-300" data-i18n="parseFilenameTitle">ファイル名からタグを自動補完</p>
+              <p class="text-[10px] text-slate-500" data-i18n="parseFilenameDesc">例: 「01 - 曲名.mp3」→ トラック:1, 曲名:曲名</p>
+            </div>
+            <button id="parseFilenameBtn" disabled class="py-1.5 px-3 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg transition-colors flex items-center gap-1 shrink-0 disabled:opacity-40">
+              <i data-lucide="wand-2" class="w-3.5 h-3.5"></i> <span data-i18n="parseFilenameBtn">自動抽出</span>
+            </button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-2 pt-1">
+            <button id="cleanTextBtn" disabled class="py-1.5 px-2 bg-slate-700/60 hover:bg-slate-700 text-slate-200 font-medium text-[11px] rounded-lg transition-colors border border-slate-600 disabled:opacity-40 flex items-center justify-center gap-1">
+              <i data-lucide="type" class="w-3.5 h-3.5 text-indigo-400"></i> <span data-i18n="cleanTextBtn">全角英数を半角化</span>
+            </button>
+            <button id="trimSpaceBtn" disabled class="py-1.5 px-2 bg-slate-700/60 hover:bg-slate-700 text-slate-200 font-medium text-[11px] rounded-lg transition-colors border border-slate-600 disabled:opacity-40 flex items-center justify-center gap-1">
+              <i data-lucide="scissors" class="w-3.5 h-3.5 text-amber-400"></i> <span data-i18n="trimSpaceBtn">前後の余白を除去</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch Settings Card -->
+      <div class="bg-slate-800/60 rounded-2xl p-5 border border-slate-700/60 shadow-xl flex flex-col gap-4">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700/60">
+          <div class="flex items-center space-x-2 text-indigo-400">
+            <i data-lucide="layers" class="w-5 h-5"></i>
+            <h2 class="font-bold text-sm text-slate-200" data-i18n="batchTitle">一括タグ設定パネル</h2>
+          </div>
+          <span class="text-xs text-slate-400" data-i18n="applyAllNote">全ファイルに適用</span>
+        </div>
+
+        <p class="text-xs text-slate-400 leading-relaxed" data-i18n="batchDesc">
+          入力した項目のみ全曲に書き込みます。空欄の項目は各ファイルの元データが維持されます。
+        </p>
+
+        <!-- Batch Inputs -->
+        <div class="space-y-3">
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblArtist">アーティスト名 (Artist)</label>
+            <div class="relative">
+              <i data-lucide="user" class="w-4 h-4 absolute left-3 top-2.5 text-slate-500"></i>
+              <input type="text" id="batchArtist" placeholder="例: Official髭男dism" class="w-full bg-slate-900/80 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-600">
+            </div>
+          </div>
+
+          <!-- Walkman Specific: Sort Order / Kana -->
+          <div class="p-3 bg-slate-900/60 border border-indigo-500/20 rounded-xl space-y-2">
+            <div class="flex items-center justify-between">
+              <label class="text-xs font-semibold text-indigo-300 flex items-center gap-1">
+                <i data-lucide="sort-asc" class="w-3.5 h-3.5"></i> <span data-i18n="lblSortHeader">Walkman五十音ソート用 (よみがな)</span>
+              </label>
+              <span class="text-[10px] text-indigo-400/80" data-i18n="lblSortSub">正しく並び替える用</span>
+            </div>
+            <div class="grid grid-cols-2 gap-2">
+              <input type="text" id="batchArtistSort" placeholder="ソート歌手 (例: おふぃしゃるひげだんだん)" class="bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-600">
+              <input type="text" id="batchAlbumSort" placeholder="ソートアルバム (例: えでぃとりある)" class="bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-100 placeholder:text-slate-600">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblAlbum">アルバム名 (Album)</label>
+            <div class="relative">
+              <i data-lucide="disc" class="w-4 h-4 absolute left-3 top-2.5 text-slate-500"></i>
+              <input type="text" id="batchAlbum" placeholder="例: Editorial" class="w-full bg-slate-900/80 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-600">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblGenre">ジャンル (Genre)</label>
+              <div class="relative">
+                <i data-lucide="tag" class="w-4 h-4 absolute left-3 top-2.5 text-slate-500"></i>
+                <input type="text" id="batchGenre" placeholder="J-Pop, Rock..." class="w-full bg-slate-900/80 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-600">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblYear">リリース年 (Year)</label>
+              <div class="relative">
+                <i data-lucide="calendar" class="w-4 h-4 absolute left-3 top-2.5 text-slate-500"></i>
+                <input type="number" id="batchYear" placeholder="2026" class="w-full bg-slate-900/80 border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg pl-9 pr-3 py-1.5 text-sm text-slate-100 placeholder:text-slate-600">
+              </div>
+            </div>
+          </div>
+
+          <!-- Cover Art Batch -->
+          <div>
+            <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblCover">アルバムジャケット画像 (Cover Art)</label>
+            <div class="flex items-center gap-3 bg-slate-900/50 p-2.5 border border-slate-700/60 rounded-xl">
+              <div id="batchCoverPreview" class="w-12 h-12 bg-slate-800 rounded-lg border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden text-slate-600">
+                <i data-lucide="image" class="w-5 h-5"></i>
+              </div>
+              <div class="flex-1 overflow-hidden">
+                <input type="file" id="batchCoverInput" accept="image/jpeg, image/png" class="hidden">
+                <button type="button" onclick="document.getElementById('batchCoverInput').click()" class="text-xs bg-slate-700 hover:bg-slate-600 text-slate-200 px-3 py-1.5 rounded-lg transition-colors border border-slate-600" data-i18n="btnSelectImg">
+                  画像を選択
+                </button>
+                <button type="button" id="removeBatchCoverBtn" class="hidden text-xs text-red-400 hover:text-red-300 ml-2" data-i18n="btnDelete">削除</button>
+                <p class="text-[10px] text-slate-500 mt-1 truncate">JPEG / PNG</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Apply Button & Utilities -->
+        <div class="pt-2 space-y-2">
+          <button id="applyBatchBtn" disabled class="w-full py-2.5 px-4 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-sm rounded-xl transition-all shadow-md shadow-indigo-600/20 disabled:bg-slate-700 disabled:text-slate-500 disabled:shadow-none flex items-center justify-center gap-2">
+            <i data-lucide="check-check" class="w-4 h-4"></i>
+            <span data-i18n="applyBatchBtn">すべての曲に一括適用する</span>
+          </button>
+          
+          <button id="autoTrackNumbersBtn" disabled class="w-full py-1.5 px-3 bg-slate-700/50 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-lg transition-colors border border-slate-600/50 flex items-center justify-center gap-1.5 disabled:opacity-40">
+            <i data-lucide="list-ordered" class="w-3.5 h-3.5"></i>
+            <span data-i18n="autoTrackBtn">トラック番号を上から順に自動振り直し (1, 2, 3...)</span>
+          </button>
+
+          <button id="autoFileNameBtn" disabled class="w-full py-1.5 px-3 bg-slate-700/50 hover:bg-slate-700 text-slate-300 font-medium text-xs rounded-lg transition-colors border border-slate-600/50 flex items-center justify-center gap-1.5 disabled:opacity-40">
+            <i data-lucide="file-type" class="w-3.5 h-3.5"></i>
+            <span data-i18n="autoFileBtn">ファイル名を「01 - 曲名.mp3」形式に整列</span>
+          </button>
+        </div>
+
+      </div>
+
+    </section>
+
+    <!-- Right Column: Track List & Fine Tuning -->
+    <section class="lg:col-span-7 flex flex-col bg-slate-800/40 rounded-2xl border border-slate-700/60 overflow-hidden shadow-xl min-h-[500px]">
+      
+      <!-- List Header with Search & Sort -->
+      <div class="px-5 py-3 bg-slate-800/90 border-b border-slate-700/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shrink-0">
+        <div class="flex items-center space-x-2">
+          <i data-lucide="list-music" class="w-5 h-5 text-indigo-400"></i>
+          <h2 class="font-bold text-sm text-slate-200" data-i18n="loadedTracks">読み込み済みトラック</h2>
+          <span id="fileCountBadge" class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs px-2 py-0.5 rounded-full font-medium">0 曲</span>
+        </div>
+
+        <!-- Search Bar & Sort Dropdown -->
+        <div class="flex items-center gap-2">
+          <div class="relative flex-1 sm:w-48">
+            <i data-lucide="search" class="w-3.5 h-3.5 absolute left-2.5 top-2.5 text-slate-500"></i>
+            <input type="text" id="searchQuery" placeholder="曲名・歌手名で検索..." class="w-full bg-slate-900 border border-slate-700 focus:border-indigo-500 rounded-lg pl-8 pr-2 py-1 text-xs text-slate-200 placeholder:text-slate-500">
+          </div>
+          <select id="sortBySelect" class="bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-xs text-slate-300 focus:border-indigo-500">
+            <option value="default" data-i18n="sortDefault">並び順: 読み込み順</option>
+            <option value="track" data-i18n="sortTrack">並び順: トラック番号</option>
+            <option value="title" data-i18n="sortTitle">並び順: 曲名</option>
+            <option value="artist" data-i18n="sortArtist">並び順: アーティスト</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Filter Stats Sub-bar -->
+      <div id="filterStatsBar" class="hidden px-5 py-1.5 bg-indigo-950/40 border-b border-indigo-900/30 text-[11px] text-indigo-300 flex items-center justify-between shrink-0">
+        <span id="filterStatsText">検索該当: 0 件</span>
+        <button id="clearSearchBtn" class="text-indigo-400 hover:underline" data-i18n="clearSearch">検索解除</button>
+      </div>
+
+      <!-- File List Container -->
+      <div id="fileListContainer" class="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px]">
+        <!-- Empty State -->
+        <div id="emptyState" class="h-full flex flex-col items-center justify-center text-center p-8 text-slate-500 my-auto">
+          <i data-lucide="music" class="w-12 h-12 mb-3 stroke-[1.5] text-slate-600"></i>
+          <p class="text-sm font-medium text-slate-400" data-i18n="emptyTitle">ファイルがまだ追加されていません</p>
+          <p class="text-xs mt-1 text-slate-600" data-i18n="emptyDesc">左側のエリアからMP3ファイルやWalkmanのMUSICフォルダを読み込んでください</p>
+        </div>
+      </div>
+
+      <!-- Global Audio Preview Bar -->
+      <div id="audioPlayerBar" class="hidden px-4 py-2 bg-slate-950 border-t border-slate-800 flex items-center justify-between gap-3 text-xs shrink-0">
+        <div class="flex items-center gap-2 min-w-0">
+          <i data-lucide="disc" class="w-4 h-4 text-indigo-400 animate-spin"></i>
+          <span id="playingTitle" class="text-slate-200 font-medium truncate">再生中: ---</span>
+        </div>
+        <audio id="globalAudioPlayer" controls class="h-7 max-w-[200px] sm:max-w-[280px]"></audio>
+      </div>
+
+      <!-- Status Footer -->
+      <div class="px-5 py-2.5 bg-slate-900/60 border-t border-slate-700/60 text-xs text-slate-400 flex items-center justify-between shrink-0">
+        <span id="statusText" data-i18n="statusReady">準備完了</span>
+        <span id="saveStatusText" class="text-indigo-400 font-medium"></span>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Toast Notification Overlay -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 bg-slate-800 border border-slate-700 text-slate-100 px-4 py-3 rounded-xl shadow-2xl flex items-center space-x-2 transition-all duration-300 transform translate-y-20 opacity-0 pointer-events-none">
+    <i data-lucide="info" class="w-5 h-5 text-indigo-400"></i>
+    <span id="toastMessage" class="text-xs font-medium"></span>
+  </div>
+
+  <!-- Confirmation Modal -->
+  <div id="confirmModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-sm w-full p-5 shadow-2xl space-y-4">
+      <h3 class="text-sm font-bold text-white flex items-center gap-2">
+        <i data-lucide="alert-triangle" class="w-4 h-4 text-red-400"></i>
+        <span data-i18n="modalClearTitle">すべてのリストをクリアしますか？</span>
+      </h3>
+      <p class="text-xs text-slate-400" data-i18n="modalClearDesc">読み込まれているすべての曲が編集リストから削除されます。元ファイル自体は削除されません。</p>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button id="cancelClearBtn" class="px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 rounded-lg" data-i18n="btnCancel">キャンセル</button>
+        <button id="confirmClearBtn" class="px-3 py-1.5 text-xs bg-red-600 hover:bg-red-500 text-white font-medium rounded-lg" data-i18n="btnExecute">実行する</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Dictionary for Multilingual Support (Japanese & English)
+    const i18n = {
+      ja: {
+        subtitle: "複数MP3のメタデータ（アーティスト・アルバム・画像・歌詞・テンポ等）を一括編集",
+        clearAll: "全クリア",
+        overwrite: "Walkmanへ直接上書き保存",
+        exportZip: "一括保存 (ZIP)",
+        dropText: "クリックして選択 または MP3をドロップ",
+        dropSubText: "✨ Walkman内のファイルを直接選択すると上書き可能",
+        openFolder: "Walkmanの「MUSIC」フォルダを一括指定",
+        autoFetchTitle: "Web自動情報取得 (APIキー不要・完全無料)",
+        autoFetchDesc: "曲名・ファイル名からインターネット（MusicBrainz/iTunes等）を自動検索し、全曲のアーティスト・アルバム・ジャケット画像・リリース年を一括入力します。",
+        autoFetchBtn: "全曲のタグ情報を自動でWeb検索・入力",
+        toolsTitle: "一括便利な整理ツール",
+        replaceDesc: "文字列の一括置換（全曲の不要な文字を消去等）",
+        optAll: "全項目 (曲名/歌手/アルバム)",
+        optTitle: "曲名のみ",
+        optArtist: "アーティストのみ",
+        optAlbum: "アルバムのみ",
+        execReplace: "置換実行",
+        parseFilenameTitle: "ファイル名からタグを自動補完",
+        parseFilenameDesc: "例: 「01 - 曲名.mp3」→ トラック:1, 曲名:曲名",
+        parseFilenameBtn: "自動抽出",
+        cleanTextBtn: "全角英数を半角化",
+        trimSpaceBtn: "前後の余白を除去",
+        batchTitle: "一括タグ設定パネル",
+        applyAllNote: "全ファイルに適用",
+        batchDesc: "入力した項目のみ全曲に書き込みます。空欄の項目は各ファイルの元データが維持されます。",
+        lblArtist: "アーティスト名 (Artist)",
+        lblSortHeader: "Walkman五十音ソート用 (よみがな)",
+        lblSortSub: "正しく並び替える用",
+        lblAlbum: "アルバム名 (Album)",
+        lblGenre: "ジャンル (Genre)",
+        lblYear: "リリース年 (Year)",
+        lblCover: "アルバムジャケット画像 (Cover Art)",
+        btnSelectImg: "画像を選択",
+        btnDelete: "削除",
+        applyBatchBtn: "すべての曲に一括適用する",
+        autoTrackBtn: "トラック番号を上から順に自動振り直し (1, 2, 3...)",
+        autoFileBtn: "ファイル名を「01 - 曲名.mp3」形式に整列",
+        loadedTracks: "読み込み済みトラック",
+        sortDefault: "並び順: 読み込み順",
+        sortTrack: "並び順: トラック番号",
+        sortTitle: "並び順: 曲名",
+        sortArtist: "並び順: アーティスト",
+        clearSearch: "検索解除",
+        emptyTitle: "ファイルがまだ追加されていません",
+        emptyDesc: "左側のエリアからMP3ファイルやWalkmanのMUSICフォルダを読み込んでください",
+        statusReady: "準備完了",
+        modalClearTitle: "すべてのリストをクリアしますか？",
+        modalClearDesc: "読み込まれているすべての曲が編集リストから削除されます。元ファイル自体は削除されません。",
+        btnCancel: "キャンセル",
+        btnExecute: "実行する"
+      },
+      en: {
+        subtitle: "Batch edit MP3 metadata (artist, album, artwork, lyrics, BPM, etc.) for Walkman",
+        clearAll: "Clear All",
+        overwrite: "Direct Save to Walkman",
+        exportZip: "Batch Export (ZIP)",
+        dropText: "Click to select or drop MP3 files here",
+        dropSubText: "✨ Select Walkman files directly for in-place overwrite",
+        openFolder: "Select Walkman 'MUSIC' Folder",
+        autoFetchTitle: "Auto Tag Fetcher (No API Key / Free)",
+        autoFetchDesc: "Automatically searches the web (MusicBrainz/iTunes) using song or file names to auto-fill artist, album, cover art, and release year.",
+        autoFetchBtn: "Auto-Fetch Tag Info from Web for All Tracks",
+        toolsTitle: "Batch Utilities",
+        replaceDesc: "Find & Replace text across tracks (e.g. remove [PV])",
+        optAll: "All Fields (Title/Artist/Album)",
+        optTitle: "Title Only",
+        optArtist: "Artist Only",
+        optAlbum: "Album Only",
+        execReplace: "Replace",
+        parseFilenameTitle: "Auto-fill Tags from Filename",
+        parseFilenameDesc: "Ex: '01 - Title.mp3' → Track: 1, Title: Title",
+        parseFilenameBtn: "Parse",
+        cleanTextBtn: "Convert Full-width to Half-width",
+        trimSpaceBtn: "Trim Extra Spaces",
+        batchTitle: "Batch Tagging Panel",
+        applyAllNote: "Applies to all files",
+        batchDesc: "Fills values into all files. Blank fields keep original file data.",
+        lblArtist: "Artist Name",
+        lblSortHeader: "Walkman Kana / Sort Order",
+        lblSortSub: "For correct Japanese sorting",
+        lblAlbum: "Album Title",
+        lblGenre: "Genre",
+        lblYear: "Release Year",
+        lblCover: "Album Cover Art",
+        btnSelectImg: "Select Image",
+        btnDelete: "Delete",
+        applyBatchBtn: "Apply to All Tracks",
+        autoTrackBtn: "Auto Sequence Track Numbers (1, 2, 3...)",
+        autoFileBtn: "Format Filenames to '01 - Title.mp3'",
+        loadedTracks: "Loaded Tracks",
+        sortDefault: "Sort: Default",
+        sortTrack: "Sort: Track Number",
+        sortTitle: "Sort: Title",
+        sortArtist: "Sort: Artist",
+        clearSearch: "Clear Search",
+        emptyTitle: "No files added yet",
+        emptyDesc: "Load MP3 files or your Walkman MUSIC folder from the left area",
+        statusReady: "Ready",
+        modalClearTitle: "Clear all tracks from list?",
+        modalClearDesc: "All loaded tracks will be removed from the editor list. Original files won't be deleted.",
+        btnCancel: "Cancel",
+        btnExecute: "Clear All"
+      }
+    };
+
+    // Current App State Store
+    const state = {
+      lang: 'ja',
+      files: [], // Array of track objects
+      batchCover: null,
+      searchQuery: '',
+      sortBy: 'default'
+    };
+
+    // DOM References
+    const langSelect = document.getElementById('langSelect');
+    const fileInput = document.getElementById('fileInput');
+    const dropzone = document.getElementById('dropzone');
+    const openFolderBtn = document.getElementById('openFolderBtn');
+    const fileListContainer = document.getElementById('fileListContainer');
+    const emptyState = document.getElementById('emptyState');
+    const fileCountBadge = document.getElementById('fileCountBadge');
+    const clearAllBtn = document.getElementById('clearAllBtn');
+    const exportZipBtn = document.getElementById('exportZipBtn');
+    const overwriteBtn = document.getElementById('overwriteBtn');
+    const applyBatchBtn = document.getElementById('applyBatchBtn');
+    const autoTrackNumbersBtn = document.getElementById('autoTrackNumbersBtn');
+    const autoFileNameBtn = document.getElementById('autoFileNameBtn');
+    const parseFilenameBtn = document.getElementById('parseFilenameBtn');
+    const trimSpaceBtn = document.getElementById('trimSpaceBtn');
+    const autoFetchAllBtn = document.getElementById('autoFetchAllBtn');
+    const statusText = document.getElementById('statusText');
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmClearBtn = document.getElementById('confirmClearBtn');
+    const cancelClearBtn = document.getElementById('cancelClearBtn');
+
+    // Batch & Find-Replace inputs
+    const batchArtist = document.getElementById('batchArtist');
+    const batchArtistSort = document.getElementById('batchArtistSort');
+    const batchAlbum = document.getElementById('batchAlbum');
+    const batchAlbumSort = document.getElementById('batchAlbumSort');
+    const batchGenre = document.getElementById('batchGenre');
+    const batchYear = document.getElementById('batchYear');
+    const batchCoverInput = document.getElementById('batchCoverInput');
+    const batchCoverPreview = document.getElementById('batchCoverPreview');
+    const removeBatchCoverBtn = document.getElementById('removeBatchCoverBtn');
+
+    const findText = document.getElementById('findText');
+    const replaceText = document.getElementById('replaceText');
+    const replaceTarget = document.getElementById('replaceTarget');
+    const execReplaceBtn = document.getElementById('execReplaceBtn');
+    const cleanTextBtn = document.getElementById('cleanTextBtn');
+
+    // Search & Sort DOMs
+    const searchQueryInput = document.getElementById('searchQuery');
+    const sortBySelect = document.getElementById('sortBySelect');
+    const filterStatsBar = document.getElementById('filterStatsBar');
+    const filterStatsText = document.getElementById('filterStatsText');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+    // Audio Preview Player DOMs
+    const audioPlayerBar = document.getElementById('audioPlayerBar');
+    const globalAudioPlayer = document.getElementById('globalAudioPlayer');
+    const playingTitle = document.getElementById('playingTitle');
+
+    // Initialize Lucide Icons
+    lucide.createIcons();
+
+    // Language Toggle Functionality
+    langSelect.addEventListener('change', (e) => {
+      setLanguage(e.target.value);
+    });
+
+    function setLanguage(lang) {
+      state.lang = lang;
+      const t = i18n[lang];
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        if (t[key]) {
+          el.textContent = t[key];
+        }
+      });
+      renderFileList();
+    }
+
+    // Toast Notification Utility
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      const toastMessage = document.getElementById('toastMessage');
+      toastMessage.textContent = msg;
+      toast.classList.remove('translate-y-20', 'opacity-0');
+      setTimeout(() => {
+        toast.classList.add('translate-y-20', 'opacity-0');
+      }, 3200);
+    }
+
+    async function verifyPermission(fileHandle, readWrite = true) {
+      const options = { mode: readWrite ? 'readwrite' : 'read' };
+      try {
+        if ((await fileHandle.queryPermission(options)) === 'granted') return true;
+        if ((await fileHandle.requestPermission(options)) === 'granted') return true;
+      } catch (err) {
+        console.warn('Permission error:', err);
+      }
+      return false;
+    }
+
+    // Search & Sort Handlers
+    searchQueryInput.addEventListener('input', (e) => {
+      state.searchQuery = e.target.value.trim().toLowerCase();
+      renderFileList();
+    });
+
+    sortBySelect.addEventListener('change', (e) => {
+      state.sortBy = e.target.value;
+      renderFileList();
+    });
+
+    clearSearchBtn.addEventListener('click', () => {
+      searchQueryInput.value = '';
+      state.searchQuery = '';
+      renderFileList();
+    });
+
+    // File Pickers
+    dropzone.addEventListener('click', async () => {
+      if ('showOpenFilePicker' in window) {
+        try {
+          const handles = await window.showOpenFilePicker({
+            multiple: true,
+            mode: 'readwrite',
+            types: [{ description: 'MP3 Audio Files', accept: { 'audio/mpeg': ['.mp3'] } }]
+          });
+          const files = [];
+          for (const handle of handles) {
+            const hasPerm = await verifyPermission(handle, true);
+            const file = await handle.getFile();
+            if (hasPerm) file.fileHandle = handle;
+            files.push(file);
+          }
+          if (files.length > 0) handleFilesSelect(files);
+        } catch (err) {
+          if (err.name !== 'AbortError') console.error(err);
+        }
+      } else {
+        fileInput.click();
+      }
+    });
+
+    openFolderBtn.addEventListener('click', async () => {
+      if (!('showDirectoryPicker' in window)) {
+        showToast(state.lang === 'ja' ? 'お使いのブラウザはフォルダ指定に対応していません。' : 'Folder picker not supported in this browser.');
+        return;
+      }
+      try {
+        const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const hasDirPerm = await verifyPermission(dirHandle, true);
+        if (!hasDirPerm) return;
+
+        const files = [];
+        async function readDir(handle) {
+          for await (const entry of handle.values()) {
+            if (entry.kind === 'file' && entry.name.toLowerCase().endsWith('.mp3')) {
+              const file = await entry.getFile();
+              file.fileHandle = entry;
+              files.push(file);
+            } else if (entry.kind === 'directory') {
+              await readDir(entry);
+            }
+          }
+        }
+        await readDir(dirHandle);
+
+        if (files.length > 0) {
+          handleFilesSelect(files);
+          showToast(state.lang === 'ja' ? `${files.length} 件のファイルを読み込みました` : `Loaded ${files.length} files`);
+        }
+      } catch (err) {
+        if (err.name !== 'AbortError') console.error(err);
+      }
+    });
+
+    async function handleFilesSelect(fileList) {
+      for (const file of fileList) {
+        const id = 'file_' + Math.random().toString(36).substring(2, 9);
+        const arrayBuffer = await file.arrayBuffer();
+        const objectUrl = URL.createObjectURL(file);
+        const metadata = await readMetadata(file);
+        const titleFromFilename = file.name.replace(/\.[^/.]+$/, "");
+
+        const item = {
+          id,
+          originalFile: file,
+          fileHandle: file.fileHandle || null,
+          originalFileName: file.name,
+          outFileName: file.name,
+          arrayBuffer,
+          objectUrl,
+          title: metadata.title || titleFromFilename,
+          artist: metadata.artist || '',
+          artistSort: metadata.artistSort || '',
+          album: metadata.album || '',
+          albumSort: metadata.albumSort || '',
+          genre: metadata.genre || '',
+          year: metadata.year || '',
+          track: metadata.track || '',
+          bpm: metadata.bpm || '',
+          lyrics: metadata.lyrics || '',
+          coverBuffer: metadata.coverBuffer || null,
+          coverMime: metadata.coverMime || '',
+          coverUrl: metadata.coverUrl || null
+        };
+        state.files.push(item);
+      }
+      updateUI();
+      fileInput.value = '';
+    }
+
+    function readMetadata(file) {
+      return new Promise((resolve) => {
+        window.jsmediatags.read(file, {
+          onSuccess: (tag) => {
+            const tags = tag.tags;
+            let coverBuffer = null, coverMime = '', coverUrl = null;
+
+            if (tags.picture) {
+              const { data, format } = tags.picture;
+              coverMime = format;
+              const byteArray = new Uint8Array(data);
+              coverBuffer = byteArray.buffer;
+              let binary = '';
+              for (let i = 0; i < byteArray.byteLength; i++) binary += String.fromCharCode(byteArray[i]);
+              coverUrl = `data:${format};base64,${window.btoa(binary)}`;
+            }
+
+            resolve({
+              title: tags.title || '',
+              artist: tags.artist || '',
+              artistSort: tags.TSOP ? tags.TSOP.data : '',
+              album: tags.album || '',
+              albumSort: tags.TSOA ? tags.TSOA.data : '',
+              genre: tags.genre || '',
+              year: tags.year || '',
+              track: tags.track || '',
+              bpm: tags.TBPM ? tags.TBPM.data : '',
+              lyrics: tags.lyrics ? tags.lyrics.lyrics : '',
+              coverBuffer, coverMime, coverUrl
+            });
+          },
+          onError: () => resolve({})
+        });
+      });
+    }
+
+    function updateUI() {
+      fileCountBadge.textContent = `${state.files.length} ${state.lang === 'ja' ? '曲' : 'tracks'}`;
+      const hasFiles = state.files.length > 0;
+      const hasDirectWriteableFiles = state.files.some(f => f.fileHandle !== null);
+
+      emptyState.style.display = hasFiles ? 'none' : 'flex';
+      clearAllBtn.classList.toggle('hidden', !hasFiles);
+      clearAllBtn.classList.toggle('flex', hasFiles);
+      exportZipBtn.disabled = !hasFiles;
+      overwriteBtn.disabled = !hasDirectWriteableFiles;
+      applyBatchBtn.disabled = !hasFiles;
+      autoTrackNumbersBtn.disabled = !hasFiles;
+      autoFileNameBtn.disabled = !hasFiles;
+      parseFilenameBtn.disabled = !hasFiles;
+      trimSpaceBtn.disabled = !hasFiles;
+      execReplaceBtn.disabled = !hasFiles;
+      cleanTextBtn.disabled = !hasFiles;
+      autoFetchAllBtn.disabled = !hasFiles;
+
+      renderFileList();
+    }
+
+    // --- FREE & NO API KEY WEB TAG AUTO-FETCHER (MusicBrainz & iTunes API) ---
+    autoFetchAllBtn.addEventListener('click', async () => {
+      if (state.files.length === 0) return;
+
+      autoFetchAllBtn.disabled = true;
+      autoFetchAllBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Web検索・自動入力中...`;
+      lucide.createIcons();
+
+      let successCount = 0;
+
+      for (let i = 0; i < state.files.length; i++) {
+        const item = state.files[i];
+        statusText.textContent = `[${i + 1}/${state.files.length}] Webから検索中: ${item.title || item.originalFileName}...`;
+
+        // Clean query from file name or title
+        let query = (item.title || item.originalFileName.replace(/\.[^/.]+$/, ""))
+          .replace(/^\d+[\s\-_.]+/, '') // remove leading track numbers
+          .replace(/\[.*?\]|\(.*?\)/g, '') // remove brackets
+          .trim();
+
+        if (!query) continue;
+
+        try {
+          // 1. Try iTunes Search API (Fast, Free, High Resolution Artwork)
+          const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&entity=song&limit=1`);
+          const itunesData = await itunesRes.json();
+
+          if (itunesData.results && itunesData.results.length > 0) {
+            const track = itunesData.results[0];
+            item.title = track.trackName || item.title;
+            item.artist = track.artistName || item.artist;
+            item.album = track.collectionName || item.album;
+            if (track.primaryGenreName) item.genre = track.primaryGenreName;
+            if (track.releaseDate) item.year = new Date(track.releaseDate).getFullYear().toString();
+            if (track.trackNumber) item.track = track.trackNumber.toString();
+
+            // Fetch Artwork
+            if (track.artworkUrl100) {
+              const highResCoverUrl = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+              try {
+                const imgRes = await fetch(highResCoverUrl);
+                const imgBlob = await imgRes.blob();
+                item.coverBuffer = await imgBlob.arrayBuffer();
+                item.coverMime = imgBlob.type || 'image/jpeg';
+                item.coverUrl = URL.createObjectURL(imgBlob);
+              } catch (e) {
+                console.warn('Cover fetch failed:', e);
+              }
+            }
+            successCount++;
+          } else {
+            // 2. Fallback to MusicBrainz API (Open Free Music Database)
+            const mbRes = await fetch(`https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json`, {
+              headers: { 'User-Agent': 'WalkmanTagEditor/1.0 (free-app)' }
+            });
+            const mbData = await mbRes.json();
+            if (mbData.recordings && mbData.recordings.length > 0) {
+              const rec = mbData.recordings[0];
+              item.title = rec.title || item.title;
+              if (rec['artist-credit'] && rec['artist-credit'][0]) {
+                item.artist = rec['artist-credit'][0].name || item.artist;
+              }
+              if (rec.releases && rec.releases[0]) {
+                item.album = rec.releases[0].title || item.album;
+                if (rec.releases[0].date) item.year = rec.releases[0].date.substring(0, 4);
+              }
+              successCount++;
+            }
+          }
+        } catch (err) {
+          console.error('Fetch error for', query, err);
+        }
+
+        // Throttle slightly to respect free API rate limits
+        await new Promise(r => setTimeout(r, 300));
+      }
+
+      renderFileList();
+      autoFetchAllBtn.disabled = false;
+      autoFetchAllBtn.innerHTML = `<i data-lucide="globe" class="w-4 h-4"></i> <span data-i18n="autoFetchBtn">${i18n[state.lang].autoFetchBtn}</span>`;
+      lucide.createIcons();
+      statusText.textContent = state.lang === 'ja' ? `自動検索完了 (${successCount}曲更新)` : `Auto-fetch finished (${successCount} tracks updated)`;
+      showToast(state.lang === 'ja' ? `${successCount}曲の情報を自動入力しました！` : `Auto-filled info for ${successCount} tracks!`);
+    });
+
+    function renderFileList() {
+      const existingCards = fileListContainer.querySelectorAll('.track-card');
+      existingCards.forEach(el => el.remove());
+
+      if (state.files.length === 0) {
+        emptyState.style.display = 'flex';
+        filterStatsBar.classList.add('hidden');
+        return;
+      }
+
+      let displayedFiles = [...state.files];
+      if (state.searchQuery) {
+        displayedFiles = displayedFiles.filter(f => {
+          const q = state.searchQuery;
+          return (
+            (f.title && f.title.toLowerCase().includes(q)) ||
+            (f.artist && f.artist.toLowerCase().includes(q)) ||
+            (f.album && f.album.toLowerCase().includes(q)) ||
+            (f.outFileName && f.outFileName.toLowerCase().includes(q))
+          );
+        });
+        filterStatsBar.classList.remove('hidden');
+        filterStatsText.textContent = `${state.lang === 'ja' ? '検索結果' : 'Found'}: ${displayedFiles.length} / ${state.files.length}`;
+      } else {
+        filterStatsBar.classList.add('hidden');
+      }
+
+      if (state.sortBy === 'track') {
+        displayedFiles.sort((a, b) => (parseInt(a.track) || 999) - (parseInt(b.track) || 999));
+      } else if (state.sortBy === 'title') {
+        displayedFiles.sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+      } else if (state.sortBy === 'artist') {
+        displayedFiles.sort((a, b) => (a.artist || '').localeCompare(b.artist || ''));
+      }
+
+      emptyState.style.display = displayedFiles.length === 0 ? 'flex' : 'none';
+
+      displayedFiles.forEach((fileItem, index) => {
+        const card = document.createElement('div');
+        card.className = 'track-card bg-slate-900/90 border border-slate-700/80 rounded-xl p-3.5 flex flex-col gap-3 transition-all hover:border-slate-600';
+        card.dataset.id = fileItem.id;
+
+        const isDirectWrite = fileItem.fileHandle !== null;
+
+        card.innerHTML = `
+          <div class="flex items-center justify-between gap-3 cursor-pointer select-none" onclick="toggleCardExpand('${fileItem.id}')">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-10 h-10 rounded-lg bg-slate-800 border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center text-slate-600 relative">
+                ${fileItem.coverUrl 
+                  ? `<img src="${fileItem.coverUrl}" class="w-full h-full object-cover" />`
+                  : `<i data-lucide="music" class="w-5 h-5"></i>`}
+              </div>
+              <div class="min-w-0">
+                <div class="flex items-center gap-2">
+                  <h3 id="display_title_${fileItem.id}" class="text-sm font-semibold text-slate-100 truncate">${escapeHtml(fileItem.title || '無題')}</h3>
+                  ${isDirectWrite 
+                    ? `<span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded shrink-0">Walkman</span>`
+                    : ''}
+                </div>
+                <p id="display_subtitle_${fileItem.id}" class="text-xs text-slate-400 truncate">
+                  ${escapeHtml(fileItem.artist || 'Unknown Artist')} ${fileItem.album ? `— ${escapeHtml(fileItem.album)}` : ''}
+                </p>
+              </div>
+            </div>
+
+            <div class="flex items-center gap-2 shrink-0">
+              <button onclick="event.stopPropagation(); playPreview('${fileItem.id}')" class="p-1.5 bg-indigo-600/30 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/40 rounded-lg transition-colors">
+                <i data-lucide="play" class="w-3.5 h-3.5"></i>
+              </button>
+              <button onclick="event.stopPropagation(); downloadSingle('${fileItem.id}')" class="p-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors border border-slate-700">
+                <i data-lucide="download" class="w-3.5 h-3.5"></i>
+              </button>
+              <span id="display_track_${fileItem.id}" class="text-[11px] font-mono bg-slate-800 px-2 py-0.5 rounded text-slate-400 border border-slate-700">#${fileItem.track || (index + 1)}</span>
+              <button onclick="event.stopPropagation(); removeFile('${fileItem.id}')" class="p-1.5 text-slate-500 hover:text-red-400 hover:bg-slate-800 rounded-lg transition-colors">
+                <i data-lucide="x" class="w-4 h-4"></i>
+              </button>
+              <i data-lucide="chevron-down" class="w-4 h-4 text-slate-500 transform transition-transform expand-icon-${fileItem.id}"></i>
+            </div>
+          </div>
+
+          <div id="expand_${fileItem.id}" class="hidden pt-3 border-t border-slate-800 space-y-3">
+            <div class="p-2 bg-slate-950/60 rounded-lg border border-slate-800/80">
+              <label class="block text-[11px] font-semibold text-indigo-300 mb-1">Output Filename</label>
+              <input type="text" value="${escapeHtml(fileItem.outFileName)}" oninput="updateFileProp('${fileItem.id}', 'outFileName', this.value)" class="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-200 font-mono">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Title</label>
+                <input type="text" value="${escapeHtml(fileItem.title)}" oninput="updateFileProp('${fileItem.id}', 'title', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Artist</label>
+                <input type="text" value="${escapeHtml(fileItem.artist)}" oninput="updateFileProp('${fileItem.id}', 'artist', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+              <div>
+                <label class="block text-[11px] text-indigo-300 mb-1">Sort Artist (TSOP / Kana)</label>
+                <input type="text" value="${escapeHtml(fileItem.artistSort)}" placeholder="Sort Name" oninput="updateFileProp('${fileItem.id}', 'artistSort', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Album</label>
+                <input type="text" value="${escapeHtml(fileItem.album)}" oninput="updateFileProp('${fileItem.id}', 'album', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+            </div>
+
+            <div class="grid grid-cols-3 gap-2">
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Track No.</label>
+                <input type="text" value="${escapeHtml(fileItem.track)}" placeholder="1" oninput="updateFileProp('${fileItem.id}', 'track', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Year</label>
+                <input type="number" value="${fileItem.year || ''}" placeholder="2026" oninput="updateFileProp('${fileItem.id}', 'year', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+              <div>
+                <label class="block text-[11px] text-slate-400 mb-1">Genre</label>
+                <input type="text" value="${escapeHtml(fileItem.genre)}" oninput="updateFileProp('${fileItem.id}', 'genre', this.value)" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1 text-xs text-slate-200">
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-[11px] text-slate-400 mb-1">Lyrics</label>
+              <textarea oninput="updateFileProp('${fileItem.id}', 'lyrics', this.value)" placeholder="Unsynchronized Lyrics..." class="w-full h-16 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 resize-none">${escapeHtml(fileItem.lyrics)}</textarea>
+            </div>
+          </div>
+        `;
+        fileListContainer.appendChild(card);
+      });
+
+      lucide.createIcons();
+    }
+
+    function toggleCardExpand(id) {
+      const el = document.getElementById(`expand_${id}`);
+      const icon = document.querySelector(`.expand-icon-${id}`);
+      if (el) {
+        el.classList.toggle('hidden');
+        if (icon) icon.classList.toggle('rotate-180');
+      }
+    }
+
+    function updateFileProp(id, prop, value) {
+      const item = state.files.find(f => f.id === id);
+      if (!item) return;
+      item[prop] = value;
+
+      if (prop === 'title') {
+        const titleEl = document.getElementById(`display_title_${id}`);
+        if (titleEl) titleEl.textContent = value || '無題';
+      } else if (prop === 'artist' || prop === 'album') {
+        const subEl = document.getElementById(`display_subtitle_${id}`);
+        if (subEl) subEl.textContent = `${item.artist || 'Unknown Artist'} ${item.album ? '— ' + item.album : ''}`;
+      } else if (prop === 'track') {
+        const trackEl = document.getElementById(`display_track_${id}`);
+        if (trackEl) trackEl.textContent = `#${value || ''}`;
+      }
+    }
+
+    function playPreview(id) {
+      const item = state.files.find(f => f.id === id);
+      if (!item) return;
+      audioPlayerBar.classList.remove('hidden');
+      playingTitle.textContent = `Playing: ${item.title || item.outFileName}`;
+      globalAudioPlayer.src = item.objectUrl;
+      globalAudioPlayer.play().catch(e => console.log('Playback error:', e));
+    }
+
+    function downloadSingle(id) {
+      const item = state.files.find(f => f.id === id);
+      if (!item) return;
+      try {
+        const writer = new ID3Writer(item.arrayBuffer);
+        applyTagsToWriter(writer, item);
+        writer.addTag();
+        const blob = writer.getBlob();
+        let fileNameToSave = (item.outFileName || item.originalFileName || 'track.mp3').trim();
+        if (!fileNameToSave.toLowerCase().endsWith('.mp3')) fileNameToSave += '.mp3';
+        saveAs(blob, fileNameToSave);
+      } catch (err) {
+        console.error('Download error:', err);
+      }
+    }
+
+    function removeFile(id) {
+      const index = state.files.findIndex(f => f.id === id);
+      if (index !== -1) {
+        if (state.files[index].objectUrl) URL.revokeObjectURL(state.files[index].objectUrl);
+        state.files.splice(index, 1);
+        updateUI();
+      }
+    }
+
+    function applyTagsToWriter(writer, item) {
+      if (item.title) writer.setFrame('TIT2', item.title);
+      if (item.artist) writer.setFrame('TPE1', [item.artist]);
+      if (item.album) writer.setFrame('TALB', item.album);
+      if (item.genre) writer.setFrame('TCON', [item.genre]);
+      if (item.year) writer.setFrame('TYER', parseInt(item.year, 10));
+      if (item.track) writer.setFrame('TRCK', item.track.toString());
+      if (item.bpm) writer.setFrame('TBPM', item.bpm.toString());
+      if (item.artistSort) writer.setFrame('TSOP', item.artistSort);
+      if (item.albumSort) writer.setFrame('TSOA', item.albumSort);
+      if (item.lyrics) writer.setFrame('USLT', { description: '', lyrics: item.lyrics, language: 'jpn' });
+      if (item.coverBuffer) {
+        writer.setFrame('APIC', { type: 3, data: item.coverBuffer, description: 'Cover', mimeType: item.coverMime || 'image/jpeg' });
+      }
+    }
+
+    applyBatchBtn.addEventListener('click', () => {
+      const artistVal = batchArtist.value.trim();
+      const artistSortVal = batchArtistSort.value.trim();
+      const albumVal = batchAlbum.value.trim();
+      const albumSortVal = batchAlbumSort.value.trim();
+      const genreVal = batchGenre.value.trim();
+      const yearVal = batchYear.value.trim();
+
+      state.files.forEach((fileItem) => {
+        if (artistVal) fileItem.artist = artistVal;
+        if (artistSortVal) fileItem.artistSort = artistSortVal;
+        if (albumVal) fileItem.album = albumVal;
+        if (albumSortVal) fileItem.albumSort = albumSortVal;
+        if (genreVal) fileItem.genre = genreVal;
+        if (yearVal) fileItem.year = yearVal;
+        if (state.batchCover) {
+          fileItem.coverBuffer = state.batchCover.arrayBuffer;
+          fileItem.coverMime = state.batchCover.mimeType;
+          fileItem.coverUrl = state.batchCover.dataUrl;
+        }
+      });
+      renderFileList();
+      showToast('Batch applied!');
+    });
+
+    overwriteBtn.addEventListener('click', async () => {
+      const writeableFiles = state.files.filter(f => f.fileHandle !== null);
+      if (writeableFiles.length === 0) return;
+
+      overwriteBtn.disabled = true;
+      let successCount = 0;
+      try {
+        for (const item of writeableFiles) {
+          const hasPerm = await verifyPermission(item.fileHandle, true);
+          if (!hasPerm) continue;
+          const writer = new ID3Writer(item.arrayBuffer);
+          applyTagsToWriter(writer, item);
+          writer.addTag();
+          const blob = writer.getBlob();
+          const writable = await item.fileHandle.createWritable();
+          await writable.write(blob);
+          await writable.close();
+          successCount++;
+        }
+        showToast(`Updated ${successCount} files on Walkman directly!`);
+      } catch (err) {
+        console.error('Overwrite error:', err);
+      } finally {
+        overwriteBtn.disabled = false;
+      }
+    });
+
+    exportZipBtn.addEventListener('click', async () => {
+      if (state.files.length === 0) return;
+      exportZipBtn.disabled = true;
+      try {
+        const zip = new JSZip();
+        for (let i = 0; i < state.files.length; i++) {
+          const item = state.files[i];
+          const writer = new ID3Writer(item.arrayBuffer);
+          applyTagsToWriter(writer, item);
+          writer.addTag();
+          const blob = writer.getBlob();
+          let fileNameToSave = (item.outFileName || item.originalFileName || 'track.mp3').trim();
+          if (!fileNameToSave.toLowerCase().endsWith('.mp3')) fileNameToSave += '.mp3';
+          zip.file(fileNameToSave.replace(/[/\\?%*:|"<>]/g, '_'), blob);
+        }
+        const content = await zip.generateAsync({ type: 'blob' });
+        saveAs(content, 'walkman_music_tagged.zip');
+      } catch (err) {
+        console.error('Export error:', err);
+      } finally {
+        exportZipBtn.disabled = false;
+      }
+    });
+
+    // Clear Modal Handlers
+    clearAllBtn.addEventListener('click', () => confirmModal.classList.remove('hidden'));
+    cancelClearBtn.addEventListener('click', () => confirmModal.classList.add('hidden'));
+    confirmClearBtn.addEventListener('click', () => {
+      state.files.forEach(f => { if (f.objectUrl) URL.revokeObjectURL(f.objectUrl); });
+      state.files = [];
+      state.batchCover = null;
+      confirmModal.classList.add('hidden');
+      updateUI();
+    });
+
+    // Batch Tool Utilities
+    execReplaceBtn.addEventListener('click', () => {
+      const fText = findText.value;
+      if (!fText) return;
+      const rText = replaceText.value || '';
+      const target = replaceTarget.value;
+      state.files.forEach(f => {
+        if ((target === 'all' || target === 'title') && f.title) f.title = f.title.replaceAll(fText, rText);
+        if ((target === 'all' || target === 'artist') && f.artist) f.artist = f.artist.replaceAll(fText, rText);
+        if ((target === 'all' || target === 'album') && f.album) f.album = f.album.replaceAll(fText, rText);
+      });
+      renderFileList();
+    });
+
+    cleanTextBtn.addEventListener('click', () => {
+      const toHalfWidth = (str) => str ? str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xfee0)).replace(/ /g, ' ') : str;
+      state.files.forEach(f => {
+        if (f.title) f.title = toHalfWidth(f.title);
+        if (f.artist) f.artist = toHalfWidth(f.artist);
+        if (f.album) f.album = toHalfWidth(f.album);
+      });
+      renderFileList();
+    });
+
+    trimSpaceBtn.addEventListener('click', () => {
+      state.files.forEach(f => {
+        if (f.title) f.title = f.title.trim();
+        if (f.artist) f.artist = f.artist.trim();
+        if (f.album) f.album = f.album.trim();
+      });
+      renderFileList();
+    });
+
+    parseFilenameBtn.addEventListener('click', () => {
+      state.files.forEach(f => {
+        const nameWithoutExt = f.originalFileName.replace(/\.[^/.]+$/, "");
+        const matchTrack = nameWithoutExt.match(/^(\d{1,3})[\s\-_.\s]+(.+)$/);
+        if (matchTrack) {
+          f.track = parseInt(matchTrack[1], 10).toString();
+          f.title = matchTrack[2].trim();
+        }
+      });
+      renderFileList();
+    });
+
+    autoTrackNumbersBtn.addEventListener('click', () => {
+      state.files.forEach((f, idx) => f.track = (idx + 1).toString());
+      renderFileList();
+    });
+
+    autoFileNameBtn.addEventListener('click', () => {
+      state.files.forEach((f, idx) => {
+        const num = (parseInt(f.track, 10) || (idx + 1)).toString().padStart(2, '0');
+        f.outFileName = `${num} - ${f.title || 'Track'}.mp3`;
+      });
+      renderFileList();
+    });
+
+    batchCoverInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        state.batchCover = { arrayBuffer: evt.target.result, mimeType: file.type, dataUrl: URL.createObjectURL(file) };
+        batchCoverPreview.innerHTML = `<img src="${state.batchCover.dataUrl}" class="w-full h-full object-cover" />`;
+        removeBatchCoverBtn.classList.remove('hidden');
+      };
+      reader.readAsArrayBuffer(file);
+    });
+
+    removeBatchCoverBtn.addEventListener('click', () => {
+      state.batchCover = null;
+      batchCoverPreview.innerHTML = `<i data-lucide="image" class="w-5 h-5"></i>`;
+      removeBatchCoverBtn.classList.add('hidden');
+    });
+
+    function escapeHtml(str) {
+      return str ? String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;') : '';
+    }
+  </script>
+</body>
+</html>
