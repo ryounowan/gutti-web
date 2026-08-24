@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MP3 Tag Batch Editor for Walkman</title>
+  <title>MP3 Tag Batch Editor for Walkman (with Synced Lyrics)</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- jsmediatags (Tag Reader) -->
@@ -35,9 +35,9 @@
         <div>
           <h1 class="font-bold text-lg leading-tight text-white flex items-center gap-2">
             MP3 Tag Batch Editor
-            <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">For Walkman</span>
+            <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">For Walkman + Synced Lyrics</span>
           </h1>
-          <p class="text-xs text-slate-400" data-i18n="subtitle">複数MP3のメタデータ（アーティスト・アルバム・画像・歌詞・テンポ等）を一括編集</p>
+          <p class="text-xs text-slate-400" data-i18n="subtitle">複数MP3のメタデータ（アーティスト・アルバム・画像・同期歌詞LRC等）を一括編集</p>
         </div>
       </div>
 
@@ -89,22 +89,31 @@
         </div>
       </div>
 
-      <!-- Auto Fetch AI/Web Tag Fetcher Card (FREE & No API Key) -->
+      <!-- Auto Fetch Web Tag & Synced Lyrics Fetcher Card -->
       <div class="bg-indigo-950/40 border border-indigo-500/30 rounded-2xl p-5 shadow-xl flex flex-col gap-3 relative overflow-hidden">
         <div class="flex items-center justify-between pb-2 border-b border-indigo-500/20">
           <div class="flex items-center space-x-2 text-indigo-400">
             <i data-lucide="sparkles" class="w-5 h-5"></i>
-            <h2 class="font-bold text-sm text-indigo-200" data-i18n="autoFetchTitle">Web自動情報取得 (APIキー不要・完全無料)</h2>
+            <h2 class="font-bold text-sm text-indigo-200" data-i18n="autoFetchTitle">Web自動タグ＆同期歌詞取得 (完全無料)</h2>
           </div>
-          <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">Free Auto-Tag</span>
+          <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">Synced Lyrics + Cover</span>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed" data-i18n="autoFetchDesc">
-          曲名・ファイル名からインターネット（MusicBrainz/iTunes等）を自動検索し、全曲のアーティスト・アルバム・ジャケット画像・リリース年を一括入力します。
+          曲名・歌手名からネットを検索し、タグ情報と<b>Walkman対応の同期歌詞 (LRC形式 [00:12.34])</b>を自動検索して埋め込みます。<br>
+          <span class="text-amber-400 font-medium">※ データが見つからない曲は元データを破壊せず自動スキップします。</span>
         </p>
-        <button id="autoFetchAllBtn" disabled class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-40 disabled:shadow-none flex items-center justify-center gap-2">
-          <i data-lucide="globe" class="w-4 h-4"></i>
-          <span data-i18n="autoFetchBtn">全曲のタグ情報を自動でWeb検索・入力</span>
-        </button>
+        
+        <div class="grid grid-cols-1 gap-2 pt-1">
+          <button id="autoFetchAllBtn" disabled class="w-full py-2.5 px-4 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-semibold text-sm rounded-xl transition-all shadow-lg shadow-indigo-500/25 disabled:opacity-40 disabled:shadow-none flex items-center justify-center gap-2">
+            <i data-lucide="globe" class="w-4 h-4"></i>
+            <span data-i18n="autoFetchBtn">全曲のタグ＆同期歌詞を一括自動取得</span>
+          </button>
+          
+          <button id="autoFetchLyricsOnlyBtn" disabled class="w-full py-2 px-3 bg-slate-800 hover:bg-slate-700 text-indigo-300 hover:text-indigo-200 font-medium text-xs rounded-xl transition-all border border-indigo-500/30 disabled:opacity-40 flex items-center justify-center gap-1.5">
+            <i data-lucide="file-text" class="w-3.5 h-3.5"></i>
+            <span data-i18n="autoLyricsBtn">同期歌詞 (LRC) のみ全曲検索して追加</span>
+          </button>
+        </div>
       </div>
 
       <!-- Batch Utilities Card (Find/Replace & Advanced Format) -->
@@ -350,16 +359,17 @@
     // Dictionary for Multilingual Support (Japanese & English)
     const i18n = {
       ja: {
-        subtitle: "複数MP3のメタデータ（アーティスト・アルバム・画像・歌詞・テンポ等）を一括編集",
+        subtitle: "複数MP3のメタデータ（アーティスト・アルバム・画像・同期歌詞LRC等）を一括編集",
         clearAll: "全クリア",
         overwrite: "Walkmanへ直接上書き保存",
         exportZip: "一括保存 (ZIP)",
         dropText: "クリックして選択 または MP3をドロップ",
         dropSubText: "✨ Walkman内のファイルを直接選択すると上書き可能",
         openFolder: "Walkmanの「MUSIC」フォルダを一括指定",
-        autoFetchTitle: "Web自動情報取得 (APIキー不要・完全無料)",
-        autoFetchDesc: "曲名・ファイル名からインターネット（MusicBrainz/iTunes等）を自動検索し、全曲のアーティスト・アルバム・ジャケット画像・リリース年を一括入力します。",
-        autoFetchBtn: "全曲のタグ情報を自動でWeb検索・入力",
+        autoFetchTitle: "Web自動タグ＆同期歌詞取得 (完全無料)",
+        autoFetchDesc: "曲名・歌手名からネットを検索し、タグ情報とWalkman対応の同期歌詞 (LRC形式) を自動検索して埋め込みます。",
+        autoFetchBtn: "全曲のタグ＆同期歌詞を一括自動取得",
+        autoLyricsBtn: "同期歌詞 (LRC) のみ全曲検索して追加",
         toolsTitle: "一括便利な整理ツール",
         replaceDesc: "文字列の一括置換（全曲の不要な文字を消去等）",
         optAll: "全項目 (曲名/歌手/アルバム)",
@@ -400,26 +410,26 @@
         modalClearDesc: "読み込まれているすべての曲が編集リストから削除されます。元ファイル自体は削除されません。",
         btnCancel: "キャンセル",
         btnExecute: "実行する",
-        // Card Labels (Added for Japanese Localization)
         lblOutFilename: "出力ファイル名",
         lblTitle: "タイトル",
         lblSortArtist: "よみがな（ソート用歌手名）",
         lblTrackNo: "トラック番号",
-        lblLyrics: "歌詞",
+        lblLyrics: "同期歌詞 / テキスト (Walkman対応 LRC形式 [00:12.34])",
         phSortName: "ソート名 (例: あーてぃすと)",
-        phLyrics: "非同期歌詞..."
+        phLyrics: "[00:12.34]歌詞テキスト... (同期歌詞対応)"
       },
       en: {
-        subtitle: "Batch edit MP3 metadata (artist, album, artwork, lyrics, BPM, etc.) for Walkman",
+        subtitle: "Batch edit MP3 metadata (artist, album, artwork, synced lyrics LRC, etc.) for Walkman",
         clearAll: "Clear All",
         overwrite: "Direct Save to Walkman",
         exportZip: "Batch Export (ZIP)",
         dropText: "Click to select or drop MP3 files here",
         dropSubText: "✨ Select Walkman files directly for in-place overwrite",
         openFolder: "Select Walkman 'MUSIC' Folder",
-        autoFetchTitle: "Auto Tag Fetcher (No API Key / Free)",
-        autoFetchDesc: "Automatically searches the web (MusicBrainz/iTunes) using song or file names to auto-fill artist, album, cover art, and release year.",
-        autoFetchBtn: "Auto-Fetch Tag Info from Web for All Tracks",
+        autoFetchTitle: "Auto Tag & Synced Lyrics Fetcher (Free)",
+        autoFetchDesc: "Searches the web for song info and Walkman-compatible Synced Lyrics (.lrc format). Skips missing data to preserve originals.",
+        autoFetchBtn: "Auto-Fetch Tag Info & Synced Lyrics for All",
+        autoLyricsBtn: "Fetch Synced Lyrics Only for All Tracks",
         toolsTitle: "Batch Utilities",
         replaceDesc: "Find & Replace text across tracks (e.g. remove [PV])",
         optAll: "All Fields (Title/Artist/Album)",
@@ -460,14 +470,13 @@
         modalClearDesc: "All loaded tracks will be removed from the editor list. Original files won't be deleted.",
         btnCancel: "Cancel",
         btnExecute: "Clear All",
-        // Card Labels (English)
         lblOutFilename: "Output Filename",
         lblTitle: "Title",
         lblSortArtist: "Sort Artist (TSOP / Kana)",
         lblTrackNo: "Track No.",
-        lblLyrics: "Lyrics",
+        lblLyrics: "Synced / Unsynced Lyrics (Walkman LRC format supported)",
         phSortName: "Sort Name",
-        phLyrics: "Unsynchronized Lyrics..."
+        phLyrics: "[00:12.34]Synced Lyric line..."
       }
     };
 
@@ -497,6 +506,7 @@
     const parseFilenameBtn = document.getElementById('parseFilenameBtn');
     const trimSpaceBtn = document.getElementById('trimSpaceBtn');
     const autoFetchAllBtn = document.getElementById('autoFetchAllBtn');
+    const autoFetchLyricsOnlyBtn = document.getElementById('autoFetchLyricsOnlyBtn');
     const statusText = document.getElementById('statusText');
     const confirmModal = document.getElementById('confirmModal');
     const confirmClearBtn = document.getElementById('confirmClearBtn');
@@ -559,7 +569,7 @@
       toast.classList.remove('translate-y-20', 'opacity-0');
       setTimeout(() => {
         toast.classList.add('translate-y-20', 'opacity-0');
-      }, 3200);
+      }, 3500);
     }
 
     async function verifyPermission(fileHandle, readWrite = true) {
@@ -673,7 +683,7 @@
           year: metadata.year || '',
           track: metadata.track || '',
           bpm: metadata.bpm || '',
-          lyrics: metadata.lyrics || '',
+          lyrics: metadata.lyrics || '', // Synced or unsynced lyrics text
           coverBuffer: metadata.coverBuffer || null,
           coverMime: metadata.coverMime || '',
           coverUrl: metadata.coverUrl || null
@@ -701,6 +711,14 @@
               coverUrl = `data:${format};base64,${window.btoa(binary)}`;
             }
 
+            // Read USLT or SYLT lyrics
+            let lyrics = '';
+            if (tags.lyrics) {
+              lyrics = tags.lyrics.lyrics || tags.lyrics;
+            } else if (tags.USLT) {
+              lyrics = tags.USLT.data ? tags.USLT.data.lyrics : tags.USLT;
+            }
+
             resolve({
               title: tags.title || '',
               artist: tags.artist || '',
@@ -711,7 +729,7 @@
               year: tags.year || '',
               track: tags.track || '',
               bpm: tags.TBPM ? tags.TBPM.data : '',
-              lyrics: tags.lyrics ? tags.lyrics.lyrics : '',
+              lyrics: lyrics || '',
               coverBuffer, coverMime, coverUrl
             });
           },
@@ -738,90 +756,235 @@
       execReplaceBtn.disabled = !hasFiles;
       cleanTextBtn.disabled = !hasFiles;
       autoFetchAllBtn.disabled = !hasFiles;
+      autoFetchLyricsOnlyBtn.disabled = !hasFiles;
 
       renderFileList();
     }
 
-    // --- Japanese localized & optimized iTunes / MusicBrainz Fetcher ---
+    // --- STREAMING_CHUNK:Synced Lyrics (.lrc) & Web Metadata API Fetchers with Data-Loss Protection ---
+    // Helper: Clean query strings for better search matching
+    function cleanSearchQuery(term) {
+      if (!term) return '';
+      return term
+        .replace(/^\d+[\s\-_.]+/, '') // Remove leading numbers "01 - "
+        .replace(/\[.*?\]|\(.*?\)/g, '') // Remove brackets [PV], (Remaster)
+        .replace(/ft\..*|feat\..*/i, '') // Remove features
+        .trim();
+    }
+
+    // Fetch Synchronized Lyrics (.lrc) from LRCLIB API
+    async function fetchSyncedLyrics(title, artist) {
+      const cleanTitle = cleanSearchQuery(title);
+      const cleanArtist = cleanSearchQuery(artist);
+
+      if (!cleanTitle) return null;
+
+      try {
+        // Query LrcLib (Free open lyrics database with timestamps)
+        let url = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}`;
+        if (cleanArtist) url += `&artist_name=${encodeURIComponent(cleanArtist)}`;
+
+        let res = await fetch(url);
+        if (!res.ok && cleanArtist) {
+          // Fallback search without artist constraint
+          url = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`;
+          res = await fetch(url);
+          if (res.ok) {
+            const searchData = await res.json();
+            if (Array.isArray(searchData) && searchData.length > 0) {
+              const matched = searchData.find(item => item.syncedLyrics || item.plainLyrics) || searchData[0];
+              return matched.syncedLyrics || matched.plainLyrics || null;
+            }
+          }
+          return null;
+        }
+
+        if (res.ok) {
+          const data = await res.json();
+          // Return synced lyrics if available, fallback to plain lyrics
+          return data.syncedLyrics || data.plainLyrics || null;
+        }
+      } catch (err) {
+        console.warn('LRC Lyrics search warning:', err);
+      }
+      return null;
+    }
+
+    // Single Track Lyrics Fetcher Button Handler
+    async function fetchLyricsForTrack(id) {
+      const item = state.files.find(f => f.id === id);
+      if (!item) return;
+
+      const btn = document.getElementById(`btn_lyrics_fetch_${id}`);
+      if (btn) btn.innerHTML = `<i data-lucide="loader-2" class="w-3 h-3 animate-spin"></i> 検索中...`;
+
+      const lyrics = await fetchSyncedLyrics(item.title, item.artist);
+
+      if (lyrics && lyrics.trim() !== '') {
+        item.lyrics = lyrics;
+        renderFileList();
+        showToast(state.lang === 'ja' ? '同期歌詞を取得して設定しました！' : 'Synced lyrics fetched!');
+      } else {
+        showToast(state.lang === 'ja' ? '歌詞が見つかりませんでした (元データは保持されます)' : 'Lyrics not found (original data kept)');
+        if (btn) {
+          btn.innerHTML = `<i data-lucide="sparkles" class="w-3 h-3"></i> 歌詞を自動取得`;
+          lucide.createIcons();
+        }
+      }
+    }
+
+    // Auto Fetch Synced Lyrics Only for All Tracks
+    autoFetchLyricsOnlyBtn.addEventListener('click', async () => {
+      if (state.files.length === 0) return;
+
+      autoFetchLyricsOnlyBtn.disabled = true;
+      autoFetchLyricsOnlyBtn.innerHTML = `<i data-lucide="loader-2" class="w-3.5 h-3.5 animate-spin"></i> 歌詞をWeb検索中...`;
+
+      let updatedCount = 0;
+      let skippedCount = 0;
+
+      for (let i = 0; i < state.files.length; i++) {
+        const item = state.files[i];
+        statusText.textContent = `[${i + 1}/${state.files.length}] 同期歌詞を検索中: ${item.title || item.originalFileName}...`;
+
+        const lyrics = await fetchSyncedLyrics(item.title, item.artist);
+
+        // DATA SAFEGUARD: Only overwrite if valid lyrics were found!
+        if (lyrics && lyrics.trim().length > 0) {
+          item.lyrics = lyrics;
+          updatedCount++;
+        } else {
+          skippedCount++; // Leave original lyrics untouched if not found
+        }
+
+        await new Promise(r => setTimeout(r, 200));
+      }
+
+      renderFileList();
+      autoFetchLyricsOnlyBtn.disabled = false;
+      autoFetchLyricsOnlyBtn.innerHTML = `<i data-lucide="file-text" class="w-3.5 h-3.5"></i> <span data-i18n="autoLyricsBtn">${i18n[state.lang].autoLyricsBtn}</span>`;
+      lucide.createIcons();
+
+      const msg = state.lang === 'ja'
+        ? `歌詞取得完了: ${updatedCount}曲埋め込み (${skippedCount}曲は未発見のため元のまま保持)`
+        : `Lyrics fetched: ${updatedCount} tracks embedded (${skippedCount} kept intact)`;
+      statusText.textContent = msg;
+      showToast(msg);
+    });
+
+    // Japanese localized & optimized iTunes / MusicBrainz + Synced Lyrics Fetcher
     autoFetchAllBtn.addEventListener('click', async () => {
       if (state.files.length === 0) return;
 
       autoFetchAllBtn.disabled = true;
-      autoFetchAllBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Web検索・自動入力中...`;
+      autoFetchAllBtn.innerHTML = `<i data-lucide="loader-2" class="w-4 h-4 animate-spin"></i> Web＆同期歌詞を取得中...`;
       lucide.createIcons();
 
       let successCount = 0;
+      let skippedCount = 0;
 
       for (let i = 0; i < state.files.length; i++) {
         const item = state.files[i];
-        statusText.textContent = `[${i + 1}/${state.files.length}] Webから検索中: ${item.title || item.originalFileName}...`;
+        statusText.textContent = `[${i + 1}/${state.files.length}] Web検索中: ${item.title || item.originalFileName}...`;
 
-        let query = (item.title || item.originalFileName.replace(/\.[^/.]+$/, ""))
-          .replace(/^\d+[\s\-_.]+/, '') 
-          .replace(/\[.*?\]|\(.*?\)/g, '') 
-          .trim();
+        let query = cleanSearchQuery(item.title || item.originalFileName.replace(/\.[^/.]+$/, ""));
+        if (!query) {
+          skippedCount++;
+          continue;
+        }
 
-        if (!query) continue;
+        let fetchedSuccess = false;
 
         try {
-          // 1. iTunes API (Added Japanese locale settings: country=JP&lang=ja_jp)
+          // 1. iTunes API (Japan store locale: country=JP&lang=ja_jp)
           const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=JP&lang=ja_jp&entity=song&limit=1`);
-          const itunesData = await itunesRes.json();
+          
+          if (itunesRes.ok) {
+            const itunesData = await itunesRes.json();
 
-          if (itunesData.results && itunesData.results.length > 0) {
-            const track = itunesData.results[0];
-            item.title = track.trackName || item.title;
-            item.artist = track.artistName || item.artist;
-            item.album = track.collectionName || item.album;
-            if (track.primaryGenreName) item.genre = track.primaryGenreName;
-            if (track.releaseDate) item.year = new Date(track.releaseDate).getFullYear().toString();
-            if (track.trackNumber) item.track = track.trackNumber.toString();
+            if (itunesData.results && itunesData.results.length > 0) {
+              const track = itunesData.results[0];
 
-            if (track.artworkUrl100) {
-              const highResCoverUrl = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
-              try {
-                const imgRes = await fetch(highResCoverUrl);
-                const imgBlob = await imgRes.blob();
-                item.coverBuffer = await imgBlob.arrayBuffer();
-                item.coverMime = imgBlob.type || 'image/jpeg';
-                item.coverUrl = URL.createObjectURL(imgBlob);
-              } catch (e) {
-                console.warn('Cover fetch failed:', e);
+              // DATA SAFEGUARD: Check each property before setting to avoid wiping existing metadata
+              if (track.trackName) item.title = track.trackName;
+              if (track.artistName) item.artist = track.artistName;
+              if (track.collectionName) item.album = track.collectionName;
+              if (track.primaryGenreName) item.genre = track.primaryGenreName;
+              if (track.releaseDate) item.year = new Date(track.releaseDate).getFullYear().toString();
+              if (track.trackNumber) item.track = track.trackNumber.toString();
+
+              if (track.artworkUrl100) {
+                const highResCoverUrl = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+                try {
+                  const imgRes = await fetch(highResCoverUrl);
+                  if (imgRes.ok) {
+                    const imgBlob = await imgRes.blob();
+                    if (imgBlob.size > 0) {
+                      item.coverBuffer = await imgBlob.arrayBuffer();
+                      item.coverMime = imgBlob.type || 'image/jpeg';
+                      item.coverUrl = URL.createObjectURL(imgBlob);
+                    }
+                  }
+                } catch (e) {
+                  console.warn('Cover image fetch skipped:', e);
+                }
               }
+              fetchedSuccess = true;
             }
-            successCount++;
-          } else {
+          }
+
+          if (!fetchedSuccess) {
             // 2. Fallback to MusicBrainz API
             const mbRes = await fetch(`https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json`, {
               headers: { 'User-Agent': 'WalkmanTagEditor/1.0 (free-app)' }
             });
-            const mbData = await mbRes.json();
-            if (mbData.recordings && mbData.recordings.length > 0) {
-              const rec = mbData.recordings[0];
-              item.title = rec.title || item.title;
-              if (rec['artist-credit'] && rec['artist-credit'][0]) {
-                item.artist = rec['artist-credit'][0].name || item.artist;
+            if (mbRes.ok) {
+              const mbData = await mbRes.json();
+              if (mbData.recordings && mbData.recordings.length > 0) {
+                const rec = mbData.recordings[0];
+                if (rec.title) item.title = rec.title;
+                if (rec['artist-credit'] && rec['artist-credit'][0] && rec['artist-credit'][0].name) {
+                  item.artist = rec['artist-credit'][0].name;
+                }
+                if (rec.releases && rec.releases[0]) {
+                  if (rec.releases[0].title) item.album = rec.releases[0].title;
+                  if (rec.releases[0].date) item.year = rec.releases[0].date.substring(0, 4);
+                }
+                fetchedSuccess = true;
               }
-              if (rec.releases && rec.releases[0]) {
-                item.album = rec.releases[0].title || item.album;
-                if (rec.releases[0].date) item.year = rec.releases[0].date.substring(0, 4);
-              }
-              successCount++;
             }
           }
+
+          // 3. Fetch Synced Lyrics (.lrc format)
+          const syncedLyrics = await fetchSyncedLyrics(item.title, item.artist);
+          if (syncedLyrics && syncedLyrics.trim().length > 0) {
+            item.lyrics = syncedLyrics;
+          }
+
+          if (fetchedSuccess || (syncedLyrics && syncedLyrics.length > 0)) {
+            successCount++;
+          } else {
+            skippedCount++;
+          }
+
         } catch (err) {
-          console.error('Fetch error for', query, err);
+          console.error('Fetch error for track:', query, err);
+          skippedCount++;
         }
 
-        await new Promise(r => setTimeout(r, 300));
+        await new Promise(r => setTimeout(r, 250));
       }
 
       renderFileList();
       autoFetchAllBtn.disabled = false;
       autoFetchAllBtn.innerHTML = `<i data-lucide="globe" class="w-4 h-4"></i> <span data-i18n="autoFetchBtn">${i18n[state.lang].autoFetchBtn}</span>`;
       lucide.createIcons();
-      statusText.textContent = state.lang === 'ja' ? `自動検索完了 (${successCount}曲更新)` : `Auto-fetch finished (${successCount} tracks updated)`;
-      showToast(state.lang === 'ja' ? `${successCount}曲の情報を自動入力しました！` : `Auto-filled info for ${successCount} tracks!`);
+
+      const summaryMsg = state.lang === 'ja' 
+        ? `Web自動取得完了 (${successCount}曲更新 / ${skippedCount}曲は未発見のため維持)` 
+        : `Auto-fetch finished (${successCount} updated / ${skippedCount} untouched)`;
+      statusText.textContent = summaryMsg;
+      showToast(summaryMsg);
     });
 
     function renderFileList() {
@@ -869,6 +1032,7 @@
         card.dataset.id = fileItem.id;
 
         const isDirectWrite = fileItem.fileHandle !== null;
+        const hasLrc = fileItem.lyrics && fileItem.lyrics.includes('[');
 
         card.innerHTML = `
           <div class="flex items-center justify-between gap-3 cursor-pointer select-none" onclick="toggleCardExpand('${fileItem.id}')">
@@ -883,6 +1047,9 @@
                   <h3 id="display_title_${fileItem.id}" class="text-sm font-semibold text-slate-100 truncate">${escapeHtml(fileItem.title || '無題')}</h3>
                   ${isDirectWrite 
                     ? `<span class="text-[10px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-1.5 py-0.5 rounded shrink-0">Walkman</span>`
+                    : ''}
+                  ${hasLrc 
+                    ? `<span class="text-[10px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded shrink-0 font-mono">LRC同期歌詞</span>`
                     : ''}
                 </div>
                 <p id="display_subtitle_${fileItem.id}" class="text-xs text-slate-400 truncate">
@@ -947,8 +1114,13 @@
             </div>
 
             <div>
-              <label class="block text-[11px] text-slate-400 mb-1">${t.lblLyrics}</label>
-              <textarea oninput="updateFileProp('${fileItem.id}', 'lyrics', this.value)" placeholder="${t.phLyrics}" class="w-full h-16 bg-slate-950 border border-slate-700 rounded-lg p-2 text-xs text-slate-200 resize-none">${escapeHtml(fileItem.lyrics)}</textarea>
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-[11px] text-indigo-300 font-medium">${t.lblLyrics}</label>
+                <button type="button" id="btn_lyrics_fetch_${fileItem.id}" onclick="fetchLyricsForTrack('${fileItem.id}')" class="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-950/60 hover:bg-indigo-900/80 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors">
+                  <i data-lucide="sparkles" class="w-3 h-3"></i> 歌詞を自動取得
+                </button>
+              </div>
+              <textarea oninput="updateFileProp('${fileItem.id}', 'lyrics', this.value)" placeholder="${t.phLyrics}" class="w-full h-24 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg p-2 text-xs text-slate-200 font-mono resize-y leading-relaxed">${escapeHtml(fileItem.lyrics)}</textarea>
             </div>
           </div>
         `;
@@ -993,6 +1165,36 @@
       globalAudioPlayer.play().catch(e => console.log('Playback error:', e));
     }
 
+    function applyTagsToWriter(writer, item) {
+      if (item.title) writer.setFrame('TIT2', item.title);
+      if (item.artist) writer.setFrame('TPE1', [item.artist]);
+      if (item.album) writer.setFrame('TALB', item.album);
+      if (item.genre) writer.setFrame('TCON', [item.genre]);
+      if (item.year) writer.setFrame('TYER', parseInt(item.year, 10));
+      if (item.track) writer.setFrame('TRCK', item.track.toString());
+      if (item.bpm) writer.setFrame('TBPM', item.bpm.toString());
+      if (item.artistSort) writer.setFrame('TSOP', item.artistSort);
+      if (item.albumSort) writer.setFrame('TSOA', item.albumSort);
+
+      // Save Unsynchronized / Synchronized LRC Lyrics (Walkman standard USLT frame)
+      if (item.lyrics && item.lyrics.trim().length > 0) {
+        writer.setFrame('USLT', {
+          description: 'Lyrics',
+          lyrics: item.lyrics,
+          language: 'jpn'
+        });
+      }
+
+      if (item.coverBuffer) {
+        writer.setFrame('APIC', {
+          type: 3,
+          data: item.coverBuffer,
+          description: 'Cover',
+          mimeType: item.coverMime || 'image/jpeg'
+        });
+      }
+    }
+
     function downloadSingle(id) {
       const item = state.files.find(f => f.id === id);
       if (!item) return;
@@ -1018,22 +1220,6 @@
       }
     }
 
-    function applyTagsToWriter(writer, item) {
-      if (item.title) writer.setFrame('TIT2', item.title);
-      if (item.artist) writer.setFrame('TPE1', [item.artist]);
-      if (item.album) writer.setFrame('TALB', item.album);
-      if (item.genre) writer.setFrame('TCON', [item.genre]);
-      if (item.year) writer.setFrame('TYER', parseInt(item.year, 10));
-      if (item.track) writer.setFrame('TRCK', item.track.toString());
-      if (item.bpm) writer.setFrame('TBPM', item.bpm.toString());
-      if (item.artistSort) writer.setFrame('TSOP', item.artistSort);
-      if (item.albumSort) writer.setFrame('TSOA', item.albumSort);
-      if (item.lyrics) writer.setFrame('USLT', { description: '', lyrics: item.lyrics, language: 'jpn' });
-      if (item.coverBuffer) {
-        writer.setFrame('APIC', { type: 3, data: item.coverBuffer, description: 'Cover', mimeType: item.coverMime || 'image/jpeg' });
-      }
-    }
-
     applyBatchBtn.addEventListener('click', () => {
       const artistVal = batchArtist.value.trim();
       const artistSortVal = batchArtistSort.value.trim();
@@ -1056,7 +1242,7 @@
         }
       });
       renderFileList();
-      showToast('Batch applied!');
+      showToast(state.lang === 'ja' ? '全曲に一括適用しました！' : 'Batch applied!');
     });
 
     overwriteBtn.addEventListener('click', async () => {
@@ -1078,7 +1264,7 @@
           await writable.close();
           successCount++;
         }
-        showToast(`Updated ${successCount} files on Walkman directly!`);
+        showToast(state.lang === 'ja' ? `Walkman内の ${successCount} 件のファイルを上書き保存しました！` : `Updated ${successCount} files on Walkman directly!`);
       } catch (err) {
         console.error('Overwrite error:', err);
       } finally {
