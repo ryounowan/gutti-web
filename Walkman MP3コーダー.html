@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MP3 Tag Batch Editor for Walkman (with Synced Lyrics)</title>
+  <title>MP3 Tag Batch Editor for Walkman (with Manual Search & Synced Lyrics)</title>
   <!-- Tailwind CSS -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- jsmediatags (Tag Reader) -->
@@ -37,7 +37,7 @@
             MP3 Tag Batch Editor
             <span class="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30">For Walkman + Synced Lyrics</span>
           </h1>
-          <p class="text-xs text-slate-400" data-i18n="subtitle">複数MP3のメタデータ（アーティスト・アルバム・画像・同期歌詞LRC等）を一括編集</p>
+          <p class="text-xs text-slate-400" data-i18n="subtitle">複数MP3のメタデータ（アーティスト・アルバム・画像・同期歌詞LRC等）を一括＆個別編集</p>
         </div>
       </div>
 
@@ -99,8 +99,7 @@
           <span class="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30">Synced Lyrics + Cover</span>
         </div>
         <p class="text-xs text-slate-300 leading-relaxed" data-i18n="autoFetchDesc">
-          曲名・歌手名からネットを検索し、タグ情報と<b>Walkman対応の同期歌詞 (LRC形式 [00:12.34])</b>を自動検索して埋め込みます。<br>
-          <span class="text-amber-400 font-medium">※ データが見つからない曲は元データを破壊せず自動スキップします。</span>
+          全曲を一括で自動検索します。個別に手動で検索・確認したい場合は、右側の各トラック展開メニューから手動検索をご利用ください。
         </p>
         
         <div class="grid grid-cols-1 gap-2 pt-1">
@@ -234,7 +233,7 @@
 
           <!-- Cover Art Batch -->
           <div>
-            <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblCover">アルバムジャケット画像 (Cover Art)</label>
+            <label class="block text-xs font-semibold text-slate-300 mb-1" data-i18n="lblCover">アルバムジャケット一括適用画像 (Batch Cover Art)</label>
             <div class="flex items-center gap-3 bg-slate-900/50 p-2.5 border border-slate-700/60 rounded-xl">
               <div id="batchCoverPreview" class="w-12 h-12 bg-slate-800 rounded-lg border border-slate-700 flex items-center justify-center shrink-0 overflow-hidden text-slate-600">
                 <i data-lucide="image" class="w-5 h-5"></i>
@@ -355,11 +354,41 @@
     </div>
   </div>
 
+  <!-- Manual Web Search Modal (NEW FEATURE) -->
+  <div id="searchModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full p-5 shadow-2xl flex flex-col max-h-[85vh] space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-sm font-bold text-white flex items-center gap-2">
+          <i data-lucide="search" class="w-4 h-4 text-indigo-400"></i>
+          <span data-i18n="searchModalTitle">Webから検索して候補を選択</span>
+        </h3>
+        <button id="closeSearchModalBtn" class="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors">
+          <i data-lucide="x" class="w-5 h-5"></i>
+        </button>
+      </div>
+
+      <div class="flex gap-2">
+        <input type="text" id="manualSearchQuery" placeholder="曲名・アーティスト名を入力..." class="flex-1 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-xl px-3 py-2 text-xs text-slate-100 placeholder:text-slate-500">
+        <button id="execManualSearchBtn" class="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs rounded-xl transition-all shadow-md shadow-indigo-600/20 flex items-center gap-1.5 shrink-0">
+          <i data-lucide="search" class="w-3.5 h-3.5"></i>
+          <span data-i18n="btnSearch">検索</span>
+        </button>
+      </div>
+
+      <!-- Search Results Scroll List -->
+      <div id="manualSearchResults" class="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[220px]">
+        <div class="text-center text-xs text-slate-500 py-10" data-i18n="modalSearchIdle">
+          曲名を入力して検索ボタンを押してください
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
-    // Dictionary for Multilingual Support (Japanese & English)
+    // Dictionary for Multilingual Support
     const i18n = {
       ja: {
-        subtitle: "複数MP3のメタデータ（アーティスト・アルバム・画像・同期歌詞LRC等）を一括編集",
+        subtitle: "複数MP3のメタデータ（アーティスト・アルバム・画像・同期歌詞LRC等）を一括＆個別編集",
         clearAll: "全クリア",
         overwrite: "Walkmanへ直接上書き保存",
         exportZip: "一括保存 (ZIP)",
@@ -367,7 +396,7 @@
         dropSubText: "✨ Walkman内のファイルを直接選択すると上書き可能",
         openFolder: "Walkmanの「MUSIC」フォルダを一括指定",
         autoFetchTitle: "Web自動タグ＆同期歌詞取得 (完全無料)",
-        autoFetchDesc: "曲名・歌手名からネットを検索し、タグ情報とWalkman対応の同期歌詞 (LRC形式) を自動検索して埋め込みます。",
+        autoFetchDesc: "全曲を一括で自動検索します。個別に手動で検索・確認したい場合は、右側の各トラック展開メニューから手動検索をご利用ください。",
         autoFetchBtn: "全曲のタグ＆同期歌詞を一括自動取得",
         autoLyricsBtn: "同期歌詞 (LRC) のみ全曲検索して追加",
         toolsTitle: "一括便利な整理ツール",
@@ -391,7 +420,7 @@
         lblAlbum: "アルバム名 (Album)",
         lblGenre: "ジャンル (Genre)",
         lblYear: "リリース年 (Year)",
-        lblCover: "アルバムジャケット画像 (Cover Art)",
+        lblCover: "アルバムジャケット一括適用画像 (Batch Cover Art)",
         btnSelectImg: "画像を選択",
         btnDelete: "削除",
         applyBatchBtn: "すべての曲に一括適用する",
@@ -416,10 +445,17 @@
         lblTrackNo: "トラック番号",
         lblLyrics: "同期歌詞 / テキスト (Walkman対応 LRC形式 [00:12.34])",
         phSortName: "ソート名 (例: あーてぃすと)",
-        phLyrics: "[00:12.34]歌詞テキスト... (同期歌詞対応)"
+        phLyrics: "[00:12.34]歌詞テキスト... (同期歌詞対応)",
+        searchModalTitle: "Webから検索して候補を選択",
+        btnSearch: "検索",
+        modalSearchIdle: "曲名を入力して検索ボタンを押してください",
+        btnManualSearch: "手動で検索して選択",
+        lblSingleCover: "単体ジャケット画像",
+        btnChangeImg: "画像を変更",
+        applySelected: "この情報を適用"
       },
       en: {
-        subtitle: "Batch edit MP3 metadata (artist, album, artwork, synced lyrics LRC, etc.) for Walkman",
+        subtitle: "Batch & Individual edit MP3 metadata (artist, album, artwork, synced lyrics LRC, etc.) for Walkman",
         clearAll: "Clear All",
         overwrite: "Direct Save to Walkman",
         exportZip: "Batch Export (ZIP)",
@@ -427,7 +463,7 @@
         dropSubText: "✨ Select Walkman files directly for in-place overwrite",
         openFolder: "Select Walkman 'MUSIC' Folder",
         autoFetchTitle: "Auto Tag & Synced Lyrics Fetcher (Free)",
-        autoFetchDesc: "Searches the web for song info and Walkman-compatible Synced Lyrics (.lrc format). Skips missing data to preserve originals.",
+        autoFetchDesc: "Searches web for tags & synced lyrics. Use manual search inside track cards for interactive candidate selection.",
         autoFetchBtn: "Auto-Fetch Tag Info & Synced Lyrics for All",
         autoLyricsBtn: "Fetch Synced Lyrics Only for All Tracks",
         toolsTitle: "Batch Utilities",
@@ -451,7 +487,7 @@
         lblAlbum: "Album Title",
         lblGenre: "Genre",
         lblYear: "Release Year",
-        lblCover: "Album Cover Art",
+        lblCover: "Album Cover Art (Batch)",
         btnSelectImg: "Select Image",
         btnDelete: "Delete",
         applyBatchBtn: "Apply to All Tracks",
@@ -476,7 +512,14 @@
         lblTrackNo: "Track No.",
         lblLyrics: "Synced / Unsynced Lyrics (Walkman LRC format supported)",
         phSortName: "Sort Name",
-        phLyrics: "[00:12.34]Synced Lyric line..."
+        phLyrics: "[00:12.34]Synced Lyric line...",
+        searchModalTitle: "Search Online & Select Track Tag",
+        btnSearch: "Search",
+        modalSearchIdle: "Type track title or artist and click search",
+        btnManualSearch: "Manual Web Search",
+        lblSingleCover: "Track Cover Art",
+        btnChangeImg: "Change Image",
+        applySelected: "Apply This Tag"
       }
     };
 
@@ -486,7 +529,8 @@
       files: [], // Array of track objects
       batchCover: null,
       searchQuery: '',
-      sortBy: 'default'
+      sortBy: 'default',
+      currentSearchTrackId: null // Active track ID during manual search
     };
 
     // DOM References
@@ -511,6 +555,13 @@
     const confirmModal = document.getElementById('confirmModal');
     const confirmClearBtn = document.getElementById('confirmClearBtn');
     const cancelClearBtn = document.getElementById('cancelClearBtn');
+
+    // Manual Search Modal DOMs
+    const searchModal = document.getElementById('searchModal');
+    const closeSearchModalBtn = document.getElementById('closeSearchModalBtn');
+    const manualSearchQuery = document.getElementById('manualSearchQuery');
+    const execManualSearchBtn = document.getElementById('execManualSearchBtn');
+    const manualSearchResults = document.getElementById('manualSearchResults');
 
     // Batch & Find-Replace inputs
     const batchArtist = document.getElementById('batchArtist');
@@ -683,7 +734,7 @@
           year: metadata.year || '',
           track: metadata.track || '',
           bpm: metadata.bpm || '',
-          lyrics: metadata.lyrics || '', // Synced or unsynced lyrics text
+          lyrics: metadata.lyrics || '',
           coverBuffer: metadata.coverBuffer || null,
           coverMime: metadata.coverMime || '',
           coverUrl: metadata.coverUrl || null
@@ -711,7 +762,6 @@
               coverUrl = `data:${format};base64,${window.btoa(binary)}`;
             }
 
-            // Read USLT or SYLT lyrics
             let lyrics = '';
             if (tags.lyrics) {
               lyrics = tags.lyrics.lyrics || tags.lyrics;
@@ -761,18 +811,190 @@
       renderFileList();
     }
 
-    // --- STREAMING_CHUNK:Synced Lyrics (.lrc) & Web Metadata API Fetchers with Data-Loss Protection ---
-    // Helper: Clean query strings for better search matching
+    // Single Cover Art Handling
+    function changeSingleTrackCover(id, file) {
+      if (!file) return;
+      const item = state.files.find(f => f.id === id);
+      if (!item) return;
+
+      const reader = new FileReader();
+      reader.onload = (evt) => {
+        item.coverBuffer = evt.target.result;
+        item.coverMime = file.type || 'image/jpeg';
+        item.coverUrl = URL.createObjectURL(file);
+        renderFileList();
+        showToast(state.lang === 'ja' ? 'カバー画像を更新しました！' : 'Cover image updated!');
+      };
+      reader.readAsArrayBuffer(file);
+    }
+
+    function removeSingleTrackCover(id) {
+      const item = state.files.find(f => f.id === id);
+      if (!item) return;
+      item.coverBuffer = null;
+      item.coverMime = '';
+      item.coverUrl = null;
+      renderFileList();
+      showToast(state.lang === 'ja' ? 'カバー画像を削除しました' : 'Cover image removed');
+    }
+
+    // Manual Web Search Modal Logic
+    function openSearchModal(trackId) {
+      const item = state.files.find(f => f.id === trackId);
+      if (!item) return;
+
+      state.currentSearchTrackId = trackId;
+      const defaultQuery = cleanSearchQuery(`${item.title || ''} ${item.artist || ''}`.trim() || item.originalFileName.replace(/\.[^/.]+$/, ""));
+      manualSearchQuery.value = defaultQuery;
+      manualSearchResults.innerHTML = `<div class="text-center text-xs text-slate-500 py-10">${i18n[state.lang].modalSearchIdle}</div>`;
+
+      searchModal.classList.remove('hidden');
+      searchModal.classList.add('flex');
+
+      if (defaultQuery) {
+        executeManualSearch();
+      }
+    }
+
+    closeSearchModalBtn.addEventListener('click', () => {
+      searchModal.classList.add('hidden');
+      searchModal.classList.remove('flex');
+    });
+
+    execManualSearchBtn.addEventListener('click', executeManualSearch);
+    manualSearchQuery.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') executeManualSearch();
+    });
+
+    async function executeManualSearch() {
+      const query = manualSearchQuery.value.trim();
+      if (!query) return;
+
+      execManualSearchBtn.disabled = true;
+      manualSearchResults.innerHTML = `
+        <div class="flex items-center justify-center py-12 text-slate-400 gap-2 text-xs">
+          <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-indigo-400"></i>
+          iTunes & Synced Lyrics DB 検索中...
+        </div>
+      `;
+      lucide.createIcons();
+
+      try {
+        const res = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=JP&lang=ja_jp&entity=song&limit=12`);
+        if (!res.ok) throw new Error('Search failed');
+
+        const data = await res.json();
+        const results = data.results || [];
+
+        if (results.length === 0) {
+          manualSearchResults.innerHTML = `
+            <div class="text-center text-xs text-slate-500 py-10">
+              該当する楽曲が見つかりませんでした。別のキーワードでお試しください。
+            </div>
+          `;
+          return;
+        }
+
+        manualSearchResults.innerHTML = '';
+        results.forEach(track => {
+          const card = document.createElement('div');
+          card.className = 'p-3 bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-indigo-500/50 rounded-xl flex items-center justify-between gap-3 transition-all';
+          
+          const coverImg = track.artworkUrl100 ? track.artworkUrl100.replace('100x100bb.jpg', '160x160bb.jpg') : '';
+          const year = track.releaseDate ? new Date(track.releaseDate).getFullYear() : '';
+
+          card.innerHTML = `
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-12 h-12 bg-slate-900 rounded-lg border border-slate-800 overflow-hidden shrink-0 flex items-center justify-center text-slate-600">
+                ${coverImg ? `<img src="${coverImg}" class="w-full h-full object-cover"/>` : `<i data-lucide="music" class="w-5 h-5"></i>`}
+              </div>
+              <div class="min-w-0">
+                <h4 class="text-xs font-bold text-slate-100 truncate">${escapeHtml(track.trackName)}</h4>
+                <p class="text-[11px] text-slate-400 truncate">${escapeHtml(track.artistName)} — ${escapeHtml(track.collectionName || 'Album')}</p>
+                <div class="flex items-center gap-2 mt-0.5">
+                  ${year ? `<span class="text-[10px] text-slate-500 font-mono">${year}</span>` : ''}
+                  ${track.primaryGenreName ? `<span class="text-[10px] text-indigo-400/80 bg-indigo-500/10 px-1.5 py-0.2 rounded border border-indigo-500/20">${escapeHtml(track.primaryGenreName)}</span>` : ''}
+                </div>
+              </div>
+            </div>
+
+            <button onclick="applySearchResultToTrack('${track.trackId}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg transition-all shrink-0 flex items-center gap-1 shadow-md shadow-indigo-600/20">
+              <i data-lucide="check" class="w-3.5 h-3.5"></i>
+              <span>${i18n[state.lang].applySelected}</span>
+            </button>
+          `;
+
+          // Store track data in element for reference
+          card.dataset.trackData = JSON.stringify(track);
+          manualSearchResults.appendChild(card);
+        });
+
+        lucide.createIcons();
+
+      } catch (err) {
+        console.error(err);
+        manualSearchResults.innerHTML = `<div class="text-center text-xs text-red-400 py-10">検索エラーが発生しました</div>`;
+      } finally {
+        execManualSearchBtn.disabled = false;
+      }
+    }
+
+    async function applySearchResultToTrack(itunesTrackId) {
+      const targetItem = state.files.find(f => f.id === state.currentSearchTrackId);
+      if (!targetItem) return;
+
+      const card = Array.from(manualSearchResults.children).find(c => {
+        if (!c.dataset.trackData) return false;
+        const d = JSON.parse(c.dataset.trackData);
+        return d.trackId.toString() === itunesTrackId.toString();
+      });
+
+      if (!card) return;
+      const track = JSON.parse(card.dataset.trackData);
+
+      // Apply metadata
+      if (track.trackName) targetItem.title = track.trackName;
+      if (track.artistName) targetItem.artist = track.artistName;
+      if (track.collectionName) targetItem.album = track.collectionName;
+      if (track.primaryGenreName) targetItem.genre = track.primaryGenreName;
+      if (track.releaseDate) targetItem.year = new Date(track.releaseDate).getFullYear().toString();
+      if (track.trackNumber) targetItem.track = track.trackNumber.toString();
+
+      // Fetch Cover Image in High-Res (600x600)
+      if (track.artworkUrl100) {
+        try {
+          const highResUrl = track.artworkUrl100.replace('100x100bb.jpg', '600x600bb.jpg');
+          const imgRes = await fetch(highResUrl);
+          if (imgRes.ok) {
+            const imgBlob = await imgRes.blob();
+            targetItem.coverBuffer = await imgBlob.arrayBuffer();
+            targetItem.coverMime = imgBlob.type || 'image/jpeg';
+            targetItem.coverUrl = URL.createObjectURL(imgBlob);
+          }
+        } catch (e) {
+          console.warn('Cover image download failed:', e);
+        }
+      }
+
+      // Fetch Synced Lyrics
+      const lyrics = await fetchSyncedLyrics(targetItem.title, targetItem.artist);
+      if (lyrics) targetItem.lyrics = lyrics;
+
+      renderFileList();
+      searchModal.classList.add('hidden');
+      searchModal.classList.remove('flex');
+      showToast(state.lang === 'ja' ? '選択した曲情報を適用しました！' : 'Applied selected track metadata!');
+    }
+
     function cleanSearchQuery(term) {
       if (!term) return '';
       return term
-        .replace(/^\d+[\s\-_.]+/, '') // Remove leading numbers "01 - "
-        .replace(/\[.*?\]|\(.*?\)/g, '') // Remove brackets [PV], (Remaster)
-        .replace(/ft\..*|feat\..*/i, '') // Remove features
+        .replace(/^\d+[\s\-_.]+/, '')
+        .replace(/\[.*?\]|\(.*?\)/g, '')
+        .replace(/ft\..*|feat\..*/i, '')
         .trim();
     }
 
-    // Fetch Synchronized Lyrics (.lrc) from LRCLIB API
     async function fetchSyncedLyrics(title, artist) {
       const cleanTitle = cleanSearchQuery(title);
       const cleanArtist = cleanSearchQuery(artist);
@@ -780,13 +1002,11 @@
       if (!cleanTitle) return null;
 
       try {
-        // Query LrcLib (Free open lyrics database with timestamps)
         let url = `https://lrclib.net/api/get?track_name=${encodeURIComponent(cleanTitle)}`;
         if (cleanArtist) url += `&artist_name=${encodeURIComponent(cleanArtist)}`;
 
         let res = await fetch(url);
         if (!res.ok && cleanArtist) {
-          // Fallback search without artist constraint
           url = `https://lrclib.net/api/search?q=${encodeURIComponent(cleanTitle + ' ' + cleanArtist)}`;
           res = await fetch(url);
           if (res.ok) {
@@ -801,7 +1021,6 @@
 
         if (res.ok) {
           const data = await res.json();
-          // Return synced lyrics if available, fallback to plain lyrics
           return data.syncedLyrics || data.plainLyrics || null;
         }
       } catch (err) {
@@ -810,7 +1029,6 @@
       return null;
     }
 
-    // Single Track Lyrics Fetcher Button Handler
     async function fetchLyricsForTrack(id) {
       const item = state.files.find(f => f.id === id);
       if (!item) return;
@@ -833,7 +1051,6 @@
       }
     }
 
-    // Auto Fetch Synced Lyrics Only for All Tracks
     autoFetchLyricsOnlyBtn.addEventListener('click', async () => {
       if (state.files.length === 0) return;
 
@@ -849,12 +1066,11 @@
 
         const lyrics = await fetchSyncedLyrics(item.title, item.artist);
 
-        // DATA SAFEGUARD: Only overwrite if valid lyrics were found!
         if (lyrics && lyrics.trim().length > 0) {
           item.lyrics = lyrics;
           updatedCount++;
         } else {
-          skippedCount++; // Leave original lyrics untouched if not found
+          skippedCount++;
         }
 
         await new Promise(r => setTimeout(r, 200));
@@ -872,7 +1088,6 @@
       showToast(msg);
     });
 
-    // Japanese localized & optimized iTunes / MusicBrainz + Synced Lyrics Fetcher
     autoFetchAllBtn.addEventListener('click', async () => {
       if (state.files.length === 0) return;
 
@@ -896,7 +1111,6 @@
         let fetchedSuccess = false;
 
         try {
-          // 1. iTunes API (Japan store locale: country=JP&lang=ja_jp)
           const itunesRes = await fetch(`https://itunes.apple.com/search?term=${encodeURIComponent(query)}&country=JP&lang=ja_jp&entity=song&limit=1`);
           
           if (itunesRes.ok) {
@@ -905,7 +1119,6 @@
             if (itunesData.results && itunesData.results.length > 0) {
               const track = itunesData.results[0];
 
-              // DATA SAFEGUARD: Check each property before setting to avoid wiping existing metadata
               if (track.trackName) item.title = track.trackName;
               if (track.artistName) item.artist = track.artistName;
               if (track.collectionName) item.album = track.collectionName;
@@ -933,29 +1146,6 @@
             }
           }
 
-          if (!fetchedSuccess) {
-            // 2. Fallback to MusicBrainz API
-            const mbRes = await fetch(`https://musicbrainz.org/ws/2/recording/?query=${encodeURIComponent(query)}&fmt=json`, {
-              headers: { 'User-Agent': 'WalkmanTagEditor/1.0 (free-app)' }
-            });
-            if (mbRes.ok) {
-              const mbData = await mbRes.json();
-              if (mbData.recordings && mbData.recordings.length > 0) {
-                const rec = mbData.recordings[0];
-                if (rec.title) item.title = rec.title;
-                if (rec['artist-credit'] && rec['artist-credit'][0] && rec['artist-credit'][0].name) {
-                  item.artist = rec['artist-credit'][0].name;
-                }
-                if (rec.releases && rec.releases[0]) {
-                  if (rec.releases[0].title) item.album = rec.releases[0].title;
-                  if (rec.releases[0].date) item.year = rec.releases[0].date.substring(0, 4);
-                }
-                fetchedSuccess = true;
-              }
-            }
-          }
-
-          // 3. Fetch Synced Lyrics (.lrc format)
           const syncedLyrics = await fetchSyncedLyrics(item.title, item.artist);
           if (syncedLyrics && syncedLyrics.trim().length > 0) {
             item.lyrics = syncedLyrics;
@@ -1074,6 +1264,42 @@
           </div>
 
           <div id="expand_${fileItem.id}" class="hidden pt-3 border-t border-slate-800 space-y-3">
+            
+            <!-- Manual Search Trigger Button (NEW) -->
+            <div class="flex items-center justify-between p-2.5 bg-indigo-950/40 border border-indigo-500/30 rounded-xl">
+              <div class="flex items-center gap-2">
+                <i data-lucide="sparkles" class="w-4 h-4 text-indigo-400"></i>
+                <span class="text-xs text-indigo-200 font-semibold">Web情報・同期歌詞を手動で選択</span>
+              </div>
+              <button type="button" onclick="openSearchModal('${fileItem.id}')" class="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-medium text-xs rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-indigo-600/20">
+                <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                <span>${t.btnManualSearch}</span>
+              </button>
+            </div>
+
+            <!-- Single Track Cover Image Picker (NEW) -->
+            <div class="p-2.5 bg-slate-950/60 border border-slate-800/80 rounded-xl space-y-1.5">
+              <label class="block text-[11px] font-semibold text-slate-300">${t.lblSingleCover}</label>
+              <div class="flex items-center gap-3">
+                <div class="w-12 h-12 bg-slate-900 rounded-lg border border-slate-700 overflow-hidden shrink-0 flex items-center justify-center text-slate-600">
+                  ${fileItem.coverUrl 
+                    ? `<img src="${fileItem.coverUrl}" class="w-full h-full object-cover"/>` 
+                    : `<i data-lucide="image" class="w-5 h-5"></i>`}
+                </div>
+                <div class="flex items-center gap-2">
+                  <input type="file" id="cover_input_${fileItem.id}" accept="image/jpeg, image/png" class="hidden" onchange="changeSingleTrackCover('${fileItem.id}', this.files[0])">
+                  <button type="button" onclick="document.getElementById('cover_input_${fileItem.id}').click()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition-colors">
+                    ${t.btnChangeImg}
+                  </button>
+                  ${fileItem.coverUrl ? `
+                    <button type="button" onclick="removeSingleTrackCover('${fileItem.id}')" class="px-2.5 py-1 text-red-400 hover:text-red-300 hover:bg-slate-800 rounded-lg text-xs font-medium transition-colors">
+                      ${t.btnDelete}
+                    </button>
+                  ` : ''}
+                </div>
+              </div>
+            </div>
+
             <div class="p-2 bg-slate-950/60 rounded-lg border border-slate-800/80">
               <label class="block text-[11px] font-semibold text-indigo-300 mb-1">${t.lblOutFilename}</label>
               <input type="text" value="${escapeHtml(fileItem.outFileName)}" oninput="updateFileProp('${fileItem.id}', 'outFileName', this.value)" class="w-full bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg px-2.5 py-1 text-xs text-slate-200 font-mono">
@@ -1117,7 +1343,7 @@
               <div class="flex items-center justify-between mb-1">
                 <label class="block text-[11px] text-indigo-300 font-medium">${t.lblLyrics}</label>
                 <button type="button" id="btn_lyrics_fetch_${fileItem.id}" onclick="fetchLyricsForTrack('${fileItem.id}')" class="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-950/60 hover:bg-indigo-900/80 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors">
-                  <i data-lucide="sparkles" class="w-3 h-3"></i> 歌詞を自動取得
+                  <i data-lucide="sparkles" class="w-3 h-3"></i> 歌詞のみ自動取得
                 </button>
               </div>
               <textarea oninput="updateFileProp('${fileItem.id}', 'lyrics', this.value)" placeholder="${t.phLyrics}" class="w-full h-24 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg p-2 text-xs text-slate-200 font-mono resize-y leading-relaxed">${escapeHtml(fileItem.lyrics)}</textarea>
@@ -1176,7 +1402,6 @@
       if (item.artistSort) writer.setFrame('TSOP', item.artistSort);
       if (item.albumSort) writer.setFrame('TSOA', item.albumSort);
 
-      // Save Unsynchronized / Synchronized LRC Lyrics (Walkman standard USLT frame)
       if (item.lyrics && item.lyrics.trim().length > 0) {
         writer.setFrame('USLT', {
           description: 'Lyrics',
