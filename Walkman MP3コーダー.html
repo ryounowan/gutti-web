@@ -1411,19 +1411,27 @@
       }
 
       if (item.coverBuffer) {
-  // MIMEタイプが未定義・空文字・不明な場合はデフォルトで image/jpeg に設定
-  let mime = item.coverMime;
-  if (!mime || typeof mime !== 'string' || !mime.includes('/')) {
-    mime = 'image/jpeg';
-  }
+        // browser-id3-writer が認識できる MIME タイプ (image/jpeg または image/png) に限定・正規化
+        let mime = (item.coverMime || '').toLowerCase();
+        
+        if (mime.includes('png')) {
+          mime = 'image/png';
+        } else {
+          // jpeg, webp, avif, 未定義等はすべて安全のため image/jpeg に補正
+          mime = 'image/jpeg';
+        }
 
-  writer.setFrame('APIC', {
-    type: 3,
-    data: item.coverBuffer,
-    description: 'Cover',
-    mimeType: mime
-  });
-}
+        try {
+          writer.setFrame('APIC', {
+            type: 3,
+            data: item.coverBuffer,
+            description: 'Cover',
+            mimeType: mime
+          });
+        } catch (err) {
+          console.warn('Cover frame set failed:', err);
+        }
+      }
     }
 
     function downloadSingle(id) {
