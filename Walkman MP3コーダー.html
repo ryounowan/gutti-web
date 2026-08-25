@@ -1411,13 +1411,19 @@
       }
 
       if (item.coverBuffer) {
-        writer.setFrame('APIC', {
-          type: 3,
-          data: item.coverBuffer,
-          description: 'Cover',
-          mimeType: item.coverMime || 'image/jpeg'
-        });
-      }
+  // MIMEタイプが未定義・空文字・不明な場合はデフォルトで image/jpeg に設定
+  let mime = item.coverMime;
+  if (!mime || typeof mime !== 'string' || !mime.includes('/')) {
+    mime = 'image/jpeg';
+  }
+
+  writer.setFrame('APIC', {
+    type: 3,
+    data: item.coverBuffer,
+    description: 'Cover',
+    mimeType: mime
+  });
+}
     }
 
     function downloadSingle(id) {
