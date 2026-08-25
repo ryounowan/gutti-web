@@ -452,7 +452,8 @@
         btnManualSearch: "手動で検索して選択",
         lblSingleCover: "単体ジャケット画像",
         btnChangeImg: "画像を変更",
-        applySelected: "この情報を適用"
+        applySelected: "この情報を適用",
+        exportLrcBtn: ".lrc書き出し"
       },
       en: {
         subtitle: "Batch & Individual edit MP3 metadata (artist, album, artwork, synced lyrics LRC, etc.) for Walkman",
@@ -519,7 +520,8 @@
         btnManualSearch: "Manual Web Search",
         lblSingleCover: "Track Cover Art",
         btnChangeImg: "Change Image",
-        applySelected: "Apply This Tag"
+        applySelected: "Apply This Tag",
+        exportLrcBtn: "Export .lrc"
       }
     };
 
@@ -836,6 +838,17 @@
       item.coverUrl = null;
       renderFileList();
       showToast(state.lang === 'ja' ? 'カバー画像を削除しました' : 'Cover image removed');
+    }
+
+    // Export LRC File
+    function exportSingleLrc(id) {
+      const item = state.files.find(f => f.id === id);
+      if (!item || !item.lyrics || !item.lyrics.trim()) return;
+
+      const blob = new Blob([item.lyrics], { type: 'text/plain;charset=utf-8' });
+      let baseName = (item.outFileName || item.originalFileName || 'track.mp3').replace(/\.[^/.]+$/, "");
+      saveAs(blob, `${baseName}.lrc`);
+      showToast(state.lang === 'ja' ? '.lrc ファイルを書き出しました！' : '.lrc file exported!');
     }
 
     // Manual Web Search Modal Logic
@@ -1342,9 +1355,14 @@
             <div>
               <div class="flex items-center justify-between mb-1">
                 <label class="block text-[11px] text-indigo-300 font-medium">${t.lblLyrics}</label>
-                <button type="button" id="btn_lyrics_fetch_${fileItem.id}" onclick="fetchLyricsForTrack('${fileItem.id}')" class="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-950/60 hover:bg-indigo-900/80 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors">
-                  <i data-lucide="sparkles" class="w-3 h-3"></i> 歌詞のみ自動取得
-                </button>
+                <div class="flex items-center gap-1.5">
+                  <button type="button" id="btn_lyrics_fetch_${fileItem.id}" onclick="fetchLyricsForTrack('${fileItem.id}')" class="text-[10px] text-indigo-400 hover:text-indigo-300 flex items-center gap-1 bg-indigo-950/60 hover:bg-indigo-900/80 px-2 py-0.5 rounded border border-indigo-500/30 transition-colors">
+                    <i data-lucide="sparkles" class="w-3 h-3"></i> 歌詞のみ自動取得
+                  </button>
+                  <button type="button" onclick="exportSingleLrc('${fileItem.id}')" ${!fileItem.lyrics || !fileItem.lyrics.trim() ? 'disabled' : ''} class="text-[10px] text-emerald-400 hover:text-emerald-300 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 bg-emerald-950/60 hover:bg-emerald-900/80 px-2 py-0.5 rounded border border-emerald-500/30 transition-colors">
+                    <i data-lucide="file-output" class="w-3 h-3"></i> ${t.exportLrcBtn}
+                  </button>
+                </div>
               </div>
               <textarea oninput="updateFileProp('${fileItem.id}', 'lyrics', this.value)" placeholder="${t.phLyrics}" class="w-full h-24 bg-slate-950 border border-slate-700 focus:border-indigo-500 rounded-lg p-2 text-xs text-slate-200 font-mono resize-y leading-relaxed">${escapeHtml(fileItem.lyrics)}</textarea>
             </div>
@@ -1379,6 +1397,8 @@
       } else if (prop === 'track') {
         const trackEl = document.getElementById(`display_track_${id}`);
         if (trackEl) trackEl.textContent = `#${value || ''}`;
+      } else if (prop === 'lyrics') {
+        renderFileList();
       }
     }
 
