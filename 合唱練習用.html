@@ -1,0 +1,1163 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full bg-slate-950 text-slate-100 select-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Walkman Lyric Player (.msc Powered)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JSZip for .msc Backup Package -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <!-- jsmediatags for Audio Metadata Extraction -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jsmediatags/3.9.5/jsmediatags.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        walkman: {
+                            gold: '#FFB800',
+                            copper: '#E06B22',
+                            dark: '#0C0F14',
+                            panel: '#151921',
+                            accent: '#2563EB'
+                        }
+                    },
+                    animation: {
+                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+                        'glow': 'glow 2s infinite alternate',
+                    },
+                    keyframes: {
+                        glow: {
+                            '0%': { filter: 'drop-shadow(0 0 10px rgba(255,184,0,0.3))' },
+                            '100%': { filter: 'drop-shadow(0 0 20px rgba(255,184,0,0.7))' }
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    
+    <style>
+        /* Custom scrollbar for Walkman UI */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.4);
+        }
+
+        /* Ambient Dynamic Color Background Transition */
+        .ambient-bg {
+            transition: background 1.2s ease-in-out, background-color 1.2s ease-in-out;
+            background: radial-gradient(circle at 50% 30%, var(--bg-dominant, rgba(37, 99, 235, 0.25)), var(--bg-dark, #0c0f14) 75%);
+        }
+
+        /* Glassmorphic Panel Styles */
+        .glass-panel {
+            background: rgba(21, 25, 33, 0.7);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        
+        .glass-panel-hover:hover {
+            background: rgba(30, 36, 48, 0.85);
+            border-color: rgba(255, 255, 255, 0.18);
+        }
+
+        /* Active Lyric Styling */
+        .lyric-line {
+            transition: all 0.35s cubic-bezier(0.25, 1, 0.5, 1);
+            opacity: 0.4;
+            transform: scale(0.96);
+            transform-origin: left center;
+        }
+        .lyric-line.active {
+            opacity: 1;
+            transform: scale(1.06);
+            color: #FFFFFF;
+            text-shadow: 0 0 16px var(--accent-glow, rgba(255, 184, 0, 0.6));
+            font-weight: 700;
+        }
+        .fullscreen-mode .lyric-line.active {
+            transform-origin: center center;
+        }
+
+        /* Vinyl Spin Effect */
+        .spinning {
+            animation: spin 20s linear infinite;
+        }
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+
+<body class="h-full flex flex-col font-sans antialiased text-slate-200 ambient-bg overflow-hidden">
+    <!-- Custom Toast Notification Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Hidden Canvas for Dominant Color Extraction -->
+    <canvas id="color-canvas" class="hidden"></canvas>
+
+    <!-- Hidden File Inputs -->
+    <input type="file" id="audio-lrc-input" multiple accept="audio/*,.lrc" class="hidden" onchange="handleFileSelect(event)">
+    <input type="file" id="msc-input" accept=".msc" class="hidden" onchange="handleMscSelect(event)">
+
+    <!-- Top Header Bar -->
+    <header id="main-header" class="h-16 glass-panel border-b border-white/10 px-4 md:px-6 flex items-center justify-between z-30 transition-all duration-300">
+        <!-- Logo & Title -->
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center shadow-lg shadow-amber-500/20">
+                <i class="fa-solid font-bold text-slate-950 text-xl tracking-tighter">W</i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg tracking-wide text-white flex items-center gap-2">
+                    WALKMAN <span class="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono border border-amber-500/30">MSC-EDITION</span>
+                </h1>
+                <p class="text-xs text-slate-400">Lyric & Audio Synchronizer</p>
+            </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex items-center space-x-2 sm:space-x-3">
+            <!-- Add Music / LRC -->
+            <button onclick="document.getElementById('audio-lrc-input').click()" 
+                    class="px-3 py-2 rounded-lg glass-panel glass-panel-hover text-xs font-medium flex items-center gap-2 text-slate-200 transition-all">
+                <i class="fa-solid fa-folder-plus text-amber-400"></i>
+                <span class="hidden md:inline">曲/歌詞 追加</span>
+            </button>
+
+            <!-- Export .msc Backup -->
+            <button onclick="exportMscPackage()" 
+                    class="px-3 py-2 rounded-lg bg-emerald-600/30 hover:bg-emerald-600/50 border border-emerald-500/40 text-emerald-200 text-xs font-medium flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-file-export text-emerald-400"></i>
+                <span class="hidden sm:inline">.msc 書き出し</span>
+            </button>
+
+            <!-- Import .msc Backup -->
+            <button onclick="document.getElementById('msc-input').click()" 
+                    class="px-3 py-2 rounded-lg bg-cyan-600/30 hover:bg-cyan-600/50 border border-cyan-500/40 text-cyan-200 text-xs font-medium flex items-center gap-2 transition-all">
+                <i class="fa-solid fa-file-import text-cyan-400"></i>
+                <span class="hidden sm:inline">.msc 読み込み</span>
+            </button>
+
+            <!-- Fullscreen Switcher -->
+            <button onclick="toggleFullscreen()" title="フルスクリーンモード"
+                    class="p-2 rounded-lg glass-panel glass-panel-hover text-slate-300 hover:text-white transition-all">
+                <i class="fa-solid fa-expand text-base"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace Frame -->
+    <main id="app-workspace" class="flex-1 flex flex-col md:flex-row overflow-hidden relative p-3 sm:p-4 gap-4 z-10">
+
+        <!-- Left Column: Playlist Panel -->
+        <section id="playlist-panel" class="w-full md:w-80 lg:w-96 glass-panel rounded-2xl flex flex-col overflow-hidden transition-all duration-300 shadow-2xl">
+            <!-- Playlist Title Bar -->
+            <div class="p-4 border-b border-white/10 flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-list-ul text-amber-400"></i>
+                    <h2 class="font-semibold text-sm">プレイリスト</h2>
+                    <span id="playlist-count" class="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">0</span>
+                </div>
+                <button onclick="clearPlaylist()" class="text-xs text-slate-400 hover:text-red-400 transition-colors" title="プレイリストを消去">
+                    <i class="fa-solid fa-trash-can"></i> 消去
+                </button>
+            </div>
+
+            <!-- Playlist Items Container -->
+            <div id="playlist-items" class="flex-1 overflow-y-auto p-2 space-y-1">
+                <!-- Empty State Placeholder -->
+                <div id="playlist-empty" class="h-full flex flex-col items-center justify-center p-6 text-center text-slate-400">
+                    <div class="w-16 h-16 rounded-full bg-slate-800/80 border border-slate-700/50 flex items-center justify-center mb-4 text-slate-500">
+                        <i class="fa-solid fa-music text-2xl"></i>
+                    </div>
+                    <p class="text-sm font-medium text-slate-300">楽曲が追加されていません</p>
+                    <p class="text-xs text-slate-500 mt-1 max-w-[200px]">音声ファイル(.mp3, .m4a等)と歌詞(.lrc)を取り込むか、.mscバックアップを開いてください</p>
+                    <button onclick="document.getElementById('audio-lrc-input').click()" 
+                            class="mt-4 px-4 py-2 rounded-xl bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30 text-xs font-semibold transition-all">
+                        ファイルを選択
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Center/Right Column: Main View (Album Art, Song Info, Lyric Display) -->
+        <section id="stage-panel" class="flex-1 glass-panel rounded-2xl flex flex-col overflow-hidden relative shadow-2xl">
+            
+            <!-- Standard Stage Top Bar -->
+            <div class="p-4 flex items-center justify-between border-b border-white/5">
+                <div class="flex items-center gap-3">
+                    <span id="badge-lrc" class="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700">NO LRC</span>
+                    <span id="badge-quality" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">AUDIO</span>
+                </div>
+                <div class="text-xs text-slate-400 font-mono">
+                    <span id="time-current">00:00</span> / <span id="time-total">00:00</span>
+                </div>
+            </div>
+
+            <!-- Stage Content Flex Wrapper -->
+            <div id="stage-content" class="flex-1 flex flex-col lg:flex-row items-center overflow-hidden p-4 lg:p-8 gap-6">
+                
+                <!-- Album Artwork Section -->
+                <div id="art-container" class="flex flex-col items-center justify-center w-full lg:w-1/2 flex-shrink-0 transition-all duration-500">
+                    <div class="relative group">
+                        <!-- Dominant Color Glowing Aura Behind Jacket -->
+                        <div id="art-aura" class="absolute -inset-2 bg-amber-500/20 rounded-3xl blur-2xl transition-all duration-700 opacity-60"></div>
+                        
+                        <!-- Jacket Image Display -->
+                        <div class="relative w-48 h-48 sm:w-64 sm:h-64 lg:w-72 lg:h-72 rounded-2xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 flex items-center justify-center">
+                            <img id="album-art" src="" alt="Album Artwork" class="w-full h-full object-cover hidden">
+                            <div id="album-art-placeholder" class="flex flex-col items-center justify-center text-slate-600">
+                                <i class="fa-solid fa-compact-disc text-6xl lg:text-7xl mb-2 text-slate-700"></i>
+                                <span class="text-xs">WALKMAN MUSIC</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Song Meta Title & Artist -->
+                    <div class="text-center mt-5 max-w-full px-4">
+                        <h2 id="song-title" class="text-xl sm:text-2xl font-bold text-white tracking-wide truncate">楽曲が選択されていません</h2>
+                        <p id="song-artist" class="text-sm text-slate-400 mt-1 truncate">アーティスト不明</p>
+                    </div>
+                </div>
+
+                <!-- Lyrics Viewer Section -->
+                <div id="lyric-container" class="flex-1 w-full h-full flex flex-col justify-center overflow-hidden relative rounded-xl bg-slate-950/30 border border-white/5 p-4 sm:p-6">
+                    <div id="lyric-scroll-box" class="w-full h-full overflow-y-auto space-y-4 text-center lg:text-left pr-2">
+                        <!-- Lyrics lines will be dynamically populated -->
+                        <div class="h-full flex items-center justify-center text-slate-500 text-sm italic">
+                            歌詞が表示されます
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Audio Control Bar -->
+    <footer id="player-dock" class="h-24 glass-panel border-t border-white/10 px-4 md:px-8 flex flex-col justify-center z-30 transition-all duration-300">
+        
+        <!-- Progress Bar -->
+        <div class="w-full flex items-center gap-3 mb-2">
+            <span id="bar-time-current" class="text-[11px] font-mono text-slate-400 w-10 text-right">00:00</span>
+            <div class="flex-1 relative flex items-center cursor-pointer group py-2" onclick="seekAudioByClick(event)">
+                <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                    <div id="seek-progress" class="h-full bg-gradient-to-r from-amber-400 to-orange-500 w-0 transition-all duration-100"></div>
+                </div>
+                <div id="seek-thumb" class="absolute w-3.5 h-3.5 bg-white rounded-full shadow-md top-1/2 -translate-y-1/2 -ml-1.5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            </div>
+            <span id="bar-time-total" class="text-[11px] font-mono text-slate-400 w-10">00:00</span>
+        </div>
+
+        <!-- Buttons and Controls Row -->
+        <div class="flex items-center justify-between">
+            
+            <!-- Left Info Quick View -->
+            <div class="hidden sm:flex items-center gap-3 w-1/4 truncate">
+                <img id="dock-thumb" src="" class="w-10 h-10 rounded object-cover bg-slate-800 hidden">
+                <div class="truncate">
+                    <div id="dock-title" class="text-xs font-semibold text-white truncate">未再生</div>
+                    <div id="dock-artist" class="text-[10px] text-slate-400 truncate">Walkman Player</div>
+                </div>
+            </div>
+
+            <!-- Central Transport Controls -->
+            <div class="flex items-center justify-center gap-4 sm:gap-6 w-full sm:w-auto">
+                <button onclick="toggleShuffle()" id="btn-shuffle" class="text-slate-400 hover:text-white transition-colors" title="シャッフル">
+                    <i class="fa-solid fa-shuffle text-sm"></i>
+                </button>
+
+                <button onclick="playPrev()" class="text-slate-300 hover:text-white transition-colors text-lg" title="前の曲">
+                    <i class="fa-solid fa-backward-step"></i>
+                </button>
+
+                <button onclick="togglePlayPause()" id="btn-play-pause" class="w-11 h-11 rounded-full bg-gradient-to-tr from-amber-400 to-orange-500 text-slate-950 flex items-center justify-center shadow-lg shadow-orange-500/20 hover:scale-105 active:scale-95 transition-all">
+                    <i class="fa-solid fa-play text-lg translate-x-0.5"></i>
+                </button>
+
+                <button onclick="playNext()" class="text-slate-300 hover:text-white transition-colors text-lg" title="次の曲">
+                    <i class="fa-solid fa-forward-step"></i>
+                </button>
+
+                <button onclick="toggleRepeat()" id="btn-repeat" class="text-slate-400 hover:text-white transition-colors" title="リピート">
+                    <i class="fa-solid fa-repeat text-sm"></i>
+                </button>
+            </div>
+
+            <!-- Right Controls: Volume & Fullscreen Trigger -->
+            <div class="hidden sm:flex items-center justify-end gap-3 w-1/4">
+                <i class="fa-solid fa-volume-high text-xs text-slate-400"></i>
+                <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="0.8" oninput="changeVolume(this.value)"
+                       class="w-20 accent-amber-400 h-1 bg-slate-800 rounded-lg cursor-pointer">
+                <button onclick="toggleFullscreen()" class="ml-2 text-slate-400 hover:text-white" title="フルスクリーン">
+                    <i class="fa-solid fa-expand text-sm"></i>
+                </button>
+            </div>
+
+        </div>
+    </footer>
+
+    <!-- Audio Element -->
+    <audio id="audio-engine" class="hidden"></audio>
+
+    <script>
+        /**
+         * Global Application State Management
+         */
+        const state = {
+            playlist: [], // Track objects
+            currentTrackIndex: -1,
+            isPlaying: false,
+            lyrics: [], // Parsed [{time: seconds, text: string}]
+            currentLyricIndex: -1,
+            isShuffle: false,
+            repeatMode: 'none', // 'none', 'all', 'one'
+            dominantColor: 'rgba(37, 99, 235, 0.25)',
+            isFullscreen: false
+        };
+
+        // Core DOM Elements
+        const audioEngine = document.getElementById('audio-engine');
+        const lyricScrollBox = document.getElementById('lyric-scroll-box');
+        const albumArt = document.getElementById('album-art');
+        const albumArtPlaceholder = document.getElementById('album-art-placeholder');
+        const artAura = document.getElementById('art-aura');
+        const songTitle = document.getElementById('song-title');
+        const songArtist = document.getElementById('song-artist');
+        const seekProgress = document.getElementById('seek-progress');
+        const seekThumb = document.getElementById('seek-thumb');
+        const playPauseBtn = document.getElementById('btn-play-pause');
+
+        window.onload = () => {
+            setupAudioEngineListeners();
+            setupDragAndDrop();
+        };
+
+        function setupAudioEngineListeners() {
+            audioEngine.addEventListener('timeupdate', onTimeUpdate);
+            audioEngine.addEventListener('ended', onTrackEnded);
+            audioEngine.addEventListener('loadedmetadata', () => {
+                const totalSec = audioEngine.duration || 0;
+                document.getElementById('time-total').textContent = formatTime(totalSec);
+                document.getElementById('bar-time-total').textContent = formatTime(totalSec);
+            });
+        }
+
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const toast = document.createElement('div');
+            
+            const bgClass = type === 'error' ? 'bg-red-900/90 border-red-500/50 text-red-100' :
+                            type === 'success' ? 'bg-emerald-900/90 border-emerald-500/50 text-emerald-100' :
+                            'bg-slate-900/90 border-amber-500/50 text-amber-100';
+            
+            const icon = type === 'error' ? 'fa-circle-exclamation' :
+                         type === 'success' ? 'fa-circle-check' : 'fa-circle-info';
+
+            toast.className = `pointer-events-auto px-4 py-3 rounded-xl border ${bgClass} backdrop-blur-md shadow-xl text-xs font-medium flex items-center gap-3 transition-all duration-300 transform translate-y-2 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icon} text-base"></i><span>${message}</span>`;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', '-translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 3500);
+        }
+
+        /**
+         * Canvas-based RGB Dominant Color Extractor
+         */
+        function extractDominantColor(imgElement) {
+            try {
+                const canvas = document.getElementById('color-canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 40;
+                canvas.height = 40;
+
+                ctx.drawImage(imgElement, 0, 0, 40, 40);
+                const imageData = ctx.getImageData(0, 0, 40, 40).data;
+
+                const colorCounts = {};
+                let maxCount = 0;
+                let dominantRGB = '37, 99, 235'; // Default fallback blue
+
+                for (let i = 0; i < imageData.length; i += 16) {
+                    const r = imageData[i];
+                    const g = imageData[i + 1];
+                    const b = imageData[i + 2];
+                    const a = imageData[i + 3];
+
+                    if (a < 128) continue; // Skip transparency
+
+                    // Quantize to reduce color space
+                    const qr = Math.floor(r / 32) * 32;
+                    const qg = Math.floor(g / 32) * 32;
+                    const qb = Math.floor(b / 32) * 32;
+
+                    // Exclude extreme darks or whites for vivid theme ambiance
+                    const brightness = (qr + qg + qb) / 3;
+                    if (brightness < 20 || brightness > 235) continue;
+
+                    const key = `${qr},${qg},${qb}`;
+                    colorCounts[key] = (colorCounts[key] || 0) + 1;
+
+                    if (colorCounts[key] > maxCount) {
+                        maxCount = colorCounts[key];
+                        dominantRGB = key;
+                    }
+                }
+
+                state.dominantColor = `rgba(${dominantRGB}, 0.35)`;
+                applyDynamicTheme(state.dominantColor);
+            } catch (err) {
+                console.warn('Dominant color extraction failed, fallback applied.', err);
+                applyDynamicTheme('rgba(37, 99, 235, 0.25)');
+            }
+        }
+
+        function applyDynamicTheme(colorRgb) {
+            document.body.style.setProperty('--bg-dominant', colorRgb);
+            document.body.style.setProperty('--accent-glow', colorRgb.replace('0.35', '0.8'));
+            artAura.style.backgroundColor = colorRgb;
+        }
+
+        /**
+         * Decodes LRC text buffer trying UTF-8 then Shift-JIS
+         */
+        async function readLrcFile(file) {
+            const buffer = await file.arrayBuffer();
+            let text = '';
+            
+            try {
+                // First try UTF-8 with strict error catching
+                const utf8Decoder = new TextDecoder('utf-8', { fatal: true });
+                text = utf8Decoder.decode(buffer);
+            } catch (e) {
+                // Fallback to Shift-JIS for Japanese legacy encoding
+                const sjisDecoder = new TextDecoder('shift-jis');
+                text = sjisDecoder.decode(buffer);
+            }
+
+            return parseLRC(text);
+        }
+
+        function parseLRC(lrcText) {
+            const lines = lrcText.split(/\r?\n/);
+            const timeReg = /\[(\d{2}):(\d{2})(?:\.(\d{2,3}))?\]/g;
+            const parsed = [];
+
+            for (const line of lines) {
+                const matches = [...line.matchAll(timeReg)];
+                const lyricText = line.replace(timeReg, '').trim();
+
+                if (matches.length > 0) {
+                    for (const match of matches) {
+                        const min = parseInt(match[1], 10);
+                        const sec = parseInt(match[2], 10);
+                        const msStr = match[3] || '0';
+                        const ms = msStr.length === 2 ? parseInt(msStr, 10) / 100 : parseInt(msStr, 10) / 1000;
+                        const time = min * 60 + sec + ms;
+
+                        if (lyricText.length > 0) {
+                            parsed.push({ time, text: lyricText });
+                        }
+                    }
+                }
+            }
+
+            parsed.sort((a, b) => a.time - b.time);
+            return parsed;
+        }
+
+        async function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            if (!files.length) return;
+
+            const audioFiles = files.filter(f => f.type.startsWith('audio/') || /\.(mp3|m4a|flac|wav|ogg|aac)$/i.test(f.name));
+            const lrcFiles = files.filter(f => f.name.toLowerCase().endsWith('.lrc'));
+
+            if (!audioFiles.length && !lrcFiles.length) {
+                showToast('サポートされている音声ファイルまたは.lrcを選択してください', 'error');
+                return;
+            }
+
+            let addedCount = 0;
+
+            for (const aFile of audioFiles) {
+                const baseName = aFile.name.substring(0, aFile.name.lastIndexOf('.')) || aFile.name;
+                
+                // Match with .lrc if present in upload
+                const matchingLrc = lrcFiles.find(l => {
+                    const lrcBase = l.name.substring(0, l.name.lastIndexOf('.'));
+                    return lrcBase.toLowerCase() === baseName.toLowerCase();
+                });
+
+                let lyrics = [];
+                if (matchingLrc) {
+                    lyrics = await readLrcFile(matchingLrc);
+                }
+
+                // Extract Metadata / Cover Art
+                const metadata = await extractAudioMetadata(aFile);
+
+                const track = {
+                    id: 'tr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                    title: metadata.title || baseName,
+                    artist: metadata.artist || 'Unknown Artist',
+                    album: metadata.album || 'Unknown Album',
+                    audioFile: aFile,
+                    audioUrl: URL.createObjectURL(aFile),
+                    lyrics: lyrics,
+                    coverBlob: metadata.coverBlob || null,
+                    coverUrl: metadata.coverBlob ? URL.createObjectURL(metadata.coverBlob) : null
+                };
+
+                state.playlist.push(track);
+                addedCount++;
+            }
+
+            // If standalone LRC files imported, try matching with existing playlist
+            for (const lFile of lrcFiles) {
+                const lrcBase = lFile.name.substring(0, lFile.name.lastIndexOf('.'));
+                const existingTrack = state.playlist.find(t => {
+                    const tBase = t.audioFile ? t.audioFile.name.substring(0, t.audioFile.name.lastIndexOf('.')) : t.title;
+                    return tBase.toLowerCase() === lrcBase.toLowerCase();
+                });
+
+                if (existingTrack) {
+                    existingTrack.lyrics = await readLrcFile(lFile);
+                    if (state.currentTrackIndex !== -1 && state.playlist[state.currentTrackIndex].id === existingTrack.id) {
+                        state.lyrics = existingTrack.lyrics;
+                        renderLyrics();
+                    }
+                }
+            }
+
+            renderPlaylist();
+            showToast(`${addedCount}曲をプレイリストに追加しました`, 'success');
+
+            if (state.currentTrackIndex === -1 && state.playlist.length > 0) {
+                loadTrack(0);
+            }
+
+            event.target.value = ''; // Reset input
+        }
+
+        function extractAudioMetadata(file) {
+            return new Promise((resolve) => {
+                if (typeof jsmediatags === 'undefined') {
+                    resolve({ title: null, artist: null, album: null, coverBlob: null });
+                    return;
+                }
+
+                jsmediatags.read(file, {
+                    onSuccess: (tag) => {
+                        const tags = tag.tags;
+                        let coverBlob = null;
+
+                        if (tags.picture) {
+                            const { data, format } = tags.picture;
+                            let base64String = "";
+                            for (let i = 0; i < data.length; i++) {
+                                base64String += String.fromCharCode(data[i]);
+                            }
+                            const base64 = "data:" + format + ";base64," + window.btoa(base64String);
+                            
+                            // Convert Base64 to Blob
+                            const byteString = atob(base64.split(',')[1]);
+                            const mimeString = base64.split(',')[0].split(':')[1].split(';')[0];
+                            const ab = new ArrayBuffer(byteString.length);
+                            const ia = new Uint8Array(ab);
+                            for (let i = 0; i < byteString.length; i++) {
+                                ia[i] = byteString.charCodeAt(i);
+                            }
+                            coverBlob = new Blob([ab], { type: mimeString });
+                        }
+
+                        resolve({
+                            title: tags.title || null,
+                            artist: tags.artist || null,
+                            album: tags.album || null,
+                            coverBlob: coverBlob
+                        });
+                    },
+                    onError: () => {
+                        resolve({ title: null, artist: null, album: null, coverBlob: null });
+                    }
+                });
+            });
+        }
+
+        /**
+         * ZIPs all tracks, audio files, .lrc lyrics, and covers into custom .msc format
+         */
+        async function exportMscPackage() {
+            if (state.playlist.length === 0) {
+                showToast('書き出す曲がプレイリストにありません', 'error');
+                return;
+            }
+
+            showToast('Walkman .msc パッケージを作成中...', 'info');
+            const zip = new JSZip();
+            const manifest = [];
+
+            for (let i = 0; i < state.playlist.length; i++) {
+                const track = state.playlist[i];
+                const trackId = `track_${i + 1}`;
+                
+                const audioExt = track.audioFile ? track.audioFile.name.split('.').pop() : 'mp3';
+                const audioPath = `audio/${trackId}.${audioExt}`;
+                const lrcPath = `lyrics/${trackId}.lrc`;
+                const coverPath = track.coverBlob ? `covers/${trackId}.png` : null;
+
+                // Add Audio file to ZIP
+                if (track.audioFile) {
+                    zip.file(audioPath, track.audioFile);
+                }
+
+                // Add LRC to ZIP
+                if (track.lyrics && track.lyrics.length > 0) {
+                    let lrcText = '';
+                    track.lyrics.forEach(l => {
+                        const m = Math.floor(l.time / 60).toString().padStart(2, '0');
+                        const s = Math.floor(l.time % 60).toString().padStart(2, '0');
+                        const ms = Math.floor((l.time % 1) * 100).toString().padStart(2, '0');
+                        lrcText += `[${m}:${s}.${ms}]${l.text}\n`;
+                    });
+                    zip.file(lrcPath, lrcText);
+                }
+
+                // Add Cover Art to ZIP
+                if (track.coverBlob) {
+                    zip.file(coverPath, track.coverBlob);
+                }
+
+                manifest.push({
+                    id: track.id,
+                    title: track.title,
+                    artist: track.artist,
+                    album: track.album,
+                    audioPath: audioPath,
+                    lrcPath: track.lyrics.length > 0 ? lrcPath : null,
+                    coverPath: coverPath
+                });
+            }
+
+            zip.file('manifest.json', JSON.stringify({
+                version: '1.0.0',
+                generator: 'Walkman Lyric Player',
+                exportedAt: new Date().toISOString(),
+                tracks: manifest
+            }, null, 2));
+
+            try {
+                const content = await zip.generateAsync({ type: 'blob' });
+                const downloadUrl = URL.createObjectURL(content);
+                const a = document.createElement('a');
+                a.href = downloadUrl;
+                a.download = `Walkman_Backup_${new Date().toISOString().slice(0,10)}.msc`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(downloadUrl);
+                showToast('.msc バックアップの保存を完了しました！', 'success');
+            } catch (err) {
+                console.error(err);
+                showToast('.msc の書き出しに失敗しました', 'error');
+            }
+        }
+
+        /**
+         * Unpacks .msc backup package and restores full player state
+         */
+        async function handleMscSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            showToast('.msc パッケージを読み込んでいます...', 'info');
+
+            try {
+                const zip = await JSZip.loadAsync(file);
+                const manifestFile = zip.file('manifest.json');
+
+                if (!manifestFile) {
+                    showToast('無効な .msc ファイル形式です', 'error');
+                    return;
+                }
+
+                const manifestJson = JSON.parse(await manifestFile.async('string'));
+                const newPlaylist = [];
+
+                for (const tData of manifestJson.tracks) {
+                    // Extract Audio Blob
+                    let audioFile = null;
+                    let audioUrl = null;
+                    if (tData.audioPath && zip.file(tData.audioPath)) {
+                        const audioBlob = await zip.file(tData.audioPath).async('blob');
+                        audioFile = new File([audioBlob], tData.audioPath.split('/').pop(), { type: audioBlob.type || 'audio/mp3' });
+                        audioUrl = URL.createObjectURL(audioBlob);
+                    }
+
+                    // Extract Lyric Text
+                    let lyrics = [];
+                    if (tData.lrcPath && zip.file(tData.lrcPath)) {
+                        const lrcText = await zip.file(tData.lrcPath).async('string');
+                        lyrics = parseLRC(lrcText);
+                    }
+
+                    // Extract Cover
+                    let coverBlob = null;
+                    let coverUrl = null;
+                    if (tData.coverPath && zip.file(tData.coverPath)) {
+                        coverBlob = await zip.file(tData.coverPath).async('blob');
+                        coverUrl = URL.createObjectURL(coverBlob);
+                    }
+
+                    newPlaylist.push({
+                        id: tData.id || 'tr_' + Date.now() + '_' + Math.random().toString(36).substr(2, 5),
+                        title: tData.title,
+                        artist: tData.artist,
+                        album: tData.album,
+                        audioFile: audioFile,
+                        audioUrl: audioUrl,
+                        lyrics: lyrics,
+                        coverBlob: coverBlob,
+                        coverUrl: coverUrl
+                    });
+                }
+
+                state.playlist = newPlaylist;
+                renderPlaylist();
+                showToast(`.msc から ${newPlaylist.length}曲を復元しました！`, 'success');
+
+                if (state.playlist.length > 0) {
+                    loadTrack(0);
+                }
+
+            } catch (err) {
+                console.error(err);
+                showToast('.msc ファイルの展開に失敗しました', 'error');
+            }
+
+            event.target.value = ''; // Reset input
+        }
+
+        function renderPlaylist() {
+            const container = document.getElementById('playlist-items');
+            const emptyState = document.getElementById('playlist-empty');
+            const countLabel = document.getElementById('playlist-count');
+
+            countLabel.textContent = state.playlist.length;
+
+            if (state.playlist.length === 0) {
+                container.innerHTML = '';
+                container.appendChild(emptyState);
+                return;
+            }
+
+            container.innerHTML = '';
+            state.playlist.forEach((track, index) => {
+                const isActive = index === state.currentTrackIndex;
+                const item = document.createElement('div');
+                item.className = `p-3 rounded-xl cursor-pointer flex items-center justify-between transition-all ${
+                    isActive ? 'bg-amber-500/20 border border-amber-500/40 text-white' : 'glass-panel glass-panel-hover text-slate-300'
+                }`;
+                
+                item.onclick = () => loadTrack(index, true);
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-3 truncate">
+                        <div class="w-8 h-8 rounded-lg bg-slate-900 border border-white/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            ${track.coverUrl ? `<img src="${track.coverUrl}" class="w-full h-full object-cover">` : `<i class="fa-solid fa-music text-slate-500 text-xs"></i>`}
+                        </div>
+                        <div class="truncate">
+                            <div class="text-xs font-semibold truncate ${isActive ? 'text-amber-300' : 'text-slate-200'}">${escapeHtml(track.title)}</div>
+                            <div class="text-[10px] text-slate-400 truncate">${escapeHtml(track.artist)}</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        ${track.lyrics.length > 0 ? `<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/30">LRC</span>` : ''}
+                        <button onclick="deleteTrack(event, ${index})" class="text-slate-500 hover:text-red-400 p-1 text-xs transition-colors">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                `;
+
+                container.appendChild(item);
+            });
+        }
+
+        function loadTrack(index, autoPlay = false) {
+            if (index < 0 || index >= state.playlist.length) return;
+
+            state.currentTrackIndex = index;
+            const track = state.playlist[index];
+
+            audioEngine.src = track.audioUrl;
+            state.lyrics = track.lyrics || [];
+            state.currentLyricIndex = -1;
+
+            // UI Update
+            songTitle.textContent = track.title;
+            songArtist.textContent = track.artist;
+            document.getElementById('dock-title').textContent = track.title;
+            document.getElementById('dock-artist').textContent = track.artist;
+
+            // Badge indicators
+            const badgeLrc = document.getElementById('badge-lrc');
+            if (track.lyrics.length > 0) {
+                badgeLrc.textContent = `${track.lyrics.length} LINES`;
+                badgeLrc.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+            } else {
+                badgeLrc.textContent = "NO LRC";
+                badgeLrc.className = "px-2 py-0.5 rounded text-[10px] font-bold bg-slate-800 text-slate-500 border border-slate-700";
+            }
+
+            // Cover Art Update
+            const dockThumb = document.getElementById('dock-thumb');
+            if (track.coverUrl) {
+                albumArt.src = track.coverUrl;
+                albumArt.classList.remove('hidden');
+                albumArtPlaceholder.classList.add('hidden');
+                
+                dockThumb.src = track.coverUrl;
+                dockThumb.classList.remove('hidden');
+
+                // Extract dominant color from cover
+                const img = new Image();
+                img.crossOrigin = 'Anonymous';
+                img.src = track.coverUrl;
+                img.onload = () => extractDominantColor(img);
+            } else {
+                albumArt.classList.add('hidden');
+                albumArtPlaceholder.classList.remove('hidden');
+                dockThumb.classList.add('hidden');
+                applyDynamicTheme('rgba(37, 99, 235, 0.25)');
+            }
+
+            renderPlaylist();
+            renderLyrics();
+
+            if (autoPlay) {
+                playAudio();
+            } else {
+                pauseAudio();
+            }
+        }
+
+        function deleteTrack(event, index) {
+            event.stopPropagation();
+            const isCurrent = index === state.currentTrackIndex;
+            state.playlist.splice(index, 1);
+
+            if (isCurrent) {
+                if (state.playlist.length > 0) {
+                    loadTrack(Math.min(index, state.playlist.length - 1));
+                } else {
+                    state.currentTrackIndex = -1;
+                    audioEngine.src = '';
+                    songTitle.textContent = '楽曲が選択されていません';
+                    songArtist.textContent = 'アーティスト不明';
+                    renderPlaylist();
+                    renderLyrics();
+                }
+            } else {
+                if (index < state.currentTrackIndex) {
+                    state.currentTrackIndex--;
+                }
+                renderPlaylist();
+            }
+            showToast('曲を削除しました', 'info');
+        }
+
+        function clearPlaylist() {
+            state.playlist = [];
+            state.currentTrackIndex = -1;
+            audioEngine.src = '';
+            songTitle.textContent = '楽曲が選択されていません';
+            songArtist.textContent = 'アーティスト不明';
+            renderPlaylist();
+            renderLyrics();
+            showToast('プレイリストを全消去しました', 'info');
+        }
+
+        function renderLyrics() {
+            lyricScrollBox.innerHTML = '';
+
+            if (state.lyrics.length === 0) {
+                lyricScrollBox.innerHTML = `
+                    <div class="h-full flex flex-col items-center justify-center text-slate-500 space-y-2">
+                        <i class="fa-solid fa-quote-left text-2xl text-slate-700"></i>
+                        <p class="text-sm">歌詞データ（.lrc）が読み込まれていません</p>
+                    </div>`;
+                return;
+            }
+
+            state.lyrics.forEach((line, idx) => {
+                const lineEl = document.createElement('div');
+                lineEl.className = 'lyric-line cursor-pointer text-base sm:text-lg lg:text-xl py-2 px-3 rounded-lg transition-all duration-300 hover:bg-white/5';
+                lineEl.setAttribute('data-index', idx);
+                lineEl.textContent = line.text;
+
+                // Tap-To-Seek Feature
+                lineEl.onclick = () => {
+                    audioEngine.currentTime = line.time;
+                    highlightLyric(idx, true);
+                    if (!state.isPlaying) playAudio();
+                };
+
+                lyricScrollBox.appendChild(lineEl);
+            });
+        }
+
+        function onTimeUpdate() {
+            const cur = audioEngine.currentTime || 0;
+            const dur = audioEngine.duration || 0;
+
+            // Progress Bar Update
+            if (dur > 0) {
+                const pct = (cur / dur) * 100;
+                seekProgress.style.width = `${pct}%`;
+                seekThumb.style.left = `${pct}%`;
+            }
+
+            document.getElementById('time-current').textContent = formatTime(cur);
+            document.getElementById('bar-time-current').textContent = formatTime(cur);
+
+            // Sync Lyric Line
+            if (state.lyrics.length > 0) {
+                let activeIdx = -1;
+                for (let i = 0; i < state.lyrics.length; i++) {
+                    if (cur >= state.lyrics[i].time) {
+                        activeIdx = i;
+                    } else {
+                        break;
+                    }
+                }
+
+                if (activeIdx !== state.currentLyricIndex && activeIdx !== -1) {
+                    highlightLyric(activeIdx);
+                }
+            }
+        }
+
+        function highlightLyric(index, forceScroll = false) {
+            state.currentLyricIndex = index;
+            const lines = lyricScrollBox.querySelectorAll('.lyric-line');
+
+            lines.forEach((line, idx) => {
+                if (idx === index) {
+                    line.classList.add('active');
+                    line.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                } else {
+                    line.classList.remove('active');
+                }
+            });
+        }
+
+        function togglePlayPause() {
+            if (state.currentTrackIndex === -1 && state.playlist.length > 0) {
+                loadTrack(0, true);
+                return;
+            }
+            if (state.isPlaying) {
+                pauseAudio();
+            } else {
+                playAudio();
+            }
+        }
+
+        function playAudio() {
+            if (!audioEngine.src) return;
+            audioEngine.play().then(() => {
+                state.isPlaying = true;
+                playPauseBtn.innerHTML = `<i class="fa-solid fa-pause text-lg"></i>`;
+            }).catch(e => {
+                console.error('Audio play error:', e);
+            });
+        }
+
+        function pauseAudio() {
+            audioEngine.pause();
+            state.isPlaying = false;
+            playPauseBtn.innerHTML = `<i class="fa-solid fa-play text-lg translate-x-0.5"></i>`;
+        }
+
+        function playNext() {
+            if (state.playlist.length === 0) return;
+            let nextIndex = state.currentTrackIndex + 1;
+            
+            if (state.isShuffle) {
+                nextIndex = Math.floor(Math.random() * state.playlist.length);
+            } else if (nextIndex >= state.playlist.length) {
+                nextIndex = 0;
+            }
+            
+            loadTrack(nextIndex, true);
+        }
+
+        function playPrev() {
+            if (state.playlist.length === 0) return;
+            let prevIndex = state.currentTrackIndex - 1;
+            
+            if (prevIndex < 0) {
+                prevIndex = state.playlist.length - 1;
+            }
+            
+            loadTrack(prevIndex, true);
+        }
+
+        function onTrackEnded() {
+            if (state.repeatMode === 'one') {
+                audioEngine.currentTime = 0;
+                playAudio();
+            } else {
+                playNext();
+            }
+        }
+
+        function seekAudioByClick(e) {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const clickPos = (e.clientX - rect.left) / rect.width;
+            if (audioEngine.duration) {
+                audioEngine.currentTime = clickPos * audioEngine.duration;
+            }
+        }
+
+        function changeVolume(val) {
+            audioEngine.volume = val;
+        }
+
+        function toggleShuffle() {
+            state.isShuffle = !state.isShuffle;
+            const btn = document.getElementById('btn-shuffle');
+            btn.className = state.isShuffle ? 'text-amber-400 font-bold transition-colors' : 'text-slate-400 hover:text-white transition-colors';
+            showToast(state.isShuffle ? 'シャッフル再生: ON' : 'シャッフル再生: OFF');
+        }
+
+        function toggleRepeat() {
+            const btn = document.getElementById('btn-repeat');
+            if (state.repeatMode === 'none') {
+                state.repeatMode = 'all';
+                btn.className = 'text-amber-400 font-bold transition-colors';
+                showToast('リピート: 全曲');
+            } else if (state.repeatMode === 'all') {
+                state.repeatMode = 'one';
+                btn.innerHTML = `<i class="fa-solid fa-repeat text-sm"></i><span class="text-[9px] font-bold absolute -top-1 -right-1">1</span>`;
+                showToast('リピート: 1曲');
+            } else {
+                state.repeatMode = 'none';
+                btn.className = 'text-slate-400 hover:text-white transition-colors';
+                btn.innerHTML = `<i class="fa-solid fa-repeat text-sm"></i>`;
+                showToast('リピート: OFF');
+            }
+        }
+
+        /**
+         * Walkman Fullscreen Stage Switcher
+         */
+        function toggleFullscreen() {
+            state.isFullscreen = !state.isFullscreen;
+            const header = document.getElementById('main-header');
+            const playlistPanel = document.getElementById('playlist-panel');
+            const workspace = document.getElementById('app-workspace');
+            const stagePanel = document.getElementById('stage-panel');
+            const artContainer = document.getElementById('art-container');
+
+            if (state.isFullscreen) {
+                header.classList.add('hidden');
+                playlistPanel.classList.add('hidden');
+                workspace.classList.remove('p-3', 'sm:p-4', 'gap-4');
+                workspace.classList.add('p-0', 'fullscreen-mode');
+                stagePanel.classList.remove('rounded-2xl', 'shadow-2xl');
+                stagePanel.classList.add('rounded-none', 'border-none');
+                artContainer.classList.add('lg:w-1/3');
+                artContainer.classList.remove('lg:w-1/2');
+
+                if (document.documentElement.requestFullscreen) {
+                    document.documentElement.requestFullscreen().catch(() => {});
+                }
+            } else {
+                header.classList.remove('hidden');
+                playlistPanel.classList.remove('hidden');
+                workspace.classList.add('p-3', 'sm:p-4', 'gap-4');
+                workspace.classList.remove('p-0', 'fullscreen-mode');
+                stagePanel.classList.add('rounded-2xl', 'shadow-2xl');
+                stagePanel.classList.remove('rounded-none', 'border-none');
+                artContainer.classList.remove('lg:w-1/3');
+                artContainer.classList.add('lg:w-1/2');
+
+                if (document.fullscreenElement && document.exitFullscreen) {
+                    document.exitFullscreen().catch(() => {});
+                }
+            }
+        }
+
+        function setupDragAndDrop() {
+            const body = document.body;
+
+            ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+                body.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                }, false);
+            });
+
+            body.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                const files = dt.files;
+                
+                if (files.length > 0) {
+                    const firstFile = files[0];
+                    if (firstFile.name.endsWith('.msc')) {
+                        const fakeEvent = { target: { files: [firstFile] } };
+                        handleMscSelect(fakeEvent);
+                    } else {
+                        const fakeEvent = { target: { files: files } };
+                        handleFileSelect(fakeEvent);
+                    }
+                }
+            });
+        }
+
+        function formatTime(seconds) {
+            const m = Math.floor(seconds / 60);
+            const s = Math.floor(seconds % 60);
+            return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function escapeHtml(str) {
+            if (!str) return '';
+            return str.replace(/&/g, "&amp;")
+                      .replace(/</g, "&lt;")
+                      .replace(/>/g, "&gt;")
+                      .replace(/"/g, "&quot;")
+                      .replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
