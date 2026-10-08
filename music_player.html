@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="ja" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SoundPulse - 音楽検索＆ダウンロード</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#eef2ff',
+              100: '#e0e7ff',
+              500: '#6366f1',
+              600: '#4f46e5',
+              700: '#4338ca',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    .glassmorphism {
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    .light .glassmorphism {
+      background: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 0, 0, 0.08);
+    }
+    .visualizer-bar {
+      transition: height 0.1s ease;
+    }
+    /* カスタムスクロールバー */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0,0,0,0.1);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(99, 102, 241, 0.5);
+      border-radius: 4px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(99, 102, 241, 0.8);
+    }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col font-sans transition-colors duration-300 pb-28 dark:bg-slate-950 dark:text-slate-100 light:bg-slate-50 light:text-slate-800">
+
+  <header class="sticky top-0 z-30 glassmorphism border-b border-slate-800 dark:border-slate-800/60 light:border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-500 to-pink-500 flex items-center justify-center text-white shadow-lg shadow-indigo-500/30">
+          <i class="fa-solid font-bold fa-music text-xl"></i>
+        </div>
+        <span class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-pink-400">
+          SoundPulse
+        </span>
+      </div>
+
+      <!-- Theme Switcher & Stats -->
+      <div class="flex items-center gap-4">
+        <button id="themeToggle" class="p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 dark:bg-slate-800 dark:text-slate-300 light:bg-slate-200 light:text-slate-700 transition">
+          <i class="fa-solid fa-moon dark:block hidden"></i>
+          <i class="fa-solid fa-sun dark:hidden block"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <section class="mb-8">
+      <div class="max-w-3xl mx-auto text-center mb-6">
+        <h1 class="text-3xl sm:text-4xl font-extrabold mb-3 tracking-tight">
+          お気に入りの音楽を探して試聴・ダウンロード
+        </h1>
+        <p class="text-slate-400 text-sm sm:text-base dark:text-slate-400 light:text-slate-600">
+          iTunes Search API & Jamendo Free Music APIから楽曲を瞬時に検索
+        </p>
+      </div>
+
+      <!-- 検索バーとフィルター -->
+      <div class="max-w-2xl mx-auto space-y-4">
+        <form id="searchForm" class="relative flex items-center">
+          <div class="relative w-full">
+            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-slate-400"></i>
+            <input 
+              type="text" 
+              id="searchInput" 
+              placeholder="曲名、アーティスト名、アルバム名を入力..." 
+              class="w-full pl-12 pr-28 py-3.5 bg-slate-800/90 dark:bg-slate-900/90 light:bg-white border border-slate-700 dark:border-slate-800 light:border-slate-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xl text-slate-100 dark:text-slate-100 light:text-slate-800 placeholder-slate-400 transition"
+              required
+            >
+            <button 
+              type="submit" 
+              class="absolute right-2 top-1/2 -translate-y-1/2 px-5 py-2 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-medium shadow-md transition duration-200 flex items-center gap-2"
+            >
+              <span>検索</span>
+            </button>
+          </div>
+        </form>
+
+        <!-- APIソースとジャンルタグ -->
+        <div class="flex flex-wrap items-center justify-between gap-3 text-xs sm:text-sm">
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">ソース:</span>
+            <select id="apiSourceSelect" class="bg-slate-800 dark:bg-slate-900 light:bg-slate-200 border border-slate-700 dark:border-slate-800 light:border-slate-300 text-slate-200 dark:text-slate-200 light:text-slate-800 rounded-lg px-2.5 py-1 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+              <option value="itunes">iTunes (J-POP/洋楽/プレビュー)</option>
+              <option value="jamendo">Jamendo (フルサイズ・フリー素材)</option>
+            </select>
+          </div>
+
+          <div class="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none">
+            <span class="text-slate-400 whitespace-nowrap">クイック:</span>
+            <button class="quick-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 hover:text-indigo-400 border border-slate-700 transition" data-query="J-Pop">J-POP</button>
+            <button class="quick-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 hover:text-indigo-400 border border-slate-700 transition" data-query="Lo-Fi">Lo-Fi</button>
+            <button class="quick-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 hover:text-indigo-400 border border-slate-700 transition" data-query="Rock">Rock</button>
+            <button class="quick-tag px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-indigo-600/30 hover:text-indigo-400 border border-slate-700 transition" data-query="Electronic">Electronic</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="resultsContainer" class="mt-8">
+      <!-- ローディング表示 -->
+      <div id="loadingState" class="hidden flex-col items-center justify-center py-16">
+        <div class="w-12 h-12 border-4 border-indigo-500/30 border-t-indigo-500 rounded-full animate-spin mb-4"></div>
+        <p class="text-slate-400 animate-pulse">楽曲を探しています...</p>
+      </div>
+
+      <!-- 初期状態/空状態 -->
+      <div id="emptyState" class="text-center py-16 bg-slate-800/30 dark:bg-slate-900/30 light:bg-slate-100 rounded-3xl border border-dashed border-slate-700 dark:border-slate-800 light:border-slate-300">
+        <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-slate-800 dark:bg-slate-800 light:bg-slate-200 flex items-center justify-center text-slate-400">
+          <i class="fa-solid fa-compact-disc text-3xl animate-spin-slow"></i>
+        </div>
+        <h3 class="text-lg font-semibold mb-1">曲を検索してください</h3>
+        <p class="text-sm text-slate-400 max-w-sm mx-auto">検索ワードを入力するか、クイックタグをクリックして音楽を探してみましょう。</p>
+      </div>
+
+      <!-- トラックグリッド -->
+      <div id="trackGrid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <!-- 検索結果がここに挿入されます -->
+      </div>
+    </section>
+  </main>
+
+  <div id="playerBar" class="fixed bottom-0 left-0 right-0 glassmorphism border-t border-slate-800 dark:border-slate-800 light:border-slate-200 p-3 sm:p-4 z-40 transition-transform duration-300 translate-y-full">
+    <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-3 sm:gap-4">
+      
+      <!-- 曲情報 -->
+      <div class="flex items-center gap-3 w-full md:w-1/4 min-w-0">
+        <img id="playerCover" src="https://placehold.co/100x100/1e293b/64748b?text=Music" alt="Cover" class="w-12 h-12 sm:w-14 sm:h-14 rounded-lg object-cover shadow-md flex-shrink-0">
+        <div class="min-w-0 flex-grow">
+          <h4 id="playerTitle" class="font-bold text-sm sm:text-base truncate">曲が選択されていません</h4>
+          <p id="playerArtist" class="text-xs text-slate-400 truncate">--</p>
+        </div>
+      </div>
+
+      <!-- プレイヤーコントロール＆プログレス -->
+      <div class="flex flex-col items-center gap-1.5 w-full md:w-2/4">
+        <div class="flex items-center gap-4 sm:gap-6">
+          <button id="prevBtn" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-backward-step text-lg"></i></button>
+          <button id="playPauseBtn" class="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-indigo-600 hover:bg-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-600/40 transition transform active:scale-95">
+            <i class="fa-solid fa-play text-base sm:text-lg translate-x-0.5"></i>
+          </button>
+          <button id="nextBtn" class="text-slate-400 hover:text-white transition"><i class="fa-solid fa-forward-step text-lg"></i></button>
+        </div>
+
+        <div class="flex items-center gap-2 w-full text-xs text-slate-400">
+          <span id="currentTime">0:00</span>
+          <div class="relative flex-grow h-1.5 bg-slate-700/60 rounded-full cursor-pointer overflow-hidden group" id="progressContainer">
+            <div id="progressBar" class="h-full bg-gradient-to-r from-indigo-500 to-pink-500 w-0 transition-all duration-75"></div>
+          </div>
+          <span id="duration">0:00</span>
+        </div>
+      </div>
+
+      <!-- 音量＆ビジュアル表示＆ダウンロード -->
+      <div class="flex items-center justify-end gap-3 sm:gap-4 w-full md:w-1/4">
+        <!-- ミニ・ビジュアライザー -->
+        <div id="visualizer" class="hidden sm:flex items-end gap-1 h-6 w-12">
+          <div class="visualizer-bar w-1 bg-indigo-500 rounded-t h-1"></div>
+          <div class="visualizer-bar w-1 bg-pink-500 rounded-t h-1"></div>
+          <div class="visualizer-bar w-1 bg-purple-500 rounded-t h-1"></div>
+          <div class="visualizer-bar w-1 bg-indigo-400 rounded-t h-1"></div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <i class="fa-solid fa-volume-high text-slate-400 text-xs" id="volumeIcon"></i>
+          <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="0.8" class="w-16 sm:w-20 accent-indigo-500 h-1 bg-slate-700 rounded-lg cursor-pointer">
+        </div>
+
+        <a id="playerDownloadBtn" href="#" download target="_blank" class="p-2 sm:px-3 sm:py-1.5 rounded-lg bg-indigo-600/20 hover:bg-indigo-600 text-indigo-400 hover:text-white border border-indigo-500/30 transition flex items-center gap-1.5 text-xs font-semibold" title="ダウンロード">
+          <i class="fa-solid fa-download"></i>
+          <span class="hidden sm:inline">保存</span>
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 非表示のオーディオエレメント -->
+  <audio id="audioEngine" class="hidden" crossorigin="anonymous"></audio>
+
+  <script>
+    const state = {
+      playlist: [],
+      currentIndex: -1,
+      isPlaying: false,
+      activeSource: 'itunes',
+      theme: 'dark'
+    };
+
+    // DOM Elements
+    const searchForm = document.getElementById('searchForm');
+    const searchInput = document.getElementById('searchInput');
+    const apiSourceSelect = document.getElementById('apiSourceSelect');
+    const trackGrid = document.getElementById('trackGrid');
+    const loadingState = document.getElementById('loadingState');
+    const emptyState = document.getElementById('emptyState');
+    const audioEngine = document.getElementById('audioEngine');
+    const playerBar = document.getElementById('playerBar');
+    
+    // Player UI Controls
+    const playPauseBtn = document.getElementById('playPauseBtn');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    const progressBar = document.getElementById('progressBar');
+    const progressContainer = document.getElementById('progressContainer');
+    const currentTimeEl = document.getElementById('currentTime');
+    const durationEl = document.getElementById('duration');
+    const playerTitle = document.getElementById('playerTitle');
+    const playerArtist = document.getElementById('playerArtist');
+    const playerCover = document.getElementById('playerCover');
+    const playerDownloadBtn = document.getElementById('playerDownloadBtn');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volumeIcon = document.getElementById('volumeIcon');
+    const visualizerBars = document.querySelectorAll('.visualizer-bar');
+    const themeToggle = document.getElementById('themeToggle');
+
+    let visualizerInterval = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // 検索フォーム送信
+      searchForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const query = searchInput.value.trim();
+        if (query) fetchTracks(query);
+      });
+
+      // クイック検索タグ
+      document.querySelectorAll('.quick-tag').forEach(tag => {
+        tag.addEventListener('click', () => {
+          const query = tag.getAttribute('data-query');
+          searchInput.value = query;
+          fetchTracks(query);
+        });
+      });
+
+      // ソース変更時
+      apiSourceSelect.addEventListener('change', (e) => {
+        state.activeSource = e.target.value;
+        if (searchInput.value.trim()) {
+          fetchTracks(searchInput.value.trim());
+        }
+      });
+
+      // テーマ切り替え
+      themeToggle.addEventListener('click', () => {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        if (state.theme === 'light') {
+          document.documentElement.classList.remove('dark');
+          document.documentElement.classList.add('light');
+        } else {
+          document.documentElement.classList.remove('light');
+          document.documentElement.classList.add('dark');
+        }
+      });
+
+      // プレイヤーイベント
+      playPauseBtn.addEventListener('click', togglePlay);
+      prevBtn.addEventListener('click', playPrevious);
+      nextBtn.addEventListener('click', playNext);
+      
+      audioEngine.addEventListener('timeupdate', updateProgress);
+      audioEngine.addEventListener('ended', playNext);
+      audioEngine.addEventListener('loadedmetadata', () => {
+        durationEl.textContent = formatTime(audioEngine.duration);
+      });
+
+      progressContainer.addEventListener('click', seek);
+      volumeSlider.addEventListener('input', handleVolume);
+    });
+
+    async function fetchTracks(query) {
+      showLoading(true);
+      state.playlist = [];
+      
+      try {
+        if (state.activeSource === 'itunes') {
+          await fetchFromiTunes(query);
+        } else {
+          await fetchFromJamendo(query);
+        }
+      } catch (err) {
+        console.error('検索エラー:', err);
+        showError('曲の取得に失敗しました。時間をおいて再試行してください。');
+      } finally {
+        showLoading(false);
+      }
+    }
+
+    // iTunes APIからの検索
+    async function fetchFromiTunes(query) {
+      const url = `https://itunes.apple.com/search?term=${encodeURIComponent(query)}&media=music&entity=song&limit=24&lang=ja_jp`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data.results || data.results.length === 0) {
+        renderEmpty('該当する楽曲が見つかりませんでした。');
+        return;
+      }
+
+      state.playlist = data.results.map(item => ({
+        id: item.trackId,
+        title: item.trackName,
+        artist: item.artistName,
+        album: item.collectionName,
+        cover: item.artworkUrl100.replace('100x100bb', '300x300bb'),
+        audioUrl: item.previewUrl,
+        downloadUrl: item.previewUrl,
+        downloadName: `${item.artistName} - ${item.trackName}.m4a`,
+        source: 'iTunes Preview'
+      }));
+
+      renderTracks();
+    }
+
+    // Jamendo APIからの検索（著作権フリー・フル視聴可能）
+    async function fetchFromJamendo(query) {
+      // Jamendo Client ID (パブリックデモID)
+      const clientId = '56d30c4d';
+      const url = `https://api.jamendo.com/v3.0/tracks/?client_id=${clientId}&format=json&limit=24&search=${encodeURIComponent(query)}&include=musicinfo`;
+      
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (!data.results || data.results.length === 0) {
+        renderEmpty('該当するフリー楽曲が見つかりませんでした。');
+        return;
+      }
+
+      state.playlist = data.results.map(item => ({
+        id: item.id,
+        title: item.name,
+        artist: item.artist_name,
+        album: item.album_name || 'Single',
+        cover: item.image || 'https://placehold.co/300x300/1e293b/64748b?text=Music',
+        audioUrl: item.audio,
+        downloadUrl: item.audiodownload || item.audio,
+        downloadName: `${item.artist_name} - ${item.name}.mp3`,
+        source: 'Jamendo Free Track'
+      }));
+
+      renderTracks();
+    }
+
+    function renderTracks() {
+      emptyState.classList.add('hidden');
+      trackGrid.innerHTML = '';
+
+      state.playlist.forEach((track, index) => {
+        const isCurrent = state.currentIndex === index;
+        const card = document.createElement('div');
+        card.className = `group bg-slate-800/50 dark:bg-slate-900/50 light:bg-white border border-slate-700/60 dark:border-slate-800 light:border-slate-200 rounded-2xl p-4 transition-all duration-300 hover:shadow-xl hover:border-indigo-500/50 flex flex-col justify-between ${isCurrent ? 'ring-2 ring-indigo-500 bg-indigo-950/20' : ''}`;
+        
+        card.innerHTML = `
+          <div>
+            <div class="relative mb-3 overflow-hidden rounded-xl aspect-square bg-slate-700">
+              <img src="${track.cover}" alt="${track.title}" class="w-full h-full object-cover transition duration-300 group-hover:scale-105" loading="lazy" onerror="this.src='https://placehold.co/300x300/1e293b/64748b?text=Music'">
+              <button class="play-card-btn absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition duration-200" data-index="${index}">
+                <div class="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center shadow-lg transform scale-90 group-hover:scale-100 transition">
+                  <i class="fa-solid ${isCurrent && state.isPlaying ? 'fa-pause' : 'fa-play'} text-lg"></i>
+                </div>
+              </button>
+            </div>
+            <h3 class="font-bold text-sm sm:text-base line-clamp-1 group-hover:text-indigo-400 transition" title="${track.title}">${track.title}</h3>
+            <p class="text-xs text-slate-400 line-clamp-1 mt-0.5">${track.artist}</p>
+          </div>
+
+          <div class="mt-4 pt-3 border-t border-slate-700/40 dark:border-slate-800/80 light:border-slate-100 flex items-center justify-between">
+            <span class="text-[10px] px-2 py-0.5 rounded bg-slate-700/50 text-slate-300 dark:bg-slate-800 dark:text-slate-400">${track.source}</span>
+            <button class="download-direct-btn text-xs text-slate-400 hover:text-indigo-400 p-1.5 rounded-lg hover:bg-slate-700/50 transition flex items-center gap-1" data-index="${index}" title="ダウンロード">
+              <i class="fa-solid fa-download"></i>
+              <span>DL</span>
+            </button>
+          </div>
+        `;
+
+        // イベントリスナー追加
+        card.querySelector('.play-card-btn').addEventListener('click', () => playTrack(index));
+        card.querySelector('.download-direct-btn').addEventListener('click', (e) => {
+          e.stopPropagation();
+          triggerDownload(track);
+        });
+
+        trackGrid.appendChild(card);
+      });
+    }
+
+    function showLoading(isLoading) {
+      if (isLoading) {
+        loadingState.classList.remove('hidden');
+        loadingState.classList.add('flex');
+        emptyState.classList.add('hidden');
+        trackGrid.innerHTML = '';
+      } else {
+        loadingState.classList.add('hidden');
+        loadingState.classList.remove('flex');
+      }
+    }
+
+    function renderEmpty(message) {
+      trackGrid.innerHTML = '';
+      emptyState.classList.remove('hidden');
+      emptyState.querySelector('p').textContent = message;
+    }
+
+    function showError(message) {
+      renderEmpty(message);
+    }
+
+    function playTrack(index) {
+      if (index < 0 || index >= state.playlist.length) return;
+
+      const track = state.playlist[index];
+      
+      // 同じ曲の場合はトグル
+      if (state.currentIndex === index) {
+        togglePlay();
+        return;
+      }
+
+      state.currentIndex = index;
+      audioEngine.src = track.audioUrl;
+      audioEngine.play();
+      state.isPlaying = true;
+
+      // プレイヤーUI更新
+      playerTitle.textContent = track.title;
+      playerArtist.textContent = track.artist;
+      playerCover.src = track.cover;
+      
+      // ダウンロードリンク更新
+      playerDownloadBtn.onclick = (e) => {
+        e.preventDefault();
+        triggerDownload(track);
+      };
+
+      playerBar.classList.remove('translate-y-full');
+      updatePlayButtonUI();
+      renderTracks(); // カードの再生ボタン表示更新
+      startVisualizer();
+    }
+
+    function togglePlay() {
+      if (state.currentIndex === -1 && state.playlist.length > 0) {
+        playTrack(0);
+        return;
+      }
+
+      if (state.isPlaying) {
+        audioEngine.pause();
+        state.isPlaying = false;
+        stopVisualizer();
+      } else {
+        audioEngine.play();
+        state.isPlaying = true;
+        startVisualizer();
+      }
+      updatePlayButtonUI();
+      renderTracks();
+    }
+
+    function playNext() {
+      if (state.playlist.length === 0) return;
+      const nextIndex = (state.currentIndex + 1) % state.playlist.length;
+      playTrack(nextIndex);
+    }
+
+    function playPrevious() {
+      if (state.playlist.length === 0) return;
+      const prevIndex = (state.currentIndex - 1 + state.playlist.length) % state.playlist.length;
+      playTrack(prevIndex);
+    }
+
+    function updatePlayButtonUI() {
+      const icon = playPauseBtn.querySelector('i');
+      if (state.isPlaying) {
+        icon.className = 'fa-solid fa-pause text-base sm:text-lg';
+      } else {
+        icon.className = 'fa-solid fa-play text-base sm:text-lg translate-x-0.5';
+      }
+    }
+
+    function updateProgress() {
+      if (isNaN(audioEngine.duration)) return;
+      const percent = (audioEngine.currentTime / audioEngine.duration) * 100;
+      progressBar.style.width = `${percent}%`;
+      currentTimeEl.textContent = formatTime(audioEngine.currentTime);
+    }
+
+    function seek(e) {
+      const rect = progressContainer.getBoundingClientRect();
+      const pos = (e.clientX - rect.left) / rect.width;
+      audioEngine.currentTime = pos * audioEngine.duration;
+    }
+
+    function handleVolume(e) {
+      const val = e.target.value;
+      audioEngine.volume = val;
+      if (val == 0) {
+        volumeIcon.className = 'fa-solid fa-volume-xmark text-slate-400 text-xs';
+      } else if (val < 0.5) {
+        volumeIcon.className = 'fa-solid fa-volume-low text-slate-400 text-xs';
+      } else {
+        volumeIcon.className = 'fa-solid fa-volume-high text-slate-400 text-xs';
+      }
+    }
+
+    function formatTime(seconds) {
+      if (isNaN(seconds)) return '0:00';
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+    }
+
+    async function triggerDownload(track) {
+      try {
+        // Blobとしてファイルを取得し、信頼性の高いダウンロードを実現
+        const response = await fetch(track.downloadUrl);
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = track.downloadName || 'music-track.mp3';
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+      } catch (e) {
+        // フォールバック: 別タブで直接リンクを開く
+        window.open(track.downloadUrl, '_blank');
+      }
+    }
+
+    // アニメーションビジュアライザー（簡易シミュレーション）
+    function startVisualizer() {
+      stopVisualizer();
+      visualizerInterval = setInterval(() => {
+        visualizerBars.forEach(bar => {
+          const height = Math.floor(Math.random() * 18) + 4;
+          bar.style.height = `${height}px`;
+        });
+      }, 120);
+    }
+
+    function stopVisualizer() {
+      if (visualizerInterval) clearInterval(visualizerInterval);
+      visualizerBars.forEach(bar => {
+        bar.style.height = '4px';
+      });
+    }
+  </script>
+</body>
+</html>
